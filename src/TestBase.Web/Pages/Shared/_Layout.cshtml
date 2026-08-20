@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - TestBase</title>
+    <style>
+        body { font-family: -apple-system, Segoe UI, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
+        header { border-bottom: 1px solid #ddd; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+        nav a { margin-right: 1rem; }
+        code { background: #f4f4f4; padding: 0.1rem 0.3rem; border-radius: 3px; }
+        .badge { display: inline-block; background: #eef; color: #225; border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <strong>TestBase</strong> — Online Testesystem <span class="badge">@System.Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")</span>
+        <nav style="margin-top: 0.5rem;">
+            <a href="/">Forside</a>
+            <a href="/DevDemo">Dev-demo (mock-leverandører)</a>
+            <a href="/health">/health</a>
+        </nav>
+    </header>
+    <main>
+        @RenderBody()
+    </main>
+</body>
+</html>

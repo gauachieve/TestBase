@@ -1,0 +1,23 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+
+## IDE
+.vs/
+.vscode/
+*.swp
+
+## Secrets — aldri commit ekte tilkoblingsstrenger eller nøkler
+**/appsettings.Production.json
+**/appsettings.*.local.json
+.env
+.env.*
+
+## Docker
+mysql-data/
+
+## OS
+.DS_Store
+Thumbs.db

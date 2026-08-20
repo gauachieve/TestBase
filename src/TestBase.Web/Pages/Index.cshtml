@@ -1,0 +1,21 @@
+@page
+@model TestBase.Web.Pages.IndexModel
+@{
+    ViewData["Title"] = "Forside";
+}
+
+<h1>Utviklingsmiljøet kjører</h1>
+
+<p>
+    Hvis du ser denne siden med <code>dotnet watch</code>, er lokalt oppsett
+    (app + Docker-MySQL) på plass. Endre denne teksten og lagre filen —
+    siden skal oppdatere seg selv i nettleseren.
+</p>
+
+<p>Innlogget som (dev-stub): <strong>@Model.CurrentUserDisplayName</strong> (rolle: <code>@Model.CurrentUserRole</code>)</p>
+
+<p>
+    Se <a href="/DevDemo">Dev-demo</a> for å prøve mock-implementasjonene av
+    BankID, Vipps, SMS og e-post — og <a href="/health">/health</a> for å
+    bekrefte at appen når MySQL-containeren.
+</p>

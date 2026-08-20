@@ -1,0 +1,28 @@
+@page
+@model TestBase.Web.Pages.DevDemoModel
+@{
+    ViewData["Title"] = "Dev-demo";
+}
+
+<h1>Dev-demo: mock-leverandører</h1>
+
+<p>
+    Denne siden kaller mock-implementasjonene av BankID, Vipps, SMS og
+    e-post ved hvert sidevisning — ingen ekte tjenester kontaktes. Se også
+    konsoll-loggen (der <code>dotnet watch</code> kjører) for de samme
+    meldingene i detalj.
+</p>
+
+<ul>
+    <li><strong>BankID:</strong> @(Model.BankIdResult?.Success == true ? $"OK — {Model.BankIdResult.FullName}" : "Feilet")</li>
+    <li><strong>Vipps:</strong> @(Model.VippsResult?.Success == true ? $"OK — referanse {Model.VippsResult.TransactionReference}" : "Feilet")</li>
+    <li><strong>SMS:</strong> sendt (se logg)</li>
+    <li><strong>E-post:</strong> sendt (se logg)</li>
+</ul>
+
+<p>
+    En rad er også skrevet til <code>audit_log_entries</code>-tabellen for
+    dette sidekallet — det bekrefter at audit-loggingen (som skal være aktiv
+    i alle miljøer, jf. beslutningsloggen) faktisk virker mot den lokale
+    Docker-databasen.
+</p>
