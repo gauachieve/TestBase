@@ -1,0 +1,25 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.Behandlere.InviterModel
+@{
+    ViewData["Title"] = "Inviter kollega";
+}
+
+<h1>Inviter en kollega som behandler</h1>
+
+@if (Model.Sendt)
+{
+    <p>Invitasjon sendt (mock — se konsollen der <code>dotnet watch run</code> kjører for lenken).</p>
+}
+else
+{
+    @if (Model.Feilmelding is not null)
+    {
+        <p style="color: darkred;">@Model.Feilmelding</p>
+    }
+
+    <form method="post">
+        <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
+        <div><label>eller e-post</label><br /><input asp-for="Epost" /></div>
+        <button type="submit">Send invitasjon</button>
+    </form>
+}

@@ -1,0 +1,38 @@
+@page "{token}"
+@model TestBase.Web.Pages.Inviter.VerifiserModel
+@{
+    ViewData["Title"] = "Bekreft kontaktinfo";
+}
+
+<h1>Bekreft mobil og e-post</h1>
+
+@if (Model.Fullfort)
+{
+    <p>
+        Kontoen din er nå aktiv. Du kan logge inn med BankID. HPR-nummeret ditt godkjennes av
+        administrator innen kort tid — du har full tilgang i 7 dager uansett.
+    </p>
+    <p><a href="/Behandlerportal/Konto/LoggInn">Logg inn</a></p>
+}
+else if (!Model.GyldigInvitasjon)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+else
+{
+    <p>
+        To koder er "sendt" — én på SMS, én på e-post (mock, ingen ekte meldinger sendes; se
+        konsollen der <code>dotnet watch run</code> kjører).
+    </p>
+
+    @if (Model.Feilmelding is not null)
+    {
+        <p style="color: darkred;">@Model.Feilmelding</p>
+    }
+
+    <form method="post">
+        <div><label>Kode fra SMS</label><br /><input asp-for="MobilKode" /></div>
+        <div><label>Kode fra e-post</label><br /><input asp-for="EpostKode" /></div>
+        <button type="submit">Bekreft</button>
+    </form>
+}

@@ -1,0 +1,24 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.Pasienter.NyModel
+@using TestBase.Shared.Domain.Administrasjon
+@{
+    ViewData["Title"] = "Legg til pasient";
+}
+
+<h1>Legg til pasient</h1>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<form method="post">
+    <div><label>Personnummer</label><br /><input asp-for="Personnummer" /></div>
+    <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
+    <div><label>E-post</label><br /><input asp-for="Epost" /></div>
+    <div>
+        <label>Send invitasjon via</label><br />
+        <select asp-for="Varslingskanal" asp-items="Html.GetEnumSelectList<KontaktMetode>()"></select>
+    </div>
+    <button type="submit">Legg til</button>
+</form>

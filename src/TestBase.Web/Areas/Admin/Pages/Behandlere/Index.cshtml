@@ -15,6 +15,7 @@
             <th>E-post</th>
             <th>Mobil</th>
             <th>HPR-nr</th>
+            <th>HPR-status</th>
             <th>Status</th>
             <th></th>
         </tr>
@@ -23,10 +24,24 @@
     @foreach (var b in Model.Behandlere)
     {
         <tr>
-            <td>@(b.FulltNavn ?? "(ikke fullført)")</td>
+            <td>@(b.Visningsnavn ?? "(ikke fullført)")</td>
             <td>@b.Email</td>
             <td>@b.MobilNr</td>
             <td>@(b.HprNr ?? "-")</td>
+            <td>
+                @if (b.HprGodkjent)
+                {
+                    <text>Godkjent @b.HprGodkjentUtc?.ToString("d")</text>
+                }
+                else if (b.RegistrertUtc is null)
+                {
+                    <text>Ikke registrert ennå</text>
+                }
+                else
+                {
+                    <text>Venter — frist @b.RegistrertUtc.Value.AddDays(7).ToString("d")</text>
+                }
+            </td>
             <td>@b.Status</td>
             <td>
                 @if (b.Status != BehandlerStatus.Arkivert)
@@ -39,6 +54,13 @@
                         <input type="hidden" name="id" value="@b.Id" />
                         <button type="submit">Arkiver</button>
                     </form>
+                    @if (b.RegistrertUtc is not null)
+                    {
+                        <form method="post" asp-page-handler="GodkjennHpr" style="display:inline;">
+                            <input type="hidden" name="id" value="@b.Id" />
+                            <button type="submit">@(b.HprGodkjent ? "Tilbakekall HPR-godkjenning" : "Godkjenn HPR")</button>
+                        </form>
+                    }
                 }
             </td>
         </tr>

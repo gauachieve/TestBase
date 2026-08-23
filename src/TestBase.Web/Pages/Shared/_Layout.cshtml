@@ -23,14 +23,23 @@
             <a href="/health">/health</a>
             @if (CurrentUser.IsAuthenticated)
             {
-                <a href="/Admin/Administratorer">Administratorer</a>
-                <a href="/Admin/Behandlere">Behandlere</a>
+                if (CurrentUser.Role == UserRole.Administrator || CurrentUser.Role == UserRole.Utvikler)
+                {
+                    <a href="/Admin/Administratorer">Administratorer</a>
+                    <a href="/Admin/Behandlere">Behandlere</a>
+                }
+                if (CurrentUser.Role == UserRole.Behandler || CurrentUser.Role == UserRole.Utvikler)
+                {
+                    <a href="/Behandlerportal/Pasienter">Pasienter</a>
+                    <a href="/Behandlerportal/Behandlere/Inviter">Inviter kollega</a>
+                }
                 <a href="/Admin/Konto/ByttModus">Bytt modus</a>
                 <a href="/Admin/Konto/LoggUt">Logg ut</a>
             }
             else
             {
-                <a href="/Admin/Konto/LoggInn">Logg inn</a>
+                <a href="/Admin/Konto/LoggInn">Logg inn (admin)</a>
+                <a href="/Behandlerportal/Konto/LoggInn">Logg inn (behandler)</a>
             }
         </nav>
     </header>

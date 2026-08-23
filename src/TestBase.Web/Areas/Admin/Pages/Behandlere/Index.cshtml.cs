@@ -59,4 +59,24 @@ public sealed class IndexModel : PageModel
 
         return RedirectToPage();
     }
+
+    public async Task<IActionResult> OnPostGodkjennHprAsync(long id, CancellationToken cancellationToken)
+    {
+        var behandler = await _db.Behandlere.FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+        if (behandler is not null)
+        {
+            behandler.HprGodkjent = !behandler.HprGodkjent;
+            var administratorId = long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var aid) ? aid : (long?)null;
+            behandler.HprGodkjentAvAdministratorId = behandler.HprGodkjent ? administratorId : null;
+            behandler.HprGodkjentUtc = behandler.HprGodkjent ? DateTimeOffset.UtcNow : null;
+            await _db.SaveChangesAsync(cancellationToken);
+
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(),
+                behandler.HprGodkjent ? "GodkjennHpr" : "TilbakekallHprGodkjenning",
+                nameof(Behandler), behandler.Id.ToString(), $"HPR-nr {behandler.HprNr}", cancellationToken);
+        }
+
+        return RedirectToPage();
+    }
 }

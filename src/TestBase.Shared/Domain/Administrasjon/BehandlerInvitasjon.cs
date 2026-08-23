@@ -13,5 +13,8 @@ public sealed class BehandlerInvitasjon
     public required string KontaktVerdi { get; set; }
     public DateTimeOffset UtlopUtc { get; set; }
     public DateTimeOffset? BruktUtc { get; set; }
-    public long OpprettetAvAdministratorId { get; set; }
+
+    /// <summary>Nøyaktig én av de to skal være satt — invitert av administrator eller av en annen behandler.</summary>
+    public long? OpprettetAvAdministratorId { get; set; }
+    public long? OpprettetAvBehandlerId { get; set; }
 }

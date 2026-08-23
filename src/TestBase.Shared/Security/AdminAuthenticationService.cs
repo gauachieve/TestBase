@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
@@ -13,23 +11,21 @@ namespace TestBase.Shared.Security;
 /// (utviklingsmodus) og BankID+SMS-2FA (produksjonsmodus). Har bevisst ingen
 /// avhengighet til HttpContext/cookies — det håndteres av Razor Page-koden i
 /// Areas/Admin/Pages/Konto som bruker denne tjenesten, slik at selve
-/// pålogging-logikken er lett å teste isolert.
+/// pålogging-logikken er lett å teste isolert. 2FA-logikken selv ligger i den
+/// delte ToFaktorService (gjenbrukt av BehandlerAuthenticationService).
 /// </summary>
 public sealed class AdminAuthenticationService
 {
-    private static readonly TimeSpan ToFaktorKodeLevetid = TimeSpan.FromMinutes(10);
-    private const int MaksForsokToFaktorKode = 5;
-
     private readonly AppDbContext _db;
     private readonly IBankIdProvider _bankId;
-    private readonly ISmsSender _sms;
+    private readonly ToFaktorService _toFaktor;
     private readonly PasswordHasher<Administrator> _passordHasher = new();
 
-    public AdminAuthenticationService(AppDbContext db, IBankIdProvider bankId, ISmsSender sms)
+    public AdminAuthenticationService(AppDbContext db, IBankIdProvider bankId, ToFaktorService toFaktor)
     {
         _db = db;
         _bankId = bankId;
-        _sms = sms;
+        _toFaktor = toFaktor;
     }
 
     public Task<Administrator?> FinnVedAdminIdAsync(string adminId, CancellationToken cancellationToken = default) =>
@@ -62,49 +58,9 @@ public sealed class AdminAuthenticationService
         return administratorer.FirstOrDefault(a => a.Personnummer == personnummer);
     }
 
-    public async Task StartToFaktorAsync(Administrator administrator, CancellationToken cancellationToken = default)
-    {
-        var kode = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
+    public Task StartToFaktorAsync(Administrator administrator, CancellationToken cancellationToken = default) =>
+        _toFaktor.StartAsync(ToFaktorPrincipalType.Administrator, administrator.Id, administrator.MobilNr, cancellationToken);
 
-        _db.ToFaktorKoder.Add(new ToFaktorKode
-        {
-            AdministratorId = administrator.Id,
-            KodeHash = HashKode(kode),
-            UtlopUtc = DateTimeOffset.UtcNow.Add(ToFaktorKodeLevetid)
-        });
-        await _db.SaveChangesAsync(cancellationToken);
-
-        await _sms.SendAsync(
-            administrator.MobilNr,
-            $"TestBase-kode: {kode} (gyldig i {ToFaktorKodeLevetid.TotalMinutes:0} minutter).",
-            cancellationToken);
-    }
-
-    public async Task<bool> VerifiserToFaktorAsync(Administrator administrator, string kode, CancellationToken cancellationToken = default)
-    {
-        var aktivKode = await _db.ToFaktorKoder
-            .Where(k => k.AdministratorId == administrator.Id && k.BruktUtc == null && k.UtlopUtc > DateTimeOffset.UtcNow)
-            .OrderByDescending(k => k.Id)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (aktivKode is null || aktivKode.Forsok >= MaksForsokToFaktorKode)
-        {
-            return false;
-        }
-
-        aktivKode.Forsok++;
-
-        if (aktivKode.KodeHash != HashKode(kode))
-        {
-            await _db.SaveChangesAsync(cancellationToken);
-            return false;
-        }
-
-        aktivKode.BruktUtc = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync(cancellationToken);
-        return true;
-    }
-
-    private static string HashKode(string kode) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(kode)));
+    public Task<bool> VerifiserToFaktorAsync(Administrator administrator, string kode, CancellationToken cancellationToken = default) =>
+        _toFaktor.VerifiserAsync(ToFaktorPrincipalType.Administrator, administrator.Id, kode, cancellationToken);
 }

@@ -2,8 +2,9 @@ namespace TestBase.Shared.Security;
 
 /// <summary>
 /// Egendefinerte claim-typer utover de fra <see cref="System.Security.Claims.ClaimTypes"/>.
+/// Brukes på tvers av administrator- og behandler-pålogging (se AuthSignIn).
 /// </summary>
-public static class AdminClaimTypes
+public static class AppClaimTypes
 {
     /// <summary>
     /// Rollen brukeren faktisk logget inn med (før evt. rollebytte via

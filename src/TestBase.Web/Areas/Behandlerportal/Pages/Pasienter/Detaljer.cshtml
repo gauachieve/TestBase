@@ -1,0 +1,19 @@
+@page "{id:long}"
+@model TestBase.Web.Areas.Behandlerportal.Pages.Pasienter.DetaljerModel
+@{
+    ViewData["Title"] = "Pasientdetaljer";
+}
+
+<h1>Pasient: @(Model.Pasient?.Navn ?? "(ikke fullført)")</h1>
+
+<ul>
+    <li>Mobil: @Model.Pasient?.MobilNr</li>
+    <li>E-post: @Model.Pasient?.Email</li>
+    <li>Gruppe: @(Model.Pasient?.Gruppenavn ?? "-")</li>
+    <li>Status: @Model.Pasient?.Status</li>
+    <li>Lagt til: @Model.Pasient?.OpprettetUtc</li>
+</ul>
+
+<p>Testhistorikk og rapporter kommer i fase 4–5, når testrammeverket er bygget.</p>
+
+<p><a href="/Behandler/Pasienter">Tilbake til pasienter</a></p>

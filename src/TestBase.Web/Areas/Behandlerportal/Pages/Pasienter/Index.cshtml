@@ -1,0 +1,43 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.Pasienter.IndexModel
+@using TestBase.Shared.Domain.Pasienter
+@{
+    ViewData["Title"] = "Pasienter";
+}
+
+<h1>Mine pasienter</h1>
+<p>
+    <a href="/Behandler/Pasienter/Ny">+ Legg til pasient</a> |
+    <a href="/Behandler/Pasienter/Gruppeimport">Gruppeimport</a>
+</p>
+
+<table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Navn</th>
+            <th>Gruppe</th>
+            <th>Mobil</th>
+            <th>E-post</th>
+            <th>Status</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var p in Model.Pasienter)
+    {
+        <tr>
+            <td><a href="/Behandler/Pasienter/Detaljer/@p.Id">@(p.Navn ?? "(ikke fullført)")</a></td>
+            <td>@(p.Gruppenavn ?? "-")</td>
+            <td>@p.MobilNr</td>
+            <td>@p.Email</td>
+            <td>@p.Status</td>
+            <td>
+                <form method="post" asp-page-handler="Arkiver" style="display:inline;">
+                    <input type="hidden" name="id" value="@p.Id" />
+                    <button type="submit">@(p.Status == PasientStatus.Arkivert ? "Gjenopprett" : "Arkiver")</button>
+                </form>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

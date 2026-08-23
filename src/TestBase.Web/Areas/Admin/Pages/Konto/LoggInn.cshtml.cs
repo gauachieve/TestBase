@@ -76,7 +76,7 @@ public sealed class LoggInnModel : PageModel
             return Page();
         }
 
-        await AdminSignIn.LoggInnAsync(HttpContext, administrator, UserRole.Utvikler, HuskMeg);
+        await AuthSignIn.LoggInnAsync(HttpContext, "administrator", administrator.Id, administrator.FulltNavn, UserRole.Utvikler, HuskMeg);
         await _auditLogger.LogAsync(
             administrator.AdminId, nameof(UserRole.Utvikler), "InnloggingOk",
             nameof(Administrator), administrator.Id.ToString(), "Passord (utviklingsmodus)", cancellationToken);

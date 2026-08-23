@@ -1,0 +1,37 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.Pasienter.GruppeimportModel
+@{
+    ViewData["Title"] = "Gruppeimport";
+}
+
+<h1>Gruppeimport av pasienter</h1>
+
+<p>Én linje per pasient, kommaseparert: <code>gruppenavn,navn,email,sms,pnr</code></p>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+@if (Model.AntallOpprettet is not null)
+{
+    <p>@Model.AntallOpprettet pasient(er) opprettet.</p>
+    @if (Model.HoppetOverLinjer.Any())
+    {
+        <p style="color: darkred;">Følgende linjer ble hoppet over (mangler felt):</p>
+        <ul>
+        @foreach (var linje in Model.HoppetOverLinjer)
+        {
+            <li><code>@linje</code></li>
+        }
+        </ul>
+    }
+}
+
+<form method="post">
+    <textarea asp-for="Liste" rows="10" cols="60" placeholder="Gruppe A,Ola Nordmann,ola@example.test,+4790000001,01019012345"></textarea>
+    <br />
+    <button type="submit">Importer</button>
+</form>
+
+<p><a href="/Behandler/Pasienter">Tilbake til pasienter</a></p>

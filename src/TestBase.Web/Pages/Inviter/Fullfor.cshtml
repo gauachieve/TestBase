@@ -6,11 +6,7 @@
 
 <h1>Fullfør registrering som behandler</h1>
 
-@if (Model.Fullfort)
-{
-    <p>Takk! Registreringen er fullført. Innlogging for behandlere kommer i en senere fase.</p>
-}
-else if (!Model.GyldigInvitasjon)
+@if (!Model.GyldigInvitasjon)
 {
     <p style="color: darkred;">@Model.Feilmelding</p>
 }
@@ -22,8 +18,28 @@ else
     }
 
     <form method="post">
-        <div><label>Fullt navn</label><br /><input asp-for="FulltNavn" /></div>
+        <div><label>Fornavn</label><br /><input asp-for="Fornavn" /></div>
+        <div><label>Etternavn</label><br /><input asp-for="Etternavn" /></div>
+        <div><label>Personnummer</label><br /><input asp-for="Personnummer" /></div>
+        <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
+        <div><label>E-post</label><br /><input asp-for="Epost" /></div>
         <div><label>HPR-nummer</label><br /><input asp-for="HprNr" /></div>
-        <button type="submit">Fullfør</button>
+        <div><label>Kontonummer (for godtgjørelse)</label><br /><input asp-for="Kontonummer" /></div>
+        <div><label>Arbeidsadresse (valgfritt)</label><br /><input asp-for="Arbeidsadresse" /></div>
+        <div><label>Tittel (valgfritt)</label><br /><input asp-for="Tittel" /></div>
+
+        <h2>Brukeravtale</h2>
+        <pre style="white-space: pre-wrap; border: 1px solid #ccc; padding: 1rem; max-height: 300px; overflow-y: auto;">@Model.AvtaleTekst</pre>
+        <label><input asp-for="GodtarAvtale" type="checkbox" /> Jeg har lest og godtar brukeravtalen</label>
+
+        <!-- Bot-vern: skjult for mennesker, men botter fyller ofte ut alt -->
+        <div style="position: absolute; left: -9999px;" aria-hidden="true">
+            <label>Nettside</label>
+            <input asp-for="Nettside" tabindex="-1" autocomplete="off" />
+        </div>
+        <input type="hidden" asp-for="Vist" />
+
+        <br />
+        <button type="submit">Fullfør og send verifiseringskoder</button>
     </form>
 }

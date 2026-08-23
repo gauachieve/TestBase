@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Security;
 
-namespace TestBase.Web.Areas.Admin.Pages.Behandlere;
+namespace TestBase.Web.Areas.Behandlerportal.Pages.Behandlere;
 
 public sealed class InviterModel : PageModel
 {
@@ -39,11 +39,11 @@ public sealed class InviterModel : PageModel
             return Page();
         }
 
-        var administratorId = HentAdministratorId(_currentUser.UserId);
+        var behandlerId = long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var id) ? id : 0;
         var baseUrl = $"{Request.Scheme}://{Request.Host}";
 
         var behandler = await _invitasjonService.InviterAsync(
-            MobilNr, Epost, administratorId: administratorId, behandlerId: null, baseUrl, cancellationToken);
+            MobilNr, Epost, administratorId: null, behandlerId: behandlerId, baseUrl, cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "InviterBehandler",
@@ -52,11 +52,4 @@ public sealed class InviterModel : PageModel
         Sendt = true;
         return Page();
     }
-
-    // ICurrentUserContext.UserId settes til "administrator:{id}" ved innlogging
-    // (se AuthSignIn) — begge innloggingsstier (passord og BankID) bruker samme
-    // format, så denne parsingen fungerer uansett hvilken vei administratoren
-    // logget inn.
-    private static long HentAdministratorId(string userId) =>
-        long.TryParse(userId.Split(':').LastOrDefault(), out var id) ? id : 0;
 }

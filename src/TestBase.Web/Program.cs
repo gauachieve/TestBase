@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
+using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Providers;
 using TestBase.Shared.Providers.Mock;
 using TestBase.Shared.Security;
@@ -27,9 +28,16 @@ builder.Services.AddDataProtection();
 // --- Autentisering og autorisasjon (fase 2) -------------------------------
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, AuthenticatedCurrentUserContext>();
+builder.Services.AddScoped<ToFaktorService>();
 builder.Services.AddScoped<AdminAuthenticationService>();
+builder.Services.AddScoped<BehandlerAuthenticationService>();
 builder.Services.AddScoped<BehandlerInvitasjonService>();
+builder.Services.AddScoped<PasientInvitasjonService>();
 
+// Admin- og Behandler-området deler samme cookie-scheme (én ICurrentUserContext-
+// implementasjon dekker begge, se AuthenticatedCurrentUserContext), men har hver
+// sin innloggingsside — omdiriger til riktig portal basert på hvilket område
+// forespørselen gjaldt, i stedet for én global LoginPath som alltid går til Admin.
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -39,12 +47,31 @@ builder.Services
         options.AccessDeniedPath = "/Admin/Konto/LoggInn";
         options.ExpireTimeSpan = TimeSpan.FromDays(builder.Configuration.GetValue("Auth:RememberMeDays", 30));
         options.SlidingExpiration = true;
+
+        options.Events.OnRedirectToLogin = context =>
+        {
+            var innloggingssti = context.Request.Path.StartsWithSegments("/Behandlerportal")
+                ? "/Behandlerportal/Konto/LoggInn"
+                : "/Admin/Konto/LoggInn";
+            context.Response.Redirect(innloggingssti);
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied = context =>
+        {
+            var innloggingssti = context.Request.Path.StartsWithSegments("/Behandlerportal")
+                ? "/Behandlerportal/Konto/LoggInn"
+                : "/Admin/Konto/LoggInn";
+            context.Response.Redirect(innloggingssti);
+            return Task.CompletedTask;
+        };
     });
 
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOmrade", policy =>
         policy.RequireRole(nameof(UserRole.Administrator), nameof(UserRole.Utvikler)));
+    options.AddPolicy("BehandlerOmrade", policy =>
+        policy.RequireRole(nameof(UserRole.Behandler), nameof(UserRole.Utvikler)));
 });
 
 // --- Eksterne leverandører: mock i dev/test til ekte avtaler er på plass -
@@ -61,6 +88,8 @@ builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AuthorizeAreaFolder("Admin", "/Administratorer", "AdminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Behandlere", "AdminOmrade");
+    options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Behandlere", "BehandlerOmrade");
+    options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Pasienter", "BehandlerOmrade");
 });
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>("mysql");

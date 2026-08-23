@@ -12,7 +12,7 @@ namespace TestBase.Web.Areas.Admin.Pages.Konto;
 /// Lar en bruker som logget inn med AdminId+passord (dvs. i utviklingsmodus)
 /// teste systemet som Administrator/Behandler/Pasient uten å logge ut, jf.
 /// kravdokumentets Del 2: "Som utvikler skal man kunne enkelt bytte hva slags
-/// modus man er i". Sjekker <see cref="AdminClaimTypes.BaseRolle"/> (rollen man
+/// modus man er i". Sjekker <see cref="AppClaimTypes.BaseRolle"/> (rollen man
 /// faktisk logget inn med), ikke den ev. allerede byttede rollen — ellers ville
 /// man låst seg selv ute etter første bytte bort fra Utvikler.
 /// </summary>
@@ -55,5 +55,5 @@ public sealed class ByttModusModel : PageModel
         return RedirectToPage("/Index", new { area = "" });
     }
 
-    private bool ErUtvikler() => User.FindFirstValue(AdminClaimTypes.BaseRolle) == nameof(UserRole.Utvikler);
+    private bool ErUtvikler() => User.FindFirstValue(AppClaimTypes.BaseRolle) == nameof(UserRole.Utvikler);
 }

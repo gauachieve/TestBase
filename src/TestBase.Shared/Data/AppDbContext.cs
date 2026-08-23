@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TestBase.Shared.Domain.Administrasjon;
+using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Security;
 
 namespace TestBase.Shared.Data;
@@ -28,7 +29,10 @@ public sealed class AppDbContext : DbContext
     public DbSet<Administrator> Administratorer => Set<Administrator>();
     public DbSet<Behandler> Behandlere => Set<Behandler>();
     public DbSet<BehandlerInvitasjon> BehandlerInvitasjoner => Set<BehandlerInvitasjon>();
+    public DbSet<BehandlerKontaktVerifisering> BehandlerKontaktVerifiseringer => Set<BehandlerKontaktVerifisering>();
     public DbSet<ToFaktorKode> ToFaktorKoder => Set<ToFaktorKode>();
+    public DbSet<Pasient> Pasienter => Set<Pasient>();
+    public DbSet<PasientInvitasjon> PasientInvitasjoner => Set<PasientInvitasjon>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,11 +54,15 @@ public sealed class AppDbContext : DbContext
         // filbasert nøkkelring) — se prinsippet "arkitektur nå, infrastruktur
         // senere" i beslutningsloggen. Tabellen er uansett svært liten (én
         // psykolog + kontorfellesskap), så oppslag på personnummer skjer i
-        // minnet (se AdminAuthenticationService), ikke via SQL WHERE, fordi
-        // Data Protection ikke er deterministisk.
+        // minnet (se AdminAuthenticationService/BehandlerAuthenticationService),
+        // ikke via SQL WHERE, fordi Data Protection ikke er deterministisk.
         var personnummerConverter = new ValueConverter<string, string>(
             klartekst => _personnummerBeskytter.Protect(klartekst),
             kryptert => _personnummerBeskytter.Unprotect(kryptert));
+
+        var personnummerConverterNullable = new ValueConverter<string?, string?>(
+            klartekst => klartekst == null ? null : _personnummerBeskytter.Protect(klartekst),
+            kryptert => kryptert == null ? null : _personnummerBeskytter.Unprotect(kryptert));
 
         modelBuilder.Entity<Administrator>(entity =>
         {
@@ -76,9 +84,15 @@ public sealed class AppDbContext : DbContext
             entity.HasKey(b => b.Id);
             entity.Property(b => b.MobilNr).HasMaxLength(32).IsRequired();
             entity.Property(b => b.Email).HasMaxLength(256).IsRequired();
-            entity.Property(b => b.FulltNavn).HasMaxLength(256);
+            entity.Property(b => b.Fornavn).HasMaxLength(128);
+            entity.Property(b => b.Etternavn).HasMaxLength(128);
+            entity.Property(b => b.Personnummer).HasConversion(personnummerConverterNullable).HasMaxLength(500);
             entity.Property(b => b.HprNr).HasMaxLength(32);
+            entity.Property(b => b.Kontonummer).HasMaxLength(64);
+            entity.Property(b => b.Arbeidsadresse).HasMaxLength(256);
+            entity.Property(b => b.Tittel).HasMaxLength(128);
             entity.Property(b => b.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+            entity.Ignore(b => b.Visningsnavn);
         });
 
         modelBuilder.Entity<BehandlerInvitasjon>(entity =>
@@ -91,12 +105,45 @@ public sealed class AppDbContext : DbContext
             entity.Property(i => i.KontaktMetode).HasConversion<string>().HasMaxLength(16).IsRequired();
         });
 
+        modelBuilder.Entity<BehandlerKontaktVerifisering>(entity =>
+        {
+            entity.ToTable("behandler_kontakt_verifiseringer");
+            entity.HasKey(k => k.Id);
+            entity.Property(k => k.KodeHash).HasMaxLength(128).IsRequired();
+            entity.Property(k => k.Kanal).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.HasIndex(k => new { k.BehandlerId, k.Kanal });
+        });
+
         modelBuilder.Entity<ToFaktorKode>(entity =>
         {
             entity.ToTable("to_faktor_koder");
             entity.HasKey(k => k.Id);
             entity.Property(k => k.KodeHash).HasMaxLength(128).IsRequired();
-            entity.HasIndex(k => k.AdministratorId);
+            entity.Property(k => k.PrincipalType).HasConversion<string>().HasMaxLength(32).IsRequired();
+            entity.HasIndex(k => new { k.PrincipalType, k.PrincipalId });
+        });
+
+        modelBuilder.Entity<Pasient>(entity =>
+        {
+            entity.ToTable("pasienter");
+            entity.HasKey(p => p.Id);
+            entity.Property(p => p.Personnummer).HasConversion(personnummerConverter).HasMaxLength(500).IsRequired();
+            entity.Property(p => p.MobilNr).HasMaxLength(32).IsRequired();
+            entity.Property(p => p.Email).HasMaxLength(256).IsRequired();
+            entity.Property(p => p.Navn).HasMaxLength(256);
+            entity.Property(p => p.Gruppenavn).HasMaxLength(128);
+            entity.Property(p => p.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+            entity.HasIndex(p => p.BehandlerId);
+        });
+
+        modelBuilder.Entity<PasientInvitasjon>(entity =>
+        {
+            entity.ToTable("pasient_invitasjoner");
+            entity.HasKey(i => i.Id);
+            entity.HasIndex(i => i.Token).IsUnique();
+            entity.Property(i => i.Token).HasMaxLength(128).IsRequired();
+            entity.Property(i => i.KontaktVerdi).HasMaxLength(256).IsRequired();
+            entity.Property(i => i.KontaktMetode).HasConversion<string>().HasMaxLength(16).IsRequired();
         });
     }
 }

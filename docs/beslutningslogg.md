@@ -1,6 +1,6 @@
 # Prosjektstatus og beslutningslogg — Online Testesystem
 
-*Sist oppdatert: 2026-08-23. Dette dokumentet lever gjennom hele prosjektet og skal til enhver tid kunne brukes til å regenerere løsningen med alle beslutninger tatt. Denne kopien ble tatt med inn i Git-repoet 2026-08-20 da prosjektet ble konvertert fra Claude (Cowork) til Claude Code — masterversjonen lå tidligere kun i et claude.ai-prosjekt ("Testdatabase"), som ikke er tilgjengelig fra Claude Code. Denne filen ER nå masterversjonen; oppdater den videre her.*
+*Sist oppdatert: 2026-08-24. Dette dokumentet lever gjennom hele prosjektet og skal til enhver tid kunne brukes til å regenerere løsningen med alle beslutninger tatt. Denne kopien ble tatt med inn i Git-repoet 2026-08-20 da prosjektet ble konvertert fra Claude (Cowork) til Claude Code — masterversjonen lå tidligere kun i et claude.ai-prosjekt ("Testdatabase"), som ikke er tilgjengelig fra Claude Code. Denne filen ER nå masterversjonen; oppdater den videre her.*
 
 ## Kilde
 
@@ -28,7 +28,7 @@ Dette er ikke et ett-økt-prosjekt. Det er et flerspors utviklingsprogram som de
 Fase 0: Arkitektur- og compliance-grunnlag. **Ferdig.**
 Fase 1: Del 1 — lokalt utviklingsmiljø. **Ferdig (lokal del) 2026-08-20.** Sky-deploy-delen (Azure) er ikke satt opp ennå og tas når vi trenger å driftsette noe.
 Fase 2: Del 2 — admin-skjelett + BankID/2FA-autentisering. **Første slice ferdig 2026-08-23** (se "Del 2 (slice 1)" under) — pris/rapporter/backup/org-støtte er bevisst utsatt, se "Åpne punkter".
-Fase 3: Del 3 — behandlersystem.
+Fase 3: Del 3 — behandlersystem. **Første slice ferdig 2026-08-24** (se "Del 3 (slice 1)" under) — rapporter/økonomi/automatiske utsendelser er bevisst utsatt, se "Åpne punkter".
 Fase 4: Del 4 — pasientsystem + testmotor (generisk rammeverk).
 Fase 5: Første konkrete test (WHO-5) ende-til-ende som mal for fremtidige tester.
 Fase 6: Betaling (VIPPS), fakturering, økonomiske rapporter.
@@ -86,7 +86,7 @@ inn med AdminId+passord (rolle `Utvikler`) eller BankID+SMS-2FA (rolle `Administ
 Dev-seed i `Program.cs` oppretter én slik konto (`dev-admin` / `utvikler123`) ved oppstart i
 Development hvis databasen er tom.
 
-**Rollebytte for utvikler:** en egen claim (`AdminClaimTypes.BaseRolle`) lagrer rollen kontoen
+**Rollebytte for utvikler:** en egen claim (`AppClaimTypes.BaseRolle` — omdøpt fra `AdminClaimTypes` i fase 3 da den også ble tatt i bruk for behandler-pålogging) lagrer rollen kontoen
 faktisk logget inn med og endres ALDRI av rollebytte — det er det som avgjør om
 `Bytt-modus`-siden er tilgjengelig. `ClaimTypes.Role` (det autorisasjon faktisk sjekkes mot) kan
 byttes fritt mellom Administrator/Behandler/Pasient/Utvikler for å teste andre roller uten å
@@ -119,6 +119,7 @@ oppretter `Behandler` (status `Invitert`) + en tidsbegrenset (7 dager), engangs
 `/Inviter/Fullfor/{token}` (offentlig, uautentisert side i `Pages/Inviter/`, IKKE i Admin-arealet)
 og fyller inn fullt navn + HPR-nr → status blir `Aktiv`. Selve behandler-innlogging/-portal er
 Del 3 og finnes ikke ennå — denne siden fullfører kun stamdata.
+*(Utvidet betydelig i fase 3 — se "Del 3 (slice 1)" under; `FulltNavn` finnes ikke lenger som eget felt.)*
 
 **Funnet og fikset underveis:** ASP.NET Core sin standard TempData-serialisering
 (`DefaultTempDataSerializer`) støtter IKKE `long` — måtte lagres som `string` og parses tilbake
@@ -128,6 +129,90 @@ Del 3 og finnes ikke ennå — denne siden fullfører kun stamdata.
 mock), pris per test, økonomiske rapporter, backup/restore, organisasjonsstøtte, enhetstester
 for `AdminAuthenticationService`/`BehandlerInvitasjonService`, og polert admin-UI (dagens sider
 er funksjonelle, ikke visuelt ferdige).
+
+## Del 3 (slice 1) — behandler-innlogging + registrering + HPR-godkjenning + pasient-CRUD
+
+**Status: ferdig og verifisert lokalt 2026-08-24.** Omfang (bekreftet av bruker): BankID+2FA-
+innlogging for behandler, utvidet egenregistrering (flere felt, brukeravtale, e-post/mobil-
+verifisering), HPR-godkjenningsflyt, og grunnleggende pasient-CRUD. Rapporter, økonomi-oversikt
+og automatiske påminnelser/utsendelser er IKKE del av denne slicen — de avhenger reelt sett av
+testrammeverket i fase 4–5 uansett. Se "Åpne punkter til senere faser".
+
+**Refaktorering før utvidelse (ingen atferdsendring for admin):** 2FA-logikken ble løftet ut av
+`AdminAuthenticationService` til en delt `ToFaktorService`, med `ToFaktorKode` endret fra
+`AdministratorId` til `PrincipalType` (ny enum: `Administrator`/`Behandler`) + `PrincipalId` —
+unngår å duplisere sikkerhetskritisk kode (hash/utløp/forsøksbrems) for hver ny prinsipaltype som
+trenger 2FA. Samtidig ble `AdminSignIn` generalisert til `AuthSignIn` (tar primitiver i stedet
+for et `Administrator`-objekt) og `AdminClaimTypes` omdøpt til `AppClaimTypes`, siden begge nå
+brukes av både administrator- og behandler-pålogging.
+
+**Funnet under implementasjon — Area-navn kolliderte med domenetypenavn:** Razor Pages-arealet
+ble først kalt "Behandler", men det skaper en C#-navnerom `TestBase.Web.Areas.Behandler` som
+skygger for domenetypen `Behandler` (fra `TestBase.Shared.Domain.Administrasjon`) i ALL kode
+nestet under `Areas.Admin.*` og `Areas.Behandler.*` — kompilatoren tolker det ubekvalifiserte
+navnet `Behandler` som navnerommet, ikke typen. Løsning: arealet heter `Behandlerportal`
+(URL-prefiks `/Behandlerportal/...`) i stedet. Generell lærdom for senere Areas i dette
+prosjektet: ikke naveme et Area likt en domeneentitet.
+
+**Datamodell** (`TestBase.Shared/Domain/Administrasjon/` og ny `Domain/Pasienter/`): `Behandler`
+utvidet kraftig (Fornavn/Etternavn i stedet for FulltNavn, Personnummer — kryptert, samme mønster
+som Administrator —, Kontonummer, Arbeidsadresse, Tittel, HprGodkjent/-Utc/-AvAdministratorId,
+RegistrertUtc, Epost-/MobilVerifisertUtc, BrukeravtaleGodkjentVersjon/-Utc,
+InvitertAvAdministratorId/InvitertAvBehandlerId — begge nullable, nøyaktig én satt). Nye
+entiteter: `BehandlerKontaktVerifisering`, `Pasient`, `PasientStatus`, `PasientInvitasjon`.
+Migrasjon `Fase3BehandlerOgPasienter`.
+
+**EF-migrasjons-fallgruve — feiltolket kolonne-rename:** `dotnet ef migrations add` genererte
+automatisk `RenameColumn(FulltNavn → Arbeidsadresse)` på `behandlere`-tabellen i stedet for
+drop+add, fordi EFs heuristikk for å oppdage rename forvekslet det fjernede `FulltNavn`-feltet
+med det nye, semantisk helt urelaterte `Arbeidsadresse`-feltet. Ubehandlet ville dette ha flyttet
+eksisterende navn-data inn i adressefeltet ved oppgradering. Rettet manuelt i migrasjonsfilen
+(drop `FulltNavn` + add `Arbeidsadresse`, og tilsvarende i `Down()`) før den ble kjørt. **Les
+alltid gjennom en generert migrasjon når flere kolonner endres samtidig på samme tabell** —
+stol ikke blindt på EFs rename-deteksjon.
+
+**Behandler-pålogging er BankID+2FA KUN** — intet passord-unntak (i motsetning til administrator),
+jf. kravet ordrett. Admin- og Behandlerportal-området deler samme cookie-scheme; siden hvert
+område har sin egen innloggingsside, omdirigerer `OnRedirectToLogin`/`OnRedirectToAccessDenied` i
+`Program.cs` til riktig portal basert på forespørselens sti, i stedet for én global `LoginPath`.
+
+**Personnummer-kollisjon på tvers av kontotyper er OK, men ikke innad i samme tabell:** samme
+fallgruve som i fase 2 gjelder også her — kun ÉN behandler bør ha det faste
+mock-personnummeret (`01019012345`) om gangen, ellers blir BankID-oppslaget tvetydig. En
+administrator og en behandler KAN derimot dele personnummer uten konflikt (forskjellige
+tabeller/oppslag, realistisk for en behandler som også er administrator).
+
+**Brukeravtale:** versjonert utkast i `Brukeravtale.cs` (IKKE juridisk rådgivning, jf. samme
+forbehold som DPIA-utkastet). Godtas som del av `Fullfor`-skjemaet ved førstegangsregistrering;
+`GodkjennAvtale`-siden brukes kun senere, hvis `GjeldendeVersjon` økes og en allerede aktiv
+behandler logger inn med en utdatert aksept.
+
+**HPR-godkjenning:** ved fullført registrering (begge kontaktkoder bekreftet) sendes en
+mock-e-post til ALLE administratorer om å sjekke behandlerens HPR-nummer. 7 dagers prøveperiode
+fra `RegistrertUtc` hvor alt virker; etter det blokkeres kun "legg til pasient"-handlingen
+(`Pasienter/Ny`, `Gruppeimport`) hvis `HprGodkjent` fortsatt er `false` — IKKE innlogging, jf.
+kravet ordrett. Admin godkjenner/tilbakekaller via en toggle på `Administratorer > Behandlere`.
+
+**Bot-/spam-vern:** enkel honeypot + minimumstid-fra-visning (`BotVern.cs`) på den offentlige
+`Fullfor`-siden — ikke en ekte CAPTCHA-tjeneste. Reell CAPTCHA (hCaptcha/Turnstile) er en
+fremtidig leverandørbeslutning på linje med BankID/Vipps, se "Åpne punkter".
+
+**Pasient-invitasjon sender bevisst ingen lenke ennå:** `PasientInvitasjonService` lagrer et
+invitasjonstoken (samme mønster som behandler-invitasjon) for at Del 4 kan bygge videre på det
+direkte, men mock-meldingen som sendes nå er ren tekst uten URL, siden pasientens egen
+fullføringsside ikke finnes før Del 4. Unngår en død lenke i mock-loggen.
+
+**Verifisert manuelt ende-til-ende:** admin inviterer behandler → fullfør skjema (alle felt +
+brukeravtale) → bekreft mobil+e-post-kode → status `Aktiv`, HPR-varsling sendt til alle
+administratorer → behandler logger inn med BankID+2FA → legg til pasient enkeltvis → gruppeimport
+(inkl. én linje med for få felt, korrekt rapportert som hoppet over, ikke stille forkastet) →
+behandler inviterer en kollega-behandler (samme tjeneste som admin bruker) → admin godkjenner
+HPR → audit-logg viser alle handlingene. Regresjonstestet: admin-innlogging (passord og
+BankID+2FA) fungerer uendret etter 2FA-/claims-refaktoreringen.
+
+**Ikke gjort i denne slicen (se "Åpne punkter"):** pris/rapporter/økonomi, automatiske
+test-utsendelser/påminnelser, 10-års auto-sletting av pasientdata, ekte CAPTCHA, enhetstester,
+og pasientens egen fullføringsside/portal (Del 4).
 
 ## Kjente feilsøkingspunkter fra oppsett (til referanse)
 
@@ -149,10 +234,16 @@ er funksjonelle, ikke visuelt ferdige).
   implementasjoner bak `IBankIdProvider`/`ISmsSender`/`IEmailSender`/`IVippsClient` byttes inn
   når avtale er signert; mock brukes fortsatt i dev/test uansett (se prinsippet i toppen av
   dette dokumentet).
-- Enhetstester for `AdminAuthenticationService` og `BehandlerInvitasjonService` (ren logikk, ingen
+- Enhetstester for `AdminAuthenticationService`/`BehandlerAuthenticationService`/
+  `ToFaktorService`/`BehandlerInvitasjonService`/`PasientInvitasjonService` (all ren logikk, ingen
   `HttpContext`-avhengighet — bevisst designet for å være lett å teste, men ikke gjort ennå).
-- Behandler-innlogging/-portal (Del 3) — `/Inviter/Fullfor` fullfører i dag kun stamdata, ingen
-  reell pålogging for behandlere finnes ennå.
-- Polering av admin-UI (dagens Admin-sider er funksjonelle, ikke visuelt ferdige).
+- Resten av Del 3: rapporter (per pasient/samlet), økonomi-oversikt (genererte tester/forventet
+  utbetaling), automatiske test-utsendelser med påminnelser (avhenger av testrammeverket i
+  fase 4–5), 10-års auto-sletting av arkiverte pasienter (driftsjobb, hører sammen med fase 6).
+- Ekte CAPTCHA (hCaptcha/Turnstile) i stedet for dagens enkle honeypot+tidssjekk-vern
+  (`BotVern.cs`) — leverandørbeslutning på linje med BankID/Vipps/SMS.
+- Pasientens egen fullføringsside/portal (Del 4) — `PasientInvitasjonService` lagrer allerede et
+  gjenbrukbart invitasjonstoken, men ingen landingsside finnes ennå.
+- Polering av admin-/behandlerportal-UI (dagens sider er funksjonelle, ikke visuelt ferdige).
 - Testrammeverkets datamodell (ledd, sider, skåringsregler, lokalisering) — tas i fase 4–5 sammen med WHO-5.
 - Azure-konto opprettes av bruker når vi når sky-deploy-delen.

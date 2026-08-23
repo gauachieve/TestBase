@@ -1,0 +1,22 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.Konto.GodkjennAvtaleModel
+@{
+    ViewData["Title"] = "Godkjenn brukeravtale";
+}
+
+<h1>Brukeravtalen er oppdatert</h1>
+
+<p>Du må godkjenne den nye versjonen av brukeravtalen for å fortsette.</p>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<pre style="white-space: pre-wrap; border: 1px solid #ccc; padding: 1rem; max-height: 400px; overflow-y: auto;">@Model.AvtaleTekst</pre>
+
+<form method="post">
+    <label><input asp-for="GodtarAvtale" type="checkbox" /> Jeg har lest og godtar brukeravtalen</label>
+    <br />
+    <button type="submit">Godkjenn og fortsett</button>
+</form>

@@ -64,7 +64,7 @@ public sealed class BekreftKodeModel : PageModel
             return Page();
         }
 
-        await AdminSignIn.LoggInnAsync(HttpContext, administrator, UserRole.Administrator, huskMeg);
+        await AuthSignIn.LoggInnAsync(HttpContext, "administrator", administrator.Id, administrator.FulltNavn, UserRole.Administrator, huskMeg);
         await _auditLogger.LogAsync(
             administrator.AdminId, nameof(UserRole.Administrator), "InnloggingOk",
             nameof(Administrator), administrator.Id.ToString(), "BankID+2FA", cancellationToken);
