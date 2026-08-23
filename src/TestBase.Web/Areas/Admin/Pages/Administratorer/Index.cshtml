@@ -1,0 +1,43 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Administratorer.IndexModel
+@{
+    ViewData["Title"] = "Administratorer";
+}
+
+<h1>Administratorer</h1>
+<p><a href="/Admin/Administratorer/Ny">+ Ny administrator</a></p>
+
+<table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+        <tr>
+            <th>AdminId</th>
+            <th>Navn</th>
+            <th>E-post</th>
+            <th>Mobil</th>
+            <th>HPR-nr</th>
+            <th>Pålogging</th>
+            <th>Status</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var a in Model.Administratorer)
+    {
+        <tr>
+            <td>@a.AdminId</td>
+            <td>@a.FulltNavn</td>
+            <td>@a.Email</td>
+            <td>@a.MobilNr</td>
+            <td>@a.HprNr</td>
+            <td>@(a.PasswordHash is not null ? "Passord (utviklingsmodus)" : "BankID + 2FA")</td>
+            <td>@(a.ErArkivert ? "Arkivert" : "Aktiv")</td>
+            <td>
+                <form method="post" asp-page-handler="Arkiver" style="display:inline;">
+                    <input type="hidden" name="id" value="@a.Id" />
+                    <button type="submit">@(a.ErArkivert ? "Gjenopprett" : "Arkiver")</button>
+                </form>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

@@ -1,0 +1,40 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Konto.LoggInnModel
+@{
+    ViewData["Title"] = "Logg inn";
+}
+
+<h1>Logg inn som administrator</h1>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<form method="post">
+    <div>
+        <label>AdminId</label><br />
+        <input asp-for="AdminId" />
+    </div>
+
+    @if (Model.VisPassordFelt)
+    {
+        <div>
+            <label>Passord (utviklingsmodus)</label><br />
+            <input asp-for="Passord" type="password" />
+        </div>
+    }
+
+    <div>
+        <label><input asp-for="HuskMeg" type="checkbox" /> Husk meg</label>
+    </div>
+
+    <button type="submit">Logg inn</button>
+</form>
+
+<p>
+    Har kontoen satt passord, logger du inn med AdminId + passord (utviklingsmodus — ingen
+    BankID/2FA). Har den ikke det, simuleres BankID-innlogging (mock, alltid vellykket) og du
+    sendes videre til en SMS-2FA-kode (mock — koden logges i konsollen der
+    <code>dotnet watch run</code> kjører, ingen ekte SMS sendes).
+</p>

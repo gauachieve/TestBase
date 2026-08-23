@@ -1,0 +1,29 @@
+@page "{token}"
+@model TestBase.Web.Pages.Inviter.FullforModel
+@{
+    ViewData["Title"] = "Fullfør registrering";
+}
+
+<h1>Fullfør registrering som behandler</h1>
+
+@if (Model.Fullfort)
+{
+    <p>Takk! Registreringen er fullført. Innlogging for behandlere kommer i en senere fase.</p>
+}
+else if (!Model.GyldigInvitasjon)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+else
+{
+    @if (Model.Feilmelding is not null)
+    {
+        <p style="color: darkred;">@Model.Feilmelding</p>
+    }
+
+    <form method="post">
+        <div><label>Fullt navn</label><br /><input asp-for="FulltNavn" /></div>
+        <div><label>HPR-nummer</label><br /><input asp-for="HprNr" /></div>
+        <button type="submit">Fullfør</button>
+    </form>
+}

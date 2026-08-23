@@ -12,4 +12,11 @@
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="8.0.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Gir tilgang til Microsoft.AspNetCore.Identity (PasswordHasher), Microsoft.AspNetCore.DataProtection
+         og Microsoft.AspNetCore.Http (IHttpContextAccessor) fra dette klassebiblioteket, uten å gjøre det
+         om til et Sdk.Web-prosjekt. Brukes av autentiseringskoden i Security/. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
 </Project>

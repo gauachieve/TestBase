@@ -1,0 +1,47 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Behandlere.IndexModel
+@using TestBase.Shared.Domain.Administrasjon
+@{
+    ViewData["Title"] = "Behandlere";
+}
+
+<h1>Behandlere</h1>
+<p><a href="/Admin/Behandlere/Inviter">+ Inviter ny behandler</a></p>
+
+<table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Navn</th>
+            <th>E-post</th>
+            <th>Mobil</th>
+            <th>HPR-nr</th>
+            <th>Status</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var b in Model.Behandlere)
+    {
+        <tr>
+            <td>@(b.FulltNavn ?? "(ikke fullført)")</td>
+            <td>@b.Email</td>
+            <td>@b.MobilNr</td>
+            <td>@(b.HprNr ?? "-")</td>
+            <td>@b.Status</td>
+            <td>
+                @if (b.Status != BehandlerStatus.Arkivert)
+                {
+                    <form method="post" asp-page-handler="Frys" style="display:inline;">
+                        <input type="hidden" name="id" value="@b.Id" />
+                        <button type="submit">@(b.Status == BehandlerStatus.Fryst ? "Gjenåpne" : "Frys")</button>
+                    </form>
+                    <form method="post" asp-page-handler="Arkiver" style="display:inline;">
+                        <input type="hidden" name="id" value="@b.Id" />
+                        <button type="submit">Arkiver</button>
+                    </form>
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

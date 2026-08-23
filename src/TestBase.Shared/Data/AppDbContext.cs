@@ -1,4 +1,7 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Security;
 
 namespace TestBase.Shared.Data;
@@ -13,11 +16,19 @@ namespace TestBase.Shared.Data;
 /// </summary>
 public sealed class AppDbContext : DbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+    private readonly IDataProtector _personnummerBeskytter;
+
+    public AppDbContext(DbContextOptions<AppDbContext> options, IDataProtectionProvider dataProtectionProvider)
+        : base(options)
     {
+        _personnummerBeskytter = dataProtectionProvider.CreateProtector("TestBase.Personnummer.v1");
     }
 
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
+    public DbSet<Administrator> Administratorer => Set<Administrator>();
+    public DbSet<Behandler> Behandlere => Set<Behandler>();
+    public DbSet<BehandlerInvitasjon> BehandlerInvitasjoner => Set<BehandlerInvitasjon>();
+    public DbSet<ToFaktorKode> ToFaktorKoder => Set<ToFaktorKode>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,6 +44,59 @@ public sealed class AppDbContext : DbContext
             entity.Property(e => e.Details).HasMaxLength(2000);
             entity.HasIndex(e => new { e.EntityType, e.EntityId });
             entity.HasIndex(e => e.TimestampUtc);
+        });
+
+        // Personnummer krypteres i hvile med Data Protection selv i dev (lokal
+        // filbasert nøkkelring) — se prinsippet "arkitektur nå, infrastruktur
+        // senere" i beslutningsloggen. Tabellen er uansett svært liten (én
+        // psykolog + kontorfellesskap), så oppslag på personnummer skjer i
+        // minnet (se AdminAuthenticationService), ikke via SQL WHERE, fordi
+        // Data Protection ikke er deterministisk.
+        var personnummerConverter = new ValueConverter<string, string>(
+            klartekst => _personnummerBeskytter.Protect(klartekst),
+            kryptert => _personnummerBeskytter.Unprotect(kryptert));
+
+        modelBuilder.Entity<Administrator>(entity =>
+        {
+            entity.ToTable("administratorer");
+            entity.HasKey(a => a.Id);
+            entity.HasIndex(a => a.AdminId).IsUnique();
+            entity.Property(a => a.AdminId).HasMaxLength(64).IsRequired();
+            entity.Property(a => a.MobilNr).HasMaxLength(32).IsRequired();
+            entity.Property(a => a.Email).HasMaxLength(256).IsRequired();
+            entity.Property(a => a.FulltNavn).HasMaxLength(256).IsRequired();
+            entity.Property(a => a.Personnummer).HasConversion(personnummerConverter).HasMaxLength(500).IsRequired();
+            entity.Property(a => a.HprNr).HasMaxLength(32).IsRequired();
+            entity.Property(a => a.PasswordHash).HasMaxLength(512);
+        });
+
+        modelBuilder.Entity<Behandler>(entity =>
+        {
+            entity.ToTable("behandlere");
+            entity.HasKey(b => b.Id);
+            entity.Property(b => b.MobilNr).HasMaxLength(32).IsRequired();
+            entity.Property(b => b.Email).HasMaxLength(256).IsRequired();
+            entity.Property(b => b.FulltNavn).HasMaxLength(256);
+            entity.Property(b => b.HprNr).HasMaxLength(32);
+            entity.Property(b => b.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+        });
+
+        modelBuilder.Entity<BehandlerInvitasjon>(entity =>
+        {
+            entity.ToTable("behandler_invitasjoner");
+            entity.HasKey(i => i.Id);
+            entity.HasIndex(i => i.Token).IsUnique();
+            entity.Property(i => i.Token).HasMaxLength(128).IsRequired();
+            entity.Property(i => i.KontaktVerdi).HasMaxLength(256).IsRequired();
+            entity.Property(i => i.KontaktMetode).HasConversion<string>().HasMaxLength(16).IsRequired();
+        });
+
+        modelBuilder.Entity<ToFaktorKode>(entity =>
+        {
+            entity.ToTable("to_faktor_koder");
+            entity.HasKey(k => k.Id);
+            entity.Property(k => k.KodeHash).HasMaxLength(128).IsRequired();
+            entity.HasIndex(k => k.AdministratorId);
         });
     }
 }

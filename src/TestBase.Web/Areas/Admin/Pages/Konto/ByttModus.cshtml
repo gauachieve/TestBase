@@ -1,0 +1,24 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Konto.ByttModusModel
+@{
+    ViewData["Title"] = "Bytt modus";
+}
+
+<h1>Bytt modus (kun utvikler)</h1>
+
+<p>Gjeldende rolle: <strong>@Model.GjeldendeRolle</strong></p>
+
+<form method="post">
+    @foreach (var rolle in Model.Roller)
+    {
+        <button type="submit" name="nyRolle" value="@rolle" style="margin-right: 0.5rem;">
+            @rolle
+        </button>
+    }
+</form>
+
+<p>
+    Lar deg teste systemet som en annen rolle uten å logge ut/inn på nytt. Kun
+    tilgjengelig fordi denne kontoen faktisk logget inn med AdminId+passord
+    (utviklingsmodus) — se beslutningsloggen.
+</p>
