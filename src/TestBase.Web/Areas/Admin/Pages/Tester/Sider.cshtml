@@ -1,0 +1,42 @@
+@page "{id:long}"
+@model TestBase.Web.Areas.Admin.Pages.Tester.SiderModel
+@{
+    ViewData["Title"] = "Sider";
+}
+
+<h1>Sider for @Model.Test?.Navn</h1>
+
+<table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Rekkefølge</th>
+            <th>Navn</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var side in Model.Sider)
+    {
+        <tr>
+            <td>@side.Rekkefolge</td>
+            <td>@side.Navn</td>
+            <td><a href="/Admin/Tester/Ledd/@side.Id">Rediger ledd</a></td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<h2>Legg til side</h2>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<form method="post">
+    <div><label>Navn</label><br /><input asp-for="Navn" /></div>
+    <div><label>Instruksjon (valgfritt)</label><br /><textarea asp-for="Instruksjon" rows="2" cols="50"></textarea></div>
+    <button type="submit">Legg til side</button>
+</form>
+
+<p><a href="/Admin/Tester">Tilbake til tester</a></p>

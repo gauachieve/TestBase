@@ -1,0 +1,104 @@
+@page "{id:long}/{side:int?}"
+@model TestBase.Web.Areas.Pasientportal.Pages.Tester.FyllModel
+@using TestBase.Shared.Domain.Tester
+@{
+    ViewData["Title"] = "Fyll ut test";
+}
+
+@if (Model.Innhold is null)
+{
+    <p style="color: darkred;">Fant ikke testen.</p>
+}
+else if (Model.ErFullfort)
+{
+    <h1>Ferdig!</h1>
+    <p>@(Model.Innhold.Test.Belonningstekst ?? "Takk for at du fylte ut testen.")</p>
+    <p><a href="/Pasientportal/MinSide">Tilbake til min side</a></p>
+}
+else
+{
+    var totalSider = Model.Innhold.Sider.Count;
+    var fremdriftProsent = totalSider == 0 ? 0 : (Model.GjeldendeSideNummer - 1) * 100 / totalSider;
+
+    <h1>@Model.Innhold.Test.Navn</h1>
+    <p>Side @Model.GjeldendeSideNummer av @totalSider</p>
+    <div style="border: 1px solid #ccc; width: 100%; height: 1rem;">
+        <div style="background: #4a4; width: @(fremdriftProsent)%; height: 100%;"></div>
+    </div>
+
+    @if (Model.GjeldendeSideNummer == 1 && !string.IsNullOrWhiteSpace(Model.Innhold.Test.Beskrivelse))
+    {
+        <p><em>@Model.Innhold.Test.Beskrivelse</em></p>
+    }
+
+    @if (Model.GjeldendeSide is not null)
+    {
+        <h2>@Model.GjeldendeSide.Navn</h2>
+        @if (!string.IsNullOrWhiteSpace(Model.GjeldendeSide.Instruksjon))
+        {
+            <p><em>@Model.GjeldendeSide.Instruksjon</em></p>
+        }
+
+        <form method="post">
+            @foreach (var ledd in Model.LeddPaaGjeldendeSide)
+            {
+                var eksisterende = Model.Innhold.EksisterendeSvar.GetValueOrDefault(ledd.Id);
+                <div style="margin-bottom: 1.5rem;">
+                    <p><strong>@ledd.Sporsmalstekst</strong></p>
+                    @if (!string.IsNullOrWhiteSpace(ledd.Instruksjon))
+                    {
+                        <p><em>@ledd.Instruksjon</em></p>
+                    }
+
+                    @if (ledd.Svartype == TestSvartype.Likert5)
+                    {
+                        var labels = string.IsNullOrWhiteSpace(ledd.Svaralternativer)
+                            ? new[] { "1", "2", "3", "4", "5" }
+                            : ledd.Svaralternativer.Split(',');
+                        for (var verdi = 1; verdi <= 5; verdi++)
+                        {
+                            var label = verdi - 1 < labels.Length ? labels[verdi - 1] : verdi.ToString();
+                            <label style="margin-right: 1rem;">
+                                <input type="radio" name="Svar_@ledd.Id" value="@verdi" checked="@(eksisterende == verdi.ToString())" />
+                                @label
+                            </label>
+                        }
+                    }
+                    else if (ledd.Svartype == TestSvartype.VisuellAnalogSkala)
+                    {
+                        <input type="range" min="0" max="100" name="Svar_@ledd.Id" value="@(eksisterende ?? "50")" />
+                    }
+                    else if (ledd.Svartype == TestSvartype.JaNei)
+                    {
+                        <label style="margin-right: 1rem;">
+                            <input type="radio" name="Svar_@ledd.Id" value="Ja" checked="@(eksisterende == "Ja")" /> Ja
+                        </label>
+                        <label>
+                            <input type="radio" name="Svar_@ledd.Id" value="Nei" checked="@(eksisterende == "Nei")" /> Nei
+                        </label>
+                    }
+                    else
+                    {
+                        <textarea name="Svar_@ledd.Id" rows="3" cols="50">@eksisterende</textarea>
+                    }
+                </div>
+            }
+
+            <div>
+                @if (Model.GjeldendeSideNummer > 1)
+                {
+                    <button type="submit" name="Handling" value="Forrige">Forrige</button>
+                }
+                <button type="submit" name="Handling" value="Lagre">Lagre</button>
+                @if (Model.GjeldendeSideNummer < totalSider)
+                {
+                    <button type="submit" name="Handling" value="Neste">Neste</button>
+                }
+                else
+                {
+                    <button type="submit" name="Handling" value="Ferdig">Ferdig</button>
+                }
+            </div>
+        </form>
+    }
+}

@@ -69,8 +69,9 @@ public sealed class NyModel : PageModel
             return Page();
         }
 
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
         var pasient = await _pasientService.LeggTilAsync(
-            Personnummer, MobilNr, Epost, behandlerId, Varslingskanal, cancellationToken: cancellationToken);
+            Personnummer, MobilNr, Epost, behandlerId, Varslingskanal, baseUrl, cancellationToken: cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "LeggTilPasient",

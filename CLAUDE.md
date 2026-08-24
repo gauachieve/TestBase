@@ -17,8 +17,9 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
 - **Fase 1** (lokalt utviklingsmiljø): ferdig og verifisert lokalt. Sky-deploy til Azure er planlagt men ikke satt opp.
 - **Fase 2** (admin-skjelett + BankID/2FA-autentisering): **første slice ferdig og verifisert lokalt** — datamodell (Administrator/Behandler/invitasjon/2FA-kode), ekte cookie-basert innlogging (passord i utviklingsmodus, BankID+SMS-2FA-mock i produksjonsmodus), rollebytte for utvikler, og minimal admin-CRUD (opprett/arkiver administrator, inviter/frys/arkiver behandler).
 - **Fase 3** (behandlersystem): **første slice ferdig og verifisert lokalt** — BankID+2FA-innlogging for behandler (intet passord-unntak), utvidet egenregistrering (flere felt, brukeravtale, e-post/mobil-verifisering), HPR-godkjenningsflyt (7-dagers prøveperiode), og grunnleggende pasient-CRUD (legg til enkeltvis/gruppeimport, arkiver/gjenopprett). Behandlere kan invitere kollegaer på samme måte som admin.
-- For begge faser: pris per test, økonomiske rapporter, backup/restore, organisasjonsstøtte, automatiske test-utsendelser og 10-års auto-sletting er bevisst IKKE gjort — se `docs/beslutningslogg.md` under "Del 2 (slice 1)"/"Del 3 (slice 1)" og "Åpne punkter til senere faser" for detaljer og resterende arbeid.
-- Fase 4–6: ikke startet.
+- **Fase 4** (pasientsystem + testmotor): **første slice ferdig og verifisert lokalt** — pasient-egenregistrering (uten kontaktverifisering, BankID etterpå er identitetsbekreftelsen), BankID-innlogging UTEN 2FA (bevisst, jf. kravet), pasientens egen side ("Min side"), og et generisk testmotor-skjelett: admin forfatter tester (sider/ledd/svartyper), behandler tildeler dem til pasienter, pasienten fyller ut side for side med fremdrift/lagre/belønningsside.
+- For alle tre faser: pris per test, økonomiske rapporter, backup/restore, organisasjonsstøtte, automatiske test-utsendelser/påminnelser, 10-års auto-sletting, Vipps-betalingssperre, lokalisering, og skåring/rapporter (bevises ut med WHO-5 i fase 5) er bevisst IKKE gjort — se `docs/beslutningslogg.md` under "Del 2/3/4 (slice 1)" og "Åpne punkter til senere faser" for detaljer og resterende arbeid.
+- Fase 5–6: ikke startet.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
@@ -48,12 +49,20 @@ src/
                            domenetypen Behandler (se beslutningsloggen "Del 3 (slice 1)").
                            Konto (LoggInn/BekreftKode/LoggUt/GodkjennAvtale — BankID+2FA kun,
                            intet passord), Behandlere/Inviter (kollega), Pasienter
-                           (Index/Ny/Gruppeimport/Detaljer) — "BehandlerOmrade"-policyen
-    Pages/                 Forside, /DevDemo, /health, Inviter/Fullfor+Verifiser (offentlig,
-                           behandler fullfører egen registrering + kontaktverifisering via
-                           invitasjonslenke, med enkelt bot-vern)
-    Security/AuthSignIn.cs   Utsteder innloggingscookien (delt mellom admin passord/BankID+2FA
-                           og behandler BankID+2FA)
+                           (Index/Ny/Gruppeimport/Detaljer m/ testtildeling) —
+                           "BehandlerOmrade"-policyen
+    Areas/Pasientportal/Pages/  Pasientportalen (fase 4) — samme navngivningsprinsipp som
+                           Behandlerportal. Konto (LoggInn/LoggUt — BankID KUN, ingen 2FA),
+                           MinSide (tildelte tester), Tester/Fyll (side-for-side utfylling) —
+                           `[Authorize(Policy = "PasientOmrade")]` direkte på de to sidene
+                           (for få sider til å rettferdiggjøre AuthorizeAreaFolder)
+    Areas/Admin/Pages/Tester/  Admin forfatter tester (fase 4): Index/Ny/Sider/Ledd — kun
+                           opprett, ingen rediger/slett ennå
+    Pages/                 Forside, /DevDemo, /health, Inviter/Fullfor+Verifiser (behandler),
+                           PasientRegistrering/Fullfor (pasient — én side, ingen
+                           kontaktverifisering) — alle offentlige, med enkelt bot-vern
+    Security/AuthSignIn.cs   Utsteder innloggingscookien (delt mellom admin passord/BankID+2FA,
+                           behandler BankID+2FA, og pasient BankID)
     Security/BotVern.cs      Honeypot + minimumstid-vern for offentlige skjemaer
     Properties/launchSettings.json   (setter ASPNETCORE_ENVIRONMENT=Development)
     appsettings.json / appsettings.Development.json
@@ -62,11 +71,17 @@ src/
     Security/             ICurrentUserContext (+ AuthenticatedCurrentUserContext),
                            IAuditLogger/EfAuditLogger, AuditLogEntry, AppClaimTypes,
                            AdminAuthenticationService, BehandlerAuthenticationService,
-                           ToFaktorService (delt 2FA-logikk for begge kontotyper)
+                           PasientAuthenticationService (BankID uten 2FA),
+                           ToFaktorService (delt 2FA-logikk for admin/behandler)
     Domain/Administrasjon/  Administrator, Behandler (utvidet i fase 3), BehandlerInvitasjon,
                              BehandlerKontaktVerifisering, ToFaktorKode, Brukeravtale (versjonert
                              lisensavtale-tekst), BehandlerInvitasjonService
-    Domain/Pasienter/       Pasient, PasientStatus, PasientInvitasjon, PasientInvitasjonService
+    Domain/Pasienter/       Pasient (utvidet i fase 4), PasientStatus, PasientInvitasjon,
+                             PasientBrukeravtale, BiologiskKjonn, Kjonnsidentitet,
+                             PasientInvitasjonService
+    Domain/Tester/          Testmotor-skjelettet (fase 4): Test, TestSide, TestLedd,
+                             TestSvartype, TestTildeling, TestTildelingStatus, TestSvar,
+                             TestService (forfatning + tildeling + utfylling)
     Providers/             IBankIdProvider, IVippsClient, ISmsSender, IEmailSender
     Providers/Mock/        Mock-implementasjoner av alle fire, brukt i dev
     Data/AppDbContext.cs   EF Core-kontekst — ALL databasetilgang skal gå gjennom denne.
@@ -76,11 +91,12 @@ docker-compose.yml        Lokal MySQL
 docs/                      Se over
 ```
 
-Fremtidige prosjekter (`TestBase.Pasient`, `TestBase.TestEngine` e.l.) er ikke opprettet ennå for
-fase 4 — admin- og behandlerflatene endte i stedet opp som Razor Pages Areas
-(`Areas/Admin`, `Areas/Behandlerportal`) inni `TestBase.Web`, ikke egne prosjekter. **Viktig:**
-ikke gi et fremtidig Area samme navn som en domeneentitet (f.eks. ikke `Areas/Pasient` hvis
-`Pasient`-klassen brukes ukvalifisert i kode nestet under `Areas/*`) — se fallgruven under.
+Admin-, behandler- og pasientflatene endte alle opp som Razor Pages Areas (`Areas/Admin`,
+`Areas/Behandlerportal`, `Areas/Pasientportal`) inni `TestBase.Web`, ikke egne prosjekter.
+**Viktig:** ikke gi et fremtidig Area samme navn som en domeneentitet (f.eks. ikke `Areas/Test`
+hvis `Test`-klassen brukes ukvalifisert i kode nestet under `Areas/*`) — se fallgruven under.
+`TestBase.TestEngine` som eget prosjekt ble aldri opprettet — testmotoren ble en mappe
+(`Domain/Tester/`) i `TestBase.Shared` i stedet, samme mønster som resten av domenet.
 
 ## Kjøre lokalt
 
@@ -104,17 +120,21 @@ dotnet watch run
 - Å navngi et Razor Pages Area likt en domeneentitet (f.eks. `Areas/Behandler` når klassen `Behandler` finnes) gjør at C#s navneromsoppslag lar Area-navnerommet skygge for typen i ALL kode nestet under `Areas/*` — kompilatorfeil `CS0118 '<Navn>' is a namespace but is used like a type`. Løst ved å kalle arealet `Behandlerportal` i stedet. Ikke gjenta mønsteret for fremtidige Areas.
 - `dotnet ef migrations add` kan feiltolke en kolonne-fjerning + en urelatert ny kolonne som en **rename** når flere kolonner endres samtidig på samme tabell (så skjedde med `FulltNavn`→`Arbeidsadresse` på `behandlere` i fase 3-migrasjonen — ville ha flyttet data feil vei). Les alltid gjennom en generert migrasjon med flere samtidige kolonneendringer før den kjøres; fiks manuelt til drop+add hvis feltene ikke faktisk er samme data.
 - Razor Pages' automatiske antiforgery-token vises IDENTISK i flere `<form>`-elementer på samme side (f.eks. én per rad i en tabell) — ved skripting/testing med curl: bruk `grep -o ... | head -1` for å hente kun ÉN forekomst før bruk. Fanger man opp alle forekomster i én shell-variabel, får man et flerlinjers, korrupt token og et 400-svar som ser ut som en ekte antiforgery-feil, men ikke er det.
+- Et Area kan trygt hete "Tester" (flertall) selv om domenetypen heter "Test" (entall) og bor i navnerommet `TestBase.Shared.Domain.Tester` — kollisjonsregelen over krever et EKSAKT navnematch mellom navnerom-segment og typenavn, og "Test" ≠ "Tester". Bekreftet trygt i fase 4 (`Areas/Admin/Pages/Tester/`, `Areas/Pasientportal/Pages/Tester/`).
+- Bash-tool-kall deler IKKE shell-variabler mellom separate kall (kun working directory bevares) — hvis du henter en CSRF-token/tidsstempel i ett `Bash`-kall og prøver å bruke variabelen i et senere kall, er den tom. Gjør GET+utvinning+POST i SAMME kall (eller samme shell-script) når du tester skjemaer med curl.
 
 ## Hvordan jobbe videre
 
-1. Resten av Del 3 (behandlersystem) ELLER gå videre til fase 4 (Del 4 — pasientsystem) — begge
-   er rimelige neste steg, avhengig av hva bruker prioriterer. Pasientens egen
-   fullføringsside/portal (Del 4) er en naturlig fortsettelse siden `PasientInvitasjonService`
-   allerede lagrer et gjenbrukbart invitasjonstoken.
-2. Rapporter/økonomi/automatiske utsendelser for Del 2 OG Del 3 er begge bevisst utsatt til de
-   kan bygges sammen — de er tett koblet til testrammeverket (fase 4–5) og betaling (fase 6).
-   Les kravene i `docs/prosjektbeskrivelse-original.md` nøye — det er fortsatt fasiten. Se
+1. Fase 5 (Del 5 — WHO-5 ende-til-ende) er det naturlige neste store steget: bruk den konkrete
+   testen til å bevise ut skåringsmetodikk og rapportoppsett (per besvarelse + over tid) —
+   `TestSvar` lagrer allerede rå svarverdier klare til å skåres. Vurder samtidig om lokalisering
+   trengs (WHO-5 finnes offisielt på mange språk) — det er bevisst ikke designet ennå, se
+   beslutningsloggen.
+2. Alternativt: resten av Del 2/3/4 (pris/rapporter/økonomi/Vipps-sperre/påminnelser) — disse
+   hører uansett tett sammen med fase 6 (Vipps/fakturering) og testrammeverkets skåring, så det
+   er en rimelig avveining om de tas før eller etter fase 5. Les kravene i
+   `docs/prosjektbeskrivelse-original.md` nøye — det er fortsatt fasiten. Se
    `docs/beslutningslogg.md` under "Åpne punkter til senere faser" for full liste, inkl. mindre
    ting som ble bevisst utsatt (enhetstester, ekte BankID/SMS/e-post-leverandør, ekte CAPTCHA).
 3. Oppdater `docs/beslutningslogg.md` etter hvert som beslutninger tas — det er masterdokumentet for prosjektstatus fra nå av, siden Claude Code ikke har tilgang til det opprinnelige claude.ai-prosjektet ("Testdatabase") arbeidet startet i.
-4. Bruk samme mønster som i Del 1–3: mock-implementasjoner bak grensesnitt for alt som krever ekte tredjepartsavtaler, ekte pasientdata aldri i dev/test, sikkerhetskode (inkl. kryptering) aktiv i alle miljøer fra starten, og IKKE gi et nytt Razor Pages Area samme navn som en domeneentitet (se fallgruven over).
+4. Bruk samme mønster som i Del 1–4: mock-implementasjoner bak grensesnitt for alt som krever ekte tredjepartsavtaler, ekte pasientdata aldri i dev/test, sikkerhetskode (inkl. kryptering) aktiv i alle miljøer fra starten, og IKKE gi et nytt Razor Pages Area samme navn som en domeneentitet med mindre navnet er en annen bøyningsform som ikke matcher eksakt (se fallgruven over — "Tester" vs "Test" var trygt).

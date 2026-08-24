@@ -1,0 +1,24 @@
+@page
+@model TestBase.Web.Areas.Pasientportal.Pages.Konto.LoggInnModel
+@{
+    ViewData["Title"] = "Logg inn som pasient";
+}
+
+<h1>Logg inn som pasient</h1>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<form method="post">
+    <div>
+        <label><input asp-for="HuskMeg" type="checkbox" /> Husk meg</label>
+    </div>
+    <button type="submit">Logg inn med BankID</button>
+</form>
+
+<p>
+    Pasienter logger inn med BankID (mock — ingen ekte BankID kontaktes i dev). Har du ikke
+    fullført registreringen ennå, bruk lenken du mottok fra din behandler.
+</p>

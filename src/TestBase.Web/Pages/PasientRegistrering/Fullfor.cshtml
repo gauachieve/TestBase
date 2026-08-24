@@ -1,0 +1,63 @@
+@page "{token}"
+@model TestBase.Web.Pages.PasientRegistrering.FullforModel
+@using TestBase.Shared.Domain.Pasienter
+@{
+    ViewData["Title"] = "Fullfør registrering";
+}
+
+<h1>Fullfør registrering som pasient</h1>
+
+@if (Model.Fullfort)
+{
+    <p>Takk! Registreringen er fullført. Du kan nå logge inn med BankID.</p>
+    <p><a href="/Pasientportal/Konto/LoggInn">Logg inn</a></p>
+}
+else if (!Model.GyldigInvitasjon)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+else
+{
+    @if (Model.Feilmelding is not null)
+    {
+        <p style="color: darkred;">@Model.Feilmelding</p>
+    }
+
+    <form method="post">
+        <div><label>Navn</label><br /><input asp-for="Navn" /></div>
+        <div><label>Personnummer</label><br /><input asp-for="Personnummer" /></div>
+        <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
+        <div><label>E-post</label><br /><input asp-for="Epost" /></div>
+
+        <div>
+            <label>Biologisk kjønn ved fødsel</label><br />
+            <label><input type="radio" asp-for="BiologiskKjonnVedFodsel" value="@BiologiskKjonn.Mann" /> Mann</label>
+            <label><input type="radio" asp-for="BiologiskKjonnVedFodsel" value="@BiologiskKjonn.Kvinne" /> Kvinne</label>
+        </div>
+
+        <div>
+            <label>Kjønn (valgfritt)</label><br />
+            <label><input type="radio" asp-for="Kjonnsidentitet" value="@Kjonnsidentitet.Mann" /> Mann</label>
+            <label><input type="radio" asp-for="Kjonnsidentitet" value="@Kjonnsidentitet.Kvinne" /> Kvinne</label>
+            <label><input type="radio" asp-for="Kjonnsidentitet" value="@Kjonnsidentitet.Annet" /> Annet</label>
+            <input asp-for="KjonnsidentitetSpesifisert" placeholder="Spesifiser (hvis Annet)" />
+        </div>
+
+        <div><label>Adresse (valgfritt)</label><br /><input asp-for="Adresse" /></div>
+
+        <h2>Samtykke</h2>
+        <pre style="white-space: pre-wrap; border: 1px solid #ccc; padding: 1rem; max-height: 300px; overflow-y: auto;">@Model.AvtaleTekst</pre>
+        <div><label><input asp-for="GodtarLagringAvData" type="checkbox" /> Jeg samtykker til lagring av opplysningene mine</label></div>
+        <div><label><input asp-for="GodtarMuligVippsBetaling" type="checkbox" /> Jeg godtar at jeg kan bli bedt om å betale en mindre sum via Vipps for å fylle ut enkelte tester</label></div>
+
+        <!-- Bot-vern: skjult for mennesker, men botter fyller ofte ut alt -->
+        <div style="position: absolute; left: -9999px;" aria-hidden="true">
+            <label>Nettside</label>
+            <input asp-for="Nettside" tabindex="-1" autocomplete="off" />
+        </div>
+        <input type="hidden" asp-for="Vist" />
+
+        <br />
+        <button type="submit">Fullfør registrering</button>
+    </form>
+}

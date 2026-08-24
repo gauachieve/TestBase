@@ -1,0 +1,48 @@
+@page
+@model TestBase.Web.Areas.Pasientportal.Pages.MinSideModel
+@using TestBase.Shared.Domain.Tester
+@{
+    ViewData["Title"] = "Min side";
+}
+
+<h1>Min side</h1>
+
+@if (!Model.Tildelinger.Any())
+{
+    <p>Du har ingen tildelte tester ennå.</p>
+}
+else
+{
+    <table border="1" cellpadding="6" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Test</th>
+                <th>Status</th>
+                <th>Tildelt</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var rad in Model.Tildelinger)
+        {
+            <tr>
+                <td>@rad.TestNavn</td>
+                <td>@rad.Tildeling.Status</td>
+                <td>@rad.Tildeling.TildeltUtc.ToString("d")</td>
+                <td>
+                    @if (rad.Tildeling.Status != TestTildelingStatus.Fullfort)
+                    {
+                        <a href="/Pasientportal/Tester/Fyll/@rad.Tildeling.Id">
+                            @(rad.Tildeling.Status == TestTildelingStatus.Startet ? "Fortsett" : "Start")
+                        </a>
+                    }
+                    else
+                    {
+                        <text>Fullført @rad.Tildeling.FullfortUtc?.ToString("d")</text>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

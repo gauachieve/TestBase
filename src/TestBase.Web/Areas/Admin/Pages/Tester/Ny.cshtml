@@ -1,0 +1,19 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Tester.NyModel
+@{
+    ViewData["Title"] = "Ny test";
+}
+
+<h1>Ny test</h1>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<form method="post">
+    <div><label>Navn</label><br /><input asp-for="Navn" /></div>
+    <div><label>Beskrivelse / instruksjon (valgfritt)</label><br /><textarea asp-for="Beskrivelse" rows="3" cols="50"></textarea></div>
+    <div><label>Belønningstekst ved fullføring (valgfritt)</label><br /><textarea asp-for="Belonningstekst" rows="2" cols="50"></textarea></div>
+    <button type="submit">Opprett og legg til sider</button>
+</form>

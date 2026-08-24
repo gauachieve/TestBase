@@ -1,6 +1,6 @@
 # Prosjektstatus og beslutningslogg — Online Testesystem
 
-*Sist oppdatert: 2026-08-24. Dette dokumentet lever gjennom hele prosjektet og skal til enhver tid kunne brukes til å regenerere løsningen med alle beslutninger tatt. Denne kopien ble tatt med inn i Git-repoet 2026-08-20 da prosjektet ble konvertert fra Claude (Cowork) til Claude Code — masterversjonen lå tidligere kun i et claude.ai-prosjekt ("Testdatabase"), som ikke er tilgjengelig fra Claude Code. Denne filen ER nå masterversjonen; oppdater den videre her.*
+*Sist oppdatert: 2026-08-24 (fase 4). Dette dokumentet lever gjennom hele prosjektet og skal til enhver tid kunne brukes til å regenerere løsningen med alle beslutninger tatt. Denne kopien ble tatt med inn i Git-repoet 2026-08-20 da prosjektet ble konvertert fra Claude (Cowork) til Claude Code — masterversjonen lå tidligere kun i et claude.ai-prosjekt ("Testdatabase"), som ikke er tilgjengelig fra Claude Code. Denne filen ER nå masterversjonen; oppdater den videre her.*
 
 ## Kilde
 
@@ -29,7 +29,7 @@ Fase 0: Arkitektur- og compliance-grunnlag. **Ferdig.**
 Fase 1: Del 1 — lokalt utviklingsmiljø. **Ferdig (lokal del) 2026-08-20.** Sky-deploy-delen (Azure) er ikke satt opp ennå og tas når vi trenger å driftsette noe.
 Fase 2: Del 2 — admin-skjelett + BankID/2FA-autentisering. **Første slice ferdig 2026-08-23** (se "Del 2 (slice 1)" under) — pris/rapporter/backup/org-støtte er bevisst utsatt, se "Åpne punkter".
 Fase 3: Del 3 — behandlersystem. **Første slice ferdig 2026-08-24** (se "Del 3 (slice 1)" under) — rapporter/økonomi/automatiske utsendelser er bevisst utsatt, se "Åpne punkter".
-Fase 4: Del 4 — pasientsystem + testmotor (generisk rammeverk).
+Fase 4: Del 4 — pasientsystem + testmotor (generisk rammeverk). **Første slice ferdig 2026-08-24** (se "Del 4 (slice 1)" under) — lokalisering, Vipps-betalingssperre, påminnelser og skåring/rapporter er bevisst utsatt, se "Åpne punkter".
 Fase 5: Første konkrete test (WHO-5) ende-til-ende som mal for fremtidige tester.
 Fase 6: Betaling (VIPPS), fakturering, økonomiske rapporter.
 
@@ -201,6 +201,7 @@ fremtidig leverandørbeslutning på linje med BankID/Vipps, se "Åpne punkter".
 invitasjonstoken (samme mønster som behandler-invitasjon) for at Del 4 kan bygge videre på det
 direkte, men mock-meldingen som sendes nå er ren tekst uten URL, siden pasientens egen
 fullføringsside ikke finnes før Del 4. Unngår en død lenke i mock-loggen.
+*(Fikset i fase 4 — se "Del 4 (slice 1)" under: `LeggTilAsync` sender nå en ekte lenke.)*
 
 **Verifisert manuelt ende-til-ende:** admin inviterer behandler → fullfør skjema (alle felt +
 brukeravtale) → bekreft mobil+e-post-kode → status `Aktiv`, HPR-varsling sendt til alle
@@ -213,6 +214,77 @@ BankID+2FA) fungerer uendret etter 2FA-/claims-refaktoreringen.
 **Ikke gjort i denne slicen (se "Åpne punkter"):** pris/rapporter/økonomi, automatiske
 test-utsendelser/påminnelser, 10-års auto-sletting av pasientdata, ekte CAPTCHA, enhetstester,
 og pasientens egen fullføringsside/portal (Del 4).
+
+## Del 4 (slice 1) — pasientsystem + testmotor-skjelett
+
+**Status: ferdig og verifisert lokalt 2026-08-24.** Omfang (bekreftet av bruker):
+pasient-egenregistrering, BankID-innlogging (uten 2FA), pasientens egen side, og et generisk
+testmotor-skjelett (definere tester, tildele til pasient, fylle ut side for side). INGEN
+Vipps-betalingssperre, INGEN påminnelser, INGEN skåring/rapporter — alt dette hører naturlig
+sammen med fase 5 (WHO-5 beviser skåring/rapporter ut med et konkret eksempel) og fase 6
+(Vipps/økonomi). Se "Åpne punkter".
+
+**Pasient-registrering — INGEN kontaktverifisering (i motsetning til behandler i fase 3):**
+kravdokumentet nevner ikke SMS/e-post-verifiseringskoder for pasient, kun BankID-innlogging
+etterpå — det er identitetsbekreftelsen. `PasientInvitasjonService.FullforRegistreringAsync`
+setter derfor `Status = Aktiv` direkte ved fullført skjema, ett steg kortere enn behandler-flyten.
+
+**BankID-innlogging uten 2FA for pasient:** kravdokumentet sier eksplisitt "Samme tofaktor
+etterpå" for behandler (Del 3), men gjentar det IKKE for pasient (Del 4) — lest bokstavelig som
+et bevisst skille, ikke en forglemmelse. `PasientAuthenticationService` har derfor ingen
+avhengighet til `ToFaktorService`. Samme kjente personnummer-fallgruve som admin/behandler
+gjelder fortsatt: kun ÉN konto (i hvilken som helst av de tre tabellene) bør ha det faste
+mock-personnummeret om gangen for at BankID-oppslaget skal være entydig — men en administrator,
+en behandler OG en pasient kan trygt dele personnummer samtidig seg imellom, siden hvert
+BankID-oppslag kun søker i sin egen tabell (realistisk for én person med flere roller i systemet).
+
+**Testmotor-skjelett** (`Domain/Tester/`): `Test` → `TestSide` → `TestLedd` (definisjon),
+`TestTildeling` (tildeling/forsøk) → `TestSvar` (per-ledd-svar). `TestService` samler
+forfatning, tildeling og utfylling. Fire svartyper dekket (`Likert5`, `VisuellAnalogSkala`,
+`JaNei`, `Fritekst`), rendret som radioknapper/range-input/tekstfelt i
+`Areas/Pasientportal/Pages/Tester/Fyll.cshtml`. Fremdrift, side-instruksjoner,
+Neste/Forrige/Lagre/Ferdig og en belønningsside er alle implementert. `LagreSvarAsync` tar en
+eksplisitt `markerFullfort`-parameter (ikke utledet fra "er dette siste side") — Ferdig-knappen
+uttrykker intensjon, posisjon er bare hvor knappen tilfeldigvis vises.
+
+**Admin-side for å forfatte tester** (`Areas/Admin/Pages/Tester/`): kun opprett (test → side →
+ledd), ingen rediger/slett i denne slicen — jf. kravets "det er ikke nødvendig å lage et system
+for å generere tester uten å gå gjennom hovedsystemet", altså er det nok at forfatning skjer
+gjennom hovedsystemets admin-UI, selv i sin enkleste form.
+
+**Lokalisering bevisst IKKE bygget:** kravet krever at "hver test skal kunne støtte
+lokalisering til mange språk", men å designe et språk-skjema uten et konkret andrespråk å teste
+det mot ville sannsynligvis blitt feil og måtte gjøres om — utsatt til fase 5 (WHO-5 kan trenge
+norsk+engelsk), se "Åpne punkter".
+
+**Fallgruve fra fase 3 sjekket, men IKKE inntruffet denne gangen:** siden `Pasient` kun fikk nye
+kolonner (ingen fjernet/omdøpt), genererte `dotnet ef migrations add` en ren migrasjon uten
+feiltolkede rename-er denne gangen — bekrefter at risikoen faktisk er knyttet til
+fjern+legg-til-samtidig-mønsteret, ikke til antall nye kolonner alene.
+
+**Area-navngivning — samme lærdom som fase 3, fulgt riktig fra start:** pasientportalen heter
+`Pasientportal`, ikke `Pasient`, nettopp for å unngå gjentakelse av
+navnerom-skygger-domenetype-kollisjonen fra fase 3. `Areas/Admin/Pages/Tester/` og
+`Areas/Pasientportal/Pages/Tester/` (begge navngitt "Tester", entall "Test" som type) kolliderer
+IKKE — kollisjonsregelen krever eksakt navnematch mellom navnerom-segment og typenavn, og
+"Tester" ≠ "Test".
+
+**Funnet og fikset i eksisterende kode:** `Behandlerportal/Pasienter/Detaljer.cshtml` hadde en
+gjenglemt lenke til den gamle `/Behandler/Pasienter`-stien fra før fase 3s area-omdøping (fanget
+ikke opp av søk-og-erstatt-et den gang siden mønsteret var litt annerledes). Rettet til
+`/Behandlerportal/Pasienter` i samme slag som denne slicen uansett rørte filen.
+
+**Verifisert manuelt ende-til-ende:** admin oppretter en test (2 sider, 4 ledd — én av hver
+svartype) → behandler tildeler den til en pasient → pasient fullfører egenregistrering via ekte
+invitasjonslenke (ingen lenke ble sendt i fase 3 — det er fikset nå) → logger inn med BankID
+(uten 2FA) → "Min side" viser tildelingen → fyller ut side 1 (Lagre+Neste, bekreftet lagret i
+databasen og status ble `Startet`) → side 2 (Ferdig) → belønningsside vises → behandlerens
+pasientdetaljside viser `Fullfort` med start-/sluttidspunkt → `audit_log_entries` har rader for
+alle stegene. Regresjonstestet: admin- og behandler-innlogging uendret.
+
+**Ikke gjort i denne slicen (se "Åpne punkter"):** lokalisering, Vipps-betalingssperre,
+påminnelser (frist/varighet lagres men håndheves ikke), skåring, rapporter (per besvarelse og
+over tid), rediger/slett av tester/sider/ledd, enhetstester.
 
 ## Kjente feilsøkingspunkter fra oppsett (til referanse)
 
@@ -234,16 +306,21 @@ og pasientens egen fullføringsside/portal (Del 4).
   implementasjoner bak `IBankIdProvider`/`ISmsSender`/`IEmailSender`/`IVippsClient` byttes inn
   når avtale er signert; mock brukes fortsatt i dev/test uansett (se prinsippet i toppen av
   dette dokumentet).
-- Enhetstester for `AdminAuthenticationService`/`BehandlerAuthenticationService`/
-  `ToFaktorService`/`BehandlerInvitasjonService`/`PasientInvitasjonService` (all ren logikk, ingen
-  `HttpContext`-avhengighet — bevisst designet for å være lett å teste, men ikke gjort ennå).
+- Enhetstester for alle tjenestene i `Security`/`Domain` (ren logikk, ingen `HttpContext`-
+  avhengighet — bevisst designet for å være lett å teste, men ikke gjort ennå):
+  `AdminAuthenticationService`, `BehandlerAuthenticationService`, `PasientAuthenticationService`,
+  `ToFaktorService`, `BehandlerInvitasjonService`, `PasientInvitasjonService`, `TestService`.
 - Resten av Del 3: rapporter (per pasient/samlet), økonomi-oversikt (genererte tester/forventet
-  utbetaling), automatiske test-utsendelser med påminnelser (avhenger av testrammeverket i
-  fase 4–5), 10-års auto-sletting av arkiverte pasienter (driftsjobb, hører sammen med fase 6).
+  utbetaling), automatiske test-utsendelser med påminnelser, 10-års auto-sletting av arkiverte
+  pasienter (driftsjobb, hører sammen med fase 6).
+- Resten av Del 4: Vipps-betalingssperre før utfylling (gjenbruk `IVippsClient`/`MockVippsClient`),
+  påminnelser (frist/varighet lagres på `TestTildeling` men håndheves/varsles ikke ennå),
+  lokalisering av tester til flere språk (bevisst utsatt til et konkret andrespråk finnes å
+  designe mot, trolig med WHO-5 i fase 5).
 - Ekte CAPTCHA (hCaptcha/Turnstile) i stedet for dagens enkle honeypot+tidssjekk-vern
   (`BotVern.cs`) — leverandørbeslutning på linje med BankID/Vipps/SMS.
-- Pasientens egen fullføringsside/portal (Del 4) — `PasientInvitasjonService` lagrer allerede et
-  gjenbrukbart invitasjonstoken, men ingen landingsside finnes ennå.
-- Polering av admin-/behandlerportal-UI (dagens sider er funksjonelle, ikke visuelt ferdige).
-- Testrammeverkets datamodell (ledd, sider, skåringsregler, lokalisering) — tas i fase 4–5 sammen med WHO-5.
+- Skåring og rapportoppsett (per besvarelse og over tid) — bevises ut med WHO-5 i fase 5, jf.
+  faseplanen. `TestSvar` lagrer rå svarverdier allerede, klare til å skåres når metodikken finnes.
+- Rediger/slett av tester/sider/ledd i admin-forfatterverktøyet (kun opprett i dag).
+- Polering av admin-/behandlerportal-/pasientportal-UI (dagens sider er funksjonelle, ikke visuelt ferdige).
 - Azure-konto opprettes av bruker når vi når sky-deploy-delen.

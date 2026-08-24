@@ -27,11 +27,16 @@
                 {
                     <a href="/Admin/Administratorer">Administratorer</a>
                     <a href="/Admin/Behandlere">Behandlere</a>
+                    <a href="/Admin/Tester">Tester</a>
                 }
                 if (CurrentUser.Role == UserRole.Behandler || CurrentUser.Role == UserRole.Utvikler)
                 {
                     <a href="/Behandlerportal/Pasienter">Pasienter</a>
                     <a href="/Behandlerportal/Behandlere/Inviter">Inviter kollega</a>
+                }
+                if (CurrentUser.Role == UserRole.Pasient || CurrentUser.Role == UserRole.Utvikler)
+                {
+                    <a href="/Pasientportal/MinSide">Min side</a>
                 }
                 <a href="/Admin/Konto/ByttModus">Bytt modus</a>
                 <a href="/Admin/Konto/LoggUt">Logg ut</a>
@@ -40,6 +45,7 @@
             {
                 <a href="/Admin/Konto/LoggInn">Logg inn (admin)</a>
                 <a href="/Behandlerportal/Konto/LoggInn">Logg inn (behandler)</a>
+                <a href="/Pasientportal/Konto/LoggInn">Logg inn (pasient)</a>
             }
         </nav>
     </header>

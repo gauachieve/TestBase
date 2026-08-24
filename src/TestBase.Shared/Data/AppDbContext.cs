@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Pasienter;
+using TestBase.Shared.Domain.Tester;
 using TestBase.Shared.Security;
 
 namespace TestBase.Shared.Data;
@@ -33,6 +34,11 @@ public sealed class AppDbContext : DbContext
     public DbSet<ToFaktorKode> ToFaktorKoder => Set<ToFaktorKode>();
     public DbSet<Pasient> Pasienter => Set<Pasient>();
     public DbSet<PasientInvitasjon> PasientInvitasjoner => Set<PasientInvitasjon>();
+    public DbSet<Test> Tester => Set<Test>();
+    public DbSet<TestSide> TestSider => Set<TestSide>();
+    public DbSet<TestLedd> TestLedd => Set<TestLedd>();
+    public DbSet<TestTildeling> TestTildelinger => Set<TestTildeling>();
+    public DbSet<TestSvar> TestSvar => Set<TestSvar>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -132,6 +138,10 @@ public sealed class AppDbContext : DbContext
             entity.Property(p => p.Email).HasMaxLength(256).IsRequired();
             entity.Property(p => p.Navn).HasMaxLength(256);
             entity.Property(p => p.Gruppenavn).HasMaxLength(128);
+            entity.Property(p => p.BiologiskKjonnVedFodsel).HasConversion<string>().HasMaxLength(16);
+            entity.Property(p => p.Kjonnsidentitet).HasConversion<string>().HasMaxLength(16);
+            entity.Property(p => p.KjonnsidentitetSpesifisert).HasMaxLength(128);
+            entity.Property(p => p.Adresse).HasMaxLength(256);
             entity.Property(p => p.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
             entity.HasIndex(p => p.BehandlerId);
         });
@@ -144,6 +154,52 @@ public sealed class AppDbContext : DbContext
             entity.Property(i => i.Token).HasMaxLength(128).IsRequired();
             entity.Property(i => i.KontaktVerdi).HasMaxLength(256).IsRequired();
             entity.Property(i => i.KontaktMetode).HasConversion<string>().HasMaxLength(16).IsRequired();
+        });
+
+        modelBuilder.Entity<Test>(entity =>
+        {
+            entity.ToTable("tester");
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.Navn).HasMaxLength(256).IsRequired();
+            entity.Property(t => t.Beskrivelse).HasMaxLength(2000);
+            entity.Property(t => t.Belonningstekst).HasMaxLength(2000);
+        });
+
+        modelBuilder.Entity<TestSide>(entity =>
+        {
+            entity.ToTable("test_sider");
+            entity.HasKey(s => s.Id);
+            entity.Property(s => s.Navn).HasMaxLength(256).IsRequired();
+            entity.Property(s => s.Instruksjon).HasMaxLength(2000);
+            entity.HasIndex(s => s.TestId);
+        });
+
+        modelBuilder.Entity<TestLedd>(entity =>
+        {
+            entity.ToTable("test_ledd");
+            entity.HasKey(l => l.Id);
+            entity.Property(l => l.Sporsmalstekst).HasMaxLength(1000).IsRequired();
+            entity.Property(l => l.Instruksjon).HasMaxLength(2000);
+            entity.Property(l => l.Svartype).HasConversion<string>().HasMaxLength(32).IsRequired();
+            entity.Property(l => l.Svaralternativer).HasMaxLength(1000);
+            entity.HasIndex(l => l.TestSideId);
+        });
+
+        modelBuilder.Entity<TestTildeling>(entity =>
+        {
+            entity.ToTable("test_tildelinger");
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+            entity.HasIndex(t => t.PasientId);
+            entity.HasIndex(t => t.TestId);
+        });
+
+        modelBuilder.Entity<TestSvar>(entity =>
+        {
+            entity.ToTable("test_svar");
+            entity.HasKey(s => s.Id);
+            entity.Property(s => s.SvarVerdi).HasMaxLength(2000).IsRequired();
+            entity.HasIndex(s => new { s.TestTildelingId, s.TestLeddId }).IsUnique();
         });
     }
 }

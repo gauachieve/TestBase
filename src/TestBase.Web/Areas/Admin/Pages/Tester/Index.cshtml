@@ -1,0 +1,28 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Tester.IndexModel
+@{
+    ViewData["Title"] = "Tester";
+}
+
+<h1>Tester</h1>
+<p><a href="/Admin/Tester/Ny">+ Ny test</a></p>
+
+<table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Navn</th>
+            <th>Aktiv</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var t in Model.Tester)
+    {
+        <tr>
+            <td>@t.Navn</td>
+            <td>@(t.ErAktiv ? "Ja" : "Nei")</td>
+            <td><a href="/Admin/Tester/Sider/@t.Id">Rediger sider</a></td>
+        </tr>
+    }
+    </tbody>
+</table>

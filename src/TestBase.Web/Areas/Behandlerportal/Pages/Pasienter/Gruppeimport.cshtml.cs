@@ -59,7 +59,8 @@ public sealed class GruppeimportModel : PageModel
             return Page();
         }
 
-        var resultat = await _pasientService.ImporterGruppeAsync(Liste, behandlerId, cancellationToken);
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        var resultat = await _pasientService.ImporterGruppeAsync(Liste, behandlerId, baseUrl, cancellationToken);
         AntallOpprettet = resultat.Opprettet.Count;
         HoppetOverLinjer = resultat.HoppetOverLinjer;
 

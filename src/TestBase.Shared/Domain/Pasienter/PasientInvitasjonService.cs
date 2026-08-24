@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Providers;
@@ -9,15 +10,14 @@ public sealed record GruppeimportResultat(IReadOnlyList<Pasient> Opprettet, IRea
 
 /// <summary>
 /// Behandlers pasientadministrasjon: legge til enkeltpasienter eller
-/// importere en gruppe (jf. Del 3 i kravdokumentet). Sender en invitasjon via
-/// mock SMS/e-post, men BEVISST uten lenke — pasientens egen fullføringsside
-/// er Del 4 og finnes ikke ennå (se PasientInvitasjon).
+/// importere en gruppe (jf. Del 3 i kravdokumentet), og pasientens egen
+/// fullføring av registreringen (jf. Del 4 — se
+/// <see cref="FullforRegistreringAsync"/>). Sender invitasjon via mock
+/// SMS/e-post med lenke til fullføringssiden.
 /// </summary>
 public sealed class PasientInvitasjonService
 {
     private static readonly TimeSpan InvitasjonLevetid = TimeSpan.FromDays(7);
-    private const string VenterPaaRegistreringMelding =
-        "Du er invitert til å bruke TestBase av din behandler. Registrering for pasienter kommer i en senere fase — du vil da motta en lenke på dette kontaktpunktet.";
 
     private readonly AppDbContext _db;
     private readonly ISmsSender _sms;
@@ -36,6 +36,7 @@ public sealed class PasientInvitasjonService
         string epost,
         long behandlerId,
         KontaktMetode varslingskanal,
+        string baseUrl,
         string? navn = null,
         string? gruppenavn = null,
         CancellationToken cancellationToken = default)
@@ -67,15 +68,64 @@ public sealed class PasientInvitasjonService
         });
         await _db.SaveChangesAsync(cancellationToken);
 
+        var lenke = $"{baseUrl.TrimEnd('/')}/PasientRegistrering/Fullfor/{token}";
+        var melding = $"Du er invitert til å bruke TestBase av din behandler. Fullfør registreringen din her: {lenke}";
+
         if (varslingskanal == KontaktMetode.Sms)
         {
-            await _sms.SendAsync(kontaktVerdi, VenterPaaRegistreringMelding, cancellationToken);
+            await _sms.SendAsync(kontaktVerdi, melding, cancellationToken);
         }
         else
         {
-            await _email.SendAsync(kontaktVerdi, "Invitasjon til TestBase", VenterPaaRegistreringMelding, cancellationToken);
+            await _email.SendAsync(kontaktVerdi, "Invitasjon til TestBase", melding, cancellationToken);
         }
 
+        return pasient;
+    }
+
+    public Task<PasientInvitasjon?> FinnGyldigInvitasjonAsync(string token, CancellationToken cancellationToken = default) =>
+        _db.PasientInvitasjoner.FirstOrDefaultAsync(
+            i => i.Token == token && i.BruktUtc == null && i.UtlopUtc > DateTimeOffset.UtcNow,
+            cancellationToken);
+
+    /// <summary>
+    /// Pasientens egen fullføring av registreringen (Del 4) — i motsetning til
+    /// behandler (Del 3) er det INGEN egen kontaktverifisering (SMS/e-post-kode)
+    /// her; BankID-innlogging etterpå er identitetsbekreftelsen.
+    /// </summary>
+    public async Task<Pasient> FullforRegistreringAsync(
+        PasientInvitasjon invitasjon,
+        string navn,
+        string personnummer,
+        string mobilNr,
+        string epost,
+        BiologiskKjonn biologiskKjonnVedFodsel,
+        Kjonnsidentitet? kjonnsidentitet,
+        string? kjonnsidentitetSpesifisert,
+        string? adresse,
+        bool godtarLagringAvData,
+        bool godtarMuligVippsBetaling,
+        CancellationToken cancellationToken = default)
+    {
+        var pasient = await _db.Pasienter.FirstAsync(p => p.Id == invitasjon.PasientId, cancellationToken);
+        pasient.Navn = navn;
+        pasient.Personnummer = personnummer;
+        pasient.MobilNr = mobilNr;
+        pasient.Email = epost;
+        pasient.BiologiskKjonnVedFodsel = biologiskKjonnVedFodsel;
+        pasient.Kjonnsidentitet = kjonnsidentitet;
+        pasient.KjonnsidentitetSpesifisert = kjonnsidentitet == Kjonnsidentitet.Annet ? kjonnsidentitetSpesifisert : null;
+        pasient.Adresse = adresse;
+        pasient.BrukeravtaleGodkjentVersjon = PasientBrukeravtale.GjeldendeVersjon;
+        pasient.BrukeravtaleGodkjentUtc = DateTimeOffset.UtcNow;
+        pasient.GodtarLagringAvData = godtarLagringAvData;
+        pasient.GodtarMuligVippsBetaling = godtarMuligVippsBetaling;
+        pasient.RegistrertUtc = DateTimeOffset.UtcNow;
+        pasient.Status = PasientStatus.Aktiv;
+
+        invitasjon.BruktUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(cancellationToken);
         return pasient;
     }
 
@@ -84,7 +134,7 @@ public sealed class PasientInvitasjonService
     /// ordrett). Linjer som ikke har alle fem feltene hoppes over og rapporteres
     /// tilbake til brukeren i stedet for å feile stille.
     /// </summary>
-    public async Task<GruppeimportResultat> ImporterGruppeAsync(string kommasepartListe, long behandlerId, CancellationToken cancellationToken = default)
+    public async Task<GruppeimportResultat> ImporterGruppeAsync(string kommasepartListe, long behandlerId, string baseUrl, CancellationToken cancellationToken = default)
     {
         var opprettet = new List<Pasient>();
         var hoppetOver = new List<string>();
@@ -101,7 +151,7 @@ public sealed class PasientInvitasjonService
 
             var (gruppenavn, navn, epost, mobil, personnummer) = (deler[0], deler[1], deler[2], deler[3], deler[4]);
             var varslingskanal = !string.IsNullOrWhiteSpace(mobil) ? KontaktMetode.Sms : KontaktMetode.Epost;
-            var pasient = await LeggTilAsync(personnummer, mobil, epost, behandlerId, varslingskanal, navn, gruppenavn, cancellationToken);
+            var pasient = await LeggTilAsync(personnummer, mobil, epost, behandlerId, varslingskanal, baseUrl, navn, gruppenavn, cancellationToken);
             opprettet.Add(pasient);
         }
 

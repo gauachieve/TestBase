@@ -1,5 +1,6 @@
 @page "{id:long}"
 @model TestBase.Web.Areas.Behandlerportal.Pages.Pasienter.DetaljerModel
+@using TestBase.Shared.Domain.Tester
 @{
     ViewData["Title"] = "Pasientdetaljer";
 }
@@ -14,6 +15,68 @@
     <li>Lagt til: @Model.Pasient?.OpprettetUtc</li>
 </ul>
 
-<p>Testhistorikk og rapporter kommer i fase 4–5, når testrammeverket er bygget.</p>
+<h2>Tildelte tester</h2>
 
-<p><a href="/Behandler/Pasienter">Tilbake til pasienter</a></p>
+@if (!Model.Tildelinger.Any())
+{
+    <p>Ingen tester tildelt ennå.</p>
+}
+else
+{
+    <table border="1" cellpadding="6" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Test</th>
+                <th>Status</th>
+                <th>Tildelt</th>
+                <th>Startet</th>
+                <th>Fullført</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var rad in Model.Tildelinger)
+        {
+            <tr>
+                <td>@rad.TestNavn</td>
+                <td>@rad.Tildeling.Status</td>
+                <td>@rad.Tildeling.TildeltUtc.ToString("g")</td>
+                <td>@(rad.Tildeling.StartetUtc?.ToString("g") ?? "-")</td>
+                <td>@(rad.Tildeling.FullfortUtc?.ToString("g") ?? "-")</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+<p>Skåring og rapporter kommer i fase 5, når testrammeverket bevises ut med et konkret eksempel (WHO-5).</p>
+
+<h2>Tildel ny test</h2>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+@if (!Model.AktiveTester.Any())
+{
+    <p>Ingen aktive tester finnes ennå — be administrator opprette en.</p>
+}
+else
+{
+    <form method="post">
+        <div>
+            <label>Test</label><br />
+            <select asp-for="TestId">
+                @foreach (var test in Model.AktiveTester)
+                {
+                    <option value="@test.Id">@test.Navn</option>
+                }
+            </select>
+        </div>
+        <div><label>Frist for oppstart (valgfritt)</label><br /><input asp-for="Frist" type="datetime-local" /></div>
+        <div><label>Varighet i minutter (valgfritt)</label><br /><input asp-for="VarighetMinutter" type="number" /></div>
+        <button type="submit">Tildel</button>
+    </form>
+}
+
+<p><a href="/Behandlerportal/Pasienter">Tilbake til pasienter</a></p>
