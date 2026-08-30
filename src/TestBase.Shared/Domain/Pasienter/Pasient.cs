@@ -35,6 +35,9 @@ public sealed class Pasient
     /// <summary>Når egenregistreringen ble fullført.</summary>
     public DateTimeOffset? RegistrertUtc { get; set; }
 
+    /// <summary>Hvilke kanaler pasienten vil ha varsel om nye testtildelinger på — valgt ved egenregistrering, standard Begge.</summary>
+    public Varslingspreferanse Varslingspreferanse { get; set; } = Varslingspreferanse.Begge;
+
     public PasientStatus Status { get; set; } = PasientStatus.Invitert;
     public long BehandlerId { get; set; }
     public DateTimeOffset OpprettetUtc { get; set; }

@@ -1,0 +1,24 @@
+@page "{id:long}"
+@model TestBase.Web.Areas.Behandlerportal.Pages.Pasienter.RedigerModel
+@{
+    ViewData["Title"] = "Rediger pasient";
+}
+
+<h1>Rediger pasient</h1>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<form method="post">
+    <input type="hidden" asp-for="Id" />
+    <div><label>Navn (valgfritt)</label><br /><input asp-for="Navn" /></div>
+    <div><label>Gruppe (valgfritt)</label><br /><input asp-for="Gruppenavn" /></div>
+    <div><label>Personnummer</label><br /><input asp-for="Personnummer" /></div>
+    <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
+    <div><label>E-post</label><br /><input asp-for="Epost" /></div>
+    <button type="submit">Lagre</button>
+</form>
+
+<p><a href="/Behandlerportal/Pasienter/Detaljer/@Model.Id">Se detaljer</a> | <a href="/Behandlerportal/Pasienter">Tilbake til pasienter</a></p>

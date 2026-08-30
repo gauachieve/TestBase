@@ -46,7 +46,7 @@ public sealed class GodkjennAvtaleModel : PageModel
         var behandler = await _db.Behandlere.FirstOrDefaultAsync(b => b.Id == behandlerId, cancellationToken);
         if (behandler is null)
         {
-            return RedirectToPage("LoggInn");
+            return RedirectToPage("/Konto/LoggInn", new { area = "" });
         }
 
         behandler.BrukeravtaleGodkjentVersjon = Brukeravtale.GjeldendeVersjon;
@@ -57,7 +57,7 @@ public sealed class GodkjennAvtaleModel : PageModel
             $"behandler:{behandler.Id}", nameof(UserRole.Behandler), "GodkjentBrukeravtale",
             nameof(Behandler), behandler.Id.ToString(), $"Versjon {Brukeravtale.GjeldendeVersjon}", cancellationToken);
 
-        return RedirectToPage("/Index", new { area = "" });
+        return RedirectToPage("/Pasienter/Index", new { area = "Behandlerportal" });
     }
 
     private long HentBehandlerId() =>

@@ -32,9 +32,14 @@
             <td>@(a.PasswordHash is not null ? "Passord (utviklingsmodus)" : "BankID + 2FA")</td>
             <td>@(a.ErArkivert ? "Arkivert" : "Aktiv")</td>
             <td>
+                <a class="btn-icon" href="/Admin/Administratorer/Rediger/@a.Id" title="Rediger" aria-label="Rediger">
+                    <partial name="_Ikon" model="@("rediger")" />
+                </a>
                 <form method="post" asp-page-handler="Arkiver" style="display:inline;">
                     <input type="hidden" name="id" value="@a.Id" />
-                    <button type="submit">@(a.ErArkivert ? "Gjenopprett" : "Arkiver")</button>
+                    <button type="submit" class="btn-icon" title="@(a.ErArkivert ? "Gjenopprett" : "Arkiver")" aria-label="@(a.ErArkivert ? "Gjenopprett" : "Arkiver")">
+                        <partial name="_Ikon" model="@(a.ErArkivert ? "gjenopprett" : "arkiver")" />
+                    </button>
                 </form>
             </td>
         </tr>

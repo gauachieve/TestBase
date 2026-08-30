@@ -24,8 +24,8 @@ public sealed class BehandlerAuthenticationService
         _toFaktor = toFaktor;
     }
 
-    public Task<BankIdResult> StartBankIdAsync(CancellationToken cancellationToken = default) =>
-        _bankId.AuthenticateAsync(cancellationToken);
+    public Task<BankIdResult> StartBankIdAsync(string? personnummerOverride = null, CancellationToken cancellationToken = default) =>
+        _bankId.AuthenticateAsync(personnummerOverride, cancellationToken);
 
     /// <summary>
     /// Personnummer er kryptert i databasen (se AppDbContext) og kan derfor
@@ -42,7 +42,7 @@ public sealed class BehandlerAuthenticationService
         return behandlere.FirstOrDefault(b => b.Personnummer == personnummer);
     }
 
-    public Task StartToFaktorAsync(Behandler behandler, CancellationToken cancellationToken = default) =>
+    public Task<string> StartToFaktorAsync(Behandler behandler, CancellationToken cancellationToken = default) =>
         _toFaktor.StartAsync(ToFaktorPrincipalType.Behandler, behandler.Id, behandler.MobilNr, cancellationToken);
 
     public Task<bool> VerifiserToFaktorAsync(Behandler behandler, string kode, CancellationToken cancellationToken = default) =>

@@ -27,7 +27,13 @@ public sealed class ToFaktorService
         _sms = sms;
     }
 
-    public async Task StartAsync(ToFaktorPrincipalType principalType, long principalId, string mobilNr, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Returnerer den genererte koden slik at kalleren (Pages/Konto/LoggInn) kan
+    /// vise den direkte i dev-UI-et — MockSmsSender logger den KUN til
+    /// konsollen, som i praksis er ubrukelig for manuell nettleser-testing (se
+    /// samme prinsipp for BehandlerInvitasjonResultat/PasientInvitasjonResultat).
+    /// </summary>
+    public async Task<string> StartAsync(ToFaktorPrincipalType principalType, long principalId, string mobilNr, CancellationToken cancellationToken = default)
     {
         var kode = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
 
@@ -44,6 +50,8 @@ public sealed class ToFaktorService
             mobilNr,
             $"TestBase-kode: {kode} (gyldig i {ToFaktorKodeLevetid.TotalMinutes:0} minutter).",
             cancellationToken);
+
+        return kode;
     }
 
     public async Task<bool> VerifiserAsync(ToFaktorPrincipalType principalType, long principalId, string kode, CancellationToken cancellationToken = default)

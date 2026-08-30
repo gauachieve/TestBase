@@ -13,6 +13,14 @@ namespace TestBase.Shared.Domain.Administrasjon;
 /// bekreftelse av e-post- og mobilkode (<see cref="BekreftKontaktAsync"/>) før
 /// kontoen blir Aktiv og administratorene varsles om å sjekke HPR-nummeret.
 /// </summary>
+/// <summary>
+/// Returneres fra <see cref="BehandlerInvitasjonService.InviterAsync"/> — <c>Lenke</c> er
+/// invitasjonslenken som (i mock-modus) kun logges via <c>ISmsSender</c>/<c>IEmailSender</c>,
+/// ikke faktisk sendes. Kalleren viser den direkte i UI slik at man kan fullføre
+/// invitasjonsflyten uten å måtte lete i konsoll-loggen.
+/// </summary>
+public sealed record BehandlerInvitasjonResultat(Behandler Behandler, string Lenke);
+
 public sealed class BehandlerInvitasjonService
 {
     private static readonly TimeSpan InvitasjonLevetid = TimeSpan.FromDays(7);
@@ -30,7 +38,7 @@ public sealed class BehandlerInvitasjonService
         _email = email;
     }
 
-    public async Task<Behandler> InviterAsync(
+    public async Task<BehandlerInvitasjonResultat> InviterAsync(
         string? mobilNr,
         string? epost,
         long? administratorId,
@@ -88,7 +96,7 @@ public sealed class BehandlerInvitasjonService
             await _email.SendAsync(kontaktVerdi, "Invitasjon til TestBase", melding, cancellationToken);
         }
 
-        return behandler;
+        return new BehandlerInvitasjonResultat(behandler, lenke);
     }
 
     public Task<BehandlerInvitasjon?> FinnGyldigInvitasjonAsync(string token, CancellationToken cancellationToken = default) =>

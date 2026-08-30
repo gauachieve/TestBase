@@ -23,7 +23,7 @@ public sealed class DetaljerModel : PageModel
         _currentUser = currentUser;
     }
 
-    public sealed record TildeltTestRad(TestTildeling Tildeling, string TestNavn);
+    public sealed record TildeltTestRad(TestTildeling Tildeling, string TestNavn, bool HarSkaaring);
 
     public Pasient? Pasient { get; private set; }
     public List<TildeltTestRad> Tildelinger { get; private set; } = new();
@@ -65,9 +65,9 @@ public sealed class DetaljerModel : PageModel
         }
 
         var tildeling = await _testService.TildelAsync(
-            TestId, id, behandlerId,
-            Frist is null ? null : new DateTimeOffset(Frist.Value, TimeSpan.Zero),
-            VarighetMinutter, cancellationToken);
+            TestId, id, behandlerId: behandlerId, administratorId: null,
+            frist: Frist is null ? null : new DateTimeOffset(Frist.Value, TimeSpan.Zero),
+            varighetMinutter: VarighetMinutter, cancellationToken: cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "TildelTest",
@@ -80,8 +80,14 @@ public sealed class DetaljerModel : PageModel
     {
         var tildelinger = await _testService.HentTildelingerForPasientAsync(pasientId, cancellationToken);
         var testIder = tildelinger.Select(t => t.TestId).Distinct().ToList();
-        var testNavn = await _db.Tester.Where(t => testIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Navn, cancellationToken);
-        Tildelinger = tildelinger.Select(t => new TildeltTestRad(t, testNavn.GetValueOrDefault(t.TestId, "(ukjent test)"))).ToList();
+        var testerById = await _db.Tester.Where(t => testIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, cancellationToken);
+        Tildelinger = tildelinger.Select(t =>
+        {
+            var test = testerById.GetValueOrDefault(t.TestId);
+            return new TildeltTestRad(
+                t, test?.Navn ?? "(ukjent test)",
+                t.Status == TestTildelingStatus.Fullfort && _testService.HarSkaaringsberegner(test?.Kode));
+        }).ToList();
 
         AktiveTester = await _testService.HentAktiveTesterAsync(cancellationToken);
     }

@@ -10,5 +10,12 @@ public sealed record BankIdResult(bool Success, string? PersonNummer, string? Fu
 /// </summary>
 public interface IBankIdProvider
 {
-    Task<BankIdResult> AuthenticateAsync(CancellationToken cancellationToken = default);
+    /// <summary>
+    /// <paramref name="personnummerOverride"/> brukes KUN av MockBankIdProvider
+    /// (et dev-only felt på innloggingssidene, se beslutningsloggen "BankID
+    /// personnummer-overstyring") for å kunne bytte mellom flere test-personer
+    /// uten en ekte BankID-sesjon. En ekte leverandørimplementasjon vil ignorere
+    /// parameteren — ekte BankID bestemmer alltid personen selv.
+    /// </summary>
+    Task<BankIdResult> AuthenticateAsync(string? personnummerOverride = null, CancellationToken cancellationToken = default);
 }

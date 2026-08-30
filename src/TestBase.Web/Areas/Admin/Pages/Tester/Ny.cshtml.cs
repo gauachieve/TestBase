@@ -41,7 +41,7 @@ public sealed class NyModel : PageModel
             return Page();
         }
 
-        var test = await _testService.OpprettTestAsync(Navn, Beskrivelse, Belonningstekst, cancellationToken);
+        var test = await _testService.OpprettTestAsync(Navn, Beskrivelse, Belonningstekst, cancellationToken: cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "OpprettTest",

@@ -8,7 +8,10 @@
 
 @if (Model.Sendt)
 {
-    <p>Invitasjon sendt (mock — se konsollen der <code>dotnet watch run</code> kjører for lenken).</p>
+    <p>Invitasjon "sendt" (mock — ingen ekte SMS/e-post er koblet til ennå). Del denne lenken med
+    kollegaen for at de skal kunne fullføre registreringen:</p>
+    <p><a href="@Model.Lenke">@Model.Lenke</a></p>
+    <p><a href="/Behandlerportal/Behandlere/Inviter">Inviter en til</a></p>
 }
 else
 {

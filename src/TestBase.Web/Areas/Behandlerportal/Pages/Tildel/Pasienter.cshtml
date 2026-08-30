@@ -1,0 +1,62 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.Tildel.PasienterModel
+@{
+    ViewData["Title"] = "Tildel tester";
+}
+
+<h1>Tildel tester — steg 1: velg pasienter</h1>
+<p>Velg én eller flere pasienter (f.eks. en hel gruppe) som skal få tildelt tester i neste steg.</p>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+@if (!Model.Pasienter.Any())
+{
+    <p>Ingen tilgjengelige pasienter — <a href="/Behandlerportal/Pasienter/Ny">legg til en pasient</a> først.</p>
+}
+else
+{
+    <form method="post">
+        <table border="1" cellpadding="6" cellspacing="0">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Navn</th>
+                    <th>Gruppe</th>
+                    <th>Kanaler</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var rad in Model.Pasienter)
+            {
+                var p = rad.Pasient;
+                var harMobil = !string.IsNullOrWhiteSpace(p.MobilNr);
+                var harEpost = !string.IsNullOrWhiteSpace(p.Email);
+                var kanVelges = harMobil || harEpost;
+                <tr style="@(kanVelges ? "" : "color: #999;")">
+                    <td><input type="checkbox" name="PasientIder" value="@p.Id" disabled="@(!kanVelges)" /></td>
+                    <td>@(p.Navn ?? "(ikke fullført)")</td>
+                    <td>@(p.Gruppenavn ?? "-")</td>
+                    <td>
+                        <span class="tildel-kanal-ikon @(harMobil ? "tilgjengelig" : "")" title="@(harMobil ? "Har mobilnummer" : "Mangler mobilnummer")">
+                            <partial name="_Ikon" model="@("sms")" />
+                        </span>
+                        <span class="tildel-kanal-ikon @(harEpost ? "tilgjengelig" : "")" title="@(harEpost ? "Har e-post" : "Mangler e-post")">
+                            <partial name="_Ikon" model="@("epost")" />
+                        </span>
+                        @if (!kanVelges)
+                        {
+                            <em>(mangler kontaktinfo — kan ikke varsles)</em>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+        <button type="submit">Neste: velg tester</button>
+    </form>
+}
+
+<p><a href="/Behandlerportal/Pasienter">Tilbake til pasienter</a></p>

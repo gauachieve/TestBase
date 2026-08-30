@@ -16,8 +16,18 @@ public sealed class MockBankIdProvider : IBankIdProvider
         _logger = logger;
     }
 
-    public Task<BankIdResult> AuthenticateAsync(CancellationToken cancellationToken = default)
+    public Task<BankIdResult> AuthenticateAsync(string? personnummerOverride = null, CancellationToken cancellationToken = default)
     {
+        if (!string.IsNullOrWhiteSpace(personnummerOverride))
+        {
+            _logger.LogInformation("[MOCK BankID] Simulerer vellykket innlogging for manuelt angitt personnummer (kun utviklingsmiljø).");
+            return Task.FromResult(new BankIdResult(
+                Success: true,
+                PersonNummer: personnummerOverride.Trim(),
+                FullName: "Testperson (personnummer valgt manuelt)",
+                ErrorMessage: null));
+        }
+
         _logger.LogInformation("[MOCK BankID] Simulerer vellykket innlogging for fiktiv testperson.");
 
         var result = new BankIdResult(

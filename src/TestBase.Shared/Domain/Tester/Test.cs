@@ -9,6 +9,15 @@ namespace TestBase.Shared.Domain.Tester;
 public sealed class Test
 {
     public long Id { get; set; }
+
+    /// <summary>
+    /// Stabil identifikator for innebygde tester (f.eks. "who5") — brukt til
+    /// idempotent regenerering (se IInnebygdTestSeeder) og til å slå opp
+    /// riktig skåringsberegner (se ITestSkaaringsberegner). Null for
+    /// tester opprettet fritt av admin uten tilknyttet skåringslogikk.
+    /// </summary>
+    public string? Kode { get; set; }
+
     public required string Navn { get; set; }
 
     /// <summary>Instruksjon på test-nivå, vist før første side.</summary>

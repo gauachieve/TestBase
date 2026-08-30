@@ -1,7 +1,9 @@
 @page
 @model TestBase.Web.Areas.Pasientportal.Pages.Konto.LoggInnModel
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
 @{
     ViewData["Title"] = "Logg inn som pasient";
+    ViewData["Portal"] = "pasient";
 }
 
 <h1>Logg inn som pasient</h1>
@@ -12,8 +14,19 @@
 }
 
 <form method="post">
+    <input type="hidden" asp-for="ReturnUrl" />
+    <div><label><input asp-for="HuskMeg" type="checkbox" /> Husk meg</label></div>
+    @if (Env.IsDevelopment())
+    {
+        <div>
+            <label>Personnummer (kun utviklingsmiljø — overstyrer BankID-mock, bytt for å logge inn som en annen test-pasient)</label><br />
+            <input asp-for="PersonnummerOverride" autocomplete="off" placeholder="La stå tomt for fast test-personnummer" />
+        </div>
+    }
     <div>
-        <label><input asp-for="HuskMeg" type="checkbox" /> Husk meg</label>
+        <label>@Model.CaptchaSporsmal</label><br />
+        <input asp-for="CaptchaSvar" autocomplete="off" inputmode="numeric" />
+        <input type="hidden" asp-for="CaptchaSignertFasit" />
     </div>
     <button type="submit">Logg inn med BankID</button>
 </form>

@@ -34,7 +34,7 @@ public sealed class DevDemoModel : PageModel
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
-        BankIdResult = await _bankId.AuthenticateAsync(cancellationToken);
+        BankIdResult = await _bankId.AuthenticateAsync(cancellationToken: cancellationToken);
         VippsResult = await _vipps.ChargeAsync(0m, "Dev-demo testbelastning", cancellationToken);
         await _sms.SendAsync("+4700000000", "Dev-demo: dette er en test-SMS.", cancellationToken);
         await _email.SendAsync("dev@example.test", "Dev-demo", "Dette er en test-e-post.", cancellationToken);

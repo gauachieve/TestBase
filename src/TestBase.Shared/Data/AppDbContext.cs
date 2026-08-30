@@ -39,6 +39,8 @@ public sealed class AppDbContext : DbContext
     public DbSet<TestLedd> TestLedd => Set<TestLedd>();
     public DbSet<TestTildeling> TestTildelinger => Set<TestTildeling>();
     public DbSet<TestSvar> TestSvar => Set<TestSvar>();
+    public DbSet<TestKategori> TestKategorier => Set<TestKategori>();
+    public DbSet<TestKategoriKobling> TestKategoriKoblinger => Set<TestKategoriKobling>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -143,6 +145,7 @@ public sealed class AppDbContext : DbContext
             entity.Property(p => p.KjonnsidentitetSpesifisert).HasMaxLength(128);
             entity.Property(p => p.Adresse).HasMaxLength(256);
             entity.Property(p => p.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+            entity.Property(p => p.Varslingspreferanse).HasConversion<string>().HasMaxLength(16).IsRequired();
             entity.HasIndex(p => p.BehandlerId);
         });
 
@@ -160,6 +163,8 @@ public sealed class AppDbContext : DbContext
         {
             entity.ToTable("tester");
             entity.HasKey(t => t.Id);
+            entity.Property(t => t.Kode).HasMaxLength(64);
+            entity.HasIndex(t => t.Kode).IsUnique();
             entity.Property(t => t.Navn).HasMaxLength(256).IsRequired();
             entity.Property(t => t.Beskrivelse).HasMaxLength(2000);
             entity.Property(t => t.Belonningstekst).HasMaxLength(2000);
@@ -200,6 +205,22 @@ public sealed class AppDbContext : DbContext
             entity.HasKey(s => s.Id);
             entity.Property(s => s.SvarVerdi).HasMaxLength(2000).IsRequired();
             entity.HasIndex(s => new { s.TestTildelingId, s.TestLeddId }).IsUnique();
+        });
+
+        modelBuilder.Entity<TestKategori>(entity =>
+        {
+            entity.ToTable("test_kategorier");
+            entity.HasKey(k => k.Id);
+            entity.Property(k => k.Navn).HasMaxLength(128).IsRequired();
+            entity.HasIndex(k => k.Navn).IsUnique();
+        });
+
+        modelBuilder.Entity<TestKategoriKobling>(entity =>
+        {
+            entity.ToTable("test_kategori_koblinger");
+            entity.HasKey(k => k.Id);
+            entity.HasIndex(k => new { k.TestId, k.TestKategoriId }).IsUnique();
+            entity.HasIndex(k => k.TestKategoriId);
         });
     }
 }

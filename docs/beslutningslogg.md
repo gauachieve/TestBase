@@ -1,6 +1,6 @@
 # Prosjektstatus og beslutningslogg — Online Testesystem
 
-*Sist oppdatert: 2026-08-24 (fase 4). Dette dokumentet lever gjennom hele prosjektet og skal til enhver tid kunne brukes til å regenerere løsningen med alle beslutninger tatt. Denne kopien ble tatt med inn i Git-repoet 2026-08-20 da prosjektet ble konvertert fra Claude (Cowork) til Claude Code — masterversjonen lå tidligere kun i et claude.ai-prosjekt ("Testdatabase"), som ikke er tilgjengelig fra Claude Code. Denne filen ER nå masterversjonen; oppdater den videre her.*
+*Sist oppdatert: 2026-08-24 (fase 5, slice 1). Dette dokumentet lever gjennom hele prosjektet og skal til enhver tid kunne brukes til å regenerere løsningen med alle beslutninger tatt. Denne kopien ble tatt med inn i Git-repoet 2026-08-20 da prosjektet ble konvertert fra Claude (Cowork) til Claude Code — masterversjonen lå tidligere kun i et claude.ai-prosjekt ("Testdatabase"), som ikke er tilgjengelig fra Claude Code. Denne filen ER nå masterversjonen; oppdater den videre her.*
 
 ## Kilde
 
@@ -30,7 +30,9 @@ Fase 1: Del 1 — lokalt utviklingsmiljø. **Ferdig (lokal del) 2026-08-20.** Sk
 Fase 2: Del 2 — admin-skjelett + BankID/2FA-autentisering. **Første slice ferdig 2026-08-23** (se "Del 2 (slice 1)" under) — pris/rapporter/backup/org-støtte er bevisst utsatt, se "Åpne punkter".
 Fase 3: Del 3 — behandlersystem. **Første slice ferdig 2026-08-24** (se "Del 3 (slice 1)" under) — rapporter/økonomi/automatiske utsendelser er bevisst utsatt, se "Åpne punkter".
 Fase 4: Del 4 — pasientsystem + testmotor (generisk rammeverk). **Første slice ferdig 2026-08-24** (se "Del 4 (slice 1)" under) — lokalisering, Vipps-betalingssperre, påminnelser og skåring/rapporter er bevisst utsatt, se "Åpne punkter".
-Fase 5: Første konkrete test (WHO-5) ende-til-ende som mal for fremtidige tester.
+Fase 5: Første konkrete test (WHO-5) ende-til-ende som mal for fremtidige tester. **Første
+slice ferdig 2026-08-24** (se "Del 5 (slice 1)" under) — lokalisering fortsatt utsatt, se
+"Åpne punkter".
 Fase 6: Betaling (VIPPS), fakturering, økonomiske rapporter.
 
 Fulle krav for hver del ligger i `docs/prosjektbeskrivelse-original.md` — les den delen som er relevant før du designer videre, ikke stol på hukommelse/sammendrag alene.
@@ -286,6 +288,299 @@ alle stegene. Regresjonstestet: admin- og behandler-innlogging uendret.
 påminnelser (frist/varighet lagres men håndheves ikke), skåring, rapporter (per besvarelse og
 over tid), rediger/slett av tester/sider/ledd, enhetstester.
 
+## Del 5 (slice 1) — WHO-5 ende-til-ende (skåring, rapport, regenerering)
+
+**Status: ferdig og verifisert lokalt 2026-08-24.** Omfang (bekreftet av bruker): full WHO-5
+ende-til-ende, kun norsk — lokalisering fortsatt bevisst utsatt, se "Åpne punkter". Formålet var
+å bevise testrammeverket ut med et konkret, virkelig validert instrument, ikke bare
+skjelett-data.
+
+**Kilder brukt (offisiell norsk oversettelse, hentet 2026-08-24):** WHO-hostet norsk PDF
+(oversatt av overlege Olaf Bakke, Arendal 2004, versjon 1.1),
+`https://cdn.who.int/media/docs/default-source/mental-health/five-well-being-index-(who-5)/who-5_norwegian.pdf`,
+samt Psyktestbarn (r-bup.no) som bekreftelse på instruksjonstekst og skåringsformel. Et første
+PDF-søketreff viste seg å faktisk være dansk til tross for å være merket norsk i søkeresultatet —
+oppdaget ved lesing, korrigert ved å finne det faktiske WHO-hostede norske dokumentet via et
+gjettet CDN-URL-mønster. **Forbehold arvet fra WHOs eget dokument** (samme som DPIA-/
+brukeravtale-utkastene): oversettelsen er ikke WHOs ansvar for nøyaktighet, engelsk versjon er
+bindende ved uoverensstemmelse — bør kvalitetssikres før reell klinisk bruk.
+
+**Designhull WHO-5 avdekket i testmotoren fra fase 4:** `TestSvartype.Likert5` var hardkodet til
+nøyaktig 5 punkter (verdi 1–5) — WHO-5 er en 6-PUNKTS skala (verdi 0–5). Løst ved å generalisere
+til en data-drevet N-punkts Likert-skala (`Likert5` → `LikertSkala`) i stedet for én ny
+enum-verdi per punktantall, gjenbrukbart for fremtidige tester med andre skalastørrelser.
+`Svaralternativer` gikk fra implisitt CSV-liste av labels til eksplisitte `"verdi:tekst"`-par
+(`TestLeddSvaralternativer.Parse`), kommaseparert, i den REKKEFØLGEN de skal vises — WHO-5 viser
+"Hele tiden" (5) først, "Aldri" (0) sist, samme rekkefølge som originaldokumentet, IKKE sortert
+på verdi. Konsekvens for eksisterende dev-data: den ene demo-testen fra fase 4-verifiseringen
+brukte gammelt `Likert5`-CSV-format som ikke lenger var gyldig — slettet manuelt via SQL som del
+av verifiseringen (ren syntetisk dev-testdata, ikke en produksjonsmigrasjon).
+
+**`Test.Kode`** (ny, nullable, unik indeks når satt): dobbel rolle — identifiserer testen for
+idempotent regenerering, OG nøkkel for å slå opp riktig skåringsberegner. WHO-5 har
+`Kode="who5"`. Migrasjon `Fase5Who5OgSkaaring` (kun denne ene kolonnen + indeks).
+
+**Regenereringsmekanisme** (`Domain/Tester/InnebygdeTester/`): `IInnebygdTestSeeder`
+(`Kode` + `SeedAsync`) + `Who5TestSeeder`, idempotent (sjekker `FinnesTestMedKodeAsync` før
+oppretting). Kalles fra to steder via samme `IEnumerable<IInnebygdTestSeeder>`-registrering: (1)
+`Program.cs`s dev-seed-blokk ved oppstart i Development, og (2) en "Regenerer innebygde tester"-
+knapp på `Admin/Tester/Index` som virker i ALLE miljøer — jf. kravets "husk alltid å lage
+regenerering av tester" lest som et generelt krav, ikke bare en dev-bekvemmelighet. Verifisert
+manuelt: WHO-5 slettet via SQL (test+side+ledd), knapp trykket, testen gjenskapt identisk
+(samme navn, kode, 1 side, 5 ledd) uten omstart av appen.
+
+**Skåringsmotor** (`Domain/Tester/Skaaring/`): `TestSkaaring`-record
+(`RaaSkaar`/`RaaSkaarMaks`/`ProsentSkaar`/`Fortolkning`), `ITestSkaaringsberegner`-grensesnitt
+(`TestKode` + `BeregnSkaaring(svar)`), `Who5Skaaringsberegner` — råskår = sum (0–25),
+prosentskår = råskår × 4, flagget for nærmere undersøkelse hvis råskår < 13 ELLER noe
+enkeltsvar er 0/1. `TestService` fikk `BeregnSkaaringAsync(tildelingId)` (null hvis testen ikke
+har noen registrert beregner) og `HentSkaaringHistorikkAsync(pasientId, testKode)` for
+"over tid"-rapporten (kronologisk liste over alle fullførte tildelinger med samme `Kode`).
+
+**Rapport-side** (`Behandlerportal/Pasienter/Rapport.cshtml`, eierskapssjekk mot innlogget
+behandler samme mønster som `Detaljer.cshtml`): råskår/maks, prosentskår (enkel CSS-stolpe, ingen
+eksternt graf-bibliotek), fortolkningstekst, full svartabell (spørsmål + gitt svar-label), og
+en "Utvikling over tid"-tabell (vises kun ved >1 fullført besvarelse av samme test) som markerer
+"(signifikant endring)" når endring i prosentskår ≥ 10 % — ordrett fra WHO-5-veiledningen.
+`Detaljer.cshtml` fikk en "Se rapport"-lenke per fullført tildeling, KUN der testen faktisk har
+en registrert skåringsberegner (`TestService.HarSkaaringsberegner`).
+
+**Verifisert manuelt ende-til-ende, begge fasit-tilfeller:**
+- Alle svar = 5: råskår 25/25, prosentskår 100, "Over grenseverdien — indikerer ikke i seg selv
+  behov for videre undersøkelse."
+- Alle svar = 0 (ny tildeling, samme pasient): råskår 0/25, prosentskår 0, "Under grenseverdien
+  (13) ... WHO-5-veiledningen anbefaler å gå videre med nærmere undersøkelse."
+- "Utvikling over tid" viste begge besvarelsene kronologisk med endring −100 markert
+  "(signifikant endring)" — over/under-terskel-logikken fungerer i begge retninger.
+
+Regresjonstestet: `dotnet build` rent (0 advarsler/feil), integrasjonstestsuiten
+(`HeleFlytenTests`, oppdatert for `LikertSkala`) grønn, admin-innlogging (passord-modus) og
+BankID+2FA-flyten uendret.
+
+**Ikke gjort i denne slicen (se "Åpne punkter"):** lokalisering, enhetstester for
+`Who5Skaaringsberegner`/`Who5TestSeeder`, WHO-5-spesifikke assertions i integrasjonstestsuiten
+(kjøres i dag kun mot en generisk test), rediger/slett av `Test.Kode` i admin-UI.
+
+## Feilrettinger funnet ved reell bruk (2026-08-25)
+
+Bruker rapporterte to ting som ikke virket ved manuell testing i nettleser (ikke fanget opp av
+integrasjonstestsuiten, som bruker `RequestUri`-substring-sjekker og leser mock-meldinger
+direkte fra `ISmsSender`/`IEmailSender` i stedet for å klikke lenker i UI):
+
+**"Legg til pasient" ga 404:** `Behandlerportal/Pasienter/Index.cshtml` og `Gruppeimport.cshtml`
+hadde fortsatt harde lenker til `/Behandler/Pasienter/...` (uten "portal") — et gjenglemt
+levning fra area-omdøpingen i fase 3 (`Behandler` → `Behandlerportal`, se "Del 3 (slice 1)").
+Fase 4s opprydding fanget kun opp ett tilsvarende tilfelle i `Detaljer.cshtml`; disse fire
+(`Index.cshtml` × 3, `Gruppeimport.cshtml` × 1) ble oversett. Rettet til `/Behandlerportal/...`.
+**Lærdom:** et `grep` etter `href="/Behandler/` på tvers av HELE `src/` bør kjøres som en siste
+sjekk hver gang et Area omdøpes, ikke stole på å ha fanget opp alle stedene manuelt.
+
+**Behandler-/pasient-invitasjon "virket ikke":** koden fungerte teknisk (invitasjon ble
+opprettet, lenke generert riktig), men lenken ble KUN logget via `ILogger` inni
+`MockSmsSender`/`MockEmailSender` — synlig bare i konsollen der `dotnet watch run` kjører, ikke
+noe sted i selve nettleser-UI-et. Uten tilgang til den konsollen (eller uten å vite man skulle
+lete der) var det umulig å faktisk fullføre en invitasjon. Fikset ved å la
+`BehandlerInvitasjonService.InviterAsync` og `PasientInvitasjonService.LeggTilAsync` returnere
+lenken direkte (nye records `BehandlerInvitasjonResultat`/`PasientInvitasjonResultat`), og vise
+den som en klikkbar lenke rett i bekreftelsen på alle fire berørte sider (`Admin/Behandlere/Inviter`,
+`Behandlerportal/Behandlere/Inviter`, `Behandlerportal/Pasienter/Ny`, `Behandlerportal/Pasienter/Gruppeimport`
+— sistnevnte fikk én lenke per opprettet pasient). `Pasienter/Ny` gikk samtidig fra å redirecte
+rett til pasientlisten (ingen bekreftelse vist) til å vise samme "opprettet + lenke"-mønster som
+gruppeimport allerede hadde. Dette er fortsatt mock (ingen ekte SMS/e-post sendes), men admin/
+behandler kan nå selv kopiere lenken videre til personen de inviterer, eller klikke seg gjennom
+den under testing, uten terminaltilgang.
+
+**Driftsfunn under feilsøkingen — port-mismatch + hengende prosesser:** appen som faktisk kjørte
+og ble testet mot var startet på port 5299 en gang tidligere i prosjektet, men
+`launchSettings.json` (eneste profil, `"https"`) har alltid vært `https://localhost:7257;http://localhost:5257`
+— 5299 var aldri den konfigurerte porten, bare en avvikende manuell overstyring fra en tidligere
+øving som aldri ble skrevet tilbake til `launchSettings.json`. Kombinert med to `TestBase.Web.exe`-
+prosesser som satt og låste build-outputen (klassisk "kjør aldri `dotnet ef`/`dotnet build` mens
+`dotnet watch run` kjører samtidig i et annet vindu"-fallgruve, se under, men her var det TO
+gamle prosesser, ikke én aktiv), gjorde det at Razor-endringer ikke ble hot-reloadet inn i den
+kjørende appen bruker testet mot. Løst ved å drepe de gamle prosessene og starte
+`dotnet watch run` på nytt uten portoverstyring — appen kjører nå på standardporten fra
+`launchSettings.json`. **Lærdom:** hvis nettleser-testing ikke reflekterer nylige kodeendringer
+til tross for at `dotnet watch run` "kjører", mistenk (1) feil port (sjekk `launchSettings.json`
+i stedet for å anta), og (2) flere/hengende `TestBase.Web.exe`-prosesser (`tasklist`/`netstat -ano`)
+som låser build-outputen uten selv å svare på requests på riktig port.
+
+## Offentlig design + samlet profesjonell innlogging (2026-08-30)
+
+Bruker ba om et visuelt design (referansebilde av en profesjonell konsulent-nettside) for
+forsiden, og deretter om at all funksjonalitet skulle bringes inn i samme design, samt en rekke
+innloggings-/personvernendringer. Gjort i to omganger:
+
+**Design:** Ny `wwwroot/css/site.css` (oransje/mørk fargepalett, vinklede figurer i hero,
+responsivt fra mobil til desktop) + generiske komponentstiler (kort, tabeller, skjemaer, knapper)
+som treffer ALLE eksisterende sider via attributt-/strukturselektorer (`table[border]`,
+`form:not([style*="display:inline"])`, `p[style*="color: darkred"]` osv.) — bevisst valgt
+FREMFOR å redigere alle ~30 `.cshtml`-filene enkeltvis, siden skjemamønsteret var 100 % identisk
+på tvers av admin/behandler/pasient-sidene. `wwwroot/img/hero-placeholder.svg` er en tydelig
+merket dummy — bytt ut når ekte bilder finnes.
+
+**Samlet innlogging for administrator og behandler:** Ny `Pages/Konto/{LoggInn,BekreftKode,LoggUt}`
+(utenfor Areas) erstatter de tidligere separate `Areas/Admin/Pages/Konto/*` og
+`Areas/Behandlerportal/Pages/Konto/*`-sidene. Ett skjema, ingen rollevalg — BankID-knappen finner
+personen via personnummer og logger inn på HØYESTE tilgjengelige rolle (administrator sjekkes før
+behandler i `LoggInnModel.OnPostAsync`), i stedet for at brukeren velger portal selv. AdminId+
+passord (kun utviklingsmiljø) er nå et sekundært ETT-STEGS alternativ i en `<details>`-boks på
+samme side (tidligere et to-stegs skjema på samme URL) — se `Pages/Konto/LoggInn.cshtml(.cs)`.
+Pasient beholder egen separat innlogging (`Areas/Pasientportal`), siden pasienter er en egen
+gruppe uten rolleoverlapp, med egen offentlig landingsside `/Pasienter` (separat fra `/`, som nå
+er admin/behandler sin inngang). `Program.cs` sin `InnloggingsstiFor` og cookie-`LoginPath` er
+oppdatert tilsvarende.
+
+**Viktig konsekvens for testing/dev-seed:** siden `MockBankIdProvider` alltid returnerer samme
+faste personnummer, vil en administrator OG en behandler med dette personnummeret nå kollidere —
+den samlede innloggingen velger alltid administrator. `HeleFlytenTests.cs` måtte oppdateres til å
+arkivere test-BankID-administratoren før behandler-BankID-steget testes (se kommentar i testen).
+Dette er tilsiktet oppførsel (jf. brukerens ønske om "høyeste rolle"), ikke en bug.
+
+**Innlogget-som-indikator:** Lagt til `Innlogget som: @CurrentUser.DisplayName` i header
+(`_Layout.cshtml`) ved siden av "Logg ut" — fantes tidligere kun som tekst på den gamle
+dev-status-forsiden, som ble fjernet i designomgangen. Uten denne var det ingen sidenøytral måte
+å bekrefte hvem som er innlogget (både i appen og i integrasjonstesten).
+
+**Etter-innlogging-mål endret:** admin havner nå på `/Admin/Administratorer` (var `/Index`),
+behandler på `/Behandlerportal/Pasienter` (var `/Index`, med `GodkjennAvtale` fortsatt i mellom
+ved behov) — landing rett i arbeidsflaten i stedet for på markedsføringsforsiden.
+
+**CAPTCHA:** Nytt grensesnitt `ICaptchaProvider` (`TestBase.Shared/Providers/`) +
+`MockCaptchaProvider` (`Providers/Mock/`) — samme mønster som BankID/Vipps/SMS/e-post. Mock-
+implementasjonen er et enkelt regnestykke ("hva er X + Y?") signert med DataProtection (samme
+mekanisme som krypterer personnummer) i et skjult felt, uten server-side sesjon. Lagt til på alle
+tre innloggingssider (samlet admin/behandler + pasient). Dette er FORTSATT ikke en ekte
+tredjeparts-CAPTCHA (hCaptcha/Turnstile) — se oppdatert punkt under "Åpne punkter".
+
+**Dev-bar skjult etter innlogging:** `Env.IsDevelopment()`-varselet (lenker til `/DevDemo`,
+`/health`) vises nå kun for ikke-innloggede besøkende, ikke for noen innlogget rolle — unngår at
+det ligger og forstyrrer i alle tre portalene etter innlogging.
+
+**EU-cookie-varsel:** Ny `Pages/Shared/_CookieSamtykke.cshtml`-partial (ren HTML/CSS/inline JS,
+ingen ekstern leverandør) + `/personvern`-side. Rent informativt — appen bruker kun strengt
+nødvendige cookies (innlogging, antiforgery, selve samtykkevarselet), som juridisk sett ikke
+krever aktivt samtykke, men varselet gir åpenhet uten å gate noen funksjonalitet bak et
+samtykkevalg (unngikk bevisst `CookiePolicyMiddleware`/`ITrackingConsentFeature` for å ikke
+risikere å blokkere innloggingscookien).
+
+**"Husk meg" er allerede cookie-basert:** ingen endring nødvendig — `AuthSignIn.LoggInnAsync`
+har alltid satt `IsPersistent = huskMeg` på innloggingscookien.
+
+## Rediger-funksjon for administrator/test/pasient (2026-08-30)
+
+Lagt til en grønn "Rediger"-knapp ved siden av "Arkiver" (og "Rediger sider" for tester) på de tre
+oversiktssidene: `Admin/Administratorer`, `Admin/Tester`, `Behandlerportal/Pasienter`. Hver har nå
+en `Rediger/{id}`-side (GET forhåndsutfyller, POST lagrer) som følger nøyaktig samme
+skjemamønster som de eksisterende "Ny"-sidene, og arver dermed kort-designet fra CSS-en uten
+noen egen styling. `TestService` fikk `HentTestAsync`/`OppdaterTestAsync`. Personnummer er bevisst
+redigerbart for administrator/pasient (samme i-minnet-unikhetssjekk som ved opprettelse,
+ekskludert entiteten selv) — nyttig for å rette skrivefeil, men endrer BankID-identitetsmatching
+hvis det gjøres etter at personen har logget inn.
+
+Ny testklasse `RedigerTests.cs` (samme collection/database som `HeleFlytenTests`) dekker alle tre.
+**Lærdom:** siden alle tester i `TestBaseCollection` deler én database, må enhver test som logger
+inn en behandler via BankID (fast mock-personnummer) enten bruke unike identifikatorer ELLER
+selv arkivere det den oppretter etterpå — `RedigerPasient`-testen lot først en aktiv
+testbehandler stå igjen med det delte personnummeret, som gjorde `HeleFlytenTests` sitt eget
+behandler-BankID-steg tvetydig (og dermed feilslått) når det kjørte etterpå i samme test-run.
+Fikset ved å arkivere behandleren igjen på slutten av testen (samme prinsipp som HeleFlytenTests
+allerede bruker for administrator-kollisjonen).
+
+## Tildelingsflyt for tester + BankID personnummer-overstyring + varslingspreferanse (2026-08-30)
+
+Tre relaterte tilføyelser etter brukertilbakemelding om at (1) man ikke kunne bytte mellom flere
+BankID-mock-personer for å teste ulike roller, (2) testmotoren manglet reelt innhold utover
+skjelettet/WHO-5, og (3) det ikke fantes noen samlet måte å tildele tester til flere pasienter på
+én gang.
+
+**BankID personnummer-overstyring (dev-only):** `IBankIdProvider.AuthenticateAsync` fikk en ny
+`string? personnummerOverride`-parameter (lagt FØRST, med `CancellationToken` fortsatt sist —
+alle kallsteder oppdatert til navngitte argumenter, jf. fallgruven om posisjonelle kall lenger ned
+i dette dokumentet). `MockBankIdProvider` returnerer det angitte personnummeret hvis satt, ellers
+samme faste testperson som før. Et nytt tekstfelt "Personnummer (kun utviklingsmiljø)" er lagt til
+på `/Konto/LoggInn` og `/Pasientportal/Konto/LoggInn`, kun synlig i Development — lar en tester
+logge inn/registrere flere ulike personer uten å måtte arkivere den forrige testkontoen først
+(løser fallgruven om at `MockBankIdProvider` alltid ga samme personnummer).
+
+**Testkategorier (kun struktur, ikke nytt testinnhold ennå):** Ny `TestKategori` +
+`TestKategoriKobling` (mange-til-mange, samme mønster med rene long-FK-er og eksplisitt
+koblingsentitet som resten av modellen — ingen EF-navigasjonsegenskaper noe sted). Faste
+kategorier seedes idempotent av `TestService.SikreStandardkategorierAsync` (kalt fra
+`Who5TestSeeder`, som også kobler WHO-5 til "Kjerne"): Allianse, Angst, Depresjon, Funksjon,
+Kjerne, Nevropsykologiske, Utredning — alfabetisk. **Bevisst IKKE fylt med nytt testinnhold i
+denne omgangen** (brukeren ba eksplisitt om kun strukturen nå, instrumenter kommer senere) — de
+fleste kategoriene er derfor tomme placeholdere inntil videre. Ingen admin-UI for å
+opprette/redigere/slette kategorier ennå.
+
+**Tildelingsflyt (`/Behandlerportal/Tildel` og `/Admin/Tildel`):** Ny `TestTildelingsService`
+(steg 1: velg pasienter — admin ser alle ikke-arkiverte på tvers av behandlere, behandler ser kun
+sine egne; steg 2: tre-visning av kategori→tester, alle utvidet, checkbox synkronisert på tvers av
+kategorier via `wwwroot/js/tildel.js` siden en test kan ligge i flere kategorier; native
+`<dialog>`-oppsummering client-side før innsending). `TestTildeling` fikk et nullable
+`TildeltAvAdministratorId` ved siden av det nå nullable `TildeltAvBehandlerId` — samme
+dobbelt-aktør-mønster som `BehandlerInvitasjon` — siden både behandler og admin nå kan tildele.
+Pasienten varsles på kanalen(e) hen valgte ved registrering (ny `Varslingspreferanse`-enum på
+`Pasient`, standard Begge, valgt via radioknapper på `PasientRegistrering/Fullfor`), med fallback
+til hva pasienten faktisk har av kontaktinfo hvis den foretrukne kanalen mangler. Lenkene til hver
+tildelte test vises direkte på resultatsiden (samme "vis lenken i UI, ikke bare i mock-loggen"-
+prinsipp som `BehandlerInvitasjonResultat`/`PasientInvitasjonResultat`) — nyttig siden en pasient
+uten fullført kontaktverifisering ellers ikke kan finne lenken sin. En pasient uten verken
+mobilnummer eller e-post vises grået ut og ikke-valgbar i steg 1 (ingen vits i å tildele en test
+ingen kan varsles om via denne flyten — vanlig enkelttildeling på `Behandlerportal/Pasienter/Detaljer`
+finnes fortsatt for det tilfellet).
+
+Verifisert med full ende-til-ende curl-basert manuell test (admin-innlogging → tildel WHO-5 til to
+pasienter → resultatside med SMS/e-post-status og fungerende lenke) og eksisterende
+integrasjonstester (`HeleFlytenTests`, 4/4 grønne etter endringen).
+
+## BankID personnr-forhåndsutfylling fra testlenke + 2FA-kode-synlighet + betrodd enhet (2026-08-30)
+
+Tre oppfølgingsfikser etter reell bruk av tildelingsflyten over: (1) pasienten fikk "du har ingen
+tildelte tester" på Min side, (2) admin/behandler fikk aldri se 2FA-SMS-koden i det hele tatt, og
+(3) ønske om å slippe SMS hver gang på en kjent nettleser.
+
+**Rotårsak til "ingen tildelte tester":** IKKE en databasefeil — testene lå riktig i databasen.
+Pasienten logget bare inn som EN ANNEN pasient enn den testen faktisk var tildelt, fordi
+lenken pekte rett på `/Pasientportal/Tester/Fyll/{id}` uten noen kobling til hvilket
+(mock-)personnummer akkurat DEN pasienten har. Uten å vite riktig personnummer endte man opp med
+enten feil test-pasient eller den faste mock-personen — begge med tom tildelingsliste. Løst
+generelt (ikke bare for nylig genererte lenker) ved å utvide `Program.cs`' `OnRedirectToLogin`
+(`InnloggingsstiForAsync`): når en ubeskyttet forespørsel til nøyaktig
+`/Pasientportal/Tester/Fyll/{tildelingId}` blir omdirigert til innlogging, slår vi opp
+tildelingens pasient og legger personnummeret ved som `?personnummer=`-parameter — KUN i
+Development (aldri i produksjon, siden ekte BankID uansett ignorerer det og vi ikke vil ha
+personnummer i URL-er unødvendig). Samtidig la vi til en generell `?returnUrl=`-parameter på ALLE
+login-omdirigeringer (validert med `Url.IsLocalUrl` før bruk, jf. open-redirect), slik at man også
+havner rett tilbake på siden man egentlig prøvde å besøke — ikke bare på Min side/forsiden.
+`Pages/Konto/LoggInn`/`BekreftKode` og `Areas/Pasientportal/Pages/Konto/LoggInn` leser og bærer
+`ReturnUrl` videre (skjult felt i skjemaet, siden query string ikke overlever et POST av seg selv).
+
+**2FA-kode usynlig i UI:** Samme fallgruve som invitasjonslenkene i fase 3/5 (mock-tjenester logger
+KUN til `ILogger`) hadde IKKE blitt fikset for selve 2FA-SMS-koden. `ToFaktorService.StartAsync`
+returnerer nå den genererte koden; `AdminAuthenticationService`/`BehandlerAuthenticationService.
+StartToFaktorAsync` propagerer den videre til `Pages/Konto/LoggInn.cshtml.cs`, som (kun i
+Development) legger den i TempData for `BekreftKode.cshtml` å vise direkte i en dev-hint-boks.
+
+**Betrodd enhet (hopp over 2FA en stund):** Ny `TestBase.Web/Security/BetroddEnhet.cs` — etter en
+vellykket BankID+SMS-2FA settes en egen, tidsbegrenset (DataProtection
+`ToTimeLimitedDataProtector`, IKKE en vanlig ukryptert cookie-verdi) cookie
+`testbase_betrodd_administrator`/`_behandler` som binder nettleseren til AKKURAT den kontoen i
+`Auth:BetroddEnhetDager` dager (config, standard 30 — samme mønster som eksisterende
+`Auth:RememberMeDays`). En påfølgende BankID-innlogging fra samme nettleser for samme konto
+hopper da over SMS-steget helt (`Pages/Konto/LoggInn.cshtml.cs` sjekker `BetroddEnhet.ErBetrodd`
+rett før den ellers ville sendt SMS-koden) — etter utløp kreves SMS igjen. Uavhengig av og i
+tillegg til den eksisterende "Husk meg"-cookien (som styrer selve øktens levetid, en annen ting).
+Denne cookien lever i `TestBase.Web`, ikke `TestBase.Shared`, jf. det eksisterende prinsippet om at
+autentiseringstjenestene i Shared bevisst ikke har noen HttpContext/cookie-avhengighet.
+
+**Fallgruve oppdaget under verifisering:** Git Bash (MSYS) konverterer automatisk et
+kommandolinje-argument som begynner med `/` (f.eks. `--data-urlencode "ReturnUrl=/Pasientportal/..."`)
+til en Windows-sti (`C:/Program Files/Git/Pasientportal/...`) FØR curl noensinne ser det — ga et
+falskt "bug" som så ut som at ReturnUrl ikke ble bundet server-side, mens det i virkeligheten var
+verdien som ble sendt som var korrupt. Sett `MSYS_NO_PATHCONV=1` foran slike curl-kommandoer ved
+manuell/scriptet testing av skjemafelt som starter med skråstrek.
+
 ## Kjente feilsøkingspunkter fra oppsett (til referanse)
 
 - **Docker Desktop "Virtualization support not detected":** Løst ved å aktivere Windows-funksjonene `VirtualMachinePlatform` og `Microsoft-Windows-Subsystem-Linux` via PowerShell (admin) + omstart, selv om Intel VMX/VT-x allerede var aktivert i BIOS.
@@ -314,13 +609,28 @@ over tid), rediger/slett av tester/sider/ledd, enhetstester.
   utbetaling), automatiske test-utsendelser med påminnelser, 10-års auto-sletting av arkiverte
   pasienter (driftsjobb, hører sammen med fase 6).
 - Resten av Del 4: Vipps-betalingssperre før utfylling (gjenbruk `IVippsClient`/`MockVippsClient`),
-  påminnelser (frist/varighet lagres på `TestTildeling` men håndheves/varsles ikke ennå),
-  lokalisering av tester til flere språk (bevisst utsatt til et konkret andrespråk finnes å
-  designe mot, trolig med WHO-5 i fase 5).
-- Ekte CAPTCHA (hCaptcha/Turnstile) i stedet for dagens enkle honeypot+tidssjekk-vern
-  (`BotVern.cs`) — leverandørbeslutning på linje med BankID/Vipps/SMS.
-- Skåring og rapportoppsett (per besvarelse og over tid) — bevises ut med WHO-5 i fase 5, jf.
-  faseplanen. `TestSvar` lagrer rå svarverdier allerede, klare til å skåres når metodikken finnes.
-- Rediger/slett av tester/sider/ledd i admin-forfatterverktøyet (kun opprett i dag).
+  påminnelser (frist/varighet lagres på `TestTildeling` men håndheves/varsles ikke ennå).
+- Lokalisering av tester til flere språk — nå har vi et konkret andrespråksbehov å designe mot
+  (WHO-5 finnes offisielt på engelsk), men fortsatt bevisst utsatt til det faktisk trengs.
+- Ekte CAPTCHA-leverandør (hCaptcha/Turnstile) bak `ICaptchaProvider` — leverandørbeslutning på
+  linje med BankID/Vipps/SMS (se "Offentlig design + samlet profesjonell innlogging"). I dag:
+  `MockCaptchaProvider` (lokalt regnestykke) på innloggingssidene, og fortsatt kun
+  honeypot+tidssjekk (`BotVern.cs`) på de offentlige registrerings-/invitasjonsskjemaene — vurder
+  å legge CAPTCHA til også der når leverandør er valgt.
+- Enhetstester for `Who5Skaaringsberegner`/`Who5TestSeeder`, og WHO-5-spesifikke assertions i
+  integrasjonstestsuiten (se "Del 5 (slice 1)").
+- Flere innebygde tester utover WHO-5 — samme mønster (`ITestSkaaringsberegner` +
+  `IInnebygdTestSeeder`) er nå på plass og klart til gjenbruk, og kategoristrukturen
+  (Allianse/Angst/Depresjon/Funksjon/Kjerne/Nevropsykologiske/Utredning, se "Tildelingsflyt for
+  tester...") venter på faktisk innhold — seederen for en ny test kobler seg til én eller flere av
+  disse via `TestService.KoblTestTilKategoriAsync`. Bevisst utsatt: hvilke konkrete
+  instrumenter/spørsmål som skal fylle Allianse/Angst/Depresjon/Funksjon/Nevropsykologiske/
+  Utredning er ikke besluttet — vurder lisensiering/copyright nøye per instrument (jf. WHO-5s
+  kildehenvisning) før noe legges inn, ikke bare gjenbruk kjente skalanavn uten å sjekke.
+- Admin-UI for å opprette/redigere/slette testkategorier — i dag kun en fast, kodet liste
+  (`TestService.StandardKategorier`), seedet idempotent ved oppstart.
+- Rediger/slett av SIDER/LEDD i admin-forfatterverktøyet (kun opprett i dag) — selve testens egne
+  felt (navn/beskrivelse/belønningstekst/aktiv) kan nå redigeres, se "Rediger-funksjon for
+  administrator/test/pasient".
 - Polering av admin-/behandlerportal-/pasientportal-UI (dagens sider er funksjonelle, ikke visuelt ferdige).
 - Azure-konto opprettes av bruker når vi når sky-deploy-delen.

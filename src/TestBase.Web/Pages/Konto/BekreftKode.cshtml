@@ -1,0 +1,29 @@
+@page
+@model TestBase.Web.Pages.Konto.BekreftKodeModel
+@{
+    ViewData["Title"] = "Bekreft kode";
+}
+
+<h1>Bekreft SMS-kode</h1>
+
+<p>
+    En 6-sifret kode er "sendt" til mobilnummeret ditt (mock — ingen ekte SMS sendes i dev).
+</p>
+
+@if (Model.DevKode is not null)
+{
+    <p class="dev-bar">Utviklingsmiljø: koden er <strong>@Model.DevKode</strong> (sendes normalt på SMS — vist her siden mock-SMS kun logges til konsollen).</p>
+}
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<form method="post">
+    <div>
+        <label>Kode</label><br />
+        <input asp-for="Kode" />
+    </div>
+    <button type="submit">Bekreft</button>
+</form>

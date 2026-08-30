@@ -50,19 +50,17 @@ else
                         <p><em>@ledd.Instruksjon</em></p>
                     }
 
-                    @if (ledd.Svartype == TestSvartype.Likert5)
+                    @if (ledd.Svartype == TestSvartype.LikertSkala)
                     {
-                        var labels = string.IsNullOrWhiteSpace(ledd.Svaralternativer)
-                            ? new[] { "1", "2", "3", "4", "5" }
-                            : ledd.Svaralternativer.Split(',');
-                        for (var verdi = 1; verdi <= 5; verdi++)
+                        <div class="svar-rad">
+                        @foreach (var punkt in TestLeddSvaralternativer.Parse(ledd.Svaralternativer))
                         {
-                            var label = verdi - 1 < labels.Length ? labels[verdi - 1] : verdi.ToString();
-                            <label style="margin-right: 1rem;">
-                                <input type="radio" name="Svar_@ledd.Id" value="@verdi" checked="@(eksisterende == verdi.ToString())" />
-                                @label
+                            <label class="svar-knapp">
+                                <input type="radio" name="Svar_@ledd.Id" value="@punkt.Verdi" checked="@(eksisterende == punkt.Verdi.ToString())" />
+                                <span>@punkt.Tekst</span>
                             </label>
                         }
+                        </div>
                     }
                     else if (ledd.Svartype == TestSvartype.VisuellAnalogSkala)
                     {
@@ -70,12 +68,16 @@ else
                     }
                     else if (ledd.Svartype == TestSvartype.JaNei)
                     {
-                        <label style="margin-right: 1rem;">
-                            <input type="radio" name="Svar_@ledd.Id" value="Ja" checked="@(eksisterende == "Ja")" /> Ja
-                        </label>
-                        <label>
-                            <input type="radio" name="Svar_@ledd.Id" value="Nei" checked="@(eksisterende == "Nei")" /> Nei
-                        </label>
+                        <div class="svar-rad">
+                            <label class="svar-knapp">
+                                <input type="radio" name="Svar_@ledd.Id" value="Ja" checked="@(eksisterende == "Ja")" />
+                                <span>Ja</span>
+                            </label>
+                            <label class="svar-knapp">
+                                <input type="radio" name="Svar_@ledd.Id" value="Nei" checked="@(eksisterende == "Nei")" />
+                                <span>Nei</span>
+                            </label>
+                        </div>
                     }
                     else
                     {

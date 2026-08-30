@@ -42,8 +42,11 @@
         <select asp-for="Svartype" asp-items="Html.GetEnumSelectList<TestSvartype>()"></select>
     </div>
     <div>
-        <label>Svaralternativer (valgfritt, kommaseparert — f.eks. Likert-tekster)</label><br />
-        <input asp-for="Svaralternativer" />
+        <label>
+            Svaralternativer — påkrevd for Likert-skala: kommaseparerte "verdi:tekst"-par i
+            visningsrekkefølge, f.eks. "5:Hele tiden,4:Det meste av tiden,...,0:Aldri"
+        </label><br />
+        <input asp-for="Svaralternativer" size="80" />
     </div>
     <button type="submit">Legg til ledd</button>
 </form>

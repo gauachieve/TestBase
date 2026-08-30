@@ -54,19 +54,19 @@ public sealed class HeleFlytenTests
         var client = _factory.CreateClient();
 
         // === A: Admin — passordinnlogging (utviklingsmodus, dev-seed) ===========
-        var s1 = await SkjemaHjelper.HentTokenAsync(client, "/Admin/Konto/LoggInn");
-        var steg1 = await SkjemaHjelper.PostMedTokenAsync(client, "/Admin/Konto/LoggInn",
-            SkjemaHjelper.Felter(("AdminId", "dev-admin")), s1);
+        // Samlet innlogging (/Konto/LoggInn): AdminId+passord er ett sekundært,
+        // ett-stegs skjema (asp-page-handler="Passord") på samme side som
+        // BankID-hovedflyten, ikke lenger et eget to-stegs skjema.
+        var (loginHtml, loginToken, loginCaptchaSvar, loginCaptchaFasit) =
+            await SkjemaHjelper.LastInnloggingsskjemaAsync(client, "/Konto/LoggInn");
+        var steg1 = await SkjemaHjelper.PostMedTokenAsync(client, "/Konto/LoggInn?handler=Passord",
+            SkjemaHjelper.Felter(
+                ("AdminId", "dev-admin"), ("Passord", "utvikler123"),
+                ("CaptchaSvar", loginCaptchaSvar), ("CaptchaSignertFasit", loginCaptchaFasit)), loginToken);
         var html1 = await SkjemaHjelper.LesHtmlAsync(steg1);
-        Assert.Contains("Passord", html1);
-
-        var s2 = SkjemaHjelper.HentToken(html1);
-        var steg2 = await SkjemaHjelper.PostMedTokenAsync(client, "/Admin/Konto/LoggInn",
-            SkjemaHjelper.Felter(("AdminId", "dev-admin"), ("Passord", "utvikler123")), s2);
-        var html2 = await SkjemaHjelper.LesHtmlAsync(steg2);
-        Assert.True(steg2.IsSuccessStatusCode);
-        Assert.Contains("Dev Administrator", html2);
-        Assert.Contains("Utvikler", html2);
+        Assert.True(steg1.IsSuccessStatusCode);
+        Assert.Contains("Dev Administrator", html1);
+        Assert.Contains("Passord (utviklingsmodus)", html1);
 
         // === B: Admin — BankID+2FA-innlogging =====================================
         var nyAdminToken = await SkjemaHjelper.HentTokenAsync(client, "/Admin/Administratorer/Ny");
@@ -78,11 +78,15 @@ public sealed class HeleFlytenTests
             ("Personnummer", MockPersonnummer),
             ("HprNr", "1000001")), nyAdminToken);
 
-        await client.GetAsync("/Admin/Konto/LoggUt");
+        await client.GetAsync("/Konto/LoggUt");
 
-        var bidLoginToken = await SkjemaHjelper.HentTokenAsync(client, "/Admin/Konto/LoggInn");
-        var bidSteg1 = await SkjemaHjelper.PostMedTokenAsync(client, "/Admin/Konto/LoggInn",
-            SkjemaHjelper.Felter(("AdminId", "test-bankid-admin")), bidLoginToken);
+        // Samlet innlogging har ingen ID-inntasting for BankID-veien — den finner
+        // personen selv via MockBankIdProvider sitt faste personnummer, som kun
+        // matcher "test-bankid-admin" i administrator-tabellen på dette tidspunktet.
+        var (bidHtml0, bidToken0, bidCaptchaSvar, bidCaptchaFasit) =
+            await SkjemaHjelper.LastInnloggingsskjemaAsync(client, "/Konto/LoggInn");
+        var bidSteg1 = await SkjemaHjelper.PostMedTokenAsync(client, "/Konto/LoggInn",
+            SkjemaHjelper.Felter(("CaptchaSvar", bidCaptchaSvar), ("CaptchaSignertFasit", bidCaptchaFasit)), bidToken0);
         var bidHtml1 = await SkjemaHjelper.LesHtmlAsync(bidSteg1);
         Assert.Contains("Bekreft SMS-kode", bidHtml1);
 
@@ -90,7 +94,7 @@ public sealed class HeleFlytenTests
         Assert.NotEmpty(adminKode);
 
         var bidToken2 = SkjemaHjelper.HentToken(bidHtml1);
-        var bidSteg2 = await SkjemaHjelper.PostMedTokenAsync(client, "/Admin/Konto/BekreftKode",
+        var bidSteg2 = await SkjemaHjelper.PostMedTokenAsync(client, "/Konto/BekreftKode",
             SkjemaHjelper.Felter(("Kode", adminKode)), bidToken2);
         var bidHtml2 = await SkjemaHjelper.LesHtmlAsync(bidSteg2);
         Assert.Contains("BankID Testadministrator", bidHtml2);
@@ -101,7 +105,7 @@ public sealed class HeleFlytenTests
         var behMobil = "+4790020001";
         var invBehResp = await SkjemaHjelper.PostMedTokenAsync(client, "/Admin/Behandlere/Inviter",
             SkjemaHjelper.Felter(("MobilNr", behMobil)), invBehToken);
-        Assert.Contains("Invitasjon sendt", await SkjemaHjelper.LesHtmlAsync(invBehResp));
+        Assert.Contains("Invitasjon", await SkjemaHjelper.LesHtmlAsync(invBehResp));
 
         var behMelding = _factory.Sms.SisteMeldingTil(behMobil) ?? "";
         var behToken = InvitasjonsToken.Match(behMelding).Groups[1].Value;
@@ -134,16 +138,31 @@ public sealed class HeleFlytenTests
             e.Emne == "Ny behandler venter HPR-godkjenning" && e.Til == "bankid-admin@integrationtest.local");
 
         // === D: Behandler logger inn med BankID+2FA ================================
-        await client.GetAsync("/Admin/Konto/LoggUt");
+        // "test-bankid-admin" og den nye behandleren deler MockBankIdProvider sitt
+        // faste personnummer (se MockPersonnummer-kommentaren øverst). Samlet
+        // innlogging prioriterer administrator over behandler ("høyeste rolle",
+        // jf. Pages/Konto/LoggInn.cshtml.cs) — arkiver derfor testadministratoren
+        // først, ellers ville BankID-innlogging her feilaktig logget inn som admin
+        // igjen i stedet for å nå behandler-grenen vi faktisk vil teste.
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var testBankIdAdmin = await db.Administratorer.SingleAsync(a => a.AdminId == "test-bankid-admin");
+            testBankIdAdmin.ErArkivert = true;
+            await db.SaveChangesAsync();
+        }
 
-        var behLoginToken = await SkjemaHjelper.HentTokenAsync(client, "/Behandlerportal/Konto/LoggInn");
-        var behLoginResp = await SkjemaHjelper.PostMedTokenAsync(client, "/Behandlerportal/Konto/LoggInn",
-            SkjemaHjelper.Felter(), behLoginToken);
+        await client.GetAsync("/Konto/LoggUt");
+
+        var (behLoginHtml0, behLoginToken, behCaptchaSvar, behCaptchaFasit) =
+            await SkjemaHjelper.LastInnloggingsskjemaAsync(client, "/Konto/LoggInn");
+        var behLoginResp = await SkjemaHjelper.PostMedTokenAsync(client, "/Konto/LoggInn",
+            SkjemaHjelper.Felter(("CaptchaSvar", behCaptchaSvar), ("CaptchaSignertFasit", behCaptchaFasit)), behLoginToken);
         var behLoginHtml = await SkjemaHjelper.LesHtmlAsync(behLoginResp);
         var behKodeToken = SkjemaHjelper.HentToken(behLoginHtml);
         var behKode = SeksSifretKode.Match(_factory.Sms.SisteMeldingTil(behMobil) ?? "").Groups[1].Value;
 
-        var behBekreftResp = await SkjemaHjelper.PostMedTokenAsync(client, "/Behandlerportal/Konto/BekreftKode",
+        var behBekreftResp = await SkjemaHjelper.PostMedTokenAsync(client, "/Konto/BekreftKode",
             SkjemaHjelper.Felter(("Kode", behKode)), behKodeToken);
         var behHjemHtml = await SkjemaHjelper.LesHtmlAsync(behBekreftResp);
         Assert.Contains("Test Behandlersen", behHjemHtml);
@@ -175,18 +194,20 @@ public sealed class HeleFlytenTests
         // Regresjonsvern: pasienten er lagt til (personnummeret er allerede i databasen),
         // men har ikke fullført egenregistreringen (Status=Invitert) — BankID-innlogging skal
         // avvises med en tydelig melding, ikke slippe gjennom eller krasje.
-        await client.GetAsync("/Behandlerportal/Konto/LoggUt");
-        var forTidligToken = await SkjemaHjelper.HentTokenAsync(client, "/Pasientportal/Konto/LoggInn");
+        await client.GetAsync("/Konto/LoggUt");
+        var (forTidligHtml0, forTidligToken, forTidligCaptchaSvar, forTidligCaptchaFasit) =
+            await SkjemaHjelper.LastInnloggingsskjemaAsync(client, "/Pasientportal/Konto/LoggInn");
         var forTidligResp = await SkjemaHjelper.PostMedTokenAsync(client, "/Pasientportal/Konto/LoggInn",
-            SkjemaHjelper.Felter(), forTidligToken);
+            SkjemaHjelper.Felter(("CaptchaSvar", forTidligCaptchaSvar), ("CaptchaSignertFasit", forTidligCaptchaFasit)), forTidligToken);
         Assert.Contains("Du har ikke fullført registreringen", await SkjemaHjelper.LesHtmlAsync(forTidligResp));
 
-        var behLoginIgjenToken = await SkjemaHjelper.HentTokenAsync(client, "/Behandlerportal/Konto/LoggInn");
-        var behLoginIgjenResp = await SkjemaHjelper.PostMedTokenAsync(client, "/Behandlerportal/Konto/LoggInn",
-            SkjemaHjelper.Felter(), behLoginIgjenToken);
+        var (behLoginIgjenHtml0, behLoginIgjenToken, behIgjenCaptchaSvar, behIgjenCaptchaFasit) =
+            await SkjemaHjelper.LastInnloggingsskjemaAsync(client, "/Konto/LoggInn");
+        var behLoginIgjenResp = await SkjemaHjelper.PostMedTokenAsync(client, "/Konto/LoggInn",
+            SkjemaHjelper.Felter(("CaptchaSvar", behIgjenCaptchaSvar), ("CaptchaSignertFasit", behIgjenCaptchaFasit)), behLoginIgjenToken);
         var behKodeIgjenToken = SkjemaHjelper.HentToken(await SkjemaHjelper.LesHtmlAsync(behLoginIgjenResp));
         var behKodeIgjen = SeksSifretKode.Match(_factory.Sms.SisteMeldingTil(behMobil) ?? "").Groups[1].Value;
-        await SkjemaHjelper.PostMedTokenAsync(client, "/Behandlerportal/Konto/BekreftKode",
+        await SkjemaHjelper.PostMedTokenAsync(client, "/Konto/BekreftKode",
             SkjemaHjelper.Felter(("Kode", behKodeIgjen)), behKodeIgjenToken);
 
         var gruppeToken = await SkjemaHjelper.HentTokenAsync(client, "/Behandlerportal/Pasienter/Gruppeimport");
@@ -218,14 +239,13 @@ public sealed class HeleFlytenTests
             Assert.Null(kollega.InvitertAvAdministratorId);
         }
 
-        await client.GetAsync("/Behandlerportal/Konto/LoggUt");
-        var adminLoginToken = await SkjemaHjelper.HentTokenAsync(client, "/Admin/Konto/LoggInn");
-        var adminLoginResp = await SkjemaHjelper.PostMedTokenAsync(client, "/Admin/Konto/LoggInn",
-            SkjemaHjelper.Felter(("AdminId", "dev-admin")), adminLoginToken);
-        var adminLoginHtml = await SkjemaHjelper.LesHtmlAsync(adminLoginResp);
-        var adminPassToken = SkjemaHjelper.HentToken(adminLoginHtml);
-        await SkjemaHjelper.PostMedTokenAsync(client, "/Admin/Konto/LoggInn",
-            SkjemaHjelper.Felter(("AdminId", "dev-admin"), ("Passord", "utvikler123")), adminPassToken);
+        await client.GetAsync("/Konto/LoggUt");
+        var (adminLoginHtml0, adminLoginToken, adminCaptchaSvar, adminCaptchaFasit) =
+            await SkjemaHjelper.LastInnloggingsskjemaAsync(client, "/Konto/LoggInn");
+        await SkjemaHjelper.PostMedTokenAsync(client, "/Konto/LoggInn?handler=Passord",
+            SkjemaHjelper.Felter(
+                ("AdminId", "dev-admin"), ("Passord", "utvikler123"),
+                ("CaptchaSvar", adminCaptchaSvar), ("CaptchaSignertFasit", adminCaptchaFasit)), adminLoginToken);
 
         var godkjennHprToken = await SkjemaHjelper.HentTokenAsync(client, "/Admin/Behandlere");
         await SkjemaHjelper.PostMedTokenAsync(client, "/Admin/Behandlere?handler=GodkjennHpr",
@@ -273,7 +293,7 @@ public sealed class HeleFlytenTests
                 token);
         }
 
-        await LeggTilLeddAsync(side1Id, "Hvor ofte har du følt deg glad?", TestSvartype.Likert5, "Aldri,Sjelden,Av og til,Ofte,Alltid");
+        await LeggTilLeddAsync(side1Id, "Hvor ofte har du følt deg glad?", TestSvartype.LikertSkala, "5:Alltid,4:Ofte,3:Av og til,2:Sjelden,1:Aldri");
         await LeggTilLeddAsync(side1Id, "Har du sovet godt?", TestSvartype.JaNei);
         await LeggTilLeddAsync(side2Id, "Hvor bekymret er du akkurat nå?", TestSvartype.VisuellAnalogSkala);
         await LeggTilLeddAsync(side2Id, "Noe du vil legge til?", TestSvartype.Fritekst);
@@ -288,13 +308,14 @@ public sealed class HeleFlytenTests
         }
 
         // === I: Behandler tildeler testen til pasienten med det faste personnummeret ==
-        await client.GetAsync("/Admin/Konto/LoggUt");
-        var behLogin2Token = await SkjemaHjelper.HentTokenAsync(client, "/Behandlerportal/Konto/LoggInn");
-        var behLogin2Resp = await SkjemaHjelper.PostMedTokenAsync(client, "/Behandlerportal/Konto/LoggInn",
-            SkjemaHjelper.Felter(), behLogin2Token);
+        await client.GetAsync("/Konto/LoggUt");
+        var (behLogin2Html0, behLogin2Token, behLogin2CaptchaSvar, behLogin2CaptchaFasit) =
+            await SkjemaHjelper.LastInnloggingsskjemaAsync(client, "/Konto/LoggInn");
+        var behLogin2Resp = await SkjemaHjelper.PostMedTokenAsync(client, "/Konto/LoggInn",
+            SkjemaHjelper.Felter(("CaptchaSvar", behLogin2CaptchaSvar), ("CaptchaSignertFasit", behLogin2CaptchaFasit)), behLogin2Token);
         var behKode2Token = SkjemaHjelper.HentToken(await SkjemaHjelper.LesHtmlAsync(behLogin2Resp));
         var behKode2 = SeksSifretKode.Match(_factory.Sms.SisteMeldingTil(behMobil) ?? "").Groups[1].Value;
-        await SkjemaHjelper.PostMedTokenAsync(client, "/Behandlerportal/Konto/BekreftKode",
+        await SkjemaHjelper.PostMedTokenAsync(client, "/Konto/BekreftKode",
             SkjemaHjelper.Felter(("Kode", behKode2)), behKode2Token);
 
         long pasientId;
@@ -314,7 +335,7 @@ public sealed class HeleFlytenTests
         var pasToken = InvitasjonsToken.Match(pasMelding).Groups[1].Value;
         Assert.NotEmpty(pasToken);
 
-        await client.GetAsync("/Behandlerportal/Konto/LoggUt");
+        await client.GetAsync("/Konto/LoggUt");
 
         var pasFullforUrl = $"/PasientRegistrering/Fullfor/{pasToken}";
         var pasFullforHtml = await SkjemaHjelper.GetHtmlAsync(client, pasFullforUrl);
@@ -331,9 +352,10 @@ public sealed class HeleFlytenTests
         Assert.Contains("Takk!", pasFullforRespHtml);
 
         // === K: Pasienten logger inn med BankID (INGEN 2FA) =========================
-        var pasLoginToken = await SkjemaHjelper.HentTokenAsync(client, "/Pasientportal/Konto/LoggInn");
+        var (pasLoginHtml0, pasLoginToken, pasCaptchaSvar, pasCaptchaFasit) =
+            await SkjemaHjelper.LastInnloggingsskjemaAsync(client, "/Pasientportal/Konto/LoggInn");
         var pasLoginResp = await SkjemaHjelper.PostMedTokenAsync(client, "/Pasientportal/Konto/LoggInn",
-            SkjemaHjelper.Felter(), pasLoginToken);
+            SkjemaHjelper.Felter(("CaptchaSvar", pasCaptchaSvar), ("CaptchaSignertFasit", pasCaptchaFasit)), pasLoginToken);
         Assert.Contains("/Pasientportal/MinSide", pasLoginResp.RequestMessage!.RequestUri!.PathAndQuery);
         var minSideHtml = await SkjemaHjelper.LesHtmlAsync(pasLoginResp);
         Assert.Contains("Integrasjonstest", minSideHtml);

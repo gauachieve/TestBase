@@ -38,6 +38,8 @@ public sealed class NyModel : PageModel
     public KontaktMetode Varslingskanal { get; set; } = KontaktMetode.Sms;
 
     public string? Feilmelding { get; private set; }
+    public bool Opprettet { get; private set; }
+    public string? Lenke { get; private set; }
 
     public void OnGet()
     {
@@ -70,13 +72,15 @@ public sealed class NyModel : PageModel
         }
 
         var baseUrl = $"{Request.Scheme}://{Request.Host}";
-        var pasient = await _pasientService.LeggTilAsync(
+        var resultat = await _pasientService.LeggTilAsync(
             Personnummer, MobilNr, Epost, behandlerId, Varslingskanal, baseUrl, cancellationToken: cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "LeggTilPasient",
-            nameof(Pasient), pasient.Id.ToString(), cancellationToken: cancellationToken);
+            nameof(Pasient), resultat.Pasient.Id.ToString(), cancellationToken: cancellationToken);
 
-        return RedirectToPage("Index");
+        Opprettet = true;
+        Lenke = resultat.Lenke;
+        return Page();
     }
 }

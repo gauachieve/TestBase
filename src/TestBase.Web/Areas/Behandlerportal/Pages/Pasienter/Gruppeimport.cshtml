@@ -15,7 +15,15 @@
 
 @if (Model.AntallOpprettet is not null)
 {
-    <p>@Model.AntallOpprettet pasient(er) opprettet.</p>
+    <p>@Model.AntallOpprettet pasient(er) opprettet. Invitasjon "sendt" (mock — ingen ekte
+    SMS/e-post er koblet til ennå) — del disse lenkene med pasientene for at de skal kunne
+    fullføre registreringen:</p>
+    <ul>
+    @foreach (var opprettelse in Model.OpprettedeMedLenke)
+    {
+        <li>@(opprettelse.Pasient.Navn ?? "-") — <a href="@opprettelse.Lenke">@opprettelse.Lenke</a></li>
+    }
+    </ul>
     @if (Model.HoppetOverLinjer.Any())
     {
         <p style="color: darkred;">Følgende linjer ble hoppet over (mangler felt):</p>
@@ -34,4 +42,4 @@
     <button type="submit">Importer</button>
 </form>
 
-<p><a href="/Behandler/Pasienter">Tilbake til pasienter</a></p>
+<p><a href="/Behandlerportal/Pasienter">Tilbake til pasienter</a></p>

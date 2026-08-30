@@ -1,0 +1,27 @@
+@page
+@model TestBase.Web.Pages.PersonvernModel
+@{
+    ViewData["Title"] = "Personvern og cookies";
+}
+
+<h1>Personvern og cookies</h1>
+
+<h2>Cookies</h2>
+<p>TestBase bruker kun informasjonskapsler (cookies) som er strengt nødvendige for at nettstedet
+    skal fungere. Ingen av disse brukes til sporing, analyse eller markedsføring, og de deles
+    ikke med tredjeparter.</p>
+<ul>
+    <li><strong>Innloggingscookie</strong> — holder deg innlogget mellom sidevisninger, og lar deg
+        forbli innlogget over tid dersom du krysser av for "Husk meg".</li>
+    <li><strong>Sikkerhetscookie (antiforgery)</strong> — beskytter skjemaer mot forfalskede
+        innsendinger fra andre nettsteder.</li>
+    <li><strong>Samtykkecookie</strong> — husker at du har lukket cookie-varselet, slik at det
+        ikke vises på nytt ved neste besøk.</li>
+</ul>
+<p>Fordi disse er strengt nødvendige for at tjenesten skal virke, krever de ikke aktivt samtykke
+    etter ekomloven/GDPR — men vi ønsker å være åpne om at de finnes.</p>
+
+<h2>Helseopplysninger</h2>
+<p>Personnummer og andre helserelaterte opplysninger lagres kryptert, og all tilgang
+    logges. Se <code>docs/compliance-dpia-utkast.md</code> i prosjektet for full
+    risikovurdering (DPIA).</p>

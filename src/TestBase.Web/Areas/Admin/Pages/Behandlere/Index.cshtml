@@ -46,19 +46,27 @@
             <td>
                 @if (b.Status != BehandlerStatus.Arkivert)
                 {
+                    var frysTittel = b.Status == BehandlerStatus.Fryst ? "Gjenåpne" : "Frys";
                     <form method="post" asp-page-handler="Frys" style="display:inline;">
                         <input type="hidden" name="id" value="@b.Id" />
-                        <button type="submit">@(b.Status == BehandlerStatus.Fryst ? "Gjenåpne" : "Frys")</button>
+                        <button type="submit" class="btn-icon" title="@frysTittel" aria-label="@frysTittel">
+                            <partial name="_Ikon" model="@(b.Status == BehandlerStatus.Fryst ? "gjenaapne" : "frys")" />
+                        </button>
                     </form>
                     <form method="post" asp-page-handler="Arkiver" style="display:inline;">
                         <input type="hidden" name="id" value="@b.Id" />
-                        <button type="submit">Arkiver</button>
+                        <button type="submit" class="btn-icon" title="Arkiver" aria-label="Arkiver">
+                            <partial name="_Ikon" model="@("arkiver")" />
+                        </button>
                     </form>
                     @if (b.RegistrertUtc is not null)
                     {
+                        var godkjennTittel = b.HprGodkjent ? "Tilbakekall HPR-godkjenning" : "Godkjenn HPR";
                         <form method="post" asp-page-handler="GodkjennHpr" style="display:inline;">
                             <input type="hidden" name="id" value="@b.Id" />
-                            <button type="submit">@(b.HprGodkjent ? "Tilbakekall HPR-godkjenning" : "Godkjenn HPR")</button>
+                            <button type="submit" class="btn-icon" title="@godkjennTittel" aria-label="@godkjennTittel">
+                                <partial name="_Ikon" model="@(b.HprGodkjent ? "tilbakekall" : "godkjenn")" />
+                            </button>
                         </form>
                     }
                 }

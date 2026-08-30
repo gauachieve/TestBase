@@ -26,6 +26,7 @@ public sealed class InviterModel : PageModel
 
     public string? Feilmelding { get; private set; }
     public bool Sendt { get; private set; }
+    public string? Lenke { get; private set; }
 
     public void OnGet()
     {
@@ -42,14 +43,15 @@ public sealed class InviterModel : PageModel
         var behandlerId = long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var id) ? id : 0;
         var baseUrl = $"{Request.Scheme}://{Request.Host}";
 
-        var behandler = await _invitasjonService.InviterAsync(
+        var resultat = await _invitasjonService.InviterAsync(
             MobilNr, Epost, administratorId: null, behandlerId: behandlerId, baseUrl, cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "InviterBehandler",
-            nameof(Behandler), behandler.Id.ToString(), cancellationToken: cancellationToken);
+            nameof(Behandler), resultat.Behandler.Id.ToString(), cancellationToken: cancellationToken);
 
         Sendt = true;
+        Lenke = resultat.Lenke;
         return Page();
     }
 }

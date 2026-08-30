@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
+using TestBase.Shared.Domain.Tester.Skaaring;
 
 namespace TestBase.Shared.Domain.Tester;
 
@@ -10,26 +11,33 @@ public sealed record TestMedInnhold(
     IReadOnlyList<TestLedd> AlleLedd,
     IReadOnlyDictionary<long, string> EksisterendeSvar);
 
+public sealed record SkaaringHistorikkPunkt(TestTildeling Tildeling, TestSkaaring Skaaring);
+
 /// <summary>
-/// Testmotor-skjelettet: forfatning av tester (Test/TestSide/TestLedd),
-/// tildeling til pasienter, og utfylling (lagring av TestSvar side for side).
-/// Ingen skåring eller rapportgenerering ennå — se beslutningsloggen "Del 4
-/// (slice 1)" for begrunnelse (bevises ut med WHO-5 i fase 5).
+/// Testmotoren: forfatning av tester (Test/TestSide/TestLedd), tildeling til
+/// pasienter, utfylling (lagring av TestSvar side for side), og — fra fase 5 —
+/// skåring via registrerte ITestSkaaringsberegner-implementasjoner (se
+/// Domain/Tester/Skaaring/), bevist ut med WHO-5.
 /// </summary>
 public sealed class TestService
 {
     private readonly AppDbContext _db;
+    private readonly IReadOnlyList<ITestSkaaringsberegner> _skaaringsberegnere;
 
-    public TestService(AppDbContext db)
+    public TestService(AppDbContext db, IEnumerable<ITestSkaaringsberegner> skaaringsberegnere)
     {
         _db = db;
+        _skaaringsberegnere = skaaringsberegnere.ToList();
     }
 
-    public async Task<Test> OpprettTestAsync(string navn, string? beskrivelse, string? belonningstekst, CancellationToken cancellationToken = default)
+    public async Task<Test> OpprettTestAsync(
+        string navn, string? beskrivelse, string? belonningstekst, string? kode = null,
+        CancellationToken cancellationToken = default)
     {
         var test = new Test
         {
             Navn = navn,
+            Kode = kode,
             Beskrivelse = beskrivelse,
             Belonningstekst = belonningstekst,
             OpprettetUtc = DateTimeOffset.UtcNow
@@ -37,6 +45,33 @@ public sealed class TestService
         _db.Tester.Add(test);
         await _db.SaveChangesAsync(cancellationToken);
         return test;
+    }
+
+    public Task<bool> FinnesTestMedKodeAsync(string kode, CancellationToken cancellationToken = default) =>
+        _db.Tester.AnyAsync(t => t.Kode == kode, cancellationToken);
+
+    public Task<Test?> HentTestVedKodeAsync(string kode, CancellationToken cancellationToken = default) =>
+        _db.Tester.FirstOrDefaultAsync(t => t.Kode == kode, cancellationToken);
+
+    public Task<Test?> HentTestAsync(long testId, CancellationToken cancellationToken = default) =>
+        _db.Tester.FirstOrDefaultAsync(t => t.Id == testId, cancellationToken);
+
+    public async Task<bool> OppdaterTestAsync(
+        long testId, string navn, string? beskrivelse, string? belonningstekst, bool erAktiv,
+        CancellationToken cancellationToken = default)
+    {
+        var test = await _db.Tester.FirstOrDefaultAsync(t => t.Id == testId, cancellationToken);
+        if (test is null)
+        {
+            return false;
+        }
+
+        test.Navn = navn;
+        test.Beskrivelse = beskrivelse;
+        test.Belonningstekst = belonningstekst;
+        test.ErAktiv = erAktiv;
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task<TestSide> LeggTilSideAsync(long testId, string navn, string? instruksjon, CancellationToken cancellationToken = default)
@@ -70,15 +105,72 @@ public sealed class TestService
     public Task<List<Test>> HentAktiveTesterAsync(CancellationToken cancellationToken = default) =>
         _db.Tester.Where(t => t.ErAktiv).OrderBy(t => t.Navn).ToListAsync(cancellationToken);
 
+    /// <summary>
+    /// De faste kategoriene i tildelingsflytens tre-visning, alfabetisk. Ingen
+    /// admin-UI for å opprette/slette kategorier ennå — se beslutningsloggen.
+    /// Idempotent: kalles trygt ved hver oppstart, som IInnebygdTestSeeder.
+    /// </summary>
+    public static readonly IReadOnlyList<string> StandardKategorier = new[]
+    {
+        "Allianse", "Angst", "Depresjon", "Funksjon", "Kjerne", "Nevropsykologiske", "Utredning"
+    };
+
+    public async Task SikreStandardkategorierAsync(CancellationToken cancellationToken = default)
+    {
+        var eksisterende = await _db.TestKategorier.Select(k => k.Navn).ToListAsync(cancellationToken);
+        foreach (var navn in StandardKategorier.Except(eksisterende))
+        {
+            _db.TestKategorier.Add(new TestKategori { Navn = navn, OpprettetUtc = DateTimeOffset.UtcNow });
+        }
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>Idempotent: oppretter ikke en duplikatkobling om testen allerede er i kategorien.</summary>
+    public async Task KoblTestTilKategoriAsync(long testId, string kategoriNavn, CancellationToken cancellationToken = default)
+    {
+        var kategori = await _db.TestKategorier.FirstAsync(k => k.Navn == kategoriNavn, cancellationToken);
+        var finnes = await _db.TestKategoriKoblinger.AnyAsync(
+            k => k.TestId == testId && k.TestKategoriId == kategori.Id, cancellationToken);
+        if (!finnes)
+        {
+            _db.TestKategoriKoblinger.Add(new TestKategoriKobling { TestId = testId, TestKategoriId = kategori.Id });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    public sealed record KategoriMedTester(TestKategori Kategori, IReadOnlyList<Test> Tester);
+
+    /// <summary>Alle standardkategorier (alfabetisk) med sine aktive tester, til tildelingsflytens tre-visning.</summary>
+    public async Task<IReadOnlyList<KategoriMedTester>> HentKategoriTreAsync(CancellationToken cancellationToken = default)
+    {
+        var kategorier = await _db.TestKategorier.OrderBy(k => k.Navn).ToListAsync(cancellationToken);
+        var koblinger = await _db.TestKategoriKoblinger.ToListAsync(cancellationToken);
+        var aktiveTester = await _db.Tester.Where(t => t.ErAktiv).ToDictionaryAsync(t => t.Id, cancellationToken);
+
+        return kategorier.Select(k =>
+        {
+            var testIder = koblinger.Where(kob => kob.TestKategoriId == k.Id).Select(kob => kob.TestId);
+            var tester = testIder.Select(id => aktiveTester.GetValueOrDefault(id)).Where(t => t is not null)
+                .Select(t => t!).OrderBy(t => t.Navn).ToList();
+            return new KategoriMedTester(k, tester);
+        }).ToList();
+    }
+
     public async Task<TestTildeling> TildelAsync(
-        long testId, long pasientId, long behandlerId, DateTimeOffset? frist, int? varighetMinutter,
+        long testId, long pasientId, long? behandlerId, long? administratorId, DateTimeOffset? frist, int? varighetMinutter,
         CancellationToken cancellationToken = default)
     {
+        if (behandlerId is null == administratorId is null)
+        {
+            throw new ArgumentException("Nøyaktig én av behandlerId/administratorId skal være satt.");
+        }
+
         var tildeling = new TestTildeling
         {
             TestId = testId,
             PasientId = pasientId,
             TildeltAvBehandlerId = behandlerId,
+            TildeltAvAdministratorId = administratorId,
             TildeltUtc = DateTimeOffset.UtcNow,
             Frist = frist,
             VarighetMinutter = varighetMinutter
@@ -163,4 +255,62 @@ public sealed class TestService
 
         await _db.SaveChangesAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// Null hvis testen ikke har noen registrert skåringsberegner (de fleste
+    /// admin-forfattede tester vil ikke ha det), eller tildelingen ikke finnes.
+    /// </summary>
+    public async Task<TestSkaaring?> BeregnSkaaringAsync(long tildelingId, CancellationToken cancellationToken = default)
+    {
+        var tildeling = await _db.TestTildelinger.FirstOrDefaultAsync(t => t.Id == tildelingId, cancellationToken);
+        if (tildeling is null)
+        {
+            return null;
+        }
+
+        var test = await _db.Tester.FirstAsync(t => t.Id == tildeling.TestId, cancellationToken);
+        var beregner = FinnBeregner(test.Kode);
+        if (beregner is null)
+        {
+            return null;
+        }
+
+        var svar = await _db.TestSvar.Where(s => s.TestTildelingId == tildelingId).ToListAsync(cancellationToken);
+        return beregner.BeregnSkaaring(svar);
+    }
+
+    /// <summary>
+    /// Skåringshistorikk for alle fullførte tildelinger en pasient har av
+    /// tester med samme Kode (f.eks. gjentatte WHO-5-administrasjoner over
+    /// tid), eldst først — grunnlaget for "rapport over tid".
+    /// </summary>
+    public async Task<IReadOnlyList<SkaaringHistorikkPunkt>> HentSkaaringHistorikkAsync(
+        long pasientId, string testKode, CancellationToken cancellationToken = default)
+    {
+        var beregner = FinnBeregner(testKode);
+        if (beregner is null)
+        {
+            return Array.Empty<SkaaringHistorikkPunkt>();
+        }
+
+        var testIder = await _db.Tester.Where(t => t.Kode == testKode).Select(t => t.Id).ToListAsync(cancellationToken);
+        var tildelinger = await _db.TestTildelinger
+            .Where(t => t.PasientId == pasientId && testIder.Contains(t.TestId) && t.Status == TestTildelingStatus.Fullfort)
+            .OrderBy(t => t.FullfortUtc)
+            .ToListAsync(cancellationToken);
+
+        var punkter = new List<SkaaringHistorikkPunkt>();
+        foreach (var tildeling in tildelinger)
+        {
+            var svar = await _db.TestSvar.Where(s => s.TestTildelingId == tildeling.Id).ToListAsync(cancellationToken);
+            punkter.Add(new SkaaringHistorikkPunkt(tildeling, beregner.BeregnSkaaring(svar)));
+        }
+
+        return punkter;
+    }
+
+    public bool HarSkaaringsberegner(string? testKode) => FinnBeregner(testKode) is not null;
+
+    private ITestSkaaringsberegner? FinnBeregner(string? testKode) =>
+        testKode is null ? null : _skaaringsberegnere.FirstOrDefault(b => b.TestKode == testKode);
 }

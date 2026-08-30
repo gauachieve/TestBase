@@ -369,6 +369,11 @@ namespace TestBase.Shared.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)");
 
+                    b.Property<string>("Varslingspreferanse")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BehandlerId");
@@ -438,6 +443,10 @@ namespace TestBase.Shared.Migrations
                     b.Property<bool>("ErAktiv")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<string>("Kode")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
                     b.Property<string>("Navn")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -448,7 +457,58 @@ namespace TestBase.Shared.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Kode")
+                        .IsUnique();
+
                     b.ToTable("tester", (string)null);
+                });
+
+            modelBuilder.Entity("TestBase.Shared.Domain.Tester.TestKategori", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Navn")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTimeOffset>("OpprettetUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Navn")
+                        .IsUnique();
+
+                    b.ToTable("test_kategorier", (string)null);
+                });
+
+            modelBuilder.Entity("TestBase.Shared.Domain.Tester.TestKategoriKobling", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("TestId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("TestKategoriId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TestKategoriId");
+
+                    b.HasIndex("TestId", "TestKategoriId")
+                        .IsUnique();
+
+                    b.ToTable("test_kategori_koblinger", (string)null);
                 });
 
             modelBuilder.Entity("TestBase.Shared.Domain.Tester.TestLedd", b =>
@@ -578,7 +638,10 @@ namespace TestBase.Shared.Migrations
                     b.Property<long>("TestId")
                         .HasColumnType("bigint");
 
-                    b.Property<long>("TildeltAvBehandlerId")
+                    b.Property<long?>("TildeltAvAdministratorId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("TildeltAvBehandlerId")
                         .HasColumnType("bigint");
 
                     b.Property<DateTimeOffset>("TildeltUtc")

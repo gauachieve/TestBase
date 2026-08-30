@@ -45,6 +45,13 @@ else
 
         <div><label>Adresse (valgfritt)</label><br /><input asp-for="Adresse" /></div>
 
+        <div>
+            <label>Hvordan vil du bli varslet om nye tester?</label><br />
+            <label><input type="radio" asp-for="Varslingspreferanse" value="@Varslingspreferanse.Sms" /> Kun SMS</label>
+            <label><input type="radio" asp-for="Varslingspreferanse" value="@Varslingspreferanse.Epost" /> Kun e-post</label>
+            <label><input type="radio" asp-for="Varslingspreferanse" value="@Varslingspreferanse.Begge" /> Begge (anbefalt)</label>
+        </div>
+
         <h2>Samtykke</h2>
         <pre style="white-space: pre-wrap; border: 1px solid #ccc; padding: 1rem; max-height: 300px; overflow-y: auto;">@Model.AvtaleTekst</pre>
         <div><label><input asp-for="GodtarLagringAvData" type="checkbox" /> Jeg samtykker til lagring av opplysningene mine</label></div>

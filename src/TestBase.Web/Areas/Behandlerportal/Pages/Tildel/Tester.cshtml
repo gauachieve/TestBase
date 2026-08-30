@@ -1,0 +1,95 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.Tildel.TesterModel
+@{
+    ViewData["Title"] = "Tildel tester";
+}
+
+<h1>Tildel tester — steg 2: velg tester</h1>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+@if (Model.Resultat is not null)
+{
+    <h2>Tildeling fullført</h2>
+    <ul>
+    @foreach (var rad in Model.Resultat.PerPasient)
+    {
+        <li>
+            <strong>@(rad.Navn ?? "(ikke fullført)")</strong> —
+            @if (rad.SendtSms) { <text>SMS sendt. </text> }
+            @if (rad.SendtEpost) { <text>E-post sendt. </text> }
+            @if (!rad.SendtSms && !rad.SendtEpost) { <text>Ingen varsel sendt (mangler kontaktinfo).</text> }
+            <ul>
+            @foreach (var lenke in rad.Lenker)
+            {
+                <li>@lenke.TestNavn: <a href="@lenke.Lenke">@lenke.Lenke</a></li>
+            }
+            </ul>
+        </li>
+    }
+    </ul>
+    <p><a href="/Behandlerportal/Tildel/Pasienter">Tildel flere tester</a></p>
+}
+else if (Model.ValgtePasienter.Any())
+{
+    <p>Tildeler til: <strong>@string.Join(", ", Model.ValgtePasienter.Select(p => p.Pasient.Navn ?? "(ikke fullført)"))</strong></p>
+
+    <form method="post" asp-page-handler="Send" id="tildelForm">
+        <input type="hidden" asp-for="PasientIderCsv" />
+
+        <div class="tildel-kategori-tre">
+        @foreach (var kategori in Model.KategoriTre)
+        {
+            <details open>
+                <summary>@kategori.Kategori.Navn</summary>
+                @if (!kategori.Tester.Any())
+                {
+                    <p><em>Ingen tester i denne kategorien ennå.</em></p>
+                }
+                else
+                {
+                    <ul>
+                    @foreach (var test in kategori.Tester)
+                    {
+                        <li>
+                            <label>
+                                <input type="checkbox" name="TestIder" value="@test.Id" class="tildel-test-checkbox" data-test-id="@test.Id" />
+                                @test.Navn
+                            </label>
+                        </li>
+                    }
+                    </ul>
+                }
+            </details>
+        }
+        </div>
+
+        <button type="button" id="apneOppsummering">Gå til oppsummering</button>
+
+        <dialog id="oppsummeringDialog">
+            <h2>Bekreft utsending</h2>
+            <p>Du sender følgende tester:</p>
+            <ul id="oppsummeringTester"></ul>
+            <p>til følgende pasienter:</p>
+            <ul>
+            @foreach (var p in Model.ValgtePasienter)
+            {
+                <li>@(p.Pasient.Navn ?? "(ikke fullført)")</li>
+            }
+            </ul>
+            <button type="button" id="lukkOppsummering">Avbryt</button>
+            <button type="submit">Bekreft og send</button>
+        </dialog>
+    </form>
+
+    <script src="~/js/tildel.js"></script>
+}
+else
+{
+    <p>Ingen gyldige pasienter valgt. <a href="/Behandlerportal/Tildel/Pasienter">Gå tilbake til steg 1</a>.</p>
+}
+
+<p><a href="/Behandlerportal/Pasienter">Tilbake til pasienter</a></p>

@@ -2,21 +2,88 @@
 @model TestBase.Web.Pages.IndexModel
 @{
     ViewData["Title"] = "Forside";
+    ViewData["BodyClass"] = "home";
 }
 
-<h1>Utviklingsmiljøet kjører</h1>
+<section class="hero">
+    <div class="hero-shapes" aria-hidden="true">
+        <div class="shape shape-blob"></div>
+        <div class="shape shape-triangle shape-triangle-1"></div>
+        <div class="shape shape-triangle shape-triangle-2"></div>
+    </div>
+    <div class="container hero-inner">
+        <div class="hero-text">
+            <p class="kicker">Digital psykologisk testing</p>
+            <h1>Trygg og enkel testing for dine pasienter</h1>
+            <p class="lead">
+                TestBase lar deg som behandler sende psykologiske tester til pasientene dine
+                over nett — med automatisk skåring, oversiktlige rapporter og sikker lagring
+                av helseopplysninger, uten omveien om papir.
+            </p>
+            <div class="hero-cta">
+                <a class="btn btn-accent" href="/Konto/LoggInn">Logg inn</a>
+                <a class="btn btn-outline" href="#tjenester">Les mer</a>
+            </div>
+        </div>
+        <div class="hero-media">
+            <img src="~/img/hero-placeholder.svg" alt="Plassholderbilde av behandler — byttes ut senere" class="hero-photo" />
+        </div>
+    </div>
+</section>
 
-<p>
-    Hvis du ser denne siden med <code>dotnet watch</code>, er lokalt oppsett
-    (app + Docker-MySQL) på plass. Endre denne teksten og lagre filen —
-    siden skal oppdatere seg selv i nettleseren.
-</p>
+<section id="tjenester" class="features">
+    <div class="container">
+        <p class="kicker center">Hva kan TestBase hjelpe deg med</p>
+        <h2 class="center">Alt du trenger for digital testing, samlet ett sted</h2>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v2h6V3"/><path d="M8 11h8M8 15h5"/></svg>
+                </div>
+                <h3>Digitale tester</h3>
+                <p>Tildel psykologiske tester til pasienter, som fyller dem ut trygt hjemmefra, side for side.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z"/></svg>
+                </div>
+                <h3>Sikker lagring</h3>
+                <p>Helseopplysninger og personnummer krypteres, med full tilgangsstyring og revisjonslogg.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V9M12 19V5M20 19v-7"/></svg>
+                </div>
+                <h3>Automatisk skåring</h3>
+                <p>Svarene skåres automatisk med validerte beregningsmetoder — ingen manuell regning.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="3"/><path d="M5 21c0-4 3-6 7-6s7 2 7 6"/></svg>
+                </div>
+                <h3>Rapporter til behandler</h3>
+                <p>Se resultatet per besvarelse og utviklingen over tid, samlet i én tydelig rapport.</p>
+            </div>
+        </div>
+    </div>
+</section>
 
-<p>Innlogget som: <strong>@Model.CurrentUserDisplayName</strong> (rolle: <code>@Model.CurrentUserRole</code>)</p>
+<section id="om" class="features" style="padding-top:0;">
+    <div class="container">
+        <p class="kicker center">Om TestBase</p>
+        <h2 class="center">Bygget for norske behandlere</h2>
+        <p class="center" style="max-width:60ch;margin:0 auto;">
+            TestBase utvikles for privatpraktiserende psykologspesialister og kontorfellesskap
+            i Norge, med personvern og informasjonssikkerhet (Normen/GDPR) som grunnpremiss —
+            ikke noe som legges på i etterkant.
+        </p>
+    </div>
+</section>
 
-<p>
-    Se <a href="/DevDemo">Dev-demo</a> for å prøve mock-implementasjonene av
-    BankID, Vipps, SMS og e-post — og <a href="/health">/health</a> for å
-    bekrefte at appen når MySQL-containeren. Administrasjon (fase 2) finner du
-    under <a href="/Admin/Konto/LoggInn">Logg inn</a>.
-</p>
+<section id="kontakt" class="features" style="padding-top:0;">
+    <div class="container center">
+        <p class="kicker">Kontakt</p>
+        <h2>Har du spørsmål?</h2>
+        <p>post@testbase.no (plassholder) &middot; +47 00 00 00 00 (plassholder)</p>
+    </div>
+</section>

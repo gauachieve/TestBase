@@ -57,6 +57,9 @@ public sealed class FullforModel : PageModel
     [BindProperty]
     public bool GodtarMuligVippsBetaling { get; set; }
 
+    [BindProperty]
+    public Varslingspreferanse Varslingspreferanse { get; set; } = Varslingspreferanse.Begge;
+
     // Bot-vern (se BotVern) — Nettside er et honeypot-felt som skal stå tomt.
     [BindProperty]
     public string? Nettside { get; set; }
@@ -121,7 +124,8 @@ public sealed class FullforModel : PageModel
         await _invitasjonService.FullforRegistreringAsync(
             invitasjon, Navn, Personnummer, MobilNr, Epost, BiologiskKjonnVedFodsel.Value,
             Kjonnsidentitet, KjonnsidentitetSpesifisert, Adresse,
-            GodtarLagringAvData, GodtarMuligVippsBetaling, cancellationToken);
+            GodtarLagringAvData, GodtarMuligVippsBetaling, cancellationToken,
+            varslingspreferanse: Varslingspreferanse);
 
         Fullfort = true;
         return Page();

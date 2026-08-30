@@ -43,8 +43,8 @@ public sealed class AdminAuthenticationService
     public string HashPassord(Administrator administrator, string passord) =>
         _passordHasher.HashPassword(administrator, passord);
 
-    public Task<BankIdResult> StartBankIdAsync(CancellationToken cancellationToken = default) =>
-        _bankId.AuthenticateAsync(cancellationToken);
+    public Task<BankIdResult> StartBankIdAsync(string? personnummerOverride = null, CancellationToken cancellationToken = default) =>
+        _bankId.AuthenticateAsync(personnummerOverride, cancellationToken);
 
     /// <summary>
     /// Personnummer er kryptert i databasen (se AppDbContext) og kan derfor
@@ -58,7 +58,7 @@ public sealed class AdminAuthenticationService
         return administratorer.FirstOrDefault(a => a.Personnummer == personnummer);
     }
 
-    public Task StartToFaktorAsync(Administrator administrator, CancellationToken cancellationToken = default) =>
+    public Task<string> StartToFaktorAsync(Administrator administrator, CancellationToken cancellationToken = default) =>
         _toFaktor.StartAsync(ToFaktorPrincipalType.Administrator, administrator.Id, administrator.MobilNr, cancellationToken);
 
     public Task<bool> VerifiserToFaktorAsync(Administrator administrator, string kode, CancellationToken cancellationToken = default) =>

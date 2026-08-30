@@ -1,56 +1,124 @@
+@using Microsoft.AspNetCore.Hosting
+@using Microsoft.Extensions.Hosting
 @using TestBase.Shared.Security
 @inject ICurrentUserContext CurrentUser
+@inject IWebHostEnvironment Env
+@{
+    var erPasientPortal = (ViewData["Portal"] as string) == "pasient";
+    var innloggingsUrl = erPasientPortal ? "/Pasientportal/Konto/LoggInn" : "/Konto/LoggInn";
+}
 <!DOCTYPE html>
 <html lang="no">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - TestBase</title>
-    <style>
-        body { font-family: -apple-system, Segoe UI, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
-        header { border-bottom: 1px solid #ddd; padding-bottom: 1rem; margin-bottom: 1.5rem; }
-        nav a { margin-right: 1rem; }
-        code { background: #f4f4f4; padding: 0.1rem 0.3rem; border-radius: 3px; }
-        .badge { display: inline-block; background: #eef; color: #225; border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.85rem; }
-    </style>
+    <link rel="stylesheet" href="~/css/site.css" />
 </head>
-<body>
-    <header>
-        <strong>TestBase</strong> — Online Testesystem <span class="badge">@System.Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")</span>
-        <nav style="margin-top: 0.5rem;">
-            <a href="/">Forside</a>
-            <a href="/DevDemo">Dev-demo (mock-leverandører)</a>
+<body class="@ViewData["BodyClass"]">
+    @if (Env.IsDevelopment() && !CurrentUser.IsAuthenticated)
+    {
+        <div class="dev-bar">
+            Utviklingsmiljø (@Env.EnvironmentName)
+            <a href="/DevDemo">Dev-demo</a>
             <a href="/health">/health</a>
-            @if (CurrentUser.IsAuthenticated)
-            {
-                if (CurrentUser.Role == UserRole.Administrator || CurrentUser.Role == UserRole.Utvikler)
+        </div>
+    }
+    <header class="site-header">
+        <div class="container header-inner">
+            <a class="brand" href="/">Test<span>Base</span></a>
+
+            <input type="checkbox" id="nav-toggle" class="nav-toggle-checkbox" />
+            <label for="nav-toggle" class="nav-toggle-btn" aria-label="Åpne meny">
+                <span></span><span></span><span></span>
+            </label>
+
+            <nav class="site-nav">
+                @if (erPasientPortal)
                 {
-                    <a href="/Admin/Administratorer">Administratorer</a>
-                    <a href="/Admin/Behandlere">Behandlere</a>
-                    <a href="/Admin/Tester">Tester</a>
+                    <a href="/Pasienter">Hjem</a>
+                    <a href="/Pasienter#slik-fungerer-det">Slik fungerer det</a>
+                    <a href="/">Er du behandler/admin?</a>
                 }
-                if (CurrentUser.Role == UserRole.Behandler || CurrentUser.Role == UserRole.Utvikler)
+                else
                 {
-                    <a href="/Behandlerportal/Pasienter">Pasienter</a>
-                    <a href="/Behandlerportal/Behandlere/Inviter">Inviter kollega</a>
+                    <a href="/">Hjem</a>
+                    <a href="/#tjenester">Tjenester</a>
+                    <a href="/#om">Om oss</a>
+                    <a href="/#kontakt">Kontakt</a>
+                    <a href="/Pasienter">Er du pasient?</a>
                 }
-                if (CurrentUser.Role == UserRole.Pasient || CurrentUser.Role == UserRole.Utvikler)
+            </nav>
+
+            <div class="header-actions">
+                @if (CurrentUser.IsAuthenticated)
                 {
-                    <a href="/Pasientportal/MinSide">Min side</a>
+                    if (CurrentUser.Role == UserRole.Administrator || CurrentUser.Role == UserRole.Utvikler)
+                    {
+                        <a class="nav-link" href="/Admin/Administratorer">Administratorer</a>
+                        <a class="nav-link" href="/Admin/Behandlere">Behandlere</a>
+                        <a class="nav-link" href="/Admin/Tester">Tester</a>
+                        <a class="nav-link" href="/Admin/Tildel/Pasienter">Tildel tester</a>
+                        @if (Env.IsDevelopment())
+                        {
+                            <a class="nav-link" href="/Admin/Konto/ByttModus">Bytt modus</a>
+                        }
+                    }
+                    if (CurrentUser.Role == UserRole.Behandler || CurrentUser.Role == UserRole.Utvikler)
+                    {
+                        <a class="nav-link" href="/Behandlerportal/Pasienter">Pasienter</a>
+                        <a class="nav-link" href="/Behandlerportal/Tildel/Pasienter">Tildel tester</a>
+                        <a class="nav-link" href="/Behandlerportal/Behandlere/Inviter">Inviter kollega</a>
+                    }
+                    if (CurrentUser.Role == UserRole.Pasient || CurrentUser.Role == UserRole.Utvikler)
+                    {
+                        <a class="nav-link" href="/Pasientportal/MinSide">Min side</a>
+                    }
+                    <span class="nav-link innlogget-som">Innlogget som: @CurrentUser.DisplayName</span>
+                    <a class="btn btn-outline btn-sm" href="/Konto/LoggUt">Logg ut</a>
                 }
-                <a href="/Admin/Konto/ByttModus">Bytt modus</a>
-                <a href="/Admin/Konto/LoggUt">Logg ut</a>
-            }
-            else
-            {
-                <a href="/Admin/Konto/LoggInn">Logg inn (admin)</a>
-                <a href="/Behandlerportal/Konto/LoggInn">Logg inn (behandler)</a>
-                <a href="/Pasientportal/Konto/LoggInn">Logg inn (pasient)</a>
-            }
-        </nav>
+                else
+                {
+                    <a class="btn btn-accent btn-sm" href="@innloggingsUrl">Logg inn</a>
+                }
+            </div>
+        </div>
     </header>
-    <main>
+
+    <main class="page">
         @RenderBody()
     </main>
+
+    <footer class="site-footer">
+        <div class="container footer-grid">
+            <div>
+                <p class="footer-brand">Test<span>Base</span></p>
+                <p>Online testesystem for psykologiske tester — trygg digital testing, skåring og rapportering for behandler og pasient.</p>
+            </div>
+            <div>
+                <h4>Logg inn</h4>
+                <a href="/Konto/LoggInn">Administrator / behandler</a>
+                <a href="/Pasienter">Pasient</a>
+            </div>
+            <div>
+                <h4>Om TestBase</h4>
+                <a href="/#om">Om oss</a>
+                <a href="/#tjenester">Tjenester</a>
+                <a href="/#kontakt">Kontakt</a>
+                <a href="/personvern">Personvern og cookies</a>
+            </div>
+            <div>
+                <h4>Kontakt</h4>
+                <a href="#">post@testbase.no (plassholder)</a>
+                <a href="#">+47 00 00 00 00 (plassholder)</a>
+            </div>
+        </div>
+        <div class="container footer-bottom">
+            <span>&copy; @DateTime.Now.Year TestBase</span>
+            <span>Ingen ekte pasientdata i dette miljøet</span>
+        </div>
+    </footer>
+
+    <partial name="_CookieSamtykke" />
 </body>
 </html>

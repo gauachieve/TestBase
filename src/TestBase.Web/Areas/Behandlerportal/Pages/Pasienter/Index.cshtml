@@ -7,8 +7,8 @@
 
 <h1>Mine pasienter</h1>
 <p>
-    <a href="/Behandler/Pasienter/Ny">+ Legg til pasient</a> |
-    <a href="/Behandler/Pasienter/Gruppeimport">Gruppeimport</a>
+    <a href="/Behandlerportal/Pasienter/Ny">+ Legg til pasient</a> |
+    <a href="/Behandlerportal/Pasienter/Gruppeimport">Gruppeimport</a>
 </p>
 
 <table border="1" cellpadding="6" cellspacing="0">
@@ -26,15 +26,20 @@
     @foreach (var p in Model.Pasienter)
     {
         <tr>
-            <td><a href="/Behandler/Pasienter/Detaljer/@p.Id">@(p.Navn ?? "(ikke fullført)")</a></td>
+            <td><a href="/Behandlerportal/Pasienter/Detaljer/@p.Id">@(p.Navn ?? "(ikke fullført)")</a></td>
             <td>@(p.Gruppenavn ?? "-")</td>
             <td>@p.MobilNr</td>
             <td>@p.Email</td>
             <td>@p.Status</td>
             <td>
+                <a class="btn-icon" href="/Behandlerportal/Pasienter/Rediger/@p.Id" title="Rediger" aria-label="Rediger">
+                    <partial name="_Ikon" model="@("rediger")" />
+                </a>
                 <form method="post" asp-page-handler="Arkiver" style="display:inline;">
                     <input type="hidden" name="id" value="@p.Id" />
-                    <button type="submit">@(p.Status == PasientStatus.Arkivert ? "Gjenopprett" : "Arkiver")</button>
+                    <button type="submit" class="btn-icon" title="@(p.Status == PasientStatus.Arkivert ? "Gjenopprett" : "Arkiver")" aria-label="@(p.Status == PasientStatus.Arkivert ? "Gjenopprett" : "Arkiver")">
+                        <partial name="_Ikon" model="@(p.Status == PasientStatus.Arkivert ? "gjenopprett" : "arkiver")" />
+                    </button>
                 </form>
             </td>
         </tr>

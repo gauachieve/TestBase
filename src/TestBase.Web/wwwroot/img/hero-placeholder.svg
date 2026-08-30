@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 640" role="img" aria-labelledby="phTitle">
+  <title id="phTitle">Midlertidig plassholderbilde</title>
+  <defs>
+    <clipPath id="cardCut">
+      <path d="M0,0 H520 V560 L440,640 H0 Z" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#cardCut)">
+    <rect width="520" height="640" fill="#efe9df" />
+    <rect y="0" width="520" height="640" fill="#f2994a" opacity="0.12" />
+    <circle cx="260" cy="255" r="95" fill="#d7cfc0" />
+    <path d="M130,560 C130,430 390,430 390,560 L390,640 L130,640 Z" fill="#d7cfc0" />
+  </g>
+  <rect x="0.5" y="0.5" width="519" height="639" fill="none" stroke="#e0d7c6" stroke-width="1" />
+  <g font-family="-apple-system,Segoe UI,Arial,sans-serif" text-anchor="middle">
+    <text x="260" y="470" font-size="20" font-weight="700" fill="#8a7f6a">BILDE KOMMER</text>
+    <text x="260" y="498" font-size="14" fill="#a89c85">Midlertidig plassholder</text>
+  </g>
+</svg>

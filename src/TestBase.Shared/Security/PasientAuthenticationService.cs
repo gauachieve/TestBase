@@ -22,8 +22,8 @@ public sealed class PasientAuthenticationService
         _bankId = bankId;
     }
 
-    public Task<BankIdResult> StartBankIdAsync(CancellationToken cancellationToken = default) =>
-        _bankId.AuthenticateAsync(cancellationToken);
+    public Task<BankIdResult> StartBankIdAsync(string? personnummerOverride = null, CancellationToken cancellationToken = default) =>
+        _bankId.AuthenticateAsync(personnummerOverride, cancellationToken);
 
     /// <summary>
     /// Personnummer er kryptert i databasen (se AppDbContext) og kan derfor

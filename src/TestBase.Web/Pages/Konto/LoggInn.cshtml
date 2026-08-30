@@ -1,0 +1,59 @@
+@page
+@model TestBase.Web.Pages.Konto.LoggInnModel
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
+@{
+    ViewData["Title"] = "Logg inn";
+}
+
+<h1>Logg inn</h1>
+<p>Én innlogging for administrator og behandler — du havner automatisk på riktig side ut fra kontoen din.</p>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<form method="post">
+    <input type="hidden" asp-for="ReturnUrl" />
+    <div><label><input asp-for="HuskMeg" type="checkbox" /> Husk meg</label></div>
+    @if (Env.IsDevelopment())
+    {
+        <div>
+            <label>Personnummer (kun utviklingsmiljø — overstyrer BankID-mock, bytt for å logge inn som en annen test-person)</label><br />
+            <input asp-for="PersonnummerOverride" autocomplete="off" placeholder="La stå tomt for fast test-personnummer" />
+        </div>
+    }
+    <div>
+        <label>@Model.CaptchaSporsmal</label><br />
+        <input asp-for="CaptchaSvar" autocomplete="off" inputmode="numeric" />
+        <input type="hidden" asp-for="CaptchaSignertFasit" />
+    </div>
+    <button type="submit">Logg inn med BankID</button>
+</form>
+
+<p>
+    Administrator og behandler logger inn med BankID + SMS-kode (mock — ingen ekte BankID/SMS
+    kontaktes i dev). Har du som behandler ikke fullført registreringen ennå, bruk
+    invitasjonslenken du mottok.
+</p>
+
+@if (Env.IsDevelopment())
+{
+    <details>
+        <summary>Logg inn med AdminId og passord (kun i utviklingsmiljø)</summary>
+        <form method="post" asp-page-handler="Passord">
+            <input type="hidden" asp-for="ReturnUrl" />
+            <div><label>AdminId</label><br /><input asp-for="AdminId" /></div>
+            <div><label>Passord</label><br /><input asp-for="Passord" type="password" /></div>
+            <div>
+                <label>@Model.CaptchaSporsmal</label><br />
+                <input name="CaptchaSvar" id="CaptchaSvarPassord" autocomplete="off" inputmode="numeric" />
+                <input type="hidden" name="CaptchaSignertFasit" id="CaptchaSignertFasitPassord" value="@Model.CaptchaSignertFasit" />
+            </div>
+            <div><label><input type="checkbox" name="HuskMeg" value="true" /> Husk meg</label></div>
+            <button type="submit">Logg inn</button>
+        </form>
+    </details>
+}
+
+<p><a href="/Pasienter">Er du pasient? Gå til pasientsiden</a></p>

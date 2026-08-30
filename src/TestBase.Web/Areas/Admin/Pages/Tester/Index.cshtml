@@ -5,12 +5,19 @@
 }
 
 <h1>Tester</h1>
-<p><a href="/Admin/Tester/Ny">+ Ny test</a></p>
+<p>
+    <a href="/Admin/Tester/Ny">+ Ny test</a> |
+    <form method="post" asp-page-handler="Regenerer" style="display:inline;">
+        <button type="submit">Regenerer innebygde tester</button>
+    </form>
+</p>
+<p><em>Regenerer oppretter kun innebygde tester (som WHO-5) som mangler — rører ikke eksisterende.</em></p>
 
 <table border="1" cellpadding="6" cellspacing="0">
     <thead>
         <tr>
             <th>Navn</th>
+            <th>Kode</th>
             <th>Aktiv</th>
             <th></th>
         </tr>
@@ -20,8 +27,14 @@
     {
         <tr>
             <td>@t.Navn</td>
+            <td>@(t.Kode ?? "-")</td>
             <td>@(t.ErAktiv ? "Ja" : "Nei")</td>
-            <td><a href="/Admin/Tester/Sider/@t.Id">Rediger sider</a></td>
+            <td>
+                <a class="btn-icon" href="/Admin/Tester/Rediger/@t.Id" title="Rediger" aria-label="Rediger">
+                    <partial name="_Ikon" model="@("rediger")" />
+                </a>
+                <a href="/Admin/Tester/Sider/@t.Id">Rediger sider</a>
+            </td>
         </tr>
     }
     </tbody>

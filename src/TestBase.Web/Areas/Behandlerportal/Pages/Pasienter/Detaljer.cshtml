@@ -31,6 +31,7 @@ else
                 <th>Tildelt</th>
                 <th>Startet</th>
                 <th>Fullført</th>
+                <th></th>
             </tr>
         </thead>
         <tbody>
@@ -42,13 +43,19 @@ else
                 <td>@rad.Tildeling.TildeltUtc.ToString("g")</td>
                 <td>@(rad.Tildeling.StartetUtc?.ToString("g") ?? "-")</td>
                 <td>@(rad.Tildeling.FullfortUtc?.ToString("g") ?? "-")</td>
+                <td>
+                    @if (rad.HarSkaaring)
+                    {
+                        <a href="/Behandlerportal/Pasienter/Rapport/@rad.Tildeling.Id">Se rapport</a>
+                    }
+                </td>
             </tr>
         }
         </tbody>
     </table>
 }
 
-<p>Skåring og rapporter kommer i fase 5, når testrammeverket bevises ut med et konkret eksempel (WHO-5).</p>
+<p><em>"Se rapport" vises kun for fullførte tester med en registrert skåringsmetodikk (foreløpig kun WHO-5) — andre tester mangler ennå skåring/rapportoppsett.</em></p>
 
 <h2>Tildel ny test</h2>
 

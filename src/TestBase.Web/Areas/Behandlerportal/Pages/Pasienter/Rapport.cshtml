@@ -1,0 +1,61 @@
+@page "{id:long}"
+@model TestBase.Web.Areas.Behandlerportal.Pages.Pasienter.RapportModel
+@{
+    ViewData["Title"] = "Rapport";
+}
+
+<h1>Rapport: @Model.Test?.Navn</h1>
+<p>Pasient: @(Model.Pasient?.Navn ?? "(ikke fullført)") — fullført @Model.Tildeling?.FullfortUtc?.ToString("g")</p>
+
+@if (Model.Skaaring is not null)
+{
+    <h2>Skåring</h2>
+    <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong> — Prosentskår: <strong>@Model.Skaaring.ProsentSkaar</strong></p>
+    <div style="border: 1px solid #ccc; width: 100%; max-width: 400px; height: 1.5rem;">
+        <div style="background: #4a4; width: @(Model.Skaaring.ProsentSkaar)%; height: 100%;"></div>
+    </div>
+    <p>@Model.Skaaring.Fortolkning</p>
+}
+
+<h2>Svar</h2>
+<table border="1" cellpadding="6" cellspacing="0">
+    <thead><tr><th>Spørsmål</th><th>Svar</th></tr></thead>
+    <tbody>
+    @foreach (var rad in Model.SvarRader)
+    {
+        <tr><td>@rad.Sporsmal</td><td>@rad.SvarLabel</td></tr>
+    }
+    </tbody>
+</table>
+
+@if (Model.Historikk.Count > 1)
+{
+    <h2>Utvikling over tid</h2>
+    <table border="1" cellpadding="6" cellspacing="0">
+        <thead><tr><th>Dato</th><th>Prosentskår</th><th>Endring fra forrige</th></tr></thead>
+        <tbody>
+        @{
+            int? forrige = null;
+        }
+        @foreach (var punkt in Model.Historikk)
+        {
+            var endring = forrige is null ? (int?)null : punkt.Skaaring.ProsentSkaar - forrige;
+            <tr>
+                <td>@punkt.Tildeling.FullfortUtc?.ToString("g")</td>
+                <td>@punkt.Skaaring.ProsentSkaar</td>
+                <td>
+                    @if (endring is not null)
+                    {
+                        var signifikant = Math.Abs(endring.Value) >= 10;
+                        <text>@(endring > 0 ? "+" : "")@(endring)@(signifikant ? " (signifikant endring)" : "")</text>
+                    }
+                </td>
+            </tr>
+            forrige = punkt.Skaaring.ProsentSkaar;
+        }
+        </tbody>
+    </table>
+    <p><em>En endring i prosentskår på 10 % eller mer regnes som signifikant, jf. WHO-5-veiledningen.</em></p>
+}
+
+<p><a href="/Behandlerportal/Pasienter/Detaljer/@Model.Pasient?.Id">Tilbake til pasient</a></p>

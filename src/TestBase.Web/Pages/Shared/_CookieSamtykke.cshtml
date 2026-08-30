@@ -1,0 +1,27 @@
+<div id="cookie-samtykke" class="cookie-banner" hidden>
+    <p>
+        Vi bruker kun informasjonskapsler (cookies) som er nødvendige for at innlogging og
+        sikkerhet skal fungere — ingen sporing eller markedsføring. Les mer i
+        <a href="/personvern">personvernerklæringen</a>.
+    </p>
+    <button type="button" id="cookie-samtykke-godta" class="btn btn-accent btn-sm">Godta</button>
+</div>
+<script>
+    (function () {
+        var COOKIE_NAVN = "testbase_cookie_samtykke";
+        var banner = document.getElementById("cookie-samtykke");
+        var knapp = document.getElementById("cookie-samtykke-godta");
+        if (!banner || !knapp) { return; }
+
+        if (document.cookie.indexOf(COOKIE_NAVN + "=1") === -1) {
+            banner.hidden = false;
+        }
+
+        knapp.addEventListener("click", function () {
+            var utlop = new Date();
+            utlop.setFullYear(utlop.getFullYear() + 1);
+            document.cookie = COOKIE_NAVN + "=1; expires=" + utlop.toUTCString() + "; path=/; SameSite=Lax";
+            banner.hidden = true;
+        });
+    })();
+</script>

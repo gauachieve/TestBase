@@ -4,6 +4,8 @@ using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Domain.Tester;
+using TestBase.Shared.Domain.Tester.InnebygdeTester;
+using TestBase.Shared.Domain.Tester.Skaaring;
 using TestBase.Shared.Providers;
 using TestBase.Shared.Providers.Mock;
 using TestBase.Shared.Security;
@@ -36,36 +38,68 @@ builder.Services.AddScoped<BehandlerInvitasjonService>();
 builder.Services.AddScoped<PasientAuthenticationService>();
 builder.Services.AddScoped<PasientInvitasjonService>();
 builder.Services.AddScoped<TestService>();
+builder.Services.AddScoped<TestTildelingsService>();
 
-// Admin-, Behandlerportal- og Pasientportal-området deler samme cookie-scheme
-// (én ICurrentUserContext-implementasjon dekker alle tre, se
-// AuthenticatedCurrentUserContext), men har hver sin innloggingsside —
-// omdiriger til riktig portal basert på hvilket område forespørselen gjaldt,
-// i stedet for én global LoginPath som alltid går til Admin.
-static string InnloggingsstiFor(PathString sti) =>
-    sti.StartsWithSegments("/Behandlerportal") ? "/Behandlerportal/Konto/LoggInn" :
-    sti.StartsWithSegments("/Pasientportal") ? "/Pasientportal/Konto/LoggInn" :
-    "/Admin/Konto/LoggInn";
+// Skåringsmotor og innebygde, kode-definerte tester (fase 5 — bevist ut med WHO-5).
+builder.Services.AddScoped<ITestSkaaringsberegner, Who5Skaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, Who5TestSeeder>();
+
+// Admin og Behandlerportal deler nå én samlet innloggingsside (/Konto/LoggInn
+// — BankID finner personen og logger inn på høyeste rolle selv, uten at
+// brukeren velger portal, se Pages/Konto/LoggInn.cshtml.cs). Pasientportal har
+// fortsatt egen inngang, siden pasienter er en separat gruppe med egen
+// landingsside (/Pasienter) — se beslutningsloggen. Redirect til login bærer
+// alltid med seg en returnUrl (lest av begge LoggInn-sidene, validert med
+// Url.IsLocalUrl før bruk) slik at man havner tilbake der man egentlig skulle
+// etter innlogging — og for pasientportalens tildelte-test-lenker (jf.
+// beslutningsloggen "BankID personnr-forhåndsutfylling fra testlenke") slår
+// vi i tillegg opp riktig personnummer for AKKURAT den tildelingen (kun i
+// Development, aldri i produksjon) slik at pasienten ikke selv må vite/skrive
+// inn sitt (mock-)personnummer for å logge inn på en lenke hen fikk tilsendt.
+static async Task<string> InnloggingsstiForAsync(HttpContext httpContext, PathString sti, QueryString opprinneligQuery)
+{
+    var innloggingssti = sti.StartsWithSegments("/Pasientportal") ? "/Pasientportal/Konto/LoggInn" : "/Konto/LoggInn";
+    var returnerTil = $"{sti}{opprinneligQuery}";
+    var query = QueryString.Create("returnUrl", returnerTil);
+
+    var env = httpContext.RequestServices.GetRequiredService<IWebHostEnvironment>();
+    if (env.IsDevelopment() && sti.StartsWithSegments("/Pasientportal/Tester/Fyll", out var rest))
+    {
+        var tildelingIdSegment = rest.Value?.Trim('/').Split('/').FirstOrDefault();
+        if (long.TryParse(tildelingIdSegment, out var tildelingId))
+        {
+            var db = httpContext.RequestServices.GetRequiredService<AppDbContext>();
+            var tildeling = await db.TestTildelinger.FirstOrDefaultAsync(t => t.Id == tildelingId);
+            var pasient = tildeling is null ? null : await db.Pasienter.FirstOrDefaultAsync(p => p.Id == tildeling.PasientId);
+            if (pasient is not null)
+            {
+                query = query.Add("personnummer", pasient.Personnummer);
+            }
+        }
+    }
+
+    return innloggingssti + query;
+}
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.LoginPath = "/Admin/Konto/LoggInn";
-        options.LogoutPath = "/Admin/Konto/LoggUt";
-        options.AccessDeniedPath = "/Admin/Konto/LoggInn";
+        options.LoginPath = "/Konto/LoggInn";
+        options.LogoutPath = "/Konto/LoggUt";
+        options.AccessDeniedPath = "/Konto/LoggInn";
         options.ExpireTimeSpan = TimeSpan.FromDays(builder.Configuration.GetValue("Auth:RememberMeDays", 30));
         options.SlidingExpiration = true;
 
-        options.Events.OnRedirectToLogin = context =>
+        options.Events.OnRedirectToLogin = async context =>
         {
-            context.Response.Redirect(InnloggingsstiFor(context.Request.Path));
-            return Task.CompletedTask;
+            var url = await InnloggingsstiForAsync(context.HttpContext, context.Request.Path, context.Request.QueryString);
+            context.Response.Redirect(url);
         };
-        options.Events.OnRedirectToAccessDenied = context =>
+        options.Events.OnRedirectToAccessDenied = async context =>
         {
-            context.Response.Redirect(InnloggingsstiFor(context.Request.Path));
-            return Task.CompletedTask;
+            var url = await InnloggingsstiForAsync(context.HttpContext, context.Request.Path, context.Request.QueryString);
+            context.Response.Redirect(url);
         };
     });
 
@@ -87,6 +121,7 @@ builder.Services.AddScoped<IBankIdProvider, MockBankIdProvider>();
 builder.Services.AddScoped<IVippsClient, MockVippsClient>();
 builder.Services.AddScoped<ISmsSender, MockSmsSender>();
 builder.Services.AddScoped<IEmailSender, MockEmailSender>();
+builder.Services.AddScoped<ICaptchaProvider, MockCaptchaProvider>();
 
 // --- Web ------------------------------------------------------------------
 builder.Services.AddRazorPages(options =>
@@ -94,8 +129,10 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeAreaFolder("Admin", "/Administratorer", "AdminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Behandlere", "AdminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Tester", "AdminOmrade");
+    options.Conventions.AuthorizeAreaFolder("Admin", "/Tildel", "AdminOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Behandlere", "BehandlerOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Pasienter", "BehandlerOmrade");
+    options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Tildel", "BehandlerOmrade");
 });
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>("mysql");
@@ -146,6 +183,15 @@ if (app.Environment.IsDevelopment())
 
         db.Administratorer.Add(devAdmin);
         await db.SaveChangesAsync();
+    }
+
+    // Regenerer innebygde tester (WHO-5 m.fl.) — samme idempotente mekanisme
+    // som også er tilgjengelig via en admin-knapp i alle miljøer, se
+    // Areas/Admin/Pages/Tester/Index.cshtml.cs.
+    var testService = scope.ServiceProvider.GetRequiredService<TestService>();
+    foreach (var seeder in scope.ServiceProvider.GetServices<IInnebygdTestSeeder>())
+    {
+        await seeder.SeedAsync(testService);
     }
 }
 

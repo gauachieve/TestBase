@@ -30,6 +30,7 @@ public sealed class GruppeimportModel : PageModel
     public string? Feilmelding { get; private set; }
     public int? AntallOpprettet { get; private set; }
     public IReadOnlyList<string> HoppetOverLinjer { get; private set; } = Array.Empty<string>();
+    public IReadOnlyList<PasientInvitasjonResultat> OpprettedeMedLenke { get; private set; } = Array.Empty<PasientInvitasjonResultat>();
 
     public void OnGet()
     {
@@ -63,12 +64,13 @@ public sealed class GruppeimportModel : PageModel
         var resultat = await _pasientService.ImporterGruppeAsync(Liste, behandlerId, baseUrl, cancellationToken);
         AntallOpprettet = resultat.Opprettet.Count;
         HoppetOverLinjer = resultat.HoppetOverLinjer;
+        OpprettedeMedLenke = resultat.Opprettet;
 
-        foreach (var pasient in resultat.Opprettet)
+        foreach (var opprettelse in resultat.Opprettet)
         {
             await _auditLogger.LogAsync(
                 _currentUser.UserId, _currentUser.Role.ToString(), "LeggTilPasient",
-                nameof(Pasient), pasient.Id.ToString(), "Gruppeimport", cancellationToken);
+                nameof(Pasient), opprettelse.Pasient.Id.ToString(), "Gruppeimport", cancellationToken);
         }
 
         return Page();

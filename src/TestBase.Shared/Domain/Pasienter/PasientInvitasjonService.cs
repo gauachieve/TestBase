@@ -6,7 +6,15 @@ using TestBase.Shared.Providers;
 
 namespace TestBase.Shared.Domain.Pasienter;
 
-public sealed record GruppeimportResultat(IReadOnlyList<Pasient> Opprettet, IReadOnlyList<string> HoppetOverLinjer);
+/// <summary>
+/// Returneres fra <see cref="PasientInvitasjonService.LeggTilAsync"/> — <c>Lenke</c> er
+/// invitasjonslenken som (i mock-modus) kun logges via <c>ISmsSender</c>/<c>IEmailSender</c>,
+/// ikke faktisk sendes. Kalleren viser den direkte i UI slik at man kan fullføre
+/// invitasjonsflyten uten å måtte lete i konsoll-loggen.
+/// </summary>
+public sealed record PasientInvitasjonResultat(Pasient Pasient, string Lenke);
+
+public sealed record GruppeimportResultat(IReadOnlyList<PasientInvitasjonResultat> Opprettet, IReadOnlyList<string> HoppetOverLinjer);
 
 /// <summary>
 /// Behandlers pasientadministrasjon: legge til enkeltpasienter eller
@@ -30,7 +38,7 @@ public sealed class PasientInvitasjonService
         _email = email;
     }
 
-    public async Task<Pasient> LeggTilAsync(
+    public async Task<PasientInvitasjonResultat> LeggTilAsync(
         string personnummer,
         string mobilNr,
         string epost,
@@ -80,7 +88,7 @@ public sealed class PasientInvitasjonService
             await _email.SendAsync(kontaktVerdi, "Invitasjon til TestBase", melding, cancellationToken);
         }
 
-        return pasient;
+        return new PasientInvitasjonResultat(pasient, lenke);
     }
 
     public Task<PasientInvitasjon?> FinnGyldigInvitasjonAsync(string token, CancellationToken cancellationToken = default) =>
@@ -105,7 +113,8 @@ public sealed class PasientInvitasjonService
         string? adresse,
         bool godtarLagringAvData,
         bool godtarMuligVippsBetaling,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Varslingspreferanse varslingspreferanse = Varslingspreferanse.Begge)
     {
         var pasient = await _db.Pasienter.FirstAsync(p => p.Id == invitasjon.PasientId, cancellationToken);
         pasient.Navn = navn;
@@ -116,6 +125,7 @@ public sealed class PasientInvitasjonService
         pasient.Kjonnsidentitet = kjonnsidentitet;
         pasient.KjonnsidentitetSpesifisert = kjonnsidentitet == Kjonnsidentitet.Annet ? kjonnsidentitetSpesifisert : null;
         pasient.Adresse = adresse;
+        pasient.Varslingspreferanse = varslingspreferanse;
         pasient.BrukeravtaleGodkjentVersjon = PasientBrukeravtale.GjeldendeVersjon;
         pasient.BrukeravtaleGodkjentUtc = DateTimeOffset.UtcNow;
         pasient.GodtarLagringAvData = godtarLagringAvData;
@@ -136,7 +146,7 @@ public sealed class PasientInvitasjonService
     /// </summary>
     public async Task<GruppeimportResultat> ImporterGruppeAsync(string kommasepartListe, long behandlerId, string baseUrl, CancellationToken cancellationToken = default)
     {
-        var opprettet = new List<Pasient>();
+        var opprettet = new List<PasientInvitasjonResultat>();
         var hoppetOver = new List<string>();
 
         var linjer = kommasepartListe.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -151,8 +161,8 @@ public sealed class PasientInvitasjonService
 
             var (gruppenavn, navn, epost, mobil, personnummer) = (deler[0], deler[1], deler[2], deler[3], deler[4]);
             var varslingskanal = !string.IsNullOrWhiteSpace(mobil) ? KontaktMetode.Sms : KontaktMetode.Epost;
-            var pasient = await LeggTilAsync(personnummer, mobil, epost, behandlerId, varslingskanal, baseUrl, navn, gruppenavn, cancellationToken);
-            opprettet.Add(pasient);
+            var resultat = await LeggTilAsync(personnummer, mobil, epost, behandlerId, varslingskanal, baseUrl, navn, gruppenavn, cancellationToken);
+            opprettet.Add(resultat);
         }
 
         return new GruppeimportResultat(opprettet, hoppetOver);

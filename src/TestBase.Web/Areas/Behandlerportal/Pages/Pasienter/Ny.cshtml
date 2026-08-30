@@ -7,18 +7,28 @@
 
 <h1>Legg til pasient</h1>
 
-@if (Model.Feilmelding is not null)
+@if (Model.Opprettet)
 {
-    <p style="color: darkred;">@Model.Feilmelding</p>
+    <p>Pasient opprettet. Invitasjon "sendt" (mock — ingen ekte SMS/e-post er koblet til ennå).
+    Del denne lenken med pasienten for at de skal kunne fullføre registreringen:</p>
+    <p><a href="@Model.Lenke">@Model.Lenke</a></p>
+    <p><a href="/Behandlerportal/Pasienter/Ny">Legg til en til</a> | <a href="/Behandlerportal/Pasienter">Tilbake til pasienter</a></p>
 }
+else
+{
+    @if (Model.Feilmelding is not null)
+    {
+        <p style="color: darkred;">@Model.Feilmelding</p>
+    }
 
-<form method="post">
-    <div><label>Personnummer</label><br /><input asp-for="Personnummer" /></div>
-    <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
-    <div><label>E-post</label><br /><input asp-for="Epost" /></div>
-    <div>
-        <label>Send invitasjon via</label><br />
-        <select asp-for="Varslingskanal" asp-items="Html.GetEnumSelectList<KontaktMetode>()"></select>
-    </div>
-    <button type="submit">Legg til</button>
-</form>
+    <form method="post">
+        <div><label>Personnummer</label><br /><input asp-for="Personnummer" /></div>
+        <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
+        <div><label>E-post</label><br /><input asp-for="Epost" /></div>
+        <div>
+            <label>Send invitasjon via</label><br />
+            <select asp-for="Varslingskanal" asp-items="Html.GetEnumSelectList<KontaktMetode>()"></select>
+        </div>
+        <button type="submit">Legg til</button>
+    </form>
+}

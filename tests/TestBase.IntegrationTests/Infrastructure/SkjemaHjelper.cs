@@ -15,6 +15,15 @@ public static partial class SkjemaHjelper
     [GeneratedRegex("name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]*)\"")]
     private static partial Regex TokenRegex();
 
+    // Unngår "ø" i selve mønsteret (se LesHtmlAsync sin kommentar om
+    // HTML-entities for norske bokstaver) — matcher kun den ASCII-trygge
+    // delen av MockCaptchaProvider sitt spørsmål, "hva er X + Y?".
+    [GeneratedRegex(@"hva er (\d+) \+ (\d+)\?")]
+    private static partial Regex CaptchaSporsmalRegex();
+
+    [GeneratedRegex("name=\"CaptchaSignertFasit\"[^>]*value=\"([^\"]*)\"")]
+    private static partial Regex CaptchaSignertFasitRegex();
+
     /// <summary>
     /// Henter FØRSTE antiforgery-token på siden. På sider med flere skjemaer
     /// (f.eks. én rad per tabellrad) er alle tokenene identiske for samme
@@ -61,6 +70,43 @@ public static partial class SkjemaHjelper
 
     public static Dictionary<string, string> Felter(params (string Navn, string Verdi)[] par) =>
         par.ToDictionary(p => p.Navn, p => p.Verdi);
+
+    /// <summary>
+    /// Løser MockCaptchaProvider sin regnestykke-utfordring ved å lese
+    /// spørsmålsteksten og den signerte fasiten direkte fra HTML-en — samme
+    /// prinsipp som et menneske ville brukt, bare uten øynene.
+    /// </summary>
+    public static (string Svar, string SignertFasit) LosCaptcha(string html)
+    {
+        var sporsmal = CaptchaSporsmalRegex().Match(html);
+        if (!sporsmal.Success)
+        {
+            throw new InvalidOperationException("Fant ikke CAPTCHA-spørsmål i responsen.");
+        }
+
+        var fasit = CaptchaSignertFasitRegex().Match(html);
+        if (!fasit.Success)
+        {
+            throw new InvalidOperationException("Fant ikke CaptchaSignertFasit i responsen.");
+        }
+
+        var svar = int.Parse(sporsmal.Groups[1].Value) + int.Parse(sporsmal.Groups[2].Value);
+        return (svar.ToString(), fasit.Groups[1].Value);
+    }
+
+    /// <summary>
+    /// GET av <paramref name="url"/>, og returnerer HTML + antiforgery-token + løst
+    /// CAPTCHA i ett. HTML-dekodes (se LesHtmlAsync sin kommentar) — Razors
+    /// standard HTML-enkoder skriver om CAPTCHA-spørsmålets "+" til "&amp;#x2B;",
+    /// som ellers ville gjort regex-matchingen i LosCaptcha usynlig treffsikker.
+    /// </summary>
+    public static async Task<(string Html, string Token, string CaptchaSvar, string CaptchaSignertFasit)> LastInnloggingsskjemaAsync(
+        HttpClient client, string url)
+    {
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync(url));
+        var (captchaSvar, captchaSignertFasit) = LosCaptcha(html);
+        return (html, HentToken(html), captchaSvar, captchaSignertFasit);
+    }
 
     /// <summary>
     /// Leser responsen som tekst OG HTML-dekoder den (Razor koder norske
