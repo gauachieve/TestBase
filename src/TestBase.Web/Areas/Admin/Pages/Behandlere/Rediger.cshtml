@@ -1,0 +1,31 @@
+@page "{id:long}"
+@model TestBase.Web.Areas.Admin.Pages.Behandlere.RedigerModel
+@{
+    ViewData["Title"] = "Rediger behandler";
+}
+
+<h1>Rediger behandler</h1>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<form method="post">
+    <input type="hidden" asp-for="Id" />
+    <div><label>Fornavn</label><br /><input asp-for="Fornavn" /></div>
+    <div><label>Etternavn</label><br /><input asp-for="Etternavn" /></div>
+    <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
+    <div><label>E-post</label><br /><input asp-for="Email" /></div>
+    <div>
+        <label>Personnummer</label><br />
+        <input asp-for="Personnummer" placeholder="Tomt hvis behandleren ikke har fullført egenregistrering ennå" />
+    </div>
+    <div><label>HPR-nummer</label><br /><input asp-for="HprNr" /></div>
+    <div><label>Kontonummer</label><br /><input asp-for="Kontonummer" /></div>
+    <div><label>Arbeidsadresse</label><br /><input asp-for="Arbeidsadresse" /></div>
+    <div><label>Tittel</label><br /><input asp-for="Tittel" /></div>
+    <button type="submit">Lagre</button>
+</form>
+
+<p><a href="/Admin/Behandlere">Tilbake til behandlere</a></p>

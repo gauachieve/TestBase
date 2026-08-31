@@ -28,6 +28,17 @@ public sealed class Who5TestSeeder : IInnebygdTestSeeder
 
     private const string Kategori = "Kjerne";
 
+    /// <summary>
+    /// Fritt oversatt fra WHOs engelske instrumentbeskrivelse (ikke selve
+    /// spørsmålsteksten, som allerede er den offisielle norske oversettelsen
+    /// — se klassekommentaren) — vist i rapportens sammendrag, IKKE til
+    /// pasienten under utfylling (se Test.RapportIntroduksjon).
+    /// </summary>
+    private const string RapportIntroduksjonTekst =
+        "WHO-5 er et selvrapporteringsinstrument som måler mental velvære. Det består av fem " +
+        "utsagn knyttet til de siste to ukene. Hvert utsagn skåres på en 6-punkts skala, hvor " +
+        "høyere skår indikerer bedre mental velvære. Instrumentet er oversatt til over 30 språk.";
+
     public async Task SeedAsync(TestService testService, CancellationToken cancellationToken = default)
     {
         await testService.SikreStandardkategorierAsync(cancellationToken);
@@ -36,6 +47,7 @@ public sealed class Who5TestSeeder : IInnebygdTestSeeder
         if (eksisterende is not null)
         {
             await testService.KoblTestTilKategoriAsync(eksisterende.Id, Kategori, cancellationToken);
+            await testService.SettRapportIntroduksjonAsync(eksisterende.Id, RapportIntroduksjonTekst, cancellationToken);
             return;
         }
 
@@ -58,5 +70,6 @@ public sealed class Who5TestSeeder : IInnebygdTestSeeder
         }
 
         await testService.KoblTestTilKategoriAsync(test.Id, Kategori, cancellationToken);
+        await testService.SettRapportIntroduksjonAsync(test.Id, RapportIntroduksjonTekst, cancellationToken);
     }
 }

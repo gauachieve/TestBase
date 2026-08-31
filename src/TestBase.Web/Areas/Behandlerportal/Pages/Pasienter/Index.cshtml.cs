@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Pasienter;
+using TestBase.Shared.Domain.Tester;
 using TestBase.Shared.Security;
 
 namespace TestBase.Web.Areas.Behandlerportal.Pages.Pasienter;
@@ -10,25 +11,36 @@ namespace TestBase.Web.Areas.Behandlerportal.Pages.Pasienter;
 public sealed class IndexModel : PageModel
 {
     private readonly AppDbContext _db;
+    private readonly TestService _testService;
     private readonly IAuditLogger _auditLogger;
     private readonly ICurrentUserContext _currentUser;
 
-    public IndexModel(AppDbContext db, IAuditLogger auditLogger, ICurrentUserContext currentUser)
+    public IndexModel(AppDbContext db, TestService testService, IAuditLogger auditLogger, ICurrentUserContext currentUser)
     {
         _db = db;
+        _testService = testService;
         _auditLogger = auditLogger;
         _currentUser = currentUser;
     }
 
-    public List<Pasient> Pasienter { get; private set; } = new();
+    public sealed record PasientRad(Pasient Pasient, int Tildelt, int Besvart);
+
+    public List<PasientRad> Rader { get; private set; } = new();
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         var behandlerId = HentBehandlerId();
-        Pasienter = await _db.Pasienter
+        var pasienter = await _db.Pasienter
             .Where(p => p.BehandlerId == behandlerId)
             .OrderByDescending(p => p.OpprettetUtc)
             .ToListAsync(cancellationToken);
+
+        var tellinger = await _testService.HentTildelingTellingerAsync(pasienter.Select(p => p.Id).ToList(), cancellationToken);
+        Rader = pasienter.Select(p =>
+        {
+            var telling = tellinger.GetValueOrDefault(p.Id, new TestService.TildelingTelling(0, 0));
+            return new PasientRad(p, telling.Tildelt, telling.Besvart);
+        }).ToList();
     }
 
     public async Task<IActionResult> OnPostArkiverAsync(long id, CancellationToken cancellationToken)

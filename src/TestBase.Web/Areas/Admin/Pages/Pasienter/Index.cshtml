@@ -1,0 +1,50 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Pasienter.IndexModel
+@{
+    ViewData["Title"] = "Pasienter";
+}
+
+<h1>Pasienter</h1>
+<p>Alle pasienter på tvers av behandlere. Selve pasient-administrasjonen (legg til/rediger/arkiver) skjer hos den enkelte behandler.</p>
+
+<div>
+    <label for="pasientSok">Søk</label><br />
+    <input type="search" id="pasientSok" data-tabellfilter="#pasientTabell"
+           placeholder="Søk i navn, behandler, gruppe, mobil, e-post, personnummer, status …" />
+</div>
+
+<table id="pasientTabell" border="1" cellpadding="6" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Navn</th>
+            <th>Behandler</th>
+            <th>Gruppe</th>
+            <th>Mobil</th>
+            <th>E-post</th>
+            <th>Personnummer</th>
+            <th>Tildelt</th>
+            <th>Besvart</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var rad in Model.Rader)
+    {
+        var p = rad.Pasient;
+        var sok = $"{p.Navn} {rad.BehandlerNavn} {p.Gruppenavn} {p.MobilNr} {p.Email} {p.Personnummer} {p.Status}".ToLowerInvariant();
+        <tr data-sok="@sok">
+            <td>@(p.Navn ?? "(ikke fullført)")</td>
+            <td>@(rad.BehandlerNavn ?? "-")</td>
+            <td>@(p.Gruppenavn ?? "-")</td>
+            <td>@p.MobilNr</td>
+            <td>@p.Email</td>
+            <td>@p.Personnummer</td>
+            <td>@rad.Tildelt</td>
+            <td>@rad.Besvart</td>
+            <td>@p.Status</td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<script src="~/js/tabellfilter.js"></script>

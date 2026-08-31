@@ -1,0 +1,43 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.InnstillingerModel
+@using TestBase.Shared.Domain.Pasienter
+@{
+    ViewData["Title"] = "Innstillinger";
+}
+
+<h1>Innstillinger</h1>
+
+@if (Model.Melding is not null)
+{
+    <p>@Model.Melding</p>
+}
+
+<form method="post" asp-page-handler="Lagre">
+    <div>
+        <label><input asp-for="OnskerDagligPaaminnelse" type="checkbox" /> Send meg en daglig påminnelse om fullførte tester som venter på godkjenning</label>
+    </div>
+    <div>
+        <label>Send påminnelsen som</label><br />
+        <label><input type="radio" asp-for="PaaminnelseKanal" value="@Varslingspreferanse.Sms" /> Kun SMS</label>
+        <label><input type="radio" asp-for="PaaminnelseKanal" value="@Varslingspreferanse.Epost" /> Kun e-post</label>
+        <label><input type="radio" asp-for="PaaminnelseKanal" value="@Varslingspreferanse.Begge" /> Begge</label>
+    </div>
+    <button type="submit">Lagre</button>
+</form>
+
+<p>
+    @if (Model.SistPaaminnetUtc is not null)
+    {
+        <text>Sist påminnet: @Model.SistPaaminnetUtc?.ToString("g")</text>
+    }
+    else
+    {
+        <text>Du har ikke fått noen påminnelse ennå.</text>
+    }
+</p>
+
+<form method="post" asp-page-handler="SendNaa">
+    <button type="submit">Send test-påminnelse nå</button>
+</form>
+
+<p><a href="/Behandlerportal/MinSide">Tilbake til min side</a></p>

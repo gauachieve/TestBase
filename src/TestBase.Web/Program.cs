@@ -9,6 +9,7 @@ using TestBase.Shared.Domain.Tester.Skaaring;
 using TestBase.Shared.Providers;
 using TestBase.Shared.Providers.Mock;
 using TestBase.Shared.Security;
+using TestBase.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,6 +40,9 @@ builder.Services.AddScoped<PasientAuthenticationService>();
 builder.Services.AddScoped<PasientInvitasjonService>();
 builder.Services.AddScoped<TestService>();
 builder.Services.AddScoped<TestTildelingsService>();
+builder.Services.AddScoped<BehandlerMeldingService>();
+builder.Services.AddScoped<PaaminnelseService>();
+builder.Services.AddHostedService<DagligPaaminnelseBakgrunnstjeneste>();
 
 // Skåringsmotor og innebygde, kode-definerte tester (fase 5 — bevist ut med WHO-5).
 builder.Services.AddScoped<ITestSkaaringsberegner, Who5Skaaringsberegner>();
@@ -128,6 +132,7 @@ builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AuthorizeAreaFolder("Admin", "/Administratorer", "AdminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Behandlere", "AdminOmrade");
+    options.Conventions.AuthorizeAreaFolder("Admin", "/Pasienter", "AdminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Tester", "AdminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Tildel", "AdminOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Behandlere", "BehandlerOmrade");

@@ -659,6 +659,208 @@ dialog#oppsummeringDialog::backdrop { background: rgba(22, 24, 31, 0.5); }
   .svar-knapp { flex: 1 1 40%; }
 }
 
+/* ---------- Rapport: A4-"papir"-visning med sideflipping og handlingsrad ---------- */
+/* Malen brukeren ga (report.png): stor to-linjers tittel, et dekorativt
+   avrundet fargeblokk-hjørne øverst til høyre, seksjoner som fylte
+   "pille"-overskrifter, og en fargebåndsidefot i bunnen — her i appens
+   oransje aksentfarge i stedet for malens grønnfarge. */
+.rapport-verktoylinje {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  max-width: 21cm;
+  margin: 0 auto 1.5rem;
+}
+.rapport-verktoylinje button {
+  border: 2px solid var(--border);
+  background: #fff;
+  border-radius: 6px;
+  padding: 0.4rem 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--ink);
+}
+.rapport-verktoylinje button:hover:not(:disabled) { border-color: var(--accent); }
+.rapport-verktoylinje button:disabled { opacity: 0.35; cursor: default; }
+.rapport-sideindikator { font-size: 0.85rem; color: var(--muted); font-weight: 600; min-width: 7rem; text-align: center; }
+
+.rapport-dokument { max-width: 21cm; margin: 0 auto; }
+
+/* Fast A4-ramme — hvit boks + skygge rundt HELE rapporten, uansett hvor lite
+   innhold det er (jf. eksplisitt krav: omrisset skal alltid være et fullt ark). */
+.rapport-ark {
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: var(--shadow);
+  border-radius: 6px;
+  width: 100%;
+  min-height: 29.7cm;
+  margin: 0 auto 2rem;
+  padding: 2.6cm 2cm 3.4cm;
+  box-sizing: border-box;
+  color: var(--ink-soft);
+}
+.rapport-ark h1, .rapport-ark h2 { color: var(--ink); }
+
+/* Dekorativt hjørneelement — kun første ark, ren pynt (matcher malen). */
+.rapport-hjornedekor {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 2.1cm;
+  height: 6.5cm;
+  background: var(--accent);
+  border-bottom-left-radius: 28px;
+}
+
+.rapport-tittelblokk { margin-bottom: 1.5rem; max-width: 80%; }
+.rapport-tittel-stor {
+  display: block;
+  font-weight: 800;
+  font-size: 2.4rem;
+  line-height: 1.05;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.rapport-tittel-liten {
+  display: block;
+  font-weight: 400;
+  font-size: 1.5rem;
+  color: var(--ink-soft);
+  line-height: 1.2;
+  margin-top: 0.15rem;
+}
+
+.rapport-metarad {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 3rem;
+  margin: 0 0 2rem;
+  font-size: 0.92rem;
+}
+.rapport-metarad strong { color: var(--ink); }
+.rapport-pnr { font-size: 0.82rem; color: var(--muted); margin-top: 0.15rem; }
+
+.rapport-introduksjon {
+  font-size: 0.92rem;
+  font-style: italic;
+  color: var(--ink-soft);
+  background: var(--bg-soft);
+  border-left: 3px solid var(--accent);
+  padding: 0.75rem 1rem;
+  border-radius: 0 6px 6px 0;
+  margin-bottom: 1.75rem;
+}
+
+.rapport-seksjon { margin-bottom: 1.75rem; }
+/* Bleeder helt ut til arkets venstre kant (jf. malen) — negativ margin lik
+   .rapport-ark sin venstre padding, kompensert med tilsvarende padding-left
+   slik at selve teksten fortsatt sitter pent innrykket. Flat venstrekant
+   (border-radius kun på høyre side) siden pillen faktisk treffer arkkanten,
+   fremfor en "svevende" full pille et stykke inn på siden. */
+.rapport-seksjon-tittel {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.5rem 1.3rem 0.5rem 2cm;
+  margin: 0 0 1rem -2cm;
+  border-radius: 0 999px 999px 0;
+}
+
+.rapport-skaarboks { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 0.75rem; }
+.rapport-skaartall { font-size: 2.2rem; font-weight: 800; color: var(--accent-dark); white-space: nowrap; }
+.rapport-fremdrift { flex: 1; height: 0.6rem; border-radius: 999px; background: var(--bg-soft); overflow: hidden; }
+.rapport-fremdrift-fyll { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-dark)); }
+.rapport-fortolkning { font-size: 0.96rem; }
+
+.rapport-svartabell { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.rapport-svartabell th {
+  text-align: left;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  border-bottom: 2px solid var(--border);
+  padding: 0.5rem;
+}
+.rapport-svartabell td { padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--border); }
+.rapport-svartabell tr:nth-child(even) td { background: var(--bg-soft); }
+
+.rapport-sidefot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--accent);
+  color: #1a1305;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  padding: 0.8rem 1rem;
+}
+
+/* Alle handlingsknapper i samme (oransje) stil, i én horisontal rad. */
+.rapport-handlinger {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  max-width: 21cm;
+  margin: 0 auto 3rem;
+}
+.rapport-handlinger form { margin: 0 !important; background: none !important; border: none !important; box-shadow: none !important; padding: 0 !important; max-width: none !important; display: inline-block !important; }
+.rapport-handlinger .btn { min-width: 9rem; text-align: center; }
+.rapport-status-melding { text-align: center; max-width: 21cm; margin: 0 auto 1.5rem; }
+
+@media (max-width: 900px) {
+  .rapport-ark { min-height: auto; padding: 1.75rem 1.5rem 3.2rem; }
+  .rapport-seksjon-tittel { padding-left: 1.5rem; margin-left: -1.5rem; }
+  .rapport-tittel-stor { font-size: 1.9rem; }
+  .rapport-tittel-liten { font-size: 1.2rem; }
+  .rapport-tittelblokk { max-width: 100%; }
+}
+
+@media print {
+  .site-header, .site-footer, .dev-bar, .cookie-banner,
+  .rapport-verktoylinje, .rapport-handlinger, .rapport-status-melding,
+  main.page > p:last-child { display: none !important; }
+  main.page { padding: 0; max-width: none; }
+  .rapport-ark {
+    box-shadow: none;
+    border-radius: 0;
+    min-height: auto;
+    page-break-after: always;
+  }
+  .rapport-ark:last-child { page-break-after: auto; }
+  .rapport-ark[hidden] { display: block !important; }
+  @page { size: A4; margin: 0; }
+}
+
+/* ---------- Varsel-badge (uleste meldinger/oppgaver i navigasjonen) ---------- */
+.varsel-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.3rem;
+  margin-left: 0.3rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #1a1305;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.1rem;
+  vertical-align: middle;
+}
+
 /* ---------- Cookie consent banner ---------- */
 .cookie-banner {
   position: fixed;

@@ -1,0 +1,32 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.MinSideModel
+@{
+    ViewData["Title"] = "Min side";
+}
+
+<h1>Min side</h1>
+
+<p>
+    <a href="/Behandlerportal/Oppgaver">Gå til oppgaver</a> |
+    <a href="/Behandlerportal/Innstillinger">Innstillinger</a>
+</p>
+
+<h2>Meldinger (@Model.UlesteMeldinger.Count uleste)</h2>
+
+@if (!Model.UlesteMeldinger.Any())
+{
+    <p>Ingen nye meldinger. Du får en melding her hver gang en pasient fullfører en test.</p>
+}
+else
+{
+    <ul>
+    @foreach (var melding in Model.UlesteMeldinger)
+    {
+        <li>
+            <strong>@(melding.PasientNavn ?? "(ikke fullført registrering)")</strong> fullførte <em>@melding.TestNavn</em>
+            @(melding.Melding.OpprettetUtc.ToString("g")) —
+            <a href="/Behandlerportal/Pasienter/Rapport/@melding.TestTildelingId">Se rapport</a>
+        </li>
+    }
+    </ul>
+}

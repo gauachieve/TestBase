@@ -581,6 +581,239 @@ falskt "bug" som så ut som at ReturnUrl ikke ble bundet server-side, mens det i
 verdien som ble sendt som var korrupt. Sett `MSYS_NO_PATHCONV=1` foran slike curl-kommandoer ved
 manuell/scriptet testing av skjemafelt som starter med skråstrek.
 
+## Meldinger og oppgaveliste — rapportgodkjenning, betrodd deling, daglig påminnelse (2026-08-30)
+
+**Rapportgodkjenning + delingsbryter:** `TestTildeling` fikk `RapportGodkjentUtc` (behandler MÅ
+eksplisitt godkjenne en fullført rapport — `TestService.GodkjennRapportAsync`) og
+`RapportSynligForPasient` (egen, valgfri bryter — kun betydningsfull/tilgjengelig ETTER
+godkjenning, standard false — `TestService.SettRapportSynlighetAsync`). Pasienten ser ALDRI en
+rapport med mindre BEGGE er satt — godkjenning alene deler ikke automatisk. Ny lesetilgang for
+pasienten på `Pasientportal/Tester/Rapport/{id}` (viser en vennlig "ikke klar ennå"-melding, ikke
+NotFound, hvis ikke delt — tildelingen er tross alt legitimt pasientens egen). `MinSide` lenker til
+den når den er klar.
+
+**Meldinger (BehandlerMelding):** Et enkelt lest/ulest-innbokssystem — `TestService.LagreSvarAsync`
+oppretter automatisk en melding til pasientens FAKTISKE behandler (`Pasient.BehandlerId`, ikke
+nødvendigvis den som tildelte testen — en admin kan ha gjort det) hver gang en tildeling markeres
+fullført. Uleste meldinger vises som en tallboble (`.varsel-badge`) ved siden av "Oppgaver" i
+navigasjonen (`_Layout.cshtml`, injiserer `BehandlerMeldingService`/`TestService` direkte for å
+telle — samme pragmatiske mønster som resten av appen, ingen ViewComponent-lag innført). Å åpne
+rapporten for den aktuelle tildelingen markerer meldingen lest.
+
+**Oppgaveliste (`/Oppgaver` i alle tre Areas):** Samme URL-mønster og
+`[Authorize(Policy = "...")]` direkte på PageModel (for få sider til å rettferdiggjøre
+AuthorizeAreaFolder, som `Pasientportal/MinSide`/`Tester/Fyll` allerede gjør) — men helt ulikt
+innhold per rolle: pasient ser egne ubesvarte tester, behandler ser to lister (fullførte tester som
+venter på godkjenning + ikke-besvarte tester tildelt egne pasienter, kun sistnevnte til oversikt —
+ingen handling kreves der), admin ser en placeholder inntil feedback-systemet bygges. Behandler fikk
+også en egen `Behandlerportal/MinSide` (fantes ikke fra før — kun Pasientportal hadde det) med
+meldingsinnboksen, og `Behandlerportal/Innstillinger` for varslingspreferanser.
+
+**Daglig påminnelse:** `Behandler` fikk `OnskerDagligPaaminnelse` (av/på), `PaaminnelseKanal`
+(gjenbruker `Varslingspreferanse`-enumen fra Pasient — samme "hvordan vil du varsles"-konsept,
+kryssreferert fra `Domain/Administrasjon` selv om enumen bor i `Domain/Pasienter`, bevisst ikke
+duplisert) og `SistPaaminnetUtc` (hindrer dobbeltsending samme UTC-dag). `PaaminnelseService`
+(Shared, testbar uten HttpContext) bygger meldingen og sender via SMS/e-post etter samme
+fallback-til-faktisk-kontaktinfo-logikk som `TestTildelingsService`. **VIKTIG personvernvalg**:
+meldingsteksten bruker ALDRI pasientnavn, kun pasient-ID (f.eks. "Pasient 7") — SMS/e-post er ikke
+sikre kanaler; fullt navn vises først etter innlogging via lenken til oppgavelisten. Selve
+"hver dag"-logikken er en enkel, selvhelbredende `DagligPaaminnelseBakgrunnstjeneste`
+(`BackgroundService` i `TestBase.Web`, sjekker hvert 15. minutt om konfigurert klokkeslett
+— `Varsling:PaaminnelseKlokkeslettUtc`, standard 07 UTC — er passert OG at noen faktisk venter,
+i stedet for en presis engangs-timer som ikke tåler nedetid rundt selve klokkeslettet). En
+"Send test-påminnelse nå"-knapp i `Innstillinger` lar behandler teste umiddelbart i dev, samme
+prinsipp som "Regenerer innebygde tester" i Admin/Tester.
+
+**Kjent gap:** `Varsling:BaseUrl` (lenken i påminnelsen) MÅ settes eksplisitt i konfigurasjon ved
+reell drift — en bakgrunnstjeneste har ingen HTTP-forespørsel å lese `Request.Scheme`/`Host` fra
+slik `TestTildelingsService`/`Program.cs`s `InnloggingsstiForAsync` har. Faller tilbake til
+`https://localhost:7257` i dev.
+
+**Ny fallgruve funnet ved verifisering:** Razors "betinget attributt"-oppførsel (der en
+`bool`-typet `@(...)`-uttrykk som HELE verdien av et rent HTML-attributt gjør at Razor render en
+MINIMERT boolsk attributt-form — `attributtnavn="attributtnavn"` når true, attributtet utelates
+helt når false) gjelder for ALLE attributter bundet på denne måten, ikke bare ekte boolske
+HTML-attributter som `disabled`/`checked`. Et `<input type="hidden" name="synlig"
+value="@(!Model.X.Bool)" />` rendret bokstavelig `value="value"` i stedet for `value="True"` —
+usynlig i vanlig bruk (ser riktig ut i markup ved rask sjekk) men brøt server-side
+`bool`-modellbinding fullstendig (knappen gjorde alltid det motsatte av det den skulle). Fikset ved
+eksplisitt `.ToString()` på uttrykket, som tvinger `string`-typen og dermed unngår den boolske
+spesialbehandlingen. Sjekk ALLTID generert HTML (ikke bare Razor-kildekoden) for et skjult felt
+bundet til et negert/beregnet bool-uttrykk.
+
+## Rapportvisning som A4-"papir" + godkjenn/forkast/kopier/skriv ut/send (2026-08-31)
+
+Behandlers rapportside (og pasientens lesetilgang) fikk et fullstendig visuelt og funksjonelt
+grunnsystem etter bruker-tilbakemelding ("skal se ut som et papirark").
+
+**Visning:** Rapporten er nå delt opp i "ark" (`.rapport-ark`) — én forside (tittel/pasient/skåring/
+fortolkning), én PER TestSide i testen (samme sidestruktur som forfatning/utfylling — se
+`TestMedInnhold.Sider`/`AlleLedd`), og — hvis pasienten har flere fullførte besvarelser av samme
+test — en historikk-side til slutt. Hvert ark er stylet som et A4-ark (`width`/`min-height` i `cm`,
+`box-shadow: var(--shadow)`, hvit bakgrunn) med sidetall i bunnen. Sideflipping
+(`wwwroot/js/rapport.js`) skjuler alle unntatt gjeldende ark via `hidden`-attributtet og viser
+Forrige/Neste + "Side X av Y" — rent DOM, ingen server-tur. `@@media print`-regler tvinger ALLE ark
+synlige igjen (`[hidden] { display: block !important; }`) med `page-break-after: always`, skjuler
+verktøylinje/handlinger/site-header/footer, og setter `@@page { size: A4; }` — så utskrift blir
+faktisk flersidig, ikke bare det synlige arket.
+
+**Handlinger (nøyaktig som spesifisert — ikke mer):** På en fullført, ikke-behandlet besvarelse:
+KUN Godkjenn og Forkast-og-send-på-nytt (behandler må ta ett av de to valgene — se
+`TestService.GodkjennRapportAsync`/`ForkastRapportAsync`, gjensidig utelukkende). Etter godkjenning:
+Kopier til utklippstavle, Skriv ut, Send kopi til pasienten — presentert som HELT separate
+knapperader (ikke samtidig), jf. eksplisitt krav om at c–e KUN skal være mulig med godkjent rapport.
+Den tidligere frittstående synlighets-bryteren er fjernet — "Send kopi til pasienten" dekker samme
+behov (gjør synlig OG varsler, i motsetning til den stille bryteren, som bare gjorde synlig).
+
+**Forkast, resend:** Ny `TestTildeling.RapportForkastetUtc` — BEVISST IKKE en Status-verdi (Status
+forblir `Fullfort`, et historisk faktum: testen BLE besvart; forkastelse er en egen beslutning lagt
+oppå, som `RapportGodkjentUtc` — samme mønster, ingen av de eksisterende Status-filtrene andre
+steder i appen (Oppgaver, MinSide, Fyll) trengte noen endring). Svarene slettes IKKE — kun
+tilgjengelighets-statusen endres, for sporbarhet. `Rapport.cshtml.cs` sin `OnPostForkastAsync`
+kaller så det eksisterende `TestTildelingsService.TildelOgVarsleAsync` for å opprette OG varsle om
+en helt ny tildeling av samme test til samme pasient — gjenbruker hele
+tildelings-/varslingsmotoren fra tildelingsflyten i stedet for å duplisere den.
+
+**Kopier til utklippstavle:** `navigator.clipboard.write` med BÅDE `text/plain` og `text/html` (via
+`ClipboardItem`) fra hele `#rapportDokument`-elementet, slik at et rikteksteditor-journalsystem
+beholder litt struktur ved innliming, med automatisk fallback til ren `writeText` i eldre nettlesere
+og en tydelig manuell instruks (merk + Ctrl+C) hvis Utklippstavle-API-et mangler helt.
+
+**Send kopi til pasienten:** Ny `TestTildelingsService.SendRapportKopiAsync` — samme
+kanal-fallback-logikk som den opprinnelige tildelingsvarslingen (`VarsleAsync`, nå refaktorert til å
+ta meldingstekst som parameter i stedet for å bygge den selv, slik at begge bruks-tilfellene kan
+dele den uten å duplisere kanallogikken), men med en annen meldingstekst/e-post-emne tilpasset "din
+rapport er klar" fremfor "du har fått en ny test".
+
+Verifisert med et fullt manuelt scenario over curl (godkjenn → send kopi → varsel med korrekt
+lenke og synlighet slått på i databasen; forkast → ny tildeling opprettet og varslet → forsvinner
+fra "venter på godkjenning" → dukker opp under "ikke besvart ennå") og 4/4 grønne automatiserte
+tester.
+
+## Rapport-visuell — mal fra bruker (report.png), ett-arks WHO-5 (2026-08-31)
+
+Bruker ga et konkret referansebilde (`report.png` i repo-roten, IKKE committet — kun brukt som
+visuell mal, se `.gitignore`-vurdering) av en moderne rapportmal: stor to-linjers tittel, et
+dekorativt avrundet fargeblokk-hjørne øverst til høyre, seksjoner som fylte "pille"-overskrifter,
+og et fargebånd nederst. Gjenskapt i appens oransje aksentfarge (`--accent`/`--accent-dark`) i
+stedet for malens grønnfarge, som ny CSS i `site.css` (`.rapport-hjornedekor`, `.rapport-tittel-
+stor/-liten`, `.rapport-seksjon-tittel`, `.rapport-sidefot` nå et fylt fargebånd i stedet for en
+tynn strek).
+
+**Ett ark for enkle tester:** `RapportModel.SlaaSammenTilEttArk` (`Sider.Count <= 1`) slår forside
+(tittel/skåring) og selve svartabellen sammen til ETT `.rapport-ark` når testen kun har én TestSide
+— WHO-5 sitt tilfelle. Tester med faktisk flere TestSider beholder fortsatt ett ark per side (samme
+struktur som forfatning/utfylling). `TotalAntallArk` regner riktig sidetall i foten uansett hvilken
+gren som brukes. Omrisset (`.rapport-ark`) beholder likevel ALLTID full A4-`min-height` uansett
+innholdsmengde, jf. eksplisitt krav — et kort WHO-5-ark er fortsatt et fullt, hvitt A4-ark med
+skygge, ikke en krympet boks.
+
+**Alle handlingsknapper i samme stil:** Byttet fra blandet `.btn-accent`/`.btn-outline` til
+utelukkende `.btn-accent` (oransje, fylt) på Godkjenn/Forkast/Kopier/Skriv ut/Send kopi — presentert
+i én horisontal `flex`-rad (`.rapport-handlinger`, wrap kun på smale skjermer).
+
+**Fallgruve truffet under verifisering:** Å legge til nye C#-egenskaper på en PageModel
+(`SlaaSammenTilEttArk`/`TotalAntallArk`) mens `dotnet watch run` kjørte i brukerens eget vindu,
+utløste en `dotnet`-hot-reload-feil (`ArgumentOutOfRangeException: Token ... is not valid in the
+scope of module`) i `RazorPagePropertyActivator` — hot reload klarer ikke alltid nye/endrede
+public-egenskaper på en allerede lastet PageModel-type, i motsetning til rene metode-/markup-
+endringer. Krever en FULL omstart av `dotnet watch run` (ikke bare en ny fil-lagring) for å komme
+seg videre — samme grunnleggende "restart, ikke stol blindt på hot reload ved strukturelle
+typeendringer"-lærdom som allerede gjelder for `dotnet build`-fillåsing.
+
+Verifisert med curl mot en helt fersk (ikke-watch) serverinstans: godkjent WHO-5-rapport blir
+"side 1 av 2" (skåring+svar slått sammen, historikk som eget ark) for behandler, "side 1 av 1" for
+pasienten (som ikke ser historikk), og en forkastet rapport viser korrekt banner uten handlingsrad.
+4/4 grønne automatiserte tester uendret.
+
+## Rapport: introduksjon, ekte kopierbar boks, råskår flyttet til slutt (2026-08-31)
+
+Tre oppfølgingsjusteringer etter bruker-tilbakemelding om reell bruk av kopier-til-utklippstavle-
+knappen:
+
+**Introduksjon:** Gjenbruker `Test.Beskrivelse` (samme felt som vises til pasienten før utfylling)
+i en liten sitatboks-stil seksjon (`.rapport-introduksjon`) på sammendragsarket — ingen nytt
+datafelt, bevisst minimal endring siden brukeren ba om "ikke mye, bare en liten introduksjon".
+
+**Ny sidestruktur — råskår til slutt:** `RapportModel.TotalAntallArk` forenklet til `1 + Sider.Count`
+— sammendraget (tittel/intro/skåring/utvikling over tid) er NÅ ALLTID ett samlet ark, og selve
+svartabellen (råskårene) kommer alltid ETTER, som egne, avsluttende ark (ett per TestSide) — ikke
+rett etter skåringen som i forrige versjon. For WHO-5 gir dette nøyaktig "side 2 av 2", som bedt om.
+Fjernet `SlaaSammenTilEttArk` (ikke lenger treffende — sammendraget slås alltid sammen nå, det er
+ikke lenger betinget av antall TestSider).
+
+**Ekte kopierbar boks:** Den forrige "Kopier til utklippstavle" kopierte rå `innerHTML` fra selve
+sidevisningen (`#rapportDokument`) — som er stylet via EKSTERNE CSS-klasser i `site.css`. Limt inn i
+et journalsystem (som ikke har den stilarket) forsvant all formatering, akkurat som rapportert. Løst
+med en helt separat, SKJULT (`hidden`) mal (`#rapportKopierMal`) bygget med KUN inline
+`style="..."`-attributter og harde fargeverdier (ikke `var(--x)`, som ikke betyr noe utenfor vår
+egen stilark) — en synlig, oransje-kantet boks som skiller seg fra vanlig journaltekst ved
+innliming, uansett mottakerens redigeringsverktøy. Samme rekkefølge som den nye sidestrukturen
+(sammendrag/intro/skåring/utvikling → svar til slutt), uavhengig av hvilken "side" brukeren står på
+i sideflipperen når de trykker Kopier (viktig — siden elementet er `hidden`, ville `.innerText` gitt
+tom streng; `.textContent` brukes for tekst-fallbacken i stedet, se `wwwroot/js/rapport.js`).
+
+Verifisert på fersk serverinstans: introduksjon vises, rekkefølge Skåring→Utvikling over tid→Svar
+bekreftet i generert HTML, ingen `var(...)`-referanser lekket inn i `#rapportKopierMal`s
+inline-stiler. 4/4 grønne automatiserte tester.
+
+## Rapport: seksjonspiller til venstre kant + egen WHO-5-introduksjonstekst (2026-08-31)
+
+To små justeringer etter at bruker sammenlignet med malen (`report.png`) på nytt:
+
+**Seksjonspillene bleeder til arkkanten:** `.rapport-seksjon-tittel` hadde `margin: 0 0 1rem` (vanlig
+innrykk, samme som brødteksten) — malen viser dem flush mot SIDENS venstre kant, ikke innrykket.
+Løst med negativ venstremargin lik `.rapport-ark`s venstre padding (`-2cm`, `-1.5rem` på mobil,
+speilet i `@@media (max-width: 900px)`), kompensert med tilsvarende `padding-left` slik at selve
+teksten fortsatt har luft. `border-radius` endret til kun høyre side (`0 999px 999px 0`) siden
+pillen nå faktisk treffer kanten — en avrundet venstrekant ville sett feil ut der.
+
+**Egen `Test.RapportIntroduksjon`:** Rapportens "introduksjon" brukte inntil nå
+`Test.Beskrivelse` — som EGENTLIG er pasientvendte utfyllingsinstruksjoner ("sett en sirkel
+rundt..."), ikke en klinisk beskrivelse av hva testen måler. Bruker ga riktig WHO-5-tekst
+(oversatt fra engelsk WHO-materiell). Løst med et helt nytt, eget felt på `Test` fremfor å fortsette
+å overbelaste `Beskrivelse` — riktigere datamodell, og lar de to tekstene utvikle seg uavhengig
+senere. Satt via en ny, minimal `TestService.SettRapportIntroduksjonAsync` (IKKE et nytt parameter
+på `OpprettTestAsync`/`OppdaterTestAsync` — unngår enhver risiko for den kjente
+positional-argument-fallgruven, og feltet trengs uansett ikke i noe kallsted utenfor
+`Who5TestSeeder` ennå). **Bevisst utsatt:** ingen admin-UI for dette feltet på
+admin-forfattede tester ennå — kun tilgjengelig via kode-seedere (som WHO-5) foreløpig.
+
+Verifisert på fersk serverinstans: ny tekst vises både i selve rapportvisningen og i
+kopier-til-utklippstavle-malen. 4/4 grønne automatiserte tester.
+
+## Pasientliste-søk, tildelt/besvart-kolonner, PNR i liste+rapport, ny Admin/Pasienter (2026-08-31)
+
+`TestService.HentTildelingTellingerAsync` — én ny, gjenbrukbar metode som gir antall tildelt og
+antall besvart (Fullfort) per pasient i én spørring (gruppert i minnet, ikke N+1), brukt av begge
+listene under.
+
+**Klientside tabellfilter (`wwwroot/js/tabellfilter.js`):** Generisk — et `<input
+data-tabellfilter="#tabellId">` skjuler/viser `<tr data-sok="...">` live mens man skriver, ingen
+server-tur. `data-sok` bygges server-side per rad av ALLE relevante felt (navn, gruppe, mobil,
+e-post, personnummer, status — og behandlernavn for admin-visningen) slått sammen og små bokstaver.
+Gjenbrukt uendret på begge listene under — ett skript, to bruksområder.
+
+**Behandlerportal/Pasienter/Index:** Fikk søkefeltet + tre nye kolonner (Personnummer, Tildelt,
+Besvart) foran den eksisterende Status/handlings-kolonnen.
+
+**Ny Admin/Pasienter/Index:** Fantes ikke fra før — admin hadde ingen enkel "se alle pasienter"-side,
+kun det smalere pasient-VALGET i tildelingsflyten (Admin/Tildel/Pasienter). Rent lesetilgang (ingen
+Rediger/Arkiver — pasient-CRUD hører fortsatt til behandler), med samme Behandler-kolonne-mønster
+som Admin/Tildel/Pasienter allerede har, pluss søk + de samme tellekolonnene. Lagt til i
+`AuthorizeAreaFolder`-listen i `Program.cs` og i navigasjonen.
+
+**PNR i rapporten:** `Behandlerportal/Pasienter/Rapport.cshtml` viser nå personnummer rett under
+pasientnavnet i sammendrags-arket (`.rapport-pnr`, dempet/mindre skrift) OG i den skjulte
+kopier-til-utklippstavle-malen (samme inline-stil-prinsipp som resten av den malen). KUN
+behandlerens rapportvisning — pasientens egen rapportside trenger ikke vise dem sitt eget
+personnummer tilbake.
+
+Verifisert på fersk serverinstans: tellinger stemte mot faktisk databasetilstand (4 tildelt/3
+besvart for en testpasient med én forkastet+re-sendt besvarelse), Admin/Pasienter viser alle
+pasienter på tvers av behandlere med korrekt behandlernavn, PNR vises begge steder i rapporten.
+4/4 grønne automatiserte tester (ingen skjemaendring i denne runden — ingen ny migrasjon nødvendig).
+
 ## Kjente feilsøkingspunkter fra oppsett (til referanse)
 
 - **Docker Desktop "Virtualization support not detected":** Løst ved å aktivere Windows-funksjonene `VirtualMachinePlatform` og `Microsoft-Windows-Subsystem-Linux` via PowerShell (admin) + omstart, selv om Intel VMX/VT-x allerede var aktivert i BIOS.

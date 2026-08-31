@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TestBase.Shared.Data;
 
@@ -11,9 +12,11 @@ using TestBase.Shared.Data;
 namespace TestBase.Shared.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260830232906_Fase6RapportGodkjenningMeldingerOgPaaminnelse")]
+    partial class Fase6RapportGodkjenningMeldingerOgPaaminnelse
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -495,10 +498,6 @@ namespace TestBase.Shared.Migrations
                     b.Property<DateTimeOffset>("OpprettetUtc")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("RapportIntroduksjon")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("Kode")
@@ -670,9 +669,6 @@ namespace TestBase.Shared.Migrations
 
                     b.Property<long>("PasientId")
                         .HasColumnType("bigint");
-
-                    b.Property<DateTimeOffset?>("RapportForkastetUtc")
-                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTimeOffset?>("RapportGodkjentUtc")
                         .HasColumnType("datetime(6)");

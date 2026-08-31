@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
+using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Tester.Skaaring;
 
 namespace TestBase.Shared.Domain.Tester;
@@ -23,11 +24,13 @@ public sealed class TestService
 {
     private readonly AppDbContext _db;
     private readonly IReadOnlyList<ITestSkaaringsberegner> _skaaringsberegnere;
+    private readonly BehandlerMeldingService _meldingService;
 
-    public TestService(AppDbContext db, IEnumerable<ITestSkaaringsberegner> skaaringsberegnere)
+    public TestService(AppDbContext db, IEnumerable<ITestSkaaringsberegner> skaaringsberegnere, BehandlerMeldingService meldingService)
     {
         _db = db;
         _skaaringsberegnere = skaaringsberegnere.ToList();
+        _meldingService = meldingService;
     }
 
     public async Task<Test> OpprettTestAsync(
@@ -70,6 +73,24 @@ public sealed class TestService
         test.Beskrivelse = beskrivelse;
         test.Belonningstekst = belonningstekst;
         test.ErAktiv = erAktiv;
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    /// <summary>
+    /// Egen metode fremfor et nytt parameter på OppdaterTestAsync — kun brukt
+    /// av innebygde testers seedere (se IInnebygdTestSeeder) foreløpig, ingen
+    /// admin-UI for dette feltet ennå (bevisst utsatt, jf. beslutningsloggen).
+    /// </summary>
+    public async Task<bool> SettRapportIntroduksjonAsync(long testId, string? rapportIntroduksjon, CancellationToken cancellationToken = default)
+    {
+        var test = await _db.Tester.FirstOrDefaultAsync(t => t.Id == testId, cancellationToken);
+        if (test is null)
+        {
+            return false;
+        }
+
+        test.RapportIntroduksjon = rapportIntroduksjon;
         await _db.SaveChangesAsync(cancellationToken);
         return true;
     }
@@ -183,6 +204,27 @@ public sealed class TestService
     public Task<List<TestTildeling>> HentTildelingerForPasientAsync(long pasientId, CancellationToken cancellationToken = default) =>
         _db.TestTildelinger.Where(t => t.PasientId == pasientId).OrderByDescending(t => t.TildeltUtc).ToListAsync(cancellationToken);
 
+    public sealed record TildelingTelling(int Tildelt, int Besvart);
+
+    /// <summary>Antall tildelte og antall besvarte (Fullfort) tester per pasient — til pasientlistene (behandler/admin), ikke bare én pasient om gangen.</summary>
+    public async Task<IReadOnlyDictionary<long, TildelingTelling>> HentTildelingTellingerAsync(
+        IReadOnlyCollection<long> pasientIder, CancellationToken cancellationToken = default)
+    {
+        if (pasientIder.Count == 0)
+        {
+            return new Dictionary<long, TildelingTelling>();
+        }
+
+        var tildelinger = await _db.TestTildelinger
+            .Where(t => pasientIder.Contains(t.PasientId))
+            .Select(t => new { t.PasientId, t.Status })
+            .ToListAsync(cancellationToken);
+
+        return tildelinger
+            .GroupBy(t => t.PasientId)
+            .ToDictionary(g => g.Key, g => new TildelingTelling(g.Count(), g.Count(t => t.Status == TestTildelingStatus.Fullfort)));
+    }
+
     public async Task<TestMedInnhold?> HentTildelingMedInnholdAsync(long tildelingId, CancellationToken cancellationToken = default)
     {
         var tildeling = await _db.TestTildelinger.FirstOrDefaultAsync(t => t.Id == tildelingId, cancellationToken);
@@ -254,6 +296,105 @@ public sealed class TestService
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        if (markerFullfort)
+        {
+            // Varsler pasientens FAKTISKE behandler (ikke nødvendigvis den som
+            // tildelte testen — en admin kan ha tildelt den, se TildelAsync).
+            var pasient = await _db.Pasienter.FirstOrDefaultAsync(p => p.Id == tildeling.PasientId, cancellationToken);
+            if (pasient is not null)
+            {
+                await _meldingService.OpprettAsync(pasient.BehandlerId, tildeling.Id, cancellationToken);
+            }
+        }
+    }
+
+    /// <summary>Krever at tildelingen faktisk er fullført og ikke allerede forkastet.</summary>
+    public async Task<bool> GodkjennRapportAsync(long tildelingId, CancellationToken cancellationToken = default)
+    {
+        var tildeling = await _db.TestTildelinger.FirstOrDefaultAsync(t => t.Id == tildelingId, cancellationToken);
+        if (tildeling is null || tildeling.Status != TestTildelingStatus.Fullfort || tildeling.RapportForkastetUtc is not null)
+        {
+            return false;
+        }
+
+        tildeling.RapportGodkjentUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    /// <summary>
+    /// Forkaster en fullført besvarelse i stedet for å godkjenne den (kan ikke
+    /// forkastes etter godkjenning — velg det ene eller det andre). Svarene
+    /// står urørt for sporbarhet; kalleren (Rapport.cshtml.cs) oppretter og
+    /// varsler om en NY tildeling via TestTildelingsService.TildelOgVarsleAsync.
+    /// </summary>
+    public async Task<bool> ForkastRapportAsync(long tildelingId, CancellationToken cancellationToken = default)
+    {
+        var tildeling = await _db.TestTildelinger.FirstOrDefaultAsync(t => t.Id == tildelingId, cancellationToken);
+        if (tildeling is null || tildeling.Status != TestTildelingStatus.Fullfort || tildeling.RapportGodkjentUtc is not null)
+        {
+            return false;
+        }
+
+        tildeling.RapportForkastetUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    /// <summary>Krever at rapporten allerede er godkjent — se RapportGodkjentUtc.</summary>
+    public async Task<bool> SettRapportSynlighetAsync(long tildelingId, bool synligForPasient, CancellationToken cancellationToken = default)
+    {
+        var tildeling = await _db.TestTildelinger.FirstOrDefaultAsync(t => t.Id == tildelingId, cancellationToken);
+        if (tildeling is null || tildeling.RapportGodkjentUtc is null)
+        {
+            return false;
+        }
+
+        tildeling.RapportSynligForPasient = synligForPasient;
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public sealed record TildelingMedTestOgPasient(TestTildeling Tildeling, string TestNavn, long PasientId, string? PasientNavn);
+
+    /// <summary>Fullførte tester som venter på behandlers godkjenning — behandlers oppgaveliste, jf. beslutningsloggen.</summary>
+    public async Task<IReadOnlyList<TildelingMedTestOgPasient>> HentUgodkjenteFullforteForBehandlerAsync(
+        long behandlerId, CancellationToken cancellationToken = default)
+    {
+        var pasientIder = await _db.Pasienter.Where(p => p.BehandlerId == behandlerId).Select(p => p.Id).ToListAsync(cancellationToken);
+        var tildelinger = await _db.TestTildelinger
+            .Where(t => pasientIder.Contains(t.PasientId) && t.Status == TestTildelingStatus.Fullfort &&
+                        t.RapportGodkjentUtc == null && t.RapportForkastetUtc == null)
+            .OrderBy(t => t.FullfortUtc)
+            .ToListAsync(cancellationToken);
+        return await BerikMedTestOgPasientAsync(tildelinger, cancellationToken);
+    }
+
+    /// <summary>Tester tildelt behandlers pasienter som ennå ikke er besvart ferdig — kun til oversikt, ingen godkjenning her.</summary>
+    public async Task<IReadOnlyList<TildelingMedTestOgPasient>> HentIkkeFullforteForBehandlerAsync(
+        long behandlerId, CancellationToken cancellationToken = default)
+    {
+        var pasientIder = await _db.Pasienter.Where(p => p.BehandlerId == behandlerId).Select(p => p.Id).ToListAsync(cancellationToken);
+        var tildelinger = await _db.TestTildelinger
+            .Where(t => pasientIder.Contains(t.PasientId) && t.Status != TestTildelingStatus.Fullfort)
+            .OrderBy(t => t.TildeltUtc)
+            .ToListAsync(cancellationToken);
+        return await BerikMedTestOgPasientAsync(tildelinger, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<TildelingMedTestOgPasient>> BerikMedTestOgPasientAsync(
+        List<TestTildeling> tildelinger, CancellationToken cancellationToken)
+    {
+        var testIder = tildelinger.Select(t => t.TestId).Distinct().ToList();
+        var testNavn = await _db.Tester.Where(t => testIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Navn, cancellationToken);
+
+        var pasientIder = tildelinger.Select(t => t.PasientId).Distinct().ToList();
+        var pasientNavn = await _db.Pasienter.Where(p => pasientIder.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Navn, cancellationToken);
+
+        return tildelinger
+            .Select(t => new TildelingMedTestOgPasient(t, testNavn.GetValueOrDefault(t.TestId, "(ukjent test)"), t.PasientId, pasientNavn.GetValueOrDefault(t.PasientId)))
+            .ToList();
     }
 
     /// <summary>

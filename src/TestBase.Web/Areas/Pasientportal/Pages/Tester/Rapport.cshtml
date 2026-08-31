@@ -1,0 +1,85 @@
+@page "{id:long}"
+@model TestBase.Web.Areas.Pasientportal.Pages.Tester.RapportModel
+@{
+    ViewData["Title"] = "Rapport";
+    var sidetall = 1;
+}
+
+@if (Model.IkkeKlarEnna)
+{
+    <p>Behandleren din har ikke gjort denne rapporten tilgjengelig for deg ennå.</p>
+}
+else
+{
+    <div class="rapport-verktoylinje" id="rapportVerktoylinje">
+        <button type="button" id="rapportForrige">← Forrige</button>
+        <span class="rapport-sideindikator" id="rapportSideindikator"></span>
+        <button type="button" id="rapportNeste">Neste →</button>
+    </div>
+
+    <div class="rapport-dokument" id="rapportDokument">
+        <section class="rapport-ark">
+            <div class="rapport-hjornedekor"></div>
+
+            <div class="rapport-tittelblokk">
+                <span class="rapport-tittel-stor">Rapport</span>
+                <span class="rapport-tittel-liten">@Model.Test?.Navn</span>
+            </div>
+
+            <div class="rapport-metarad">
+                <div><strong>Fullført:</strong> @Model.Tildeling?.FullfortUtc?.ToString("g")</div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Model.Test?.RapportIntroduksjon))
+            {
+                <p class="rapport-introduksjon">@Model.Test!.RapportIntroduksjon</p>
+            }
+
+            @if (Model.Skaaring is not null)
+            {
+                <div class="rapport-seksjon">
+                    <span class="rapport-seksjon-tittel">Skåring</span>
+                    <div class="rapport-skaarboks">
+                        <div class="rapport-skaartall">@Model.Skaaring.ProsentSkaar %</div>
+                        <div class="rapport-fremdrift">
+                            <div class="rapport-fremdrift-fyll" style="width: @(Model.Skaaring.ProsentSkaar)%;"></div>
+                        </div>
+                    </div>
+                    <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong></p>
+                    <p class="rapport-fortolkning">@Model.Skaaring.Fortolkning</p>
+                </div>
+            }
+
+            <div class="rapport-sidefot">@Model.Test?.Navn — side @sidetall av @Model.TotalAntallArk</div>
+        </section>
+
+        @for (var i = 0; i < Model.Sider.Count; i++)
+        {
+            sidetall++;
+            var side = Model.Sider[i];
+            <section class="rapport-ark">
+                <div class="rapport-seksjon">
+                    <span class="rapport-seksjon-tittel">Svar — @side.Side.Navn</span>
+                    <table class="rapport-svartabell">
+                        <thead><tr><th>Spørsmål</th><th>Svar</th></tr></thead>
+                        <tbody>
+                        @foreach (var rad in side.Svar)
+                        {
+                            <tr><td>@rad.Sporsmal</td><td>@rad.SvarLabel</td></tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="rapport-sidefot">@Model.Test?.Navn — side @sidetall av @Model.TotalAntallArk</div>
+            </section>
+        }
+    </div>
+
+    <div class="rapport-handlinger">
+        <button type="button" id="rapportSkrivUtKnapp" class="btn btn-accent btn-sm">Skriv ut</button>
+    </div>
+
+    <script src="~/js/rapport.js"></script>
+}
+
+<p><a href="/Pasientportal/MinSide">Tilbake til min side</a></p>

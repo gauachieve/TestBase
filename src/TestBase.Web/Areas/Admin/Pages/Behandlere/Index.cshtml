@@ -14,6 +14,7 @@
             <th>Navn</th>
             <th>E-post</th>
             <th>Mobil</th>
+            <th>Personnummer</th>
             <th>HPR-nr</th>
             <th>HPR-status</th>
             <th>Status</th>
@@ -27,6 +28,7 @@
             <td>@(b.Visningsnavn ?? "(ikke fullført)")</td>
             <td>@b.Email</td>
             <td>@b.MobilNr</td>
+            <td>@(b.Personnummer ?? "-")</td>
             <td>@(b.HprNr ?? "-")</td>
             <td>
                 @if (b.HprGodkjent)
@@ -44,6 +46,9 @@
             </td>
             <td>@b.Status</td>
             <td>
+                <a class="btn-icon" href="/Admin/Behandlere/Rediger/@b.Id" title="Rediger" aria-label="Rediger">
+                    <partial name="_Ikon" model="@("rediger")" />
+                </a>
                 @if (b.Status != BehandlerStatus.Arkivert)
                 {
                     var frysTittel = b.Status == BehandlerStatus.Fryst ? "Gjenåpne" : "Frys";

@@ -26,6 +26,15 @@ public sealed class Test
     /// <summary>Vist på belønningssiden når pasienten fullfører testen.</summary>
     public string? Belonningstekst { get; set; }
 
+    /// <summary>
+    /// Kort, klinisk beskrivelse av HVA testen måler — vist i rapportens
+    /// sammendrag (se Behandlerportal/Pasienter/Rapport.cshtml). Bevisst
+    /// EGET felt fra <see cref="Beskrivelse"/>, som er pasientvendte
+    /// utfyllingsinstruksjoner ("sett en sirkel rundt..."), ikke noe en
+    /// behandler/pasient bør lese i en ferdig rapport.
+    /// </summary>
+    public string? RapportIntroduksjon { get; set; }
+
     public bool ErAktiv { get; set; } = true;
     public DateTimeOffset OpprettetUtc { get; set; }
 }

@@ -11,7 +11,7 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
 3. `docs/compliance-dpia-utkast.md` — utkast til risikovurdering (DPIA) for helsedata, basert på Normen og GDPR. Ikke juridisk rådgivning; bør kvalitetssikres av jurist/DPO før ekte pasientdata går i produksjon.
 4. `docs/del1-utviklingsmiljo-plan.md` — den opprinnelige planen for utviklingsmiljøet (delvis historisk — se beslutningsloggen for hva som faktisk endte opp implementert).
 
-## Status akkurat nå (2026-08-30)
+## Status akkurat nå (2026-08-31)
 
 - **Fase 0** (arkitektur/compliance-grunnlag): ferdig.
 - **Fase 1** (lokalt utviklingsmiljø): ferdig og verifisert lokalt. Sky-deploy til Azure er planlagt men ikke satt opp.
@@ -30,6 +30,15 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   og et dev-only personnummer-overstyringsfelt på BankID-innloggingssidene for å kunne teste flere
   identiteter uten å arkivere forrige testkonto. Se `docs/beslutningslogg.md` under
   "Tildelingsflyt for tester + BankID personnummer-overstyring + varslingspreferanse".
+- I tillegg: rapportgodkjenning (behandler MÅ godkjenne, og kan deretter valgfritt dele) + et enkelt
+  meldings-/oppgavesystem (`/Oppgaver` i alle tre Areas, ulik per rolle) + en daglig
+  påminnelse-bakgrunnstjeneste til behandler om ugodkjente rapporter (aldri med pasientnavn i
+  SMS/e-post, kun pasient-ID). Se `docs/beslutningslogg.md` under "Meldinger og oppgaveliste".
+- Rapportvisningen (behandler og pasient) er nå et paginert A4-"papir"-oppsett (ett ark per
+  TestSide + forside + evt. historikk, bla med Forrige/Neste, ekte flersidig utskrift) med et fast
+  handlingssett: Godkjenn/Forkast-og-send-på-nytt før godkjenning, Kopier-til-utklippstavle/
+  Skriv-ut/Send-kopi-til-pasienten etter. Se `docs/beslutningslogg.md` under "Rapportvisning som
+  A4-'papir'".
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
@@ -83,7 +92,15 @@ src/
                            tester"-knapp (fase 5) som kjører alle IInnebygdTestSeeder på nytt
     Areas/Behandlerportal/Pages/Pasienter/Rapport.cshtml  Skårings-/rapportside (fase 5): per
                            besvarelse (råskår/prosentskår/fortolkning/svartabell) + "utvikling
-                           over tid" ved flere fullførte besvarelser av samme test
+                           over tid" ved flere fullførte besvarelser av samme test. Fase 6: behandler
+                           må godkjenne (RapportGodkjentUtc) før valgfri deling til pasient
+                           (RapportSynligForPasient) — se Pasientportal/Pages/Tester/Rapport.cshtml
+                           for pasientens lesetilgang
+    Areas/*/Pages/Oppgaver.cshtml  Oppgaveliste (fase 6), samme URL i alle tre Areas men helt ulikt
+                           innhold per rolle — se TestService.HentUgodkjenteFullforteForBehandlerAsync
+                           m.fl. Behandlerportal fikk også egen MinSide.cshtml (meldingsinnboks, se
+                           BehandlerMelding/BehandlerMeldingService) og Innstillinger.cshtml
+                           (daglig påminnelse-preferanser, se PaaminnelseService)
     Areas/Admin/Pages/Tildel/ og Areas/Behandlerportal/Pages/Tildel/  Tildelingsflyt (fase 6):
                            Pasienter.cshtml (steg 1, velg pasienter — admin ser alle, behandler
                            kun egne) → Tester.cshtml (steg 2, kategori-tre + dialog-oppsummering +
@@ -172,6 +189,7 @@ dotnet watch run
 - `curl` følger IKKE redirects som standard — en `302`-respons uten `-L` gir en TOM body i `-o`-filen din. Bruk `-D -` for å se `Location`-headeren, og gjør en eksplisitt oppfølgende GET selv (eller legg til `-L`) hvis du trenger innholdet på redirect-målet.
 - Å legge til en NY valgfri parameter et sted MIDT i en eksisterende metodesignatur (før eksisterende parametre, selv med default-verdi) knekker eksisterende POSISJONELLE kall på det stedet — C# binder positional args til ny rekkefølge, ikke navn, så et 4. positional argument som før traff `cancellationToken` kan plutselig treffe den nye parameteren i stedet (`CS1503`). Bruk et navngitt argument (`cancellationToken: ct`) på eksisterende kallsteder i stedet for å regne med at posisjon fortsatt stemmer, eller legg den nye parameteren sist.
 - Razor-filer: skriv IKKE `@{ ... }` rundt en enkelt C#-setning når du allerede ER i en ren C#-kodeblokk (f.eks. rett etter en `</tag>` inni en `@foreach { }`) — gir `RZ1010 Unexpected "{" after "@"`. `@{` trengs kun for å SWITCHE fra markup til kode, ikke inni kode som allerede er kode.
+- Razors "betinget attributt"-oppførsel (et `bool`-typet `@(...)`-uttrykk som HELE verdien av et rent HTML-attributt render en MINIMERT boolsk form — `attributtnavn="attributtnavn"` når true, attributtet utelates helt når false) gjelder for ALLE slik bundne attributter, ikke bare ekte boolske HTML-attributter (`disabled`/`checked`). Et skjult felt som `value="@(!Model.X.Bool)"` render bokstavelig `value="value"` i stedet for `value="True"` — ser riktig ut ved rask titt på Razor-kilden, men knekker server-side bool-modellbinding fullstendig. Bruk eksplisitt `.ToString()` på slike uttrykk for et skjult felt/en ikke-boolsk attributt. Sjekk generert HTML, ikke bare kildekoden.
 - Etter en Area-omdøping (f.eks. fase 3s `Behandler`→`Behandlerportal`): kjør `grep -r 'href="/GamleNavn/'` over HELE `src/`, ikke stol på å ha funnet alle harde lenker manuelt. Fire slike lenker (`/Behandler/Pasienter/...` i stedet for `/Behandlerportal/Pasienter/...`) overlevde fra fase 3 til fase 5 og ga 404 på "Legg til pasient" — fase 4s opprydding fanget kun ett av flere tilsvarende tilfeller.
 - Mock-leverandørene (`MockSmsSender`/`MockEmailSender`) logger KUN via `ILogger` — usynlig i selve nettleser-UI-et, kun synlig i konsollen der `dotnet watch run` kjører. En invitasjonslenke som kun finnes der er i praksis ubrukelig for reell manuell testing i nettleser. Slike tjenester bør returnere lenken/meldingen til kalleren (se `BehandlerInvitasjonResultat`/`PasientInvitasjonResultat` i fase 5s feilrettinger) slik at UI-et kan vise den direkte, i tillegg til mock-loggingen.
 - Hvis nettleser-testing ikke reflekterer nylige kodeendringer selv om `dotnet watch run` "kjører": sjekk (1) at nettleseren faktisk peker på porten fra `Properties/launchSettings.json` (`https://localhost:7257`/`http://localhost:5257`) og ikke en gammel manuelt overstyrt port fra en tidligere økt, og (2) om flere/hengende `TestBase.Web.exe`-prosesser (`tasklist`, `netstat -ano | grep <port>`) låser build-outputen uten selv å svare på riktig port — drep de gamle prosessene og start `dotnet watch run` på nytt uten portoverstyring.

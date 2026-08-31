@@ -1,0 +1,43 @@
+@page
+@model TestBase.Web.Areas.Pasientportal.Pages.OppgaverModel
+@using TestBase.Shared.Domain.Tester
+@{
+    ViewData["Title"] = "Oppgaver";
+}
+
+<h1>Oppgaver</h1>
+
+@if (!Model.Oppgaver.Any())
+{
+    <p>Du har ingen ubesvarte tester akkurat nå.</p>
+}
+else
+{
+    <table border="1" cellpadding="6" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Test</th>
+                <th>Status</th>
+                <th>Tildelt</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var rad in Model.Oppgaver)
+        {
+            <tr>
+                <td>@rad.TestNavn</td>
+                <td>@rad.Tildeling.Status</td>
+                <td>@rad.Tildeling.TildeltUtc.ToString("d")</td>
+                <td>
+                    <a href="/Pasientportal/Tester/Fyll/@rad.Tildeling.Id">
+                        @(rad.Tildeling.Status == TestTildelingStatus.Startet ? "Fortsett" : "Start")
+                    </a>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+<p><a href="/Pasientportal/MinSide">Tilbake til min side</a></p>

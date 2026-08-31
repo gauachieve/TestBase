@@ -97,15 +97,44 @@ public sealed class TestTildelingsService
                     $"{baseUrl.TrimEnd('/')}/Pasientportal/Tester/Fyll/{tildeling.Id}"));
             }
 
-            var (sendtSms, sendtEpost) = await VarsleAsync(pasient, lenker, cancellationToken);
+            var (sendtSms, sendtEpost) = await VarsleAsync(pasient, BygMelding(lenker), "Nye tester tildelt i TestBase", cancellationToken);
             perPasient.Add(new TildeltPasientResultat(pasient.Id, pasient.Navn, lenker, sendtSms, sendtEpost));
         }
 
         return new TildelingsBatchResultat(perPasient);
     }
 
+    /// <summary>
+    /// "Send kopi til pasient" på en godkjent rapport (se Behandlerportal/Pasienter/Rapport.cshtml.cs):
+    /// gjør rapporten synlig (samme flagg som den manuelle synlighetsbryteren)
+    /// OG varsler pasienten med en lenke, i motsetning til den stille
+    /// synlighetsbryteren alene.
+    /// </summary>
+    public async Task<bool> SendRapportKopiAsync(long tildelingId, string baseUrl, CancellationToken cancellationToken = default)
+    {
+        var tildeling = await _db.TestTildelinger.FirstOrDefaultAsync(t => t.Id == tildelingId, cancellationToken);
+        if (tildeling is null || tildeling.RapportGodkjentUtc is null)
+        {
+            return false;
+        }
+
+        var pasient = await _db.Pasienter.FirstOrDefaultAsync(p => p.Id == tildeling.PasientId, cancellationToken);
+        if (pasient is null)
+        {
+            return false;
+        }
+
+        var test = await _db.Tester.FirstOrDefaultAsync(t => t.Id == tildeling.TestId, cancellationToken);
+        var lenke = $"{baseUrl.TrimEnd('/')}/Pasientportal/Tester/Rapport/{tildelingId}";
+        var melding = $"Rapporten din for {test?.Navn ?? "en test"} er klar. Se den her: {lenke}";
+
+        await _testService.SettRapportSynlighetAsync(tildelingId, true, cancellationToken);
+        var (sendtSms, sendtEpost) = await VarsleAsync(pasient, melding, "Rapporten din er klar i TestBase", cancellationToken);
+        return sendtSms || sendtEpost;
+    }
+
     private async Task<(bool SendtSms, bool SendtEpost)> VarsleAsync(
-        Pasient pasient, IReadOnlyList<TestLenke> lenker, CancellationToken cancellationToken)
+        Pasient pasient, string meldingstekst, string epostEmne, CancellationToken cancellationToken)
     {
         var harMobil = !string.IsNullOrWhiteSpace(pasient.MobilNr);
         var harEpost = !string.IsNullOrWhiteSpace(pasient.Email);
@@ -127,12 +156,12 @@ public sealed class TestTildelingsService
 
         if (sendSms)
         {
-            await _sms.SendAsync(pasient.MobilNr, BygMelding(lenker), cancellationToken);
+            await _sms.SendAsync(pasient.MobilNr, meldingstekst, cancellationToken);
         }
 
         if (sendEpost)
         {
-            await _email.SendAsync(pasient.Email, "Nye tester tildelt i TestBase", BygMelding(lenker), cancellationToken);
+            await _email.SendAsync(pasient.Email, epostEmne, meldingstekst, cancellationToken);
         }
 
         return (sendSms, sendEpost);

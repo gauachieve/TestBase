@@ -1,11 +1,25 @@
 @using Microsoft.AspNetCore.Hosting
 @using Microsoft.Extensions.Hosting
+@using TestBase.Shared.Domain.Administrasjon
+@using TestBase.Shared.Domain.Tester
 @using TestBase.Shared.Security
 @inject ICurrentUserContext CurrentUser
 @inject IWebHostEnvironment Env
+@inject BehandlerMeldingService MeldingService
+@inject TestService TestService
 @{
     var erPasientPortal = (ViewData["Portal"] as string) == "pasient";
     var innloggingsUrl = erPasientPortal ? "/Pasientportal/Konto/LoggInn" : "/Konto/LoggInn";
+
+    long BrukerId() => long.TryParse(CurrentUser.UserId.Split(':').LastOrDefault(), out var id) ? id : 0;
+
+    var erBehandler = CurrentUser.IsAuthenticated && (CurrentUser.Role == UserRole.Behandler || CurrentUser.Role == UserRole.Utvikler);
+    var erPasient = CurrentUser.IsAuthenticated && (CurrentUser.Role == UserRole.Pasient || CurrentUser.Role == UserRole.Utvikler);
+
+    var antallUlesteMeldinger = erBehandler ? await MeldingService.TellUlesteAsync(BrukerId()) : 0;
+    var antallUbesvarteTester = erPasient
+        ? (await TestService.HentTildelingerForPasientAsync(BrukerId())).Count(t => t.Status != TestTildelingStatus.Fullfort)
+        : 0;
 }
 <!DOCTYPE html>
 <html lang="no">
@@ -57,22 +71,39 @@
                     {
                         <a class="nav-link" href="/Admin/Administratorer">Administratorer</a>
                         <a class="nav-link" href="/Admin/Behandlere">Behandlere</a>
+                        <a class="nav-link" href="/Admin/Pasienter">Pasienter</a>
                         <a class="nav-link" href="/Admin/Tester">Tester</a>
                         <a class="nav-link" href="/Admin/Tildel/Pasienter">Tildel tester</a>
+                        <a class="nav-link" href="/Admin/Oppgaver">Oppgaver</a>
                         @if (Env.IsDevelopment())
                         {
                             <a class="nav-link" href="/Admin/Konto/ByttModus">Bytt modus</a>
                         }
                     }
-                    if (CurrentUser.Role == UserRole.Behandler || CurrentUser.Role == UserRole.Utvikler)
+                    if (erBehandler)
                     {
                         <a class="nav-link" href="/Behandlerportal/Pasienter">Pasienter</a>
                         <a class="nav-link" href="/Behandlerportal/Tildel/Pasienter">Tildel tester</a>
                         <a class="nav-link" href="/Behandlerportal/Behandlere/Inviter">Inviter kollega</a>
+                        <a class="nav-link" href="/Behandlerportal/Oppgaver">
+                            Oppgaver
+                            @if (antallUlesteMeldinger > 0)
+                            {
+                                <span class="varsel-badge">@antallUlesteMeldinger</span>
+                            }
+                        </a>
+                        <a class="nav-link" href="/Behandlerportal/MinSide">Min side</a>
                     }
-                    if (CurrentUser.Role == UserRole.Pasient || CurrentUser.Role == UserRole.Utvikler)
+                    if (erPasient)
                     {
                         <a class="nav-link" href="/Pasientportal/MinSide">Min side</a>
+                        <a class="nav-link" href="/Pasientportal/Oppgaver">
+                            Oppgaver
+                            @if (antallUbesvarteTester > 0)
+                            {
+                                <span class="varsel-badge">@antallUbesvarteTester</span>
+                            }
+                        </a>
                     }
                     <span class="nav-link innlogget-som">Innlogget som: @CurrentUser.DisplayName</span>
                     <a class="btn btn-outline btn-sm" href="/Konto/LoggUt">Logg ut</a>

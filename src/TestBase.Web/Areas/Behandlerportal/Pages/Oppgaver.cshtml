@@ -1,0 +1,69 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.OppgaverModel
+@{
+    ViewData["Title"] = "Oppgaver";
+}
+
+<h1>Oppgaver</h1>
+
+<h2>Venter på godkjenning (@Model.VenterPaaGodkjenning.Count)</h2>
+@if (!Model.VenterPaaGodkjenning.Any())
+{
+    <p>Ingen fullførte tester venter på godkjenning.</p>
+}
+else
+{
+    <table border="1" cellpadding="6" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Pasient</th>
+                <th>Test</th>
+                <th>Fullført</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var rad in Model.VenterPaaGodkjenning)
+        {
+            <tr>
+                <td>@(rad.PasientNavn ?? "(ikke fullført registrering)")</td>
+                <td>@rad.TestNavn</td>
+                <td>@rad.Tildeling.FullfortUtc?.ToString("g")</td>
+                <td><a href="/Behandlerportal/Pasienter/Rapport/@rad.Tildeling.Id">Se rapport og godkjenn</a></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+<h2>Ikke besvart ennå (@Model.IkkeFullfort.Count)</h2>
+@if (!Model.IkkeFullfort.Any())
+{
+    <p>Alle tildelte tester er besvart.</p>
+}
+else
+{
+    <table border="1" cellpadding="6" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Pasient</th>
+                <th>Test</th>
+                <th>Status</th>
+                <th>Tildelt</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var rad in Model.IkkeFullfort)
+        {
+            <tr>
+                <td>@(rad.PasientNavn ?? "(ikke fullført registrering)")</td>
+                <td>@rad.TestNavn</td>
+                <td>@rad.Tildeling.Status</td>
+                <td>@rad.Tildeling.TildeltUtc.ToString("d")</td>
+                <td><a href="/Behandlerportal/Pasienter/Detaljer/@rad.PasientId">Se pasient</a></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

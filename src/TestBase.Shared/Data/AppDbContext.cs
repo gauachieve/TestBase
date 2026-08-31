@@ -41,6 +41,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<TestSvar> TestSvar => Set<TestSvar>();
     public DbSet<TestKategori> TestKategorier => Set<TestKategori>();
     public DbSet<TestKategoriKobling> TestKategoriKoblinger => Set<TestKategoriKobling>();
+    public DbSet<BehandlerMelding> BehandlerMeldinger => Set<BehandlerMelding>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -100,6 +101,7 @@ public sealed class AppDbContext : DbContext
             entity.Property(b => b.Arbeidsadresse).HasMaxLength(256);
             entity.Property(b => b.Tittel).HasMaxLength(128);
             entity.Property(b => b.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+            entity.Property(b => b.PaaminnelseKanal).HasConversion<string>().HasMaxLength(16).IsRequired();
             entity.Ignore(b => b.Visningsnavn);
         });
 
@@ -168,6 +170,7 @@ public sealed class AppDbContext : DbContext
             entity.Property(t => t.Navn).HasMaxLength(256).IsRequired();
             entity.Property(t => t.Beskrivelse).HasMaxLength(2000);
             entity.Property(t => t.Belonningstekst).HasMaxLength(2000);
+            entity.Property(t => t.RapportIntroduksjon).HasMaxLength(1000);
         });
 
         modelBuilder.Entity<TestSide>(entity =>
@@ -221,6 +224,14 @@ public sealed class AppDbContext : DbContext
             entity.HasKey(k => k.Id);
             entity.HasIndex(k => new { k.TestId, k.TestKategoriId }).IsUnique();
             entity.HasIndex(k => k.TestKategoriId);
+        });
+
+        modelBuilder.Entity<BehandlerMelding>(entity =>
+        {
+            entity.ToTable("behandler_meldinger");
+            entity.HasKey(m => m.Id);
+            entity.HasIndex(m => new { m.BehandlerId, m.LestUtc });
+            entity.HasIndex(m => m.TestTildelingId);
         });
     }
 }

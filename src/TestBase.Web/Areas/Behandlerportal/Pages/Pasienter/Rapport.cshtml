@@ -2,60 +2,238 @@
 @model TestBase.Web.Areas.Behandlerportal.Pages.Pasienter.RapportModel
 @{
     ViewData["Title"] = "Rapport";
+    var sidetall = 1;
 }
 
-<h1>Rapport: @Model.Test?.Navn</h1>
-<p>Pasient: @(Model.Pasient?.Navn ?? "(ikke fullført)") — fullført @Model.Tildeling?.FullfortUtc?.ToString("g")</p>
-
-@if (Model.Skaaring is not null)
+@if (Model.Melding is not null)
 {
-    <h2>Skåring</h2>
-    <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong> — Prosentskår: <strong>@Model.Skaaring.ProsentSkaar</strong></p>
-    <div style="border: 1px solid #ccc; width: 100%; max-width: 400px; height: 1.5rem;">
-        <div style="background: #4a4; width: @(Model.Skaaring.ProsentSkaar)%; height: 100%;"></div>
-    </div>
-    <p>@Model.Skaaring.Fortolkning</p>
+    <p class="rapport-status-melding">@Model.Melding</p>
 }
 
-<h2>Svar</h2>
-<table border="1" cellpadding="6" cellspacing="0">
-    <thead><tr><th>Spørsmål</th><th>Svar</th></tr></thead>
-    <tbody>
-    @foreach (var rad in Model.SvarRader)
-    {
-        <tr><td>@rad.Sporsmal</td><td>@rad.SvarLabel</td></tr>
-    }
-    </tbody>
-</table>
-
-@if (Model.Historikk.Count > 1)
+@if (Model.Tildeling?.RapportForkastetUtc is not null)
 {
-    <h2>Utvikling over tid</h2>
-    <table border="1" cellpadding="6" cellspacing="0">
-        <thead><tr><th>Dato</th><th>Prosentskår</th><th>Endring fra forrige</th></tr></thead>
-        <tbody>
-        @{
-            int? forrige = null;
-        }
-        @foreach (var punkt in Model.Historikk)
+    <p class="rapport-status-melding" style="color: darkred;">
+        Denne besvarelsen er forkastet — en ny test er sendt til pasienten.
+    </p>
+}
+else if (Model.Tildeling?.RapportGodkjentUtc is null)
+{
+    <p class="rapport-status-melding" style="color: darkred;">
+        Ikke godkjent ennå — pasienten kan ikke se denne rapporten før du godkjenner den.
+    </p>
+}
+else
+{
+    <p class="rapport-status-melding">
+        Godkjent @Model.Tildeling.RapportGodkjentUtc?.ToString("g") —
+        @(Model.Tildeling.RapportSynligForPasient ? "synlig for pasienten." : "ikke delt med pasienten ennå.")
+        <span id="rapportKopierStatus"></span>
+    </p>
+}
+
+<div class="rapport-verktoylinje" id="rapportVerktoylinje">
+    <button type="button" id="rapportForrige">← Forrige</button>
+    <span class="rapport-sideindikator" id="rapportSideindikator"></span>
+    <button type="button" id="rapportNeste">Neste →</button>
+</div>
+
+<div class="rapport-dokument" id="rapportDokument">
+    <section class="rapport-ark">
+        <div class="rapport-hjornedekor"></div>
+
+        <div class="rapport-tittelblokk">
+            <span class="rapport-tittel-stor">Rapport</span>
+            <span class="rapport-tittel-liten">@Model.Test?.Navn</span>
+        </div>
+
+        <div class="rapport-metarad">
+            <div>
+                <div><strong>Pasient:</strong> @(Model.Pasient?.Navn ?? "(ikke fullført)")</div>
+                <div class="rapport-pnr">Personnummer: @Model.Pasient?.Personnummer</div>
+            </div>
+            <div><strong>Fullført:</strong> @Model.Tildeling?.FullfortUtc?.ToString("g")</div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Test?.RapportIntroduksjon))
         {
-            var endring = forrige is null ? (int?)null : punkt.Skaaring.ProsentSkaar - forrige;
-            <tr>
-                <td>@punkt.Tildeling.FullfortUtc?.ToString("g")</td>
-                <td>@punkt.Skaaring.ProsentSkaar</td>
-                <td>
-                    @if (endring is not null)
-                    {
-                        var signifikant = Math.Abs(endring.Value) >= 10;
-                        <text>@(endring > 0 ? "+" : "")@(endring)@(signifikant ? " (signifikant endring)" : "")</text>
-                    }
-                </td>
-            </tr>
-            forrige = punkt.Skaaring.ProsentSkaar;
+            <p class="rapport-introduksjon">@Model.Test!.RapportIntroduksjon</p>
         }
-        </tbody>
-    </table>
-    <p><em>En endring i prosentskår på 10 % eller mer regnes som signifikant, jf. WHO-5-veiledningen.</em></p>
+
+        @if (Model.Skaaring is not null)
+        {
+            <div class="rapport-seksjon">
+                <span class="rapport-seksjon-tittel">Skåring</span>
+                <div class="rapport-skaarboks">
+                    <div class="rapport-skaartall">@Model.Skaaring.ProsentSkaar %</div>
+                    <div class="rapport-fremdrift">
+                        <div class="rapport-fremdrift-fyll" style="width: @(Model.Skaaring.ProsentSkaar)%;"></div>
+                    </div>
+                </div>
+                <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong></p>
+                <p class="rapport-fortolkning">@Model.Skaaring.Fortolkning</p>
+            </div>
+        }
+
+        @if (Model.Historikk.Count > 1)
+        {
+            <div class="rapport-seksjon">
+                <span class="rapport-seksjon-tittel">Utvikling over tid</span>
+                <table class="rapport-svartabell">
+                    <thead><tr><th>Dato</th><th>Prosentskår</th><th>Endring fra forrige</th></tr></thead>
+                    <tbody>
+                    @{
+                        int? forrige = null;
+                    }
+                    @foreach (var punkt in Model.Historikk)
+                    {
+                        var endring = forrige is null ? (int?)null : punkt.Skaaring.ProsentSkaar - forrige;
+                        <tr>
+                            <td>@punkt.Tildeling.FullfortUtc?.ToString("g")</td>
+                            <td>@punkt.Skaaring.ProsentSkaar</td>
+                            <td>
+                                @if (endring is not null)
+                                {
+                                    var signifikant = Math.Abs(endring.Value) >= 10;
+                                    <text>@(endring > 0 ? "+" : "")@(endring)@(signifikant ? " (signifikant endring)" : "")</text>
+                                }
+                            </td>
+                        </tr>
+                        forrige = punkt.Skaaring.ProsentSkaar;
+                    }
+                    </tbody>
+                </table>
+                <p><em>En endring i prosentskår på 10 % eller mer regnes som signifikant, jf. WHO-5-veiledningen.</em></p>
+            </div>
+        }
+
+        <div class="rapport-sidefot">@Model.Test?.Navn — side @sidetall av @Model.TotalAntallArk</div>
+    </section>
+
+    @for (var i = 0; i < Model.Sider.Count; i++)
+    {
+        sidetall++;
+        var side = Model.Sider[i];
+        <section class="rapport-ark">
+            <div class="rapport-seksjon">
+                <span class="rapport-seksjon-tittel">Svar — @side.Side.Navn</span>
+                <table class="rapport-svartabell">
+                    <thead><tr><th>Spørsmål</th><th>Svar</th></tr></thead>
+                    <tbody>
+                    @foreach (var rad in side.Svar)
+                    {
+                        <tr><td>@rad.Sporsmal</td><td>@rad.SvarLabel</td></tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <div class="rapport-sidefot">@Model.Test?.Navn — side @sidetall av @Model.TotalAntallArk</div>
+        </section>
+    }
+</div>
+
+<div class="rapport-handlinger">
+@if (Model.Tildeling?.RapportForkastetUtc is null && Model.Tildeling?.RapportGodkjentUtc is null)
+{
+    <form method="post" asp-page-handler="Godkjenn">
+        <input type="hidden" name="id" value="@Model.Tildeling?.Id" />
+        <button type="submit" class="btn btn-accent btn-sm">Godkjenn</button>
+    </form>
+    <form method="post" asp-page-handler="Forkast" onsubmit="return confirm('Forkaste denne besvarelsen og sende testen på nytt til pasienten?');">
+        <input type="hidden" name="id" value="@Model.Tildeling?.Id" />
+        <button type="submit" class="btn btn-accent btn-sm">Forkast og send på nytt</button>
+    </form>
 }
+else if (Model.Tildeling?.RapportGodkjentUtc is not null)
+{
+    <button type="button" id="rapportKopierKnapp" class="btn btn-accent btn-sm">Kopier til utklippstavle</button>
+    <button type="button" id="rapportSkrivUtKnapp" class="btn btn-accent btn-sm">Skriv ut</button>
+    <form method="post" asp-page-handler="SendKopi">
+        <input type="hidden" name="id" value="@Model.Tildeling?.Id" />
+        <button type="submit" class="btn btn-accent btn-sm">Send kopi til pasienten</button>
+    </form>
+}
+</div>
 
 <p><a href="/Behandlerportal/Pasienter/Detaljer/@Model.Pasient?.Id">Tilbake til pasient</a></p>
+
+@* Skjult, INLINE-stylet versjon til "Kopier til utklippstavle" — journalsystemer forstår ikke
+   eksterne CSS-klasser i limt inn HTML, kun inline style-attributter, så denne kan IKKE
+   gjenbruke .rapport-ark-visningen over (som er stylet via site.css). Egen boks med synlig
+   ramme/bakgrunn nettopp for å skille seg fra vanlig journaltekst ved innliming. *@
+<div id="rapportKopierMal" hidden>
+    <div style="border: 2px solid #d97c1f; border-radius: 10px; padding: 18px 22px; background: #fffaf3; font-family: Arial, Helvetica, sans-serif; color: #16181f; max-width: 680px;">
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #d97c1f; margin-bottom: 4px;">TestBase — rapport</div>
+        <div style="font-size: 18px; font-weight: 800; margin-bottom: 10px;">@Model.Test?.Navn</div>
+        <div style="font-size: 13px; margin-bottom: 2px;">
+            <strong>Pasient:</strong> @(Model.Pasient?.Navn ?? "(ikke fullført)") &nbsp;·&nbsp;
+            <strong>Fullført:</strong> @Model.Tildeling?.FullfortUtc?.ToString("g")
+        </div>
+        <div style="font-size: 12px; color: #6b7280; margin-bottom: 10px;">Personnummer: @Model.Pasient?.Personnummer</div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Test?.RapportIntroduksjon))
+        {
+            <div style="font-size: 12px; font-style: italic; color: #4b4f58; margin-bottom: 12px;">@Model.Test!.RapportIntroduksjon</div>
+        }
+
+        @if (Model.Skaaring is not null)
+        {
+            <div style="font-size: 14px; margin-bottom: 4px;">
+                <strong>Skåring:</strong> @Model.Skaaring.ProsentSkaar % (råskår @Model.Skaaring.RaaSkaar/@Model.Skaaring.RaaSkaarMaks)
+            </div>
+            <div style="font-size: 13px; margin-bottom: 14px;">@Model.Skaaring.Fortolkning</div>
+        }
+
+        @if (Model.Historikk.Count > 1)
+        {
+            <div style="font-size: 13px; font-weight: 700; margin-bottom: 6px;">Utvikling over tid</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 14px;">
+                <thead>
+                    <tr>
+                        <th style="text-align: left; border-bottom: 2px solid #d97c1f; padding: 4px;">Dato</th>
+                        <th style="text-align: left; border-bottom: 2px solid #d97c1f; padding: 4px;">Prosentskår</th>
+                        <th style="text-align: left; border-bottom: 2px solid #d97c1f; padding: 4px;">Endring</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @{
+                    int? forrigeKopi = null;
+                }
+                @foreach (var punkt in Model.Historikk)
+                {
+                    var endringKopi = forrigeKopi is null ? (int?)null : punkt.Skaaring.ProsentSkaar - forrigeKopi;
+                    <tr>
+                        <td style="border-bottom: 1px solid #e8e6e0; padding: 4px;">@punkt.Tildeling.FullfortUtc?.ToString("g")</td>
+                        <td style="border-bottom: 1px solid #e8e6e0; padding: 4px;">@punkt.Skaaring.ProsentSkaar</td>
+                        <td style="border-bottom: 1px solid #e8e6e0; padding: 4px;">@(endringKopi is null ? "" : (endringKopi > 0 ? "+" : "") + endringKopi)</td>
+                    </tr>
+                    forrigeKopi = punkt.Skaaring.ProsentSkaar;
+                }
+                </tbody>
+            </table>
+        }
+
+        @foreach (var side in Model.Sider)
+        {
+            <div style="font-size: 13px; font-weight: 700; margin-bottom: 6px;">Svar — @side.Side.Navn</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 14px;">
+                <thead>
+                    <tr>
+                        <th style="text-align: left; border-bottom: 2px solid #d97c1f; padding: 4px;">Spørsmål</th>
+                        <th style="text-align: left; border-bottom: 2px solid #d97c1f; padding: 4px;">Svar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var rad in side.Svar)
+                {
+                    <tr>
+                        <td style="border-bottom: 1px solid #e8e6e0; padding: 4px;">@rad.Sporsmal</td>
+                        <td style="border-bottom: 1px solid #e8e6e0; padding: 4px;">@rad.SvarLabel</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+<script src="~/js/rapport.js"></script>

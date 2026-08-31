@@ -1,3 +1,5 @@
+using TestBase.Shared.Domain.Pasienter;
+
 namespace TestBase.Shared.Domain.Administrasjon;
 
 /// <summary>
@@ -44,6 +46,11 @@ public sealed class Behandler
 
     public DateTimeOffset OpprettetUtc { get; set; }
     public DateTimeOffset? ArkivertUtc { get; set; }
+
+    /// <summary>Daglig påminnelse om ugodkjente fullførte rapporter — se PaaminnelseService, satt under Behandlerportal/Innstillinger.</summary>
+    public bool OnskerDagligPaaminnelse { get; set; }
+    public Varslingspreferanse PaaminnelseKanal { get; set; } = Varslingspreferanse.Begge;
+    public DateTimeOffset? SistPaaminnetUtc { get; set; }
 
     public string? Visningsnavn => Fornavn is null && Etternavn is null ? null : $"{Fornavn} {Etternavn}".Trim();
 }

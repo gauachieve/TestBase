@@ -39,6 +39,11 @@ else
                     else
                     {
                         <text>Fullført @rad.Tildeling.FullfortUtc?.ToString("d")</text>
+                        @if (rad.Tildeling.RapportGodkjentUtc is not null && rad.Tildeling.RapportSynligForPasient)
+                        {
+                            <text> — </text>
+                            <a href="/Pasientportal/Tester/Rapport/@rad.Tildeling.Id">Se rapport</a>
+                        }
                     }
                 </td>
             </tr>

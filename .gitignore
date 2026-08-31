@@ -21,3 +21,6 @@ mysql-data/
 ## OS
 .DS_Store
 Thumbs.db
+
+## Lokale design-referansebilder (ikke del av prosjektet)
+/report.png
