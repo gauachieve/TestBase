@@ -142,6 +142,55 @@ code {
   font-weight: 500;
 }
 
+/* "Innlogget som" + "Logg ut" — egen fargelagt region, samme grunntanke som
+   footerens fargede bånd nederst på siden, bare mer kompakt/pille-formet
+   siden den sitter inni selve headeren. */
+.bruker-omrade {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--bg-soft);
+  border-radius: 999px;
+  padding: 0.4rem 0.5rem 0.4rem 1rem;
+}
+
+/* ---------- Funksjonsnav: store, oransje "app-knapper" for hovedfunksjonene
+   per rolle — egen rad UNDER den kommersielle toppnavigasjonen, jf. ønske om
+   å skille "appen" fra markedsføringsdelen av headeren. ---------- */
+.funksjons-nav {
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  background: var(--bg-soft);
+  border-top: 1px solid var(--border);
+}
+.funksjons-nav-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.75rem 1.5rem;
+}
+.funksjonsknapp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--accent);
+  color: #1a1305;
+  font-weight: 700;
+  font-size: 0.92rem;
+  padding: 0.65rem 1.15rem;
+  border-radius: 8px;
+  text-decoration: none !important;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+.funksjonsknapp:hover { background: var(--accent-dark); transform: translateY(-1px); }
+.funksjonsknapp svg { width: 18px; height: 18px; display: block; flex-shrink: 0; }
+.funksjonsknapp .varsel-badge { background: #1a1305; color: var(--accent); }
+
 .nav-toggle-checkbox { display: none; }
 .nav-toggle-btn {
   display: none;
@@ -778,6 +827,21 @@ dialog#oppsummeringDialog::backdrop { background: rgba(22, 24, 31, 0.5); }
 .rapport-fremdrift { flex: 1; height: 0.6rem; border-radius: 999px; background: var(--bg-soft); overflow: hidden; }
 .rapport-fremdrift-fyll { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-dark)); }
 .rapport-fortolkning { font-size: 0.96rem; }
+
+/* Navngitte kategoriske indikatorer (f.eks. WHO-5s "Velvære"/"Depresjon") —
+   skal stå tydelig ut fra vanlig tekst: fylt bakgrunn, farge og understrek. */
+.rapport-indikatorer { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 0.75rem; }
+.rapport-indikator {
+  display: inline-block;
+  font-weight: 800;
+  font-size: 0.88rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: 0.25rem 0.7rem;
+  border-radius: 5px;
+}
+.rapport-indikator-positiv { color: var(--success-dark); background: rgba(47, 158, 68, 0.12); }
+.rapport-indikator-negativ { color: darkred; background: rgba(139, 0, 0, 0.08); }
 
 .rapport-svartabell { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .rapport-svartabell th {

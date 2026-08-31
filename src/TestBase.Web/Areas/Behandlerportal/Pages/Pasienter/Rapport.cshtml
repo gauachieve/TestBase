@@ -62,7 +62,7 @@ else
         @if (Model.Skaaring is not null)
         {
             <div class="rapport-seksjon">
-                <span class="rapport-seksjon-tittel">Skåring</span>
+                <span class="rapport-seksjon-tittel">Resultat</span>
                 <div class="rapport-skaarboks">
                     <div class="rapport-skaartall">@Model.Skaaring.ProsentSkaar %</div>
                     <div class="rapport-fremdrift">
@@ -70,6 +70,15 @@ else
                     </div>
                 </div>
                 <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong></p>
+                @if (Model.Skaaring.Indikatorer is { Count: > 0 })
+                {
+                    <div class="rapport-indikatorer">
+                    @foreach (var indikator in Model.Skaaring.Indikatorer)
+                    {
+                        <span class="rapport-indikator @(indikator.Positiv ? "rapport-indikator-positiv" : "rapport-indikator-negativ")">@indikator.Verdi</span>
+                    }
+                    </div>
+                }
                 <p class="rapport-fortolkning">@Model.Skaaring.Fortolkning</p>
             </div>
         }
@@ -145,7 +154,8 @@ else
 }
 else if (Model.Tildeling?.RapportGodkjentUtc is not null)
 {
-    <button type="button" id="rapportKopierKnapp" class="btn btn-accent btn-sm">Kopier til utklippstavle</button>
+    <button type="button" id="rapportKopierKnapp" class="btn btn-accent btn-sm">Kopier alt til utklippstavlen</button>
+    <button type="button" id="rapportKopierResultatKnapp" class="btn btn-accent btn-sm">Kopier resultat til utklippstavlen</button>
     <button type="button" id="rapportSkrivUtKnapp" class="btn btn-accent btn-sm">Skriv ut</button>
     <form method="post" asp-page-handler="SendKopi">
         <input type="hidden" name="id" value="@Model.Tildeling?.Id" />
@@ -177,10 +187,27 @@ else if (Model.Tildeling?.RapportGodkjentUtc is not null)
 
         @if (Model.Skaaring is not null)
         {
-            <div style="font-size: 14px; margin-bottom: 4px;">
-                <strong>Skåring:</strong> @Model.Skaaring.ProsentSkaar % (råskår @Model.Skaaring.RaaSkaar/@Model.Skaaring.RaaSkaarMaks)
+            @* Egen, adresserbar boks — "Kopier resultat til utklippstavlen" henter KUN dette
+               (se rapportKopierResultatKnapp i wwwroot/js/rapport.js), "Kopier alt" henter hele
+               #rapportKopierMal og får denne boksen med som en del av helheten. *@
+            <div id="rapportKopierResultat" style="border: 2px solid #d97c1f; border-radius: 8px; padding: 12px 14px; background: #fff; margin-bottom: 14px;">
+                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #d97c1f; margin-bottom: 6px;">Resultat</div>
+                <div style="font-size: 14px; margin-bottom: 6px;">
+                    <strong>@Model.Skaaring.ProsentSkaar %</strong> (råskår @Model.Skaaring.RaaSkaar/@Model.Skaaring.RaaSkaarMaks)
+                </div>
+                @if (Model.Skaaring.Indikatorer is { Count: > 0 })
+                {
+                    <div style="margin-bottom: 6px;">
+                    @foreach (var indikator in Model.Skaaring.Indikatorer)
+                    {
+                        var farge = indikator.Positiv ? "#248a37" : "#8b0000";
+                        var bakgrunn = indikator.Positiv ? "#e8f5ea" : "#fbeaea";
+                        <span style="display: inline-block; font-weight: 800; font-size: 12px; text-decoration: underline; color: @farge; background: @bakgrunn; padding: 2px 8px; border-radius: 4px; margin-right: 6px;">@indikator.Verdi</span>
+                    }
+                    </div>
+                }
+                <div style="font-size: 13px;">@Model.Skaaring.Fortolkning</div>
             </div>
-            <div style="font-size: 13px; margin-bottom: 14px;">@Model.Skaaring.Fortolkning</div>
         }
 
         @if (Model.Historikk.Count > 1)

@@ -38,7 +38,7 @@ else
             @if (Model.Skaaring is not null)
             {
                 <div class="rapport-seksjon">
-                    <span class="rapport-seksjon-tittel">Skåring</span>
+                    <span class="rapport-seksjon-tittel">Resultat</span>
                     <div class="rapport-skaarboks">
                         <div class="rapport-skaartall">@Model.Skaaring.ProsentSkaar %</div>
                         <div class="rapport-fremdrift">
@@ -46,6 +46,15 @@ else
                         </div>
                     </div>
                     <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong></p>
+                    @if (Model.Skaaring.Indikatorer is { Count: > 0 })
+                    {
+                        <div class="rapport-indikatorer">
+                        @foreach (var indikator in Model.Skaaring.Indikatorer)
+                        {
+                            <span class="rapport-indikator @(indikator.Positiv ? "rapport-indikator-positiv" : "rapport-indikator-negativ")">@indikator.Verdi</span>
+                        }
+                        </div>
+                    }
                     <p class="rapport-fortolkning">@Model.Skaaring.Fortolkning</p>
                 </div>
             }

@@ -13,6 +13,7 @@
 
     long BrukerId() => long.TryParse(CurrentUser.UserId.Split(':').LastOrDefault(), out var id) ? id : 0;
 
+    var erAdmin = CurrentUser.IsAuthenticated && (CurrentUser.Role == UserRole.Administrator || CurrentUser.Role == UserRole.Utvikler);
     var erBehandler = CurrentUser.IsAuthenticated && (CurrentUser.Role == UserRole.Behandler || CurrentUser.Role == UserRole.Utvikler);
     var erPasient = CurrentUser.IsAuthenticated && (CurrentUser.Role == UserRole.Pasient || CurrentUser.Role == UserRole.Utvikler);
 
@@ -67,46 +68,14 @@
             <div class="header-actions">
                 @if (CurrentUser.IsAuthenticated)
                 {
-                    if (CurrentUser.Role == UserRole.Administrator || CurrentUser.Role == UserRole.Utvikler)
+                    if (erAdmin && Env.IsDevelopment())
                     {
-                        <a class="nav-link" href="/Admin/Administratorer">Administratorer</a>
-                        <a class="nav-link" href="/Admin/Behandlere">Behandlere</a>
-                        <a class="nav-link" href="/Admin/Pasienter">Pasienter</a>
-                        <a class="nav-link" href="/Admin/Tester">Tester</a>
-                        <a class="nav-link" href="/Admin/Tildel/Pasienter">Tildel tester</a>
-                        <a class="nav-link" href="/Admin/Oppgaver">Oppgaver</a>
-                        @if (Env.IsDevelopment())
-                        {
-                            <a class="nav-link" href="/Admin/Konto/ByttModus">Bytt modus</a>
-                        }
+                        <a class="nav-link" href="/Admin/Konto/ByttModus">Bytt modus</a>
                     }
-                    if (erBehandler)
-                    {
-                        <a class="nav-link" href="/Behandlerportal/Pasienter">Pasienter</a>
-                        <a class="nav-link" href="/Behandlerportal/Tildel/Pasienter">Tildel tester</a>
-                        <a class="nav-link" href="/Behandlerportal/Behandlere/Inviter">Inviter kollega</a>
-                        <a class="nav-link" href="/Behandlerportal/Oppgaver">
-                            Oppgaver
-                            @if (antallUlesteMeldinger > 0)
-                            {
-                                <span class="varsel-badge">@antallUlesteMeldinger</span>
-                            }
-                        </a>
-                        <a class="nav-link" href="/Behandlerportal/MinSide">Min side</a>
-                    }
-                    if (erPasient)
-                    {
-                        <a class="nav-link" href="/Pasientportal/MinSide">Min side</a>
-                        <a class="nav-link" href="/Pasientportal/Oppgaver">
-                            Oppgaver
-                            @if (antallUbesvarteTester > 0)
-                            {
-                                <span class="varsel-badge">@antallUbesvarteTester</span>
-                            }
-                        </a>
-                    }
-                    <span class="nav-link innlogget-som">Innlogget som: @CurrentUser.DisplayName</span>
-                    <a class="btn btn-outline btn-sm" href="/Konto/LoggUt">Logg ut</a>
+                    <div class="bruker-omrade">
+                        <span class="nav-link innlogget-som">Innlogget som: @CurrentUser.DisplayName</span>
+                        <a class="btn btn-outline btn-sm" href="/Konto/LoggUt">Logg ut</a>
+                    </div>
                 }
                 else
                 {
@@ -114,6 +83,48 @@
                 }
             </div>
         </div>
+
+        @if (erAdmin || erBehandler || erPasient)
+        {
+            <div class="funksjons-nav">
+                <div class="container funksjons-nav-inner">
+                    @if (erAdmin)
+                    {
+                        <a class="funksjonsknapp" href="/Admin/Administratorer"><partial name="_Ikon" model="@("administratorer")" />Administratorer</a>
+                        <a class="funksjonsknapp" href="/Admin/Behandlere"><partial name="_Ikon" model="@("behandlere")" />Behandlere</a>
+                        <a class="funksjonsknapp" href="/Admin/Pasienter"><partial name="_Ikon" model="@("pasienter")" />Pasienter</a>
+                        <a class="funksjonsknapp" href="/Admin/Tester"><partial name="_Ikon" model="@("tester")" />Tester</a>
+                        <a class="funksjonsknapp" href="/Admin/Tildel/Pasienter"><partial name="_Ikon" model="@("tildel")" />Tildel tester</a>
+                        <a class="funksjonsknapp" href="/Admin/Oppgaver"><partial name="_Ikon" model="@("oppgaver")" />Oppgaver</a>
+                    }
+                    @if (erBehandler)
+                    {
+                        <a class="funksjonsknapp" href="/Behandlerportal/MinSide"><partial name="_Ikon" model="@("hus")" />Min side</a>
+                        <a class="funksjonsknapp" href="/Behandlerportal/Pasienter"><partial name="_Ikon" model="@("pasienter")" />Pasienter</a>
+                        <a class="funksjonsknapp" href="/Behandlerportal/Tildel/Pasienter"><partial name="_Ikon" model="@("tildel")" />Tildel tester</a>
+                        <a class="funksjonsknapp" href="/Behandlerportal/Behandlere/Inviter"><partial name="_Ikon" model="@("inviter")" />Inviter kollega</a>
+                        <a class="funksjonsknapp" href="/Behandlerportal/Oppgaver">
+                            <partial name="_Ikon" model="@("oppgaver")" />Oppgaver
+                            @if (antallUlesteMeldinger > 0)
+                            {
+                                <span class="varsel-badge">@antallUlesteMeldinger</span>
+                            }
+                        </a>
+                    }
+                    @if (erPasient)
+                    {
+                        <a class="funksjonsknapp" href="/Pasientportal/MinSide"><partial name="_Ikon" model="@("hus")" />Min side</a>
+                        <a class="funksjonsknapp" href="/Pasientportal/Oppgaver">
+                            <partial name="_Ikon" model="@("oppgaver")" />Oppgaver
+                            @if (antallUbesvarteTester > 0)
+                            {
+                                <span class="varsel-badge">@antallUbesvarteTester</span>
+                            }
+                        </a>
+                    }
+                </div>
+            </div>
+        }
     </header>
 
     <main class="page">

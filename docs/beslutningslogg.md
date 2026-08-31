@@ -814,6 +814,68 @@ besvart for en testpasient med én forkastet+re-sendt besvarelse), Admin/Pasient
 pasienter på tvers av behandlere med korrekt behandlernavn, PNR vises begge steder i rapporten.
 4/4 grønne automatiserte tester (ingen skjemaendring i denne runden — ingen ny migrasjon nødvendig).
 
+## "Resultat"-seksjon med WHO-5-indikatorer + kopier resultat separat (2026-08-31)
+
+**Generisk `TestSkaaringIndikator`:** `TestSkaaring` fikk et valgfritt `Indikatorer`-felt (default
+null — bakoverkompatibelt, ingen eksisterende kallsted trengte endring) av navngitte, kategoriske
+konklusjoner (`Navn`, `Verdi`, `Positiv`) UTOVER selve tallskåren — bevisst generisk (ikke
+WHO-5-spesifikt på `TestSkaaring`-nivå) slik at fremtidige skåringsberegnere for andre tester kan
+levere sine egne uten endring i selve rapport-rammeverket.
+
+**WHO-5s to indikatorer:** "Velvære"/"Ikke velvære" og "Indikerer depresjon"/"Indikerer ikke
+depresjon" — BEGGE avledet av den samme, allerede siterte grenseverdien (råskår 13, jf. "VEILEDNING
+I BRUK AV WHO 5-WBQ", Bakke 2004) som lå i koden fra før, ikke en ny/usikker terskel. Siden
+WHO-5s prosentskår kun kan ta verdiene 0/4/8/…/100 (råskår×4), finnes det ingen skår som ville gitt
+de to indikatorene ulikt utfall — de er likevel bevisst to separate, navngitte verdier (ikke duplisert
+tekst) fordi de svarer på to ulike kliniske spørsmål. `Fortolkning`-teksten justert til eksplisitt å
+si "WHO-5-veiledningen anbefaler [ikke] å gå videre med nærmere undersøkelse" i BEGGE retninger (før
+kun eksplisitt i den ene retningen).
+
+**Visning:** Indikatorene rendres som fremhevede "badges" — fylt bakgrunn, farge, understrek
+(`.rapport-indikator-positiv`/`-negativ`, grønn/rød) — under "Resultat" (omdøpt fra "Skåring", jf.
+bruker-ønske) i BEGGE rapportvisningene (behandler og pasient, siden `Fortolkning`-teksten allerede
+ble delt med pasienten før dette).
+
+**To kopier-knapper:** "Kopier alt til utklippstavlen" (eksisterende, kun omdøpt) og en ny "Kopier
+resultat til utklippstavlen" som KUN henter en egen, adresserbar underboks (`#rapportKopierResultat`)
+inni den skjulte kopimalen — ikke hele malen. Samme inline-stil-prinsipp som resten av kopimalen
+(harde fargeverdier, ikke `var(--x)`), egen synlig ramme rundt akkurat denne boksen slik at den
+skiller seg ut når den limes inn separat i et journalsystem. `wwwroot/js/rapport.js` sin
+kopier-logikk er refaktorert til én delt `kopierTilUtklippstavle(elementId)`-funksjon kalt fra begge
+knappene, i stedet for duplisert kode.
+
+Verifisert med to fullførte WHO-5-besvarelser på samme server (høy skår → grønne "Velvære"/"Indikerer
+ikke depresjon"; råskår 5/25 → røde "Ikke velvære"/"Indikerer depresjon" + eksplisitt
+anbefalings-tekst). 4/4 grønne automatiserte tester, ingen migrasjon nødvendig.
+
+## Navigasjon: egen "funksjonsnav"-rad med store oransje knapper (2026-08-31)
+
+Toppnavigasjonen (`_Layout.cshtml`) blandet kommersielle lenker (Hjem/Tjenester/Om/Kontakt) med
+rollespesifikke app-funksjoner (Pasienter/Tildel tester/Oppgaver/…) i samme rad, som vanlige
+tekstlenker. Delt i to:
+
+- **`.site-nav`** (uendret) — kun de kommersielle/markedsførings-lenkene.
+- **Ny `.funksjons-nav`** — egen, full-bredde fargelagt rad RETT UNDER, med rollens
+  hovedfunksjoner som store, oransje "app-knapper" (`.funksjonsknapp`, ikon + tekst, samme
+  full-bleed-`width:100vw`-triks som `.hero`/`.features` allerede bruker andre steder i denne
+  filen). "Min side" står alltid FØRST for behandler/pasient (admin har ingen egen Min side ennå,
+  se "Bevisst utsatt" under). 8 nye ikoner lagt til i `_Ikon.cshtml` (hus, pasienter, behandlere,
+  administratorer, tester, tildel, inviter, oppgaver) — enkle Feather-ish strek-SVG-er i samme stil
+  som de eksisterende.
+- **"Innlogget som"/"Logg ut"** flyttet inn i en egen `.bruker-omrade`-boks (avrundet, lys
+  bakgrunnsfarge) i toppraden — samme idé som footerens fargede bånd nederst på siden, bare mer
+  kompakt siden den sitter inni headeren. Fortsatt i toppraden, ikke flyttet ned til funksjonsraden.
+- "Bytt modus" (kun dev) ble IKKE en stor knapp — det er et utviklerverktøy, ikke en hovedfunksjon
+  i appen — beholdt som en liten tekstlenke i toppraden ved siden av bruker-boksen.
+
+**Bevisst utsatt:** Admin har ingen "Min side" (siden fantes ikke fra før, og ble ikke bedt om her)
+— admin-knapperaden starter derfor rett på Administratorer.
+
+Verifisert på fersk serverinstans for alle tre roller (behandler: Min side først, deretter
+Pasienter/Tildel tester/Inviter kollega/Oppgaver; admin: eget sett; ekte pasient-konto: kun Min
+side + Oppgaver — Utvikler-rollen ser fortsatt alle tre sett samtidig, som før, nå bare som
+knapper). 4/4 grønne automatiserte tester, ingen migrasjon nødvendig.
+
 ## Kjente feilsøkingspunkter fra oppsett (til referanse)
 
 - **Docker Desktop "Virtualization support not detected":** Løst ved å aktivere Windows-funksjonene `VirtualMachinePlatform` og `Microsoft-Windows-Subsystem-Linux` via PowerShell (admin) + omstart, selv om Intel VMX/VT-x allerede var aktivert i BIOS.

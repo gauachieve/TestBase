@@ -41,12 +41,14 @@
         document.getElementById('rapportVerktoylinje')?.setAttribute('hidden', '');
     }
 
-    document.getElementById('rapportKopierKnapp')?.addEventListener('click', async function () {
-        // #rapportKopierMal er en SKJULT (hidden), inline-stylet mal separat fra selve
-        // sidevisningen (som er stylet via eksterne CSS-klasser journalsystemer ikke ser).
-        // Merk: elementet er skjult, så .innerText ville gitt tom streng (kun rendret,
-        // synlig tekst telles) — .textContent brukes derfor for tekstfallbacken.
-        var innhold = document.getElementById('rapportKopierMal');
+    // #rapportKopierMal er en SKJULT (hidden), inline-stylet mal separat fra selve
+    // sidevisningen (som er stylet via eksterne CSS-klasser journalsystemer ikke ser).
+    // #rapportKopierResultat er en adresserbar underboks INNI den malen — "Kopier resultat"
+    // henter kun den, "Kopier alt" henter hele malen (og får dermed resultat-boksen med som
+    // en del av helheten). Merk: kildeelementet er skjult, så .innerText ville gitt tom
+    // streng (kun rendret, synlig tekst telles) — .textContent brukes derfor for tekstfallbacken.
+    async function kopierTilUtklippstavle(elementId) {
+        var innhold = document.getElementById(elementId);
         var status = document.getElementById('rapportKopierStatus');
         if (!innhold) {
             return;
@@ -76,6 +78,13 @@
         } catch (e) {
             alert('Kunne ikke kopiere automatisk. Merk teksten i rapporten manuelt og kopier med Ctrl+C.');
         }
+    }
+
+    document.getElementById('rapportKopierKnapp')?.addEventListener('click', function () {
+        kopierTilUtklippstavle('rapportKopierMal');
+    });
+    document.getElementById('rapportKopierResultatKnapp')?.addEventListener('click', function () {
+        kopierTilUtklippstavle('rapportKopierResultat');
     });
 
     document.getElementById('rapportSkrivUtKnapp')?.addEventListener('click', function () {
