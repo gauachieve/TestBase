@@ -1,6 +1,6 @@
 # Prosjektstatus og beslutningslogg — Online Testesystem
 
-*Sist oppdatert: 2026-08-24 (fase 5, slice 1). Dette dokumentet lever gjennom hele prosjektet og skal til enhver tid kunne brukes til å regenerere løsningen med alle beslutninger tatt. Denne kopien ble tatt med inn i Git-repoet 2026-08-20 da prosjektet ble konvertert fra Claude (Cowork) til Claude Code — masterversjonen lå tidligere kun i et claude.ai-prosjekt ("Testdatabase"), som ikke er tilgjengelig fra Claude Code. Denne filen ER nå masterversjonen; oppdater den videre her.*
+*Sist oppdatert: 2026-09-02 (sky-deploy til Azure, resten av Del 1). Dette dokumentet lever gjennom hele prosjektet og skal til enhver tid kunne brukes til å regenerere løsningen med alle beslutninger tatt. Denne kopien ble tatt med inn i Git-repoet 2026-08-20 da prosjektet ble konvertert fra Claude (Cowork) til Claude Code — masterversjonen lå tidligere kun i et claude.ai-prosjekt ("Testdatabase"), som ikke er tilgjengelig fra Claude Code. Denne filen ER nå masterversjonen; oppdater den videre her.*
 
 ## Kilde
 
@@ -26,7 +26,7 @@ Dette er ikke et ett-økt-prosjekt. Det er et flerspors utviklingsprogram som de
 ## Faseplan
 
 Fase 0: Arkitektur- og compliance-grunnlag. **Ferdig.**
-Fase 1: Del 1 — lokalt utviklingsmiljø. **Ferdig (lokal del) 2026-08-20.** Sky-deploy-delen (Azure) er ikke satt opp ennå og tas når vi trenger å driftsette noe.
+Fase 1: Del 1 — lokalt utviklingsmiljø. **Ferdig (lokal del) 2026-08-20.** Sky-deploy-delen (Azure) er **satt opp og verifisert 2026-09-02** — se "Sky-deploy til Azure (azd)" under. Test-miljøet kjører i Sweden Central, ikke Norway East/West som opprinnelig planlagt — se samme seksjon for hvorfor.
 Fase 2: Del 2 — admin-skjelett + BankID/2FA-autentisering. **Første slice ferdig 2026-08-23** (se "Del 2 (slice 1)" under) — pris/rapporter/backup/org-støtte er bevisst utsatt, se "Åpne punkter".
 Fase 3: Del 3 — behandlersystem. **Første slice ferdig 2026-08-24** (se "Del 3 (slice 1)" under) — rapporter/økonomi/automatiske utsendelser er bevisst utsatt, se "Åpne punkter".
 Fase 4: Del 4 — pasientsystem + testmotor (generisk rammeverk). **Første slice ferdig 2026-08-24** (se "Del 4 (slice 1)" under) — lokalisering, Vipps-betalingssperre, påminnelser og skåring/rapporter er bevisst utsatt, se "Åpne punkter".
@@ -50,6 +50,23 @@ Fulle krav for hver del ligger i `docs/prosjektbeskrivelse-original.md` — les 
 **Versjonskontroll:** Git. Prosjektet ligger i `C:\code\TestBase` på brukers maskin (`gaute-pc`), under versjonskontroll med en fungerende første commit fra 2026-08-20.
 
 **Skifte til Claude Code (2026-08-20):** Prosjektet ble startet i Claude (Cowork), der en sky-til-PC-"bro" for direkte filtilgang aldri fikk kontakt gjennom hele Del 1-arbeidet (til tross for flere forsøk, inkl. reinstallasjon av Claude-appen). Kode ble derfor levert som zip-filer, og bruker kjørte kommandoer selv i egen terminal med veiledning. Bruker konverterte deretter til Claude Code, som kjører direkte lokalt uten noen bro-mekanisme. Denne filen og resten av `docs/`-mappen ble skrevet for at ingenting av konteksten skulle gå tapt i overgangen.
+
+### Sky-deploy til Azure (azd)
+
+Del 1s gjenstående sky-deploy-punkt er nå satt opp med **Azure Developer CLI (`azd`)**:
+`azure.yaml` i repo-roten + `infra/main.bicep`/`infra/main.parameters.json`/`infra/resources.bicep`
+definerer og provisjonerer alle ressurser (`azd provision`/`azd up`):
+
+- App Service (Linux, `.NET 8`, Basic B1) for `TestBase.Web`
+- Azure Database for MySQL – Flexible Server (Burstable `Standard_B1ms`, ingen HA, 7 dagers backup — testmiljø, ikke produksjonsdimensjonert)
+- Key Vault (RBAC-autorisert, App Service sin system-assignerte identitet får `Key Vault Secrets User`) som holder tilkoblingsstrengen; App Service leser den via `@Microsoft.KeyVault(...)`-referanse i `ConnectionStrings__DefaultConnection`
+- MySQL-administratorpassordet genereres deterministisk i Bicep (`uniqueString(...)`) og lagres kun i Key Vault — aldri i kildekode eller `.env`
+
+Miljøet heter `testbase-test` (azd-environment, lokal `.azure/`-mappe, gitignored — inneholder ressurs-IDer/abonnements-ID). Verifisert 2026-09-02: alle fire ressurser `Succeeded`, `/health`-endepunktet på den utrullede App Service-URL-en svarer `200 Healthy`.
+
+**Avvik fra planlagt region (viktig):** `docs/beslutningslogg.md` sin opprinnelige "Hosting-pivot"-beslutning under sier Norway East/West for datalagringssted. Et tidligere forsøk på å provisjonere til Norway East/West feilet fordi det ikke var regional kapasitet for den valgte MySQL-SKU-en (`Standard_B1ms`) — ikke en konfigurasjonsfeil. Testmiljøet ble derfor lagt i **Sweden Central** i stedet. Bekreftet på nytt 2026-09-02 med en engangs disposable-probe (opprettet og slettet en egen ressursgruppe i Norway East): Norway West er ikke engang et tillatt region for dette Azure-abonnementet, og et faktisk forsøk på å opprette MySQL Flexible Server i Norway East feiler fortsatt umiddelbart med `InternalServerError` (samme feil som `az mysql flexible-server list-skus --location norwayeast` gir). Dette er et test-miljø uten ekte pasientdata, så regionvalget er ikke kritisk ennå — men **før reell produksjonssetting med ekte pasientdata må regionkapasiteten sjekkes på nytt** (Azure-regional kapasitet for burstable PaaS-SKU-er endrer seg over tid og kan ikke sjekkes på forhånd via en quota-API, kun ved et faktisk forsøk), og dersom Norway fortsatt ikke er mulig må databeslutningen revurderes eksplisitt med bruker/DPO (jf. `docs/compliance-dpia-utkast.md`) — ikke anta at Sweden Central er godkjent for ekte helsedata uten den vurderingen.
+
+Kjent begrensning: `ASPNETCORE_ENVIRONMENT` er satt til `Development` i App Service-konfigurasjonen (`infra/resources.bicep`) — bevisst, siden mock-leverandørene og enkle dev-nøkler fortsatt brukes og det ikke finnes ekte pasientdata i dette miljøet. Må endres til en ekte produksjonskonfigurasjon (og reelle leverandøravtaler/nøkler) før noe reelt driftsettes.
 
 ### Hosting-pivot
 
@@ -886,7 +903,12 @@ knapper). 4/4 grønne automatiserte tester, ingen migrasjon nødvendig.
 
 ## Åpne punkter til senere faser
 
-- Sky-deploy-pipeline til Azure (resten av Del 1) — tas når vi faktisk trenger å driftsette noe.
+- CI/CD-pipeline for `azd deploy` (i dag kjøres `azd up`/`azd deploy` manuelt fra lokal maskin) —
+  naturlig neste steg for sky-deploy-delen av Del 1, se "Sky-deploy til Azure (azd)".
+- Regionvalg for reell produksjon: bekreft Norway East/West-kapasitet på nytt (eller revurder
+  regionbeslutningen med bruker/DPO) før ekte pasientdata — se "Sky-deploy til Azure (azd)".
+- Bytte App Service sin `ASPNETCORE_ENVIRONMENT` fra `Development` til en reell produksjonsprofil
+  når ekte leverandøravtaler/nøkler er på plass — se "Sky-deploy til Azure (azd)".
 - Resten av Del 2: pris per test (fordeling test-system/behandler), økonomiske rapporter
   (uke/måned/kvartal/år), (halv-)automatisk bokføring/utbetaling, backup/restore av
   administrator, organisasjonsstøtte (eksplisitt "skal ikke støttes pt." i kravdokumentet) — alt
@@ -928,4 +950,3 @@ knapper). 4/4 grønne automatiserte tester, ingen migrasjon nødvendig.
   felt (navn/beskrivelse/belønningstekst/aktiv) kan nå redigeres, se "Rediger-funksjon for
   administrator/test/pasient".
 - Polering av admin-/behandlerportal-/pasientportal-UI (dagens sider er funksjonelle, ikke visuelt ferdige).
-- Azure-konto opprettes av bruker når vi når sky-deploy-delen.

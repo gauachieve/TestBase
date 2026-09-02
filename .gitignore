@@ -24,3 +24,6 @@ Thumbs.db
 
 ## Lokale design-referansebilder (ikke del av prosjektet)
 /report.png
+
+## Azure Developer CLI (azd) lokal miljøstate — kan inneholde ressurs-IDer/tilkoblingsdetaljer
+.azure/

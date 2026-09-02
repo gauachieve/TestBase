@@ -14,7 +14,11 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
 ## Status akkurat nå (2026-08-31)
 
 - **Fase 0** (arkitektur/compliance-grunnlag): ferdig.
-- **Fase 1** (lokalt utviklingsmiljø): ferdig og verifisert lokalt. Sky-deploy til Azure er planlagt men ikke satt opp.
+- **Fase 1** (lokalt utviklingsmiljø): ferdig og verifisert lokalt. Sky-deploy til Azure er satt opp
+  og verifisert (2026-09-02) via Azure Developer CLI (`azd`) — `azure.yaml` + `infra/` i repo-roten,
+  test-miljøet `testbase-test` kjører i **Sweden Central** (ikke Norway East/West som opprinnelig
+  planlagt — regional MySQL-kapasitet manglet der ved provisjonering, se
+  `docs/beslutningslogg.md` under "Sky-deploy til Azure (azd)" før noen reell produksjonssetting).
 - **Fase 2** (admin-skjelett + BankID/2FA-autentisering): **første slice ferdig og verifisert lokalt** — datamodell (Administrator/Behandler/invitasjon/2FA-kode), ekte cookie-basert innlogging (passord i utviklingsmodus, BankID+SMS-2FA-mock i produksjonsmodus), rollebytte for utvikler, og minimal admin-CRUD (opprett/arkiver administrator, inviter/frys/arkiver behandler).
 - **Fase 3** (behandlersystem): **første slice ferdig og verifisert lokalt** — BankID+2FA-innlogging for behandler (intet passord-unntak), utvidet egenregistrering (flere felt, brukeravtale, e-post/mobil-verifisering), HPR-godkjenningsflyt (7-dagers prøveperiode), og grunnleggende pasient-CRUD (legg til enkeltvis/gruppeimport, arkiver/gjenopprett). Behandlere kan invitere kollegaer på samme måte som admin.
 - **Fase 4** (pasientsystem + testmotor): **første slice ferdig og verifisert lokalt** — pasient-egenregistrering (uten kontaktverifisering, BankID etterpå er identitetsbekreftelsen), BankID-innlogging UTEN 2FA (bevisst, jf. kravet), pasientens egen side ("Min side"), og et generisk testmotor-skjelett: admin forfatter tester (sider/ledd/svartyper), behandler tildeler dem til pasienter, pasienten fyller ut side for side med fremdrift/lagre/belønningsside.
@@ -46,7 +50,7 @@ Prosjektet er et Git-repo i `C:\code\TestBase`.
 
 - **Backend:** ASP.NET Core (C#), .NET 8. Razor Pages.
 - **Database:** MySQL via Entity Framework Core + Pomelo-provider, EF Core migrations for skjemaversjonering.
-- **Produksjon (planlagt, ikke satt opp):** Azure App Service + Azure Database for MySQL – Flexible Server, Norway-region. IKKE egen Windows Server/IIS — det opprinnelige kravet om dette er revidert bort.
+- **Produksjon:** Azure App Service + Azure Database for MySQL – Flexible Server. Test-miljøet er satt opp via `azd` (se `azure.yaml`/`infra/`) og kjører i Sweden Central, ikke det opprinnelig planlagte Norway East/West — regional MySQL-kapasitet manglet der (se `docs/beslutningslogg.md`, "Sky-deploy til Azure (azd)"); må revurderes før reell produksjonssetting med ekte pasientdata. IKKE egen Windows Server/IIS — det opprinnelige kravet om dette er revidert bort.
 - **Lokal utvikling:** Docker Compose (lokal MySQL-container) + `dotnet watch run`. Bevisst holdt enkelt og sky-fritt for rask iterasjon.
 - **Sikkerhetsprinsipp — arkitektur nå, infrastruktur senere:** Tilgangsstyring og audit-logging er bygget inn i kodearkitekturen fra dag én (`TestBase.Shared/Security/`: `ICurrentUserContext`, `IAuditLogger`) og er aktiv i ALLE miljøer, også lokalt — men peker på enkle lokale dummy-nøkler i dev og ekte Azure Key Vault/IAM i prod. Følg dette mønsteret videre: ny sikkerhetsrelatert kode skal alltid være aktiv i dev også, bare med enklere infrastruktur bak.
 - **Eksterne leverandører (BankID, Vipps, SMS, e-post):** ingen avtaler inngått ennå. All kode mot disse skal gå bak grensesnitt (`IBankIdProvider`, `IVippsClient`, `ISmsSender`, `IEmailSender`) med mock-implementasjoner i `TestBase.Shared/Providers/Mock/` som brukes i dev, slik at utvikling ikke er avhengig av ekte avtaler. Se `/DevDemo`-siden for eksempel på bruk.
