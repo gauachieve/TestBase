@@ -935,6 +935,55 @@ knapper). 4/4 grønne automatiserte tester, ingen migrasjon nødvendig.
 - **"Table ... doesn't exist"**: Skjer hvis migrasjonene ikke er kjørt etter at Docker/MySQL-containeren startet. Kjør `dotnet ef database update` på nytt.
 - **`dotnet ef database update` → "Build failed" uten detaljer**: Skjer hvis `dotnet watch run` kjører i et annet vindu og låser build-output-filene (vanlig på Windows). Stopp `dotnet watch run` midlertidig (Ctrl+C), kjør migrasjonen, start appen igjen.
 
+### Ekte e-postutsending via Azure Communication Services (2026-09-03)
+
+Første ekte (ikke-mock) leverandørintegrasjon: `IEmailSender` har nå en reell implementasjon,
+`AzureEmailSender` (`TestBase.Shared/Providers/AzureEmailSender.cs`), som sender via **Azure
+Communication Services (ACS) Email** — valgt fordi det er Azure-native (samme abonnement som
+resten av infrastrukturen, ingen egen leverandøravtale å fremforhandle, i motsetning til
+SendGrid/Mailgun-sporet som ellers ville vært naturlig). Ny infrastruktur i
+`infra/resources.bicep`: `Microsoft.Communication/emailServices` + et **Azure-administrert domene**
+(`domainManagement: 'AzureManaged'`, ressursnavn `AzureManagedDomain`) — ingen DNS-verifisering
+nødvendig, Azure genererer selv et `*.azurecomm.net`-domene og DKIM/DMARC/SPF er automatisk
+"Verified" fra dag én — pluss `Microsoft.Communication/communicationServices` (linket til
+domenet) og en `senderUsernames`-ressurs (`noreply`). Databeliggenhet satt til **Norway** for disse
+to ressursene (gyldig `dataLocation`-verdi for ACS, i motsetning til MySQL Flexible Server-en som
+måtte til Sweden Central pga. kapasitet — se "Sky-deploy til Azure (azd)") — det første stedet i
+denne infrastrukturen som faktisk lander i den opprinnelig planlagte regionen.
+
+ACS-tilkoblingsstrengen lagres i Key Vault (samme mønster som MySQL-tilkoblingsstrengen) og
+eksponeres til App Service som `Acs__ConnectionString`; avsenderadressen
+(`noreply@<generert>.azurecomm.net`, lest ut fra domenets faktiske `mailFromSenderDomain`-egenskap
+etter provisjonering) som `Email__SenderAddress`. `Program.cs` velger `AzureEmailSender` når
+`Acs:ConnectionString` er satt, ellers `MockEmailSender` (lokal utvikling har den aldri satt, så
+lokal oppførsel er uendret). Verifisert 2026-09-03: sendte en ekte behandler-invitasjon fra
+test-appen til brukerens egen e-postadresse via `Areas/Admin/Pages/Behandlere/Inviter` — SDK-kallet
+(`EmailClient.SendAsync` med `WaitUntil.Completed`) fullførte uten feil. Oppdaterte samtidig UI-teksten
+i de tre "invitasjon sendt"-sidene (Admin- og Behandlerportal-Inviter, Behandlerportal Pasienter/Ny)
+som fortsatt påsto "mock — ingen ekte SMS/e-post" — SMS er fortsatt mock, e-post er det ikke lenger
+her. To mindre steder (`Pages/Inviter/Verifiser.cshtml`, Behandlerportal `Innstillinger.cshtml.cs`
+sin påminnelsestekst) ble bevisst IKKE oppdatert — sekundære flyter, se "Åpne punkter" hvis de skal rettes.
+
+**Nesten-hendelse under samme arbeid — appSettings på `Microsoft.Web/sites` er en FULL erstatning,
+ikke en sammenslåing, ved hver `azd provision`.** `StagingGate__AccessKey` (satt manuelt via
+`az webapp config appsettings set` i forrige økt, aldri lagt inn i `infra/resources.bicep`) forsvant
+sporløst da denne økten kjørte `azd provision` for å legge til ACS-ressursene — App Service-ens
+`siteConfig.appSettings`-liste i Bicep ble deployet på nytt med KUN de fem opprinnelige innstillingene,
+og Azure erstattet HELE appSettings-samlingen med akkurat den listen, uten å bevare
+`StagingGate__AccessKey` som var satt utenfor malen. Test-appen sto dermed helt åpen for internett
+igjen i noen minutter (oppdaget og lukket samme økt, ved rutinemessig statussjekk før neste
+funksjonstest — ingen kjent ekstern tilgang i vinduet). Rettet permanent: `stagingGateAccessKey` er
+nå en egen `@secure()`-parameter i `main.bicep`/`resources.bicep`, verdien kommer fra
+azd-miljøvariabelen `STAGING_GATE_ACCESS_KEY` (satt via `azd env set`, lagret kun i den allerede
+gitignorede `.azure/testbase-test/.env` — ALDRI en literal verdi i selve Bicep-filen, samme prinsipp
+som MySQL-passordet). Satt til samme verdi som før, så ingen enheter trengte å taste inn en ny nøkkel.
+**Generell lærdom: ENHVER App Service-innstilling som skal overleve fremtidige `azd provision`-kall
+MÅ inn i `infra/resources.bicep` sin `appSettings`-liste — en "sett den bare via CLI for nå"-løsning
+blir stille borte ved neste provisjonering, ikke bare "ikke reprodusert et annet sted" som tidligere
+antatt.** Dette gjelder trolig `Acs__ConnectionString`/`Email__SenderAddress` også — de ble lagt inn i
+Bicep fra START i denne økten (lærdommen ble anvendt med en gang for de nye innstillingene), så de er
+ikke utsatt for samme risiko.
+
 ## Åpne punkter til senere faser
 
 - CI/CD-pipeline for `azd deploy` (i dag kjøres `azd up`/`azd deploy` manuelt fra lokal maskin) —
@@ -953,8 +1002,13 @@ knapper). 4/4 grønne automatiserte tester, ingen migrasjon nødvendig.
 - `StagingGate` (se samme seksjon) gater ALT, inkludert `/health` — helt greit så lenge ingen ekte
   overvåkning/health-probe er koblet til test-App Service-en ennå, men må huskes på hvis/når det
   legges til (Azure sin egen App Service health check-funksjon ville også blitt blokkert av gaten).
-- `StagingGate:AccessKey` er satt manuelt via `az webapp config appsettings set` — samme mønster
-  (og samme "bør kodifiseres i infra"-forbehold) som IP-restriksjonen den erstattet.
+- To sekundære steder påstår fortsatt at e-post er mock (`Pages/Inviter/Verifiser.cshtml`,
+  Behandlerportal `Innstillinger.cshtml.cs` sin påminnelsestekst) — se "Ekte e-postutsending via
+  Azure Communication Services". Rett når disse flytene faktisk testes/brukes.
+- SMS er fortsatt mock (`MockSmsSender`) — samme Azure-native tankegang som for e-post (ACS har
+  også en SMS-kanal) er en naturlig kandidat når SMS faktisk skal bli ekte, fremfor en ekstern
+  leverandør som Link Mobility/Twilio (som fortsatt er nevnt som alternativ lenger opp i dette
+  dokumentet — vurder ACS SMS først nå som ACS Email allerede er på plass).
 - Resten av Del 2: pris per test (fordeling test-system/behandler), økonomiske rapporter
   (uke/måned/kvartal/år), (halv-)automatisk bokføring/utbetaling, backup/restore av
   administrator, organisasjonsstøtte (eksplisitt "skal ikke støttes pt." i kravdokumentet) — alt

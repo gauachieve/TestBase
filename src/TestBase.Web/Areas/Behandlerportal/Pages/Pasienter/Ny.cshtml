@@ -9,8 +9,9 @@
 
 @if (Model.Opprettet)
 {
-    <p>Pasient opprettet. Invitasjon "sendt" (mock — ingen ekte SMS/e-post er koblet til ennå).
-    Del denne lenken med pasienten for at de skal kunne fullføre registreringen:</p>
+    <p>Pasient opprettet. Invitasjon sendt (SMS er fortsatt mock; e-post sendes reelt der Azure
+    Communication Services er satt opp, ellers mock). Del uansett denne lenken med pasienten for
+    at de skal kunne fullføre registreringen:</p>
     <p><a href="@Model.Lenke">@Model.Lenke</a></p>
     <p><a href="/Behandlerportal/Pasienter/Ny">Legg til en til</a> | <a href="/Behandlerportal/Pasienter">Tilbake til pasienter</a></p>
 }

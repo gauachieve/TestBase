@@ -149,8 +149,12 @@ src/
                              ITestSkaaringsberegner, Who5Skaaringsberegner
     Domain/Tester/InnebygdeTester/  Regenereringsmekanisme (fase 5): IInnebygdTestSeeder,
                              Who5TestSeeder — idempotent, kalt fra dev-seed OG admin-knapp
-    Providers/             IBankIdProvider, IVippsClient, ISmsSender, IEmailSender
-    Providers/Mock/        Mock-implementasjoner av alle fire, brukt i dev
+    Providers/             IBankIdProvider, IVippsClient, ISmsSender, IEmailSender,
+                           AzureEmailSender (ekte implementasjon via Azure Communication
+                           Services — brukt i Azure test-App Service, se beslutningsloggen
+                           "Ekte e-postutsending via Azure Communication Services")
+    Providers/Mock/        Mock-implementasjoner av alle fire (fortsatt alle brukt lokalt;
+                           MockEmailSender brukes også i Azure der ACS ikke er konfigurert)
     Data/AppDbContext.cs   EF Core-kontekst — ALL databasetilgang skal gå gjennom denne.
                            Personnummer krypteres i hvile via DataProtection (se beslutningsloggen)
     Migrations/            EF Core migrations (generert med dotnet ef)
@@ -198,6 +202,15 @@ dotnet watch run
 - Mock-leverandørene (`MockSmsSender`/`MockEmailSender`) logger KUN via `ILogger` — usynlig i selve nettleser-UI-et, kun synlig i konsollen der `dotnet watch run` kjører. En invitasjonslenke som kun finnes der er i praksis ubrukelig for reell manuell testing i nettleser. Slike tjenester bør returnere lenken/meldingen til kalleren (se `BehandlerInvitasjonResultat`/`PasientInvitasjonResultat` i fase 5s feilrettinger) slik at UI-et kan vise den direkte, i tillegg til mock-loggingen.
 - Hvis nettleser-testing ikke reflekterer nylige kodeendringer selv om `dotnet watch run` "kjører": sjekk (1) at nettleseren faktisk peker på porten fra `Properties/launchSettings.json` (`https://localhost:7257`/`http://localhost:5257`) og ikke en gammel manuelt overstyrt port fra en tidligere økt, og (2) om flere/hengende `TestBase.Web.exe`-prosesser (`tasklist`, `netstat -ano | grep <port>`) låser build-outputen uten selv å svare på riktig port — drep de gamle prosessene og start `dotnet watch run` på nytt uten portoverstyring.
 - Git Bash (MSYS) konverterer automatisk et kommandolinje-argument som begynner med `/` (f.eks. `curl --data-urlencode "ReturnUrl=/Pasientportal/..."`) til en Windows-sti FØR curl noensinne ser det — verdien som faktisk sendes blir korrupt (`C:/Program Files/Git/Pasientportal/...`), noe som ser ut som en server-side bug (feltet "bindes ikke") men egentlig er testverktøyet som lyver om hva som ble sendt. Sett `MSYS_NO_PATHCONV=1` foran curl-kommandoer som poster verdier med innledende skråstrek.
+- Enhver App Service-innstilling satt kun via `az webapp config appsettings set` (utenfor
+  `infra/resources.bicep`) forsvinner SPORLØST ved neste `azd provision` — `siteConfig.appSettings`
+  på en `Microsoft.Web/sites`-ressurs er en FULL erstatning av hele innstillingssamlingen, ikke en
+  sammenslåing. Skjedde reelt 2026-09-03: `StagingGate__AccessKey` ble borte og test-appen sto åpen
+  for internett i noen minutter etter en `azd provision` for å legge til nye ressurser (se
+  beslutningsloggen). Enhver innstilling som må overleve, MÅ inn i Bicep sin `appSettings`-liste —
+  bruk en `@secure()`-parameter koblet til en azd-miljøvariabel (`azd env set NAVN verdi`,
+  `main.parameters.json` sin `"${NAVN}"`-syntaks) for hemmeligheter som ikke skal ligge som literal
+  i kildekontroll, ALDRI en hardkodet verdi i selve Bicep-filen.
 - Å skjule et skjemafelt i en Razor-view med `@if (Env.IsDevelopment())` gater KUN visningen — det gater IKKE selve POST-handleren. `Pages/Konto/LoggInn.cshtml.cs` sin `OnPostAsync` kaller `StartBankIdAsync(personnummerOverride: PersonnummerOverride, ...)` ubetinget, og `MockBankIdProvider` honorerer en hvilken som helst oppgitt streng — så en rå POST med `PersonnummerOverride=<kjent-testpersonnummer>` er et fullverdig auth-bypass uansett `ASPNETCORE_ENVIRONMENT`, oppdaget da test-App Service-en sto offentlig tilgjengelig (se beslutningsloggen "Google Chrome/Safe Browsing flagget test-appen"). Ethvert fremtidig dev-only felt av denne typen må gates i selve handleren (`if (!_env.IsDevelopment()) { ignorer verdien }`), ikke bare i viewet — spesielt for alt som kan nå et miljø som er reachable utenfor localhost.
 - Manuell `dotnet run --no-launch-profile --urls "http://localhost:5257"` kan likevel plutselig begynne å 307-redirecte til `https://localhost:7257` (via `app.UseHttpsRedirection()`, som er ubetinget i `Program.cs` — kun `UseHsts`/`UseExceptionHandler` er bak `!IsDevelopment()`) selv når ingen launch-profil brukes. Sett `ASPNETCORE_HTTPS_PORT=` (tom) i tillegg til `--urls` for å hindre at middlewaren likevel klarer å gjette et https-mål å omdirigere til.
 

@@ -2,8 +2,9 @@ namespace TestBase.Shared.Providers;
 
 /// <summary>
 /// Grensesnitt for e-postutsending (invitasjoner, rapporter, kvitteringer).
-/// Ekte implementasjon velges i fase 2/6. I dev/test brukes MockEmailSender,
-/// som kun logger meldingen i stedet for å faktisk sende den.
+/// AzureEmailSender (Azure Communication Services) brukes når "Acs:ConnectionString"
+/// er satt (Azure test-App Service), ellers MockEmailSender (lokal utvikling), som
+/// kun logger meldingen i stedet for å faktisk sende den — se Program.cs.
 /// </summary>
 public interface IEmailSender
 {

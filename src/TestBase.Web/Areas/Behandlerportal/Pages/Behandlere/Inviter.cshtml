@@ -8,8 +8,9 @@
 
 @if (Model.Sendt)
 {
-    <p>Invitasjon "sendt" (mock — ingen ekte SMS/e-post er koblet til ennå). Del denne lenken med
-    kollegaen for at de skal kunne fullføre registreringen:</p>
+    <p>Invitasjon sendt (SMS er fortsatt mock; e-post sendes reelt der Azure Communication Services
+    er satt opp, ellers mock). Del uansett denne lenken med kollegaen for at de skal kunne
+    fullføre registreringen:</p>
     <p><a href="@Model.Lenke">@Model.Lenke</a></p>
     <p><a href="/Behandlerportal/Behandlere/Inviter">Inviter en til</a></p>
 }

@@ -120,13 +120,28 @@ builder.Services.AddAuthorization(options =>
 
 // --- Eksterne leverandører: mock i dev/test til ekte avtaler er på plass -
 // TODO (fase 2/6): registrer ekte implementasjoner her, gatet på
-// builder.Environment.IsDevelopment(), når BankID-/Vipps-/SMS-/e-post-
-// leverandør er valgt og avtale signert (se beslutningsloggen).
+// builder.Environment.IsDevelopment(), når BankID-/Vipps-/SMS-leverandør er
+// valgt og avtale signert (se beslutningsloggen).
 builder.Services.AddScoped<IBankIdProvider, MockBankIdProvider>();
 builder.Services.AddScoped<IVippsClient, MockVippsClient>();
 builder.Services.AddScoped<ISmsSender, MockSmsSender>();
-builder.Services.AddScoped<IEmailSender, MockEmailSender>();
 builder.Services.AddScoped<ICaptchaProvider, MockCaptchaProvider>();
+
+// E-post: ekte utsending via Azure Communication Services når "Acs:ConnectionString"
+// er satt (kun i Azure test-App Service, aldri lokalt), ellers MockEmailSender —
+// se AzureEmailSender og docs/beslutningslogg.md.
+var acsConnectionString = builder.Configuration["Acs:ConnectionString"];
+if (!string.IsNullOrEmpty(acsConnectionString))
+{
+    var emailSenderAddress = builder.Configuration["Email:SenderAddress"]
+        ?? throw new InvalidOperationException("Acs:ConnectionString er satt, men Email:SenderAddress mangler.");
+    builder.Services.AddScoped<IEmailSender>(sp =>
+        new AzureEmailSender(acsConnectionString, emailSenderAddress, sp.GetRequiredService<ILogger<AzureEmailSender>>()));
+}
+else
+{
+    builder.Services.AddScoped<IEmailSender, MockEmailSender>();
+}
 
 // --- Web ------------------------------------------------------------------
 builder.Services.AddRazorPages(options =>

@@ -10,6 +10,10 @@ param tags object
 @description('Administrator-brukernavn for MySQL Flexible Server')
 param mysqlAdministratorLogin string
 
+@description('Delt nøkkel for StagingGate — tom verdi deaktiverer sperren, se main.bicep')
+@secure()
+param stagingGateAccessKey string = ''
+
 // Testmiljø uten ekte pasientdata — passordet genereres deterministisk og lagres kun i Key Vault.
 var mysqlAdministratorPassword = 'Tb${uniqueString(resourceGroup().id, resourceToken)}!26'
 
@@ -75,7 +79,11 @@ resource mysqlDatabase 'Microsoft.DBforMySQL/flexibleServers/databases@2023-06-3
   name: databaseName
   properties: {
     charset: 'utf8mb4'
-    collation: 'utf8mb4_general_ci'
+    // MySQL 8.0 normaliserer 'utf8mb4_general_ci' til sin egen default 'utf8mb4_0900_ai_ci'
+    // ved opprettelse — deklarer den faktiske verdien, ellers feiler HVER senere
+    // "azd provision" med "DatabaseCharsetOrCollationConflict" (ARM/REST støtter ikke å
+    // endre collation i ettertid, kun via en ekte SQL ALTER DATABASE).
+    collation: 'utf8mb4_0900_ai_ci'
   }
 }
 
@@ -106,6 +114,63 @@ resource connectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' =
   }
 }
 
+// E-postutsending (invitasjoner, rapport-varsler, påminnelser) via Azure Communication
+// Services — Azure-native, ingen egen leverandøravtale nødvendig (samme abonnement som
+// resten av infrastrukturen). Azure-administrert domene: ingen DNS-verifisering nødvendig,
+// men Azure velger selv det faktiske avsenderdomenet (noe-generert.azurecomm.net) — leses ut
+// etter provisjonering, se docs/beslutningslogg.md.
+var communicationServiceName = 'acs-testbase-${resourceToken}'
+var emailServiceName = 'email-testbase-${resourceToken}'
+
+resource emailService 'Microsoft.Communication/emailServices@2023-04-01' = {
+  name: emailServiceName
+  location: 'global'
+  tags: tags
+  properties: {
+    dataLocation: 'Norway'
+  }
+}
+
+resource emailDomain 'Microsoft.Communication/emailServices/domains@2023-04-01' = {
+  parent: emailService
+  name: 'AzureManagedDomain'
+  location: 'global'
+  tags: tags
+  properties: {
+    domainManagement: 'AzureManaged'
+    userEngagementTracking: 'Disabled'
+  }
+}
+
+resource emailSenderUsername 'Microsoft.Communication/emailServices/domains/senderUsernames@2023-04-01' = {
+  parent: emailDomain
+  name: 'noreply'
+  properties: {
+    username: 'noreply'
+    displayName: 'TestBase (testmiljø)'
+  }
+}
+
+resource communicationService 'Microsoft.Communication/communicationServices@2023-04-01' = {
+  name: communicationServiceName
+  location: 'global'
+  tags: tags
+  properties: {
+    dataLocation: 'Norway'
+    linkedDomains: [
+      emailDomain.id
+    ]
+  }
+}
+
+resource acsConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'AcsConnectionString'
+  properties: {
+    value: communicationService.listKeys().primaryConnectionString
+  }
+}
+
 resource appService 'Microsoft.Web/sites@2023-12-01' = {
   name: appServiceName
   location: location
@@ -130,6 +195,23 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'ConnectionStrings__DefaultConnection'
           value: '@Microsoft.KeyVault(SecretUri=${connectionStringSecret.properties.secretUri})'
+        }
+        {
+          name: 'Acs__ConnectionString'
+          value: '@Microsoft.KeyVault(SecretUri=${acsConnectionStringSecret.properties.secretUri})'
+        }
+        {
+          name: 'Email__SenderAddress'
+          value: 'noreply@${emailDomain.properties.mailFromSenderDomain}'
+        }
+        {
+          // Tom verdi => StagingGate.cs deaktiverer sperren (se Program.cs). Denne
+          // MÅ stå i denne listen — appSettings på Microsoft.Web/sites er en FULL
+          // erstatning ved hver "azd provision", ikke en sammenslåing, så en nøkkel
+          // satt kun via "az webapp config appsettings set" forsvinner ved neste
+          // provision (skjedde 2026-09-02, se docs/beslutningslogg.md).
+          name: 'StagingGate__AccessKey'
+          value: stagingGateAccessKey
         }
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'

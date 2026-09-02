@@ -7,6 +7,9 @@
     },
     "location": {
       "value": "${AZURE_LOCATION}"
+    },
+    "stagingGateAccessKey": {
+      "value": "${STAGING_GATE_ACCESS_KEY}"
     }
   }
 }

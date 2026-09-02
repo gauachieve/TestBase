@@ -12,6 +12,10 @@ param location string
 @description('Administrator-brukernavn for MySQL Flexible Server')
 param mysqlAdministratorLogin string = 'testbaseadmin'
 
+@description('Delt nøkkel for StagingGate (se Security/StagingGate.cs) — tom verdi deaktiverer sperren. Settes via azd-miljøvariabelen STAGING_GATE_ACCESS_KEY, ALDRI som literal her (unngår at nøkkelen havner i kildekontroll).')
+@secure()
+param stagingGateAccessKey string = ''
+
 var resourceToken = uniqueString(subscription().id, environmentName, location)
 var tags = {
   'azd-env-name': environmentName
@@ -31,6 +35,7 @@ module resources 'resources.bicep' = {
     resourceToken: resourceToken
     tags: tags
     mysqlAdministratorLogin: mysqlAdministratorLogin
+    stagingGateAccessKey: stagingGateAccessKey
   }
 }
 
