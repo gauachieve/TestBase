@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using TestBase.Shared.Domain.Pasienter;
@@ -12,12 +13,14 @@ public sealed class LoggInnModel : PageModel
     private readonly PasientAuthenticationService _authService;
     private readonly ICaptchaProvider _captcha;
     private readonly IAuditLogger _auditLogger;
+    private readonly IWebHostEnvironment _env;
 
-    public LoggInnModel(PasientAuthenticationService authService, ICaptchaProvider captcha, IAuditLogger auditLogger)
+    public LoggInnModel(PasientAuthenticationService authService, ICaptchaProvider captcha, IAuditLogger auditLogger, IWebHostEnvironment env)
     {
         _authService = authService;
         _captcha = captcha;
         _auditLogger = auditLogger;
+        _env = env;
     }
 
     [BindProperty]
@@ -53,7 +56,7 @@ public sealed class LoggInnModel : PageModel
 
     public void OnGet()
     {
-        if (!string.IsNullOrWhiteSpace(Personnummer))
+        if (_env.IsDevelopment() && !string.IsNullOrWhiteSpace(Personnummer))
         {
             PersonnummerOverride = Personnummer;
         }
@@ -78,8 +81,9 @@ public sealed class LoggInnModel : PageModel
             return Page();
         }
 
+        // Gates ved bruk, ikke bare i viewet — en rå POST kan sette denne uansett synlighet.
         var bankIdResultat = await _authService.StartBankIdAsync(
-            personnummerOverride: PersonnummerOverride, cancellationToken: cancellationToken);
+            personnummerOverride: _env.IsDevelopment() ? PersonnummerOverride : null, cancellationToken: cancellationToken);
         if (!bankIdResultat.Success || bankIdResultat.PersonNummer is null)
         {
             Feilmelding = bankIdResultat.ErrorMessage ?? "BankID-innlogging feilet.";

@@ -10,6 +10,7 @@ using TestBase.Shared.Providers;
 using TestBase.Shared.Providers.Mock;
 using TestBase.Shared.Security;
 using TestBase.Web;
+using TestBase.Web.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -143,6 +144,8 @@ builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>("mysql");
 
 var app = builder.Build();
+
+app.UseStagingGate();
 
 if (!app.Environment.IsDevelopment())
 {

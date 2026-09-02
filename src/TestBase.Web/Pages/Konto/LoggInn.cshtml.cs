@@ -93,8 +93,9 @@ public sealed class LoggInnModel : PageModel
             return Page();
         }
 
+        // Gates ved bruk, ikke bare i viewet — en rå POST kan sette denne uansett synlighet.
         var bankIdResultat = await _adminAuth.StartBankIdAsync(
-            personnummerOverride: PersonnummerOverride, cancellationToken: cancellationToken);
+            personnummerOverride: _env.IsDevelopment() ? PersonnummerOverride : null, cancellationToken: cancellationToken);
         if (!bankIdResultat.Success || bankIdResultat.PersonNummer is null)
         {
             Feilmelding = bankIdResultat.ErrorMessage ?? "BankID-innlogging feilet.";

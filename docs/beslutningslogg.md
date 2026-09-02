@@ -72,6 +72,31 @@ Kjent begrensning: `ASPNETCORE_ENVIRONMENT` er satt til `Development` i App Serv
 
 **Umiddelbar tiltak:** La til IP-baserte access restrictions på App Service (både hovedsiden og `--scm-site`) som kun tillater brukerens IP (`51.175.216.201/32`, prioritet 100) — alt annet nektes automatisk (`Deny all` la seg på som default så snart en eksplisitt Allow-regel ble lagt til). Verifisert: appen svarer fortsatt fra brukerens IP, avvises for alle andre. Dette bør holde til flagget forsvinner (Safe Browsing revurderer over tid når siden ikke lenger er skannbar) og til videre testing skjer bak samme restriksjon.
 
+**Oppdatering samme dag — IP-restriksjon erstattet med en app-nivå tilgangssperre (`StagingGate`).**
+Bruker trengte å teste fra mobil/nettbrett/flere PC-er med skiftende IP-er, noe en IP-allowliste
+ikke egner seg til. Samtidig ble et uavhengig, mer alvorlig funn gjort: `PersonnummerOverride`-feltet
+på innloggingssiden er et UBETINGET auth-bypass — `LoggInn.cshtml.cs` sin `OnPostAsync` kaller
+`StartBankIdAsync(personnummerOverride: PersonnummerOverride, ...)` uten noen `IsDevelopment()`-sjekk
+i selve POST-handleren (kun VISNINGEN av feltet i Razor-viewet er gatet på dev), og
+`MockBankIdProvider` honorerer en hvilken som helst oppgitt streng som "verifisert" personnummer
+uten videre kontroll. Siden `dev-admin` sitt personnummer er en fast, kildekode-synlig konstant
+(`"01010000000"` i `Program.cs`), kunne HVEM SOM HELST med nettverkstilgang til siden logge inn
+som administrator ved å løse det trivielle regnestykke-CAPTCHA-et og oppgi denne kjente verdien —
+helt uavhengig av passord, BankID eller 2FA. Å bare gjenåpne brannmuren (selv med omdøpt
+BankID/personnummer-tekst) ville ha eksponert dette bypasset for hele internett igjen.
+
+Løsning: en enkel tilgangssperre FORAN HELE appen (`Security/StagingGate.cs` i `TestBase.Web`,
+registrert som `app.UseStagingGate()` helt først i pipelinen i `Program.cs`, før alt annet
+inkludert `/health`). Aktiveres kun når App Service-innstillingen `StagingGate__AccessKey` er satt
+(aldri lokalt) — uten en gyldig, DataProtection-signert cookie (satt etter riktig nøkkel postet i et
+enkelt skjema) får ALLE forespørsler et generisk 401-svar uten noe BankID/personnummer-relatert
+innhold i det hele tatt. Dette løser begge problemene samtidig: Google/andre krypere kan aldri se
+det phishing-lignende innholdet (siden de aldri kommer forbi sperren), OG auth-bypasset er
+utilgjengelig uten nøkkelen. IP-restriksjonen på selve nettsiden ble deretter fjernet igjen (tilbake
+til "Allow Any" på nettverksnivå) siden appen nå beskytter seg selv — SCM/Kudu-endepunktet
+(deployment) beholder fortsatt IP-restriksjon til brukerens IP, uendret. Verifisert: feil nøkkel gir
+401, riktig nøkkel gir 302 + 90-dagers cookie, påfølgende forespørsler med cookien går rett gjennom.
+
 **Prinsipp å ta med videre — også relevant for reell produksjon:**
 - Et BankID-lignende innloggingsgrensesnitt bør ALDRI være offentlig tilgjengelig på en generisk, ubrandet sky-adresse uten nettverksrestriksjon, uansett om det er mock eller ekte bak. Dette gjelder ikke bare "ingen ekte pasientdata i dev/test" (som allerede var prinsippet) — selve SIDENS UTSEENDE/tekst kan trigge phishing-klassifisering og i verste fall skade brukerens/virksomhetens domene-omdømme, helt uavhengig av hva som faktisk skjer bak kulissene.
 - Før reell produksjonssetting: egen, brandet custom-domene (ikke rå `*.azurewebsites.net`), ekte BankID-leverandøravtale (Signicat/Criipto), og en vurdering av om noe UI-tekst kan mistolkes som identitetstyveri-forsøk. Vurder også å sende inn en "false positive"-rapport til Google (https://safebrowsing.google.com/safebrowsing/report_error/) når/hvis en fremtidig offentlig test-URL trengs, i tillegg til IP-restriksjon.
@@ -925,6 +950,11 @@ knapper). 4/4 grønne automatiserte tester, ingen migrasjon nødvendig.
 - Custom, brandet domene (ikke rå `*.azurewebsites.net`) for reell produksjon, samt vurdering av
   om noe UI-tekst/knappetekst kan minne om identitetstyveri-forsøk før noe eksponeres offentlig
   igjen — se "Google Chrome/Safe Browsing flagget test-appen".
+- `StagingGate` (se samme seksjon) gater ALT, inkludert `/health` — helt greit så lenge ingen ekte
+  overvåkning/health-probe er koblet til test-App Service-en ennå, men må huskes på hvis/når det
+  legges til (Azure sin egen App Service health check-funksjon ville også blitt blokkert av gaten).
+- `StagingGate:AccessKey` er satt manuelt via `az webapp config appsettings set` — samme mønster
+  (og samme "bør kodifiseres i infra"-forbehold) som IP-restriksjonen den erstattet.
 - Resten av Del 2: pris per test (fordeling test-system/behandler), økonomiske rapporter
   (uke/måned/kvartal/år), (halv-)automatisk bokføring/utbetaling, backup/restore av
   administrator, organisasjonsstøtte (eksplisitt "skal ikke støttes pt." i kravdokumentet) — alt
