@@ -68,6 +68,15 @@ Miljøet heter `testbase-test` (azd-environment, lokal `.azure/`-mappe, gitignor
 
 Kjent begrensning: `ASPNETCORE_ENVIRONMENT` er satt til `Development` i App Service-konfigurasjonen (`infra/resources.bicep`) — bevisst, siden mock-leverandørene og enkle dev-nøkler fortsatt brukes og det ikke finnes ekte pasientdata i dette miljøet. Må endres til en ekte produksjonskonfigurasjon (og reelle leverandøravtaler/nøkler) før noe reelt driftsettes.
 
+**Viktig sikkerhetsfunn (2026-09-02): Google Chrome/Safe Browsing flagget test-appen som "Dangerous site" (phishing).** Årsak: innloggingssiden (`Pages/Konto/LoggInn.cshtml`) har en knapp merket "Logg inn med BankID" og et utviklingsmiljø-felt merket "Personnummer" som overstyrer BankID-mocken — dette er strukturelt identisk med et ekte BankID-phishing-forsøk (nasjonalt varemerke for identitetsverifisering + innsamling av fødselsnummer, driftet på en generisk, ubrandet `azurewebsites.net`-adresse uten noen reell BankID-integrasjon). Google sin phishing-klassifisering fanget dette mønsteret, mest sannsynlig korrekt ut fra mønstergjenkjenning, ikke en feil. App Service-en sto samtidig helt åpen for hele internett (`ipSecurityRestrictions: Allow Any`), inkludert SCM/Kudu-endepunktet — hvem som helst (inkl. automatiske skannere) kunne nå siden.
+
+**Umiddelbar tiltak:** La til IP-baserte access restrictions på App Service (både hovedsiden og `--scm-site`) som kun tillater brukerens IP (`51.175.216.201/32`, prioritet 100) — alt annet nektes automatisk (`Deny all` la seg på som default så snart en eksplisitt Allow-regel ble lagt til). Verifisert: appen svarer fortsatt fra brukerens IP, avvises for alle andre. Dette bør holde til flagget forsvinner (Safe Browsing revurderer over tid når siden ikke lenger er skannbar) og til videre testing skjer bak samme restriksjon.
+
+**Prinsipp å ta med videre — også relevant for reell produksjon:**
+- Et BankID-lignende innloggingsgrensesnitt bør ALDRI være offentlig tilgjengelig på en generisk, ubrandet sky-adresse uten nettverksrestriksjon, uansett om det er mock eller ekte bak. Dette gjelder ikke bare "ingen ekte pasientdata i dev/test" (som allerede var prinsippet) — selve SIDENS UTSEENDE/tekst kan trigge phishing-klassifisering og i verste fall skade brukerens/virksomhetens domene-omdømme, helt uavhengig av hva som faktisk skjer bak kulissene.
+- Før reell produksjonssetting: egen, brandet custom-domene (ikke rå `*.azurewebsites.net`), ekte BankID-leverandøravtale (Signicat/Criipto), og en vurdering av om noe UI-tekst kan mistolkes som identitetstyveri-forsøk. Vurder også å sende inn en "false positive"-rapport til Google (https://safebrowsing.google.com/safebrowsing/report_error/) når/hvis en fremtidig offentlig test-URL trengs, i tillegg til IP-restriksjon.
+- Standard for FREMTIDIGE Azure-testmiljøer: sett IP-restriksjon (`az webapp config access-restriction add`) som en del av `infra/`-oppsettet fra dag én, ikke som en etterhåndsrettelse — vurder å legge dette inn i `infra/resources.bicep` selv (`ipSecurityRestrictions` på `Microsoft.Web/sites`-ressursen) fremfor kun manuelt via CLI, siden CLI-endringer ikke overlever en `azd provision` på nytt (Bicep er kilden til sannhet og vil overskrive/fjerne manuelle CLI-endringer ved neste provision).
+
 ### Hosting-pivot
 
 Bruker har revidert det opprinnelige kravet om egen Windows Server 2016/IIS for produksjon. Ny beslutning:
@@ -909,6 +918,13 @@ knapper). 4/4 grønne automatiserte tester, ingen migrasjon nødvendig.
   regionbeslutningen med bruker/DPO) før ekte pasientdata — se "Sky-deploy til Azure (azd)".
 - Bytte App Service sin `ASPNETCORE_ENVIRONMENT` fra `Development` til en reell produksjonsprofil
   når ekte leverandøravtaler/nøkler er på plass — se "Sky-deploy til Azure (azd)".
+- IP-restriksjonen som nå beskytter test-App Service-en (se "Google Chrome/Safe Browsing
+  flagget test-appen") er satt manuelt via `az webapp config access-restriction` — bør kodifiseres
+  i `infra/resources.bicep` (`ipSecurityRestrictions`) fremfor å leve som en CLI-engangsendring,
+  helst parameterisert via en azd-miljøvariabel siden brukerens IP kan endre seg over tid.
+- Custom, brandet domene (ikke rå `*.azurewebsites.net`) for reell produksjon, samt vurdering av
+  om noe UI-tekst/knappetekst kan minne om identitetstyveri-forsøk før noe eksponeres offentlig
+  igjen — se "Google Chrome/Safe Browsing flagget test-appen".
 - Resten av Del 2: pris per test (fordeling test-system/behandler), økonomiske rapporter
   (uke/måned/kvartal/år), (halv-)automatisk bokføring/utbetaling, backup/restore av
   administrator, organisasjonsstøtte (eksplisitt "skal ikke støttes pt." i kravdokumentet) — alt
