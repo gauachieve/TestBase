@@ -984,6 +984,40 @@ antatt.** Dette gjelder trolig `Acs__ConnectionString`/`Email__SenderAddress` og
 Bicep fra START i denne økten (lærdommen ble anvendt med en gang for de nye innstillingene), så de er
 ikke utsatt for samme risiko.
 
+### Eget domene for test-miljøet: psytest.no (2026-09-03)
+
+Bruker kjøpte `psytest.no` hos domene.no (bundlet med et "web 5"-hostingpakke — cPanel bak
+kulissene, DNS redigeres via cPanel sin Zone Editor, IKKE domene.no sitt eget "Subdomener"-panel
+som kun gjelder deres egen webhosting). Satt opp til å peke på test-App Service-en:
+
+- **DNS** (cPanel Zone Editor, `psytest.no` sin sone): CNAME `www.psytest.no` →
+  `app-testbase-tk46vyxboocho.azurewebsites.net` (redigerte en eksisterende selvrefererende
+  CNAME, IKKE en ny post — DNS tillater kun én CNAME per navn), pluss TXT `asuid.www.psytest.no`
+  → App Service sin `customDomainVerificationId` (Azure sitt obligatoriske eierskapsbevis for
+  alle custom domains, hindrer at noen andre kan kapre et forlatt CNAME-mål).
+- **Apex-domenet** (`psytest.no` uten www) bruker domene.no sin egen HTTP-omdirigeringstjeneste
+  ("Omdiriger domene", et eget hostingprodukt-nivå-feature, IKKE en DNS-post — A-recorden for
+  `psytest.no` peker fortsatt på domene.no sin egen hosting-IP `185.126.36.19` og har ikke
+  endret seg) — satt til 301 permanent redirect til `https://www.psytest.no`. Ble ved en feil
+  først satt til den rå Azure-URL-en (fra tidlig testing før DNS var på plass), rettet i etterkant.
+- **Azure-siden**: `az webapp config hostname add` (custom domain binding, `hostNameType: Verified`)
+  + `az webapp config ssl create`/`ssl bind` (gratis App Service Managed Certificate, SNI, utsteder
+  GeoTrust TLS RSA CA G1, fornyes automatisk før 2027-03-03). Verifisert med ekte DNS-oppslag
+  (også mot 8.8.8.8) og faktisk HTTPS-kall: `https://www.psytest.no` → 401 fra `StagingGate`
+  (helt korrekt og forventet — samme beskyttelse som `azurewebsites.net`-adressen), `psytest.no`
+  (http og https) → 301 til `https://www.psytest.no`.
+- **Ikke gjort ennå, bevisst utsatt**: hostnavn-bindingen og sertifikatet er satt opp via CLI, ikke
+  lagt inn i `infra/resources.bicep` — `Microsoft.Web/sites/hostNameBindings` og
+  `Microsoft.Web/certificates` er egne ressurstyper (IKKE en del av `Microsoft.Web/sites` sin
+  `appSettings`-liste), så dette er ikke utsatt for samme "full erstatning ved neste provision"-
+  problem som rammet `StagingGate__AccessKey` (se "Ekte e-postutsending via Azure Communication
+  Services") — men det er heller ikke reprodusert automatisk ved en fersk `azd provision` et annet
+  sted, siden DNS-eierskap (TXT-verifisering) må finnes FØR Azure godtar bindingen. Se "Åpne
+  punkter" for om/når dette bør kodifiseres.
+- ACS-avsenderadressen (`noreply@<generert>.azurecomm.net`) er IKKE endret til å bruke
+  `psytest.no` ennå — det er en egen, separat oppgave (krever egne DNS-verifiseringsposter for
+  ACS sitt e-postdomene, ikke bare for selve nettstedet).
+
 ## Åpne punkter til senere faser
 
 - CI/CD-pipeline for `azd deploy` (i dag kjøres `azd up`/`azd deploy` manuelt fra lokal maskin) —
@@ -1009,6 +1043,14 @@ ikke utsatt for samme risiko.
   også en SMS-kanal) er en naturlig kandidat når SMS faktisk skal bli ekte, fremfor en ekstern
   leverandør som Link Mobility/Twilio (som fortsatt er nevnt som alternativ lenger opp i dette
   dokumentet — vurder ACS SMS først nå som ACS Email allerede er på plass).
+- `psytest.no` sin hostnavn-binding + SSL-sertifikat (se "Eget domene for test-miljøet") er satt
+  opp via CLI, ikke kodifisert i `infra/resources.bicep` — vurder å legge dette til som
+  `Microsoft.Web/sites/hostNameBindings` + `Microsoft.Web/certificates`-ressurser hvis miljøet
+  noen gang må reprodusveres fra bunnen (krever da at DNS/TXT-verifisering allerede peker riktig
+  FØR den delen av en `azd provision` kan lykkes, i motsetning til resten av infrastrukturen).
+- ACS-avsenderdomenet er fortsatt Azure sitt genererte `*.azurecomm.net`, ikke `psytest.no` — bytt
+  til et ekte domenebasert avsenderdomene (`noreply@psytest.no` e.l.) når/hvis ønskelig, egen
+  DNS-verifisering kreves for ACS sitt e-postdomene (SPF/DKIM/DMARC-poster i cPanel Zone Editor).
 - Resten av Del 2: pris per test (fordeling test-system/behandler), økonomiske rapporter
   (uke/måned/kvartal/år), (halv-)automatisk bokføring/utbetaling, backup/restore av
   administrator, organisasjonsstøtte (eksplisitt "skal ikke støttes pt." i kravdokumentet) — alt
