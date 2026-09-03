@@ -77,7 +77,7 @@ public sealed class PasientInvitasjonService
         await _db.SaveChangesAsync(cancellationToken);
 
         var lenke = $"{baseUrl.TrimEnd('/')}/PasientRegistrering/Fullfor/{token}";
-        var melding = $"Du er invitert til å bruke TestBase av din behandler. Fullfør registreringen din her: {lenke}";
+        var melding = $"Du er invitert til å bruke PsyTest av din behandler. Fullfør registreringen din her: {lenke}";
 
         if (varslingskanal == KontaktMetode.Sms)
         {
@@ -85,7 +85,7 @@ public sealed class PasientInvitasjonService
         }
         else
         {
-            await _email.SendAsync(kontaktVerdi, "Invitasjon til TestBase", melding, cancellationToken);
+            await _email.SendAsync(kontaktVerdi, "Invitasjon til PsyTest", melding, cancellationToken);
         }
 
         return new PasientInvitasjonResultat(pasient, lenke);

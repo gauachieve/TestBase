@@ -48,7 +48,7 @@ public sealed class ToFaktorService
 
         await _sms.SendAsync(
             mobilNr,
-            $"TestBase-kode: {kode} (gyldig i {ToFaktorKodeLevetid.TotalMinutes:0} minutter).",
+            $"PsyTest-kode: {kode} (gyldig i {ToFaktorKodeLevetid.TotalMinutes:0} minutter).",
             cancellationToken);
 
         return kode;

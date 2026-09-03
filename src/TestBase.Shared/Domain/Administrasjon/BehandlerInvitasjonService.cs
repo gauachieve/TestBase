@@ -85,7 +85,7 @@ public sealed class BehandlerInvitasjonService
         await _db.SaveChangesAsync(cancellationToken);
 
         var lenke = $"{baseUrl.TrimEnd('/')}/Inviter/Fullfor/{token}";
-        var melding = $"Du er invitert som behandler i TestBase. Fullfør registreringen din her: {lenke}";
+        var melding = $"Du er invitert som behandler i PsyTest. Fullfør registreringen din her: {lenke}";
 
         if (kontaktMetode == KontaktMetode.Sms)
         {
@@ -93,7 +93,7 @@ public sealed class BehandlerInvitasjonService
         }
         else
         {
-            await _email.SendAsync(kontaktVerdi, "Invitasjon til TestBase", melding, cancellationToken);
+            await _email.SendAsync(kontaktVerdi, "Invitasjon til PsyTest", melding, cancellationToken);
         }
 
         return new BehandlerInvitasjonResultat(behandler, lenke);
@@ -109,7 +109,7 @@ public sealed class BehandlerInvitasjonService
     /// og sender to verifiseringskoder (mobil + e-post). Kontoen er IKKE aktiv
     /// før begge kodene er bekreftet, se <see cref="BekreftKontaktAsync"/>.
     /// </summary>
-    public async Task<Behandler> FullforProfilAsync(
+    public async Task<(Behandler Behandler, string MobilKode)> FullforProfilAsync(
         BehandlerInvitasjon invitasjon,
         string fornavn,
         string etternavn,
@@ -136,10 +136,10 @@ public sealed class BehandlerInvitasjonService
         behandler.BrukeravtaleGodkjentUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
 
-        await SendVerifiseringskodeAsync(behandler, KontaktMetode.Sms, cancellationToken);
+        var mobilKode = await SendVerifiseringskodeAsync(behandler, KontaktMetode.Sms, cancellationToken);
         await SendVerifiseringskodeAsync(behandler, KontaktMetode.Epost, cancellationToken);
 
-        return behandler;
+        return (behandler, mobilKode);
     }
 
     /// <summary>
@@ -193,7 +193,7 @@ public sealed class BehandlerInvitasjonService
             .OrderByDescending(k => k.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
-    private async Task SendVerifiseringskodeAsync(Behandler behandler, KontaktMetode kanal, CancellationToken cancellationToken)
+    private async Task<string> SendVerifiseringskodeAsync(Behandler behandler, KontaktMetode kanal, CancellationToken cancellationToken)
     {
         var kode = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
 
@@ -206,7 +206,7 @@ public sealed class BehandlerInvitasjonService
         });
         await _db.SaveChangesAsync(cancellationToken);
 
-        var melding = $"TestBase-bekreftelseskode: {kode} (gyldig i {VerifiseringLevetid.TotalMinutes:0} minutter).";
+        var melding = $"PsyTest-bekreftelseskode: {kode} (gyldig i {VerifiseringLevetid.TotalMinutes:0} minutter).";
 
         if (kanal == KontaktMetode.Sms)
         {
@@ -216,6 +216,8 @@ public sealed class BehandlerInvitasjonService
         {
             await _email.SendAsync(behandler.Email, "Bekreft kontaktinfo", melding, cancellationToken);
         }
+
+        return kode;
     }
 
     private async Task VarsleAdministratorerOmHprAsync(Behandler behandler, CancellationToken cancellationToken)

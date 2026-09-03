@@ -32,19 +32,26 @@ public sealed class VerifiserModel : PageModel
     public bool Fullfort { get; private set; }
     public string? Feilmelding { get; private set; }
 
+    /// <summary>Kun i Development — se Fullfor.cshtml.cs, mock-SMS logges ellers kun til konsollen.</summary>
+    public string? DevMobilKode { get; private set; }
+
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         GyldigInvitasjon = await _invitasjonService.FinnGyldigInvitasjonAsync(Token, cancellationToken) is not null;
         if (!GyldigInvitasjon)
         {
             Feilmelding = "Lenken er ugyldig eller utløpt. Be om en ny invitasjon fra administrator/kollega.";
+            return Page();
         }
 
+        DevMobilKode = TempData.Peek("DevMobilKode") as string;
         return Page();
     }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
+        DevMobilKode = TempData["DevMobilKode"] as string;
+
         var invitasjon = await _invitasjonService.FinnGyldigInvitasjonAsync(Token, cancellationToken);
         if (invitasjon is null)
         {
@@ -54,10 +61,18 @@ public sealed class VerifiserModel : PageModel
 
         GyldigInvitasjon = true;
 
+        if (string.IsNullOrWhiteSpace(MobilKode) || string.IsNullOrWhiteSpace(EpostKode))
+        {
+            Feilmelding = "Fyll ut begge kodene.";
+            TempData["DevMobilKode"] = DevMobilKode;
+            return Page();
+        }
+
         var bekreftet = await _invitasjonService.BekreftKontaktAsync(invitasjon, MobilKode, EpostKode, cancellationToken);
         if (!bekreftet)
         {
             Feilmelding = "Én eller begge kodene var feil eller utløpt.";
+            TempData["DevMobilKode"] = DevMobilKode;
             return Page();
         }
 

@@ -1018,6 +1018,36 @@ som kun gjelder deres egen webhosting). Satt opp til å peke på test-App Servic
   `psytest.no` ennå — det er en egen, separat oppgave (krever egne DNS-verifiseringsposter for
   ACS sitt e-postdomene, ikke bare for selve nettstedet).
 
+### Rebranding til "PsyTest" (2026-09-04)
+
+All synlig branding/tekst byttet fra "TestBase" til "PsyTest" for å matche det innkjøpte domenet
+`psytest.no` — sidetitler, header-/footer-logo (`Psy<span>Test</span>`, samme farge-stil/CSS som
+før, kun teksten endret), forsideteksten, personvernsiden, rapport-vannmerket, og ALLE
+e-post/SMS-meldingstekster appen sender (invitasjonar, bekreftelseskoder, 2FA-koder,
+rapportvarsler, påminnelser). Bevisst IKKE endret: C#-navnerom (`TestBase.Web`/`TestBase.Shared`),
+Azure-ressursnavn (`rg-testbase-test`, `app-testbase-tk46vyxboocho` osv.), databasenavn, og alle
+DataProtection-formålsstrenger (`"TestBase.Personnummer.v1"`, `"TestBase.BetroddEnhet.v1"`,
+`"TestBase.StagingGate.v1"`, `"TestBase.Captcha.v1"`) samt `StagingGate`-cookien sitt navn
+(`.TestBase.StagingGate`) — disse er interne tekniske identifikatorer, ikke synlig branding, og å
+endre dem ville ha gjort eksisterende krypterte personnummer uleselige og ugyldiggjort aktive
+StagingGate-/BetroddEnhet-cookies. Samme prinsipp som at et produkts interne kodenavn ikke trenger
+matche det offentlige produktnavnet.
+
+Verifisert grundig før commit: bygg OK, alle 4 integrasjonstester (`tests/TestBase.IntegrationTests`)
+grønne (ingen av dem asserter på den gamle "TestBase"-teksten, så omdøpingen påvirket dem ikke),
+lokalt miljø startet på nytt (`dotnet run` — MERK: `--no-launch-profile` MÅ ikke brukes, se
+"Kjente fallgruver" i CLAUDE.md) og verifisert manuelt at forsiden viser "PsyTest" og at en ekte
+behandler-invitasjon (mock e-post lokalt) logger riktig "Invitasjon til PsyTest"-tekst. Deployet
+til Azure (`azd deploy`) og verifisert der også: `StagingGate` fortsatt aktiv (401 uten nøkkel),
+`/health` OK, forsiden viser "PsyTest".
+
+**Lokal e-post fortsatt mock inntil videre** — brukeren fikk en engangskommando for å hente
+`Acs:ConnectionString` fra Key Vault og lagre den i `dotnet user-secrets` (kjørt i brukerens EGEN
+terminal, ikke via Claude Code — å lese en Key Vault-hemmelighet direkte ble riktig nok blokkert av
+sikkerhetsklassifisereren, se `docs/beslutningslogg.md` sin generelle sikkerhetsprofil). Når den er
+satt, plukker `Program.cs` automatisk opp `AzureEmailSender` lokalt også, uten kodeendring —
+samme valgmekanisme som allerede styrer dette i Azure.
+
 ## Åpne punkter til senere faser
 
 - CI/CD-pipeline for `azd deploy` (i dag kjøres `azd up`/`azd deploy` manuelt fra lokal maskin) —
@@ -1048,6 +1078,9 @@ som kun gjelder deres egen webhosting). Satt opp til å peke på test-App Servic
   `Microsoft.Web/sites/hostNameBindings` + `Microsoft.Web/certificates`-ressurser hvis miljøet
   noen gang må reprodusveres fra bunnen (krever da at DNS/TXT-verifisering allerede peker riktig
   FØR den delen av en `azd provision` kan lykkes, i motsetning til resten av infrastrukturen).
+- Bekreft ekte e-postutsending FRA LOKALT dev-miljø når brukeren har kjørt
+  `dotnet user-secrets set "Acs:ConnectionString" ...` (se "Rebranding til PsyTest") — kun mock
+  var verifisert lokalt i denne økten, ekte ACS-sending er kun bekreftet fra Azure så langt.
 - ACS-avsenderdomenet er fortsatt Azure sitt genererte `*.azurecomm.net`, ikke `psytest.no` — bytt
   til et ekte domenebasert avsenderdomene (`noreply@psytest.no` e.l.) når/hvis ønskelig, egen
   DNS-verifisering kreves for ACS sitt e-postdomene (SPF/DKIM/DMARC-poster i cPanel Zone Editor).

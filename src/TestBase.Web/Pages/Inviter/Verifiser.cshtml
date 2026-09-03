@@ -21,9 +21,14 @@ else if (!Model.GyldigInvitasjon)
 else
 {
     <p>
-        To koder er "sendt" — én på SMS, én på e-post (mock, ingen ekte meldinger sendes; se
-        konsollen der <code>dotnet watch run</code> kjører).
+        To koder er sendt — én på SMS (mock i dette miljøet), én på e-post (ekte der Azure
+        Communication Services er satt opp, ellers mock).
     </p>
+
+    @if (Model.DevMobilKode is not null)
+    {
+        <p class="dev-bar">Utviklingsmiljø: SMS-koden er <strong>@Model.DevMobilKode</strong> (vist her siden mock-SMS kun logges til konsollen).</p>
+    }
 
     @if (Model.Feilmelding is not null)
     {

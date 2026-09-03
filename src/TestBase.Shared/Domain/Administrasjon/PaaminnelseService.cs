@@ -102,7 +102,7 @@ public sealed class PaaminnelseService
         }
         if (vilEpost && harEpost)
         {
-            await _email.SendAsync(behandler.Email, "Ventende testrapporter i TestBase", melding, cancellationToken);
+            await _email.SendAsync(behandler.Email, "Ventende testrapporter i PsyTest", melding, cancellationToken);
         }
 
         behandler.SistPaaminnetUtc = DateTimeOffset.UtcNow;

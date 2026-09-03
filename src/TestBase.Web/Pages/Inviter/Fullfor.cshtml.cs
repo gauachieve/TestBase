@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -17,11 +18,13 @@ public sealed class FullforModel : PageModel
 {
     private readonly BehandlerInvitasjonService _invitasjonService;
     private readonly AppDbContext _db;
+    private readonly IWebHostEnvironment _env;
 
-    public FullforModel(BehandlerInvitasjonService invitasjonService, AppDbContext db)
+    public FullforModel(BehandlerInvitasjonService invitasjonService, AppDbContext db, IWebHostEnvironment env)
     {
         _invitasjonService = invitasjonService;
         _db = db;
+        _env = env;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -120,9 +123,14 @@ public sealed class FullforModel : PageModel
             return Page();
         }
 
-        await _invitasjonService.FullforProfilAsync(
+        var (_, mobilKode) = await _invitasjonService.FullforProfilAsync(
             invitasjon, Fornavn, Etternavn, Personnummer, MobilNr, Epost, HprNr, Kontonummer,
             Arbeidsadresse, Tittel, cancellationToken);
+
+        if (_env.IsDevelopment())
+        {
+            TempData["DevMobilKode"] = mobilKode;
+        }
 
         return RedirectToPage("Verifiser", new { token = Token });
     }

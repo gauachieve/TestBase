@@ -97,7 +97,7 @@ public sealed class TestTildelingsService
                     $"{baseUrl.TrimEnd('/')}/Pasientportal/Tester/Fyll/{tildeling.Id}"));
             }
 
-            var (sendtSms, sendtEpost) = await VarsleAsync(pasient, BygMelding(lenker), "Nye tester tildelt i TestBase", cancellationToken);
+            var (sendtSms, sendtEpost) = await VarsleAsync(pasient, BygMelding(lenker), "Nye tester tildelt i PsyTest", cancellationToken);
             perPasient.Add(new TildeltPasientResultat(pasient.Id, pasient.Navn, lenker, sendtSms, sendtEpost));
         }
 
@@ -129,7 +129,7 @@ public sealed class TestTildelingsService
         var melding = $"Rapporten din for {test?.Navn ?? "en test"} er klar. Se den her: {lenke}";
 
         await _testService.SettRapportSynlighetAsync(tildelingId, true, cancellationToken);
-        var (sendtSms, sendtEpost) = await VarsleAsync(pasient, melding, "Rapporten din er klar i TestBase", cancellationToken);
+        var (sendtSms, sendtEpost) = await VarsleAsync(pasient, melding, "Rapporten din er klar i PsyTest", cancellationToken);
         return sendtSms || sendtEpost;
     }
 
@@ -171,10 +171,10 @@ public sealed class TestTildelingsService
     {
         if (lenker.Count == 1)
         {
-            return $"Du har fått en ny test i TestBase: {lenker[0].TestNavn}. Fyll den ut her: {lenker[0].Lenke}";
+            return $"Du har fått en ny test i PsyTest: {lenker[0].TestNavn}. Fyll den ut her: {lenker[0].Lenke}";
         }
 
         var linjer = lenker.Select(l => $"- {l.TestNavn}: {l.Lenke}");
-        return "Du har fått nye tester i TestBase:\n" + string.Join("\n", linjer);
+        return "Du har fått nye tester i PsyTest:\n" + string.Join("\n", linjer);
     }
 }
