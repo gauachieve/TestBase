@@ -13,6 +13,12 @@
     },
     "smsSenderId": {
       "value": "${SMS_SENDER_ID}"
+    },
+    "vonageApiKey": {
+      "value": "${VONAGE_API_KEY}"
+    },
+    "vonageApiSecret": {
+      "value": "${VONAGE_API_SECRET}"
     }
   }
 }

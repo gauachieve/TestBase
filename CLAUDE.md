@@ -53,7 +53,7 @@ Prosjektet er et Git-repo i `C:\code\TestBase`.
 - **Produksjon:** Azure App Service + Azure Database for MySQL – Flexible Server. Test-miljøet er satt opp via `azd` (se `azure.yaml`/`infra/`) og kjører i Sweden Central, ikke det opprinnelig planlagte Norway East/West — regional MySQL-kapasitet manglet der (se `docs/beslutningslogg.md`, "Sky-deploy til Azure (azd)"); må revurderes før reell produksjonssetting med ekte pasientdata. IKKE egen Windows Server/IIS — det opprinnelige kravet om dette er revidert bort.
 - **Lokal utvikling:** Docker Compose (lokal MySQL-container) + `dotnet watch run`. Bevisst holdt enkelt og sky-fritt for rask iterasjon.
 - **Sikkerhetsprinsipp — arkitektur nå, infrastruktur senere:** Tilgangsstyring og audit-logging er bygget inn i kodearkitekturen fra dag én (`TestBase.Shared/Security/`: `ICurrentUserContext`, `IAuditLogger`) og er aktiv i ALLE miljøer, også lokalt — men peker på enkle lokale dummy-nøkler i dev og ekte Azure Key Vault/IAM i prod. Følg dette mønsteret videre: ny sikkerhetsrelatert kode skal alltid være aktiv i dev også, bare med enklere infrastruktur bak.
-- **Eksterne leverandører (BankID, Vipps, SMS, e-post):** ingen avtaler inngått ennå. All kode mot disse skal gå bak grensesnitt (`IBankIdProvider`, `IVippsClient`, `ISmsSender`, `IEmailSender`) med mock-implementasjoner i `TestBase.Shared/Providers/Mock/` som brukes i dev, slik at utvikling ikke er avhengig av ekte avtaler. Se `/DevDemo`-siden for eksempel på bruk.
+- **Eksterne leverandører (BankID, Vipps, SMS, e-post):** BankID og Vipps har fortsatt ingen avtaler. E-post (Azure Communication Services) og SMS (Vonage) har begge en ekte, fungerende integrasjon i Azure test-App Service nå — se beslutningsloggen under "Ekte e-postutsending via Azure Communication Services" og "SMS-integrasjon: byttet fra Azure til Vonage". All kode mot disse går bak grensesnitt (`IBankIdProvider`, `IVippsClient`, `ISmsSender`, `IEmailSender`) med mock-implementasjoner i `TestBase.Shared/Providers/Mock/` som brukes lokalt uansett, slik at utvikling ikke er avhengig av ekte avtaler/kontoer. Se `/DevDemo`-siden for eksempel på bruk.
 - **Ingen ekte pasientdata i dev/test noensinne** — kun syntetiske testdata.
 
 ## Prosjektstruktur
@@ -150,11 +150,15 @@ src/
     Domain/Tester/InnebygdeTester/  Regenereringsmekanisme (fase 5): IInnebygdTestSeeder,
                              Who5TestSeeder — idempotent, kalt fra dev-seed OG admin-knapp
     Providers/             IBankIdProvider, IVippsClient, ISmsSender, IEmailSender,
-                           AzureEmailSender (ekte implementasjon via Azure Communication
-                           Services — brukt i Azure test-App Service, se beslutningsloggen
-                           "Ekte e-postutsending via Azure Communication Services")
-    Providers/Mock/        Mock-implementasjoner av alle fire (fortsatt alle brukt lokalt;
-                           MockEmailSender brukes også i Azure der ACS ikke er konfigurert)
+                           AzureEmailSender (ekte e-post via Azure Communication Services,
+                           se beslutningsloggen "Ekte e-postutsending via Azure Communication
+                           Services"), VonageSmsSender (ekte SMS via Vonage sitt Messages API,
+                           IKKE Azure — Norge manglet i praksis en fungerende selvbetjent
+                           alfanumerisk avsender-ID-flyt i Azure Portal, se beslutningsloggen
+                           "SMS-integrasjon: byttet fra Azure til Vonage")
+    Providers/Mock/        Mock-implementasjoner av alle fire — fortsatt brukt lokalt for
+                           alle, og i Azure for det som ikke er konfigurert med ekte
+                           legitimasjon (App Service-innstillinger, se Program.cs)
     Data/AppDbContext.cs   EF Core-kontekst — ALL databasetilgang skal gå gjennom denne.
                            Personnummer krypteres i hvile via DataProtection (se beslutningsloggen)
     Migrations/            EF Core migrations (generert med dotnet ef)

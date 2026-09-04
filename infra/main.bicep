@@ -16,8 +16,16 @@ param mysqlAdministratorLogin string = 'testbaseadmin'
 @secure()
 param stagingGateAccessKey string = ''
 
-@description('Forhåndsregistrert alfanumerisk SMS-avsender-ID (f.eks. "PsyTest") — tom verdi gir MockSmsSender. Settes via azd-miljøvariabelen SMS_SENDER_ID når Azure har godkjent søknaden (se docs/beslutningslogg.md "SMS-integrasjon").')
+@description('SMS-avsendernavn (f.eks. "PsyTest") — tom verdi gir MockSmsSender. Settes via azd-miljøvariabelen SMS_SENDER_ID (se docs/beslutningslogg.md "SMS-integrasjon").')
 param smsSenderId string = ''
+
+@description('Vonage API-nøkkel for SMS — tom verdi gir MockSmsSender. Settes via azd-miljøvariabelen VONAGE_API_KEY.')
+@secure()
+param vonageApiKey string = ''
+
+@description('Vonage API-hemmelighet for SMS — tom verdi gir MockSmsSender. Settes via azd-miljøvariabelen VONAGE_API_SECRET, ALDRI som literal her.')
+@secure()
+param vonageApiSecret string = ''
 
 var resourceToken = uniqueString(subscription().id, environmentName, location)
 var tags = {
@@ -40,6 +48,8 @@ module resources 'resources.bicep' = {
     mysqlAdministratorLogin: mysqlAdministratorLogin
     stagingGateAccessKey: stagingGateAccessKey
     smsSenderId: smsSenderId
+    vonageApiKey: vonageApiKey
+    vonageApiSecret: vonageApiSecret
   }
 }
 

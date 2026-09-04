@@ -14,8 +14,16 @@ param mysqlAdministratorLogin string
 @secure()
 param stagingGateAccessKey string = ''
 
-@description('Forhåndsregistrert alfanumerisk SMS-avsender-ID — tom verdi gir MockSmsSender, se main.bicep')
+@description('SMS-avsendernavn — tom verdi gir MockSmsSender, se main.bicep')
 param smsSenderId string = ''
+
+@description('Vonage API-nøkkel for SMS — se main.bicep')
+@secure()
+param vonageApiKey string = ''
+
+@description('Vonage API-hemmelighet for SMS — se main.bicep')
+@secure()
+param vonageApiSecret string = ''
 
 // Testmiljø uten ekte pasientdata — passordet genereres deterministisk og lagres kun i Key Vault.
 var mysqlAdministratorPassword = 'Tb${uniqueString(resourceGroup().id, resourceToken)}!26'
@@ -150,7 +158,7 @@ resource emailSenderUsername 'Microsoft.Communication/emailServices/domains/send
   name: 'noreply'
   properties: {
     username: 'noreply'
-    displayName: 'TestBase (testmiljø)'
+    displayName: 'PsyTest (testmiljø)'
   }
 }
 
@@ -171,6 +179,25 @@ resource acsConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01
   name: 'AcsConnectionString'
   properties: {
     value: communicationService.listKeys().primaryConnectionString
+  }
+}
+
+// SMS: Vonage i stedet for ACS SMS — se docs/beslutningslogg.md "SMS-integrasjon" for hvorfor.
+// Tom verdi er gyldig (gir MockSmsSender i appen, se Program.cs) — alltid opprettet, samme
+// mønster som acsConnectionStringSecret, for å unngå betinget ressurs-referanse i appSettings.
+resource vonageApiKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'VonageApiKey'
+  properties: {
+    value: empty(vonageApiKey) ? ' ' : vonageApiKey
+  }
+}
+
+resource vonageApiSecretSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'VonageApiSecret'
+  properties: {
+    value: empty(vonageApiSecret) ? ' ' : vonageApiSecret
   }
 }
 
@@ -219,6 +246,14 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'Sms__SenderId'
           value: smsSenderId
+        }
+        {
+          name: 'Vonage__ApiKey'
+          value: '@Microsoft.KeyVault(SecretUri=${vonageApiKeySecret.properties.secretUri})'
+        }
+        {
+          name: 'Vonage__ApiSecret'
+          value: '@Microsoft.KeyVault(SecretUri=${vonageApiSecretSecret.properties.secretUri})'
         }
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'

@@ -1074,13 +1074,59 @@ ARM/Bicep-ressurstype finnes for selve avsender-ID-søknaden (bekreftet via `az 
 kun `EmailServices/Domains/SenderUsernames` finnes, intet SMS-ekvivalent), så dette kan IKKE
 automatiseres via `infra/resources.bicep` slik e-postdomenet ble.
 
-**Gjenstår — MÅ gjøres av bruker selv i Azure Portal** (krever trolig organisasjonsinfo/
-bruksbeskrivelse Claude Code ikke bør fylle ut på brukers vegne): Åpne
-`acs-testbase-tk46vyxboocho`-ressursen i Azure Portal, finn "Alphanumeric Sender ID" i venstre
-meny, "Preregistered"-fanen, "Submit an application", avsendernavn "PsyTest". Når godkjent: sett
-App Service-innstillingen `Sms__SenderId=PsyTest` (samme "kodifiser i Bicep via azd-miljøvariabel"-
-mønster som `StagingGate__AccessKey`, IKKE bare CLI, se "Nesten-hendelse"-notatet under
-e-post-seksjonen) — da plukker `Program.cs` automatisk opp `AzureSmsSender`.
+**OPPDATERT samme dag, se neste seksjon: dette Azure-sporet ble forlatt** — den planlagte
+"Submit an application"-knappen viste seg ikke å eksistere i praksis for Norge i portalen.
+`AzureSmsSender` er fjernet fra kodebasen igjen.
+
+### SMS-integrasjon: byttet fra Azure til Vonage (2026-09-04, samme dag som forrige notat)
+
+Forrige notat konkluderte med Azure Communication Services for SMS — det viste seg feil i praksis.
+Brukeren fant selv, ved å faktisk sjekke Azure Portal, at kun USA/Canada/Puerto Rico har en
+fungerende selvbetjent flyt for alfanumerisk avsender-ID; øvrige "Preregistered"-land (Norge
+inkludert) mangler i praksis den dokumenterte knappen/skjemaet i portalen (bekreftet av flere
+uavhengige rapporter i Microsofts egne Q&A-fora — et kjent, udokumentert gap mellom
+funksjonstabellen og faktisk portalstøtte), og ville i beste fall krevd en supportsak med usikker
+utfall/tidsbruk, ikke de dokumenterte "6–8 ukene".
+
+**Testet empirisk i stedet:** Opprettet en Vonage-konto, hentet API-nøkkel/-hemmelighet fra
+dashbordet, og sendte en ekte SMS til et norsk nummer via Vonage sitt Messages API
+(`https://api.nexmo.com/v1/messages`) med `"from": "PsyTest"` — **fungerte umiddelbart, ingen
+forhåndsregistrering, meldingen viste riktig "PsyTest" som avsender på mottakers telefon.** Dette
+stemmer med (usikre, delvis 403-blokkerte) søk som antydet at Vonage ikke krever forhåndsregistrering
+for Norge i det hele tatt, i motsetning til Azures offisielle klassifisering — den faktiske,
+utprøvde APIen er den eneste kilden vi til slutt stolte på.
+
+**Byttet fullstendig fra Azure- til Vonage-sporet:** Fjernet `AzureSmsSender.cs` og
+`Azure.Communication.Sms`-pakken (ubrukt/blokkert av Norge-begrensningen uansett — ingen vits i å
+beholde to alternative SMS-implementasjoner når den ene reelt sett ikke fungerer for dette
+markedet). Ny `VonageSmsSender` (`TestBase.Shared/Providers/VonageSmsSender.cs`) bruker en enkel
+`HttpClient` + Basic Auth mot Vonage sitt Messages API — bevisst IKKE Vonages offisielle .NET-SDK,
+siden den rå HTTP-forespørselen allerede var empirisk verifisert å fungere og et SDK ville lagt til
+en ny, uverifisert abstraksjon oppå noe som allerede var bekreftet riktig. Inkluderer normalisering
+av `MobilNr` (fritekstfelt uten formatvalidering i dag) til Vonages forventede format (kun siffer,
+norsk landkode, ingen "+").
+
+`Program.cs` velger `VonageSmsSender` kun når `Vonage:ApiKey`/`Vonage:ApiSecret`/`Sms:SenderId`
+alle er satt, ellers `MockSmsSender` som før. Alle tre er Bicep-parametere fra start (azd-
+miljøvariablene `VONAGE_API_KEY`/`VONAGE_API_SECRET`/`SMS_SENDER_ID`, aldri literale verdier i
+Bicep) — samme "aldri kun CLI"-prinsipp som `StagingGate__AccessKey` måtte læres på den harde
+måten. API-nøkkel og -hemmelighet lagres som Key Vault-hemmeligheter (`VonageApiKey`/
+`VonageApiSecret`), samme mønster som `AcsConnectionString`.
+
+Verifisert ende-til-ende 2026-09-04: `azd provision` + `azd deploy`, inviterte en behandler via
+mobilnummer (ikke e-post) fra `Areas/Admin/Pages/Behandlere/Inviter` på `www.psytest.no` — ekte SMS
+mottatt med riktig "PsyTest"-avsender. Lokalt miljø verifisert oppstartsklart (ingen DI-/
+konfigurasjonsfeil), men ingen ekte SMS sendt derfra i denne økten (unødvendig å bruke enda en
+sending når selve API-kontrakten allerede er bekreftet på samme kodesti).
+
+Rettet i samme slag: `emailSenderUsername.displayName` i `infra/resources.bicep` sa fortsatt
+"TestBase (testmiljø)" — overlevd fra rebrandingen 2026-09-04 tidligere samme dag fordi den
+gjennomgangen kun søkte i `.cshtml`/`.cs`-filer, ikke Bicep. Rettet til "PsyTest (testmiljø)".
+
+**Lærdom:** Azures egen dokumentasjon av landstøtte for en funksjon kan ikke tas for gitt å matche
+hva som faktisk er tilgjengelig i portalen/APIen — når noe virker "off" (som brukerens observasjon
+om at kun tre land vises), er en rask, billig empirisk test mot en konkurrents faktiske API en mer
+pålitelig kilde enn å fortsette å lete i dokumentasjon som kan være foreldet eller aspirasjonell.
 
 ## Åpne punkter til senere faser
 
@@ -1103,10 +1149,10 @@ e-post-seksjonen) — da plukker `Program.cs` automatisk opp `AzureSmsSender`.
 - To sekundære steder påstår fortsatt at e-post er mock (`Pages/Inviter/Verifiser.cshtml`,
   Behandlerportal `Innstillinger.cshtml.cs` sin påminnelsestekst) — se "Ekte e-postutsending via
   Azure Communication Services". Rett når disse flytene faktisk testes/brukes.
-- SMS er fortsatt mock (`MockSmsSender`) — samme Azure-native tankegang som for e-post (ACS har
-  også en SMS-kanal) er en naturlig kandidat når SMS faktisk skal bli ekte, fremfor en ekstern
-  leverandør som Link Mobility/Twilio (som fortsatt er nevnt som alternativ lenger opp i dette
-  dokumentet — vurder ACS SMS først nå som ACS Email allerede er på plass).
+- SMS er nå ekte via Vonage (se "SMS-integrasjon: byttet fra Azure til Vonage") — verifisert kun fra
+  Azure så langt, ikke fra lokalt dev-miljø ennå (samme status som e-post hadde en periode).
+- Lenger opp i dette dokumentet nevnes fortsatt Link Mobility/Twilio som SMS-kandidater fra en
+  tidligere vurdering — utdatert, se "SMS-integrasjon"-seksjonene for hva som faktisk ble valgt og hvorfor.
 - `psytest.no` sin hostnavn-binding + SSL-sertifikat (se "Eget domene for test-miljøet") er satt
   opp via CLI, ikke kodifisert i `infra/resources.bicep` — vurder å legge dette til som
   `Microsoft.Web/sites/hostNameBindings` + `Microsoft.Web/certificates`-ressurser hvis miljøet
@@ -1118,6 +1164,12 @@ e-post-seksjonen) — da plukker `Program.cs` automatisk opp `AzureSmsSender`.
 - ACS-avsenderdomenet er fortsatt Azure sitt genererte `*.azurecomm.net`, ikke `psytest.no` — bytt
   til et ekte domenebasert avsenderdomene (`noreply@psytest.no` e.l.) når/hvis ønskelig, egen
   DNS-verifisering kreves for ACS sitt e-postdomene (SPF/DKIM/DMARC-poster i cPanel Zone Editor).
+- Bekreft ekte SMS-utsending FRA LOKALT dev-miljø når `dotnet user-secrets` for Vonage er satt (se
+  "SMS-integrasjon: byttet fra Azure til Vonage") — kun konfigurasjonsoppstart uten feil ble
+  verifisert lokalt, ingen ekte SMS sendt derfra ennå.
+- Vonage-forbruket er foreløpig på gratis prøvekreditt — vurder fakturering/betalingsmetode og et
+  reelt kostnadsbilde (pris per SMS til Norge var ikke bekreftet i selve kontoen, kun anslått fra
+  offentlige prislister under research-fasen) før volumet økes forbi manuell testing.
 - Resten av Del 2: pris per test (fordeling test-system/behandler), økonomiske rapporter
   (uke/måned/kvartal/år), (halv-)automatisk bokføring/utbetaling, backup/restore av
   administrator, organisasjonsstøtte (eksplisitt "skal ikke støttes pt." i kravdokumentet) — alt

@@ -142,15 +142,22 @@ else
     builder.Services.AddScoped<IEmailSender, MockEmailSender>();
 }
 
-// SMS: ekte utsending via samme Azure Communication Services-ressurs når
-// "Sms:SenderId" er satt (forhåndsregistrert alfanumerisk avsender-ID —
-// Norge krever dette, ingen dynamisk avsender-ID der, se
-// docs/beslutningslogg.md), ellers MockSmsSender.
+// SMS: ekte utsending via Vonage Messages API når "Vonage:ApiKey"/
+// "Vonage:ApiSecret"/"Sms:SenderId" alle er satt, ellers MockSmsSender.
+// Valgt fremfor Azure Communication Services — Norge krever forhånds-
+// registrert alfanumerisk avsender-ID der (6–8 uker), mens Vonage
+// aksepterer et fritt avsendernavn til Norge umiddelbart, verifisert
+// manuelt (se docs/beslutningslogg.md "SMS-integrasjon").
+builder.Services.AddHttpClient();
+var vonageApiKey = builder.Configuration["Vonage:ApiKey"];
+var vonageApiSecret = builder.Configuration["Vonage:ApiSecret"];
 var smsSenderId = builder.Configuration["Sms:SenderId"];
-if (!string.IsNullOrEmpty(acsConnectionString) && !string.IsNullOrEmpty(smsSenderId))
+if (!string.IsNullOrWhiteSpace(vonageApiKey) && !string.IsNullOrWhiteSpace(vonageApiSecret) && !string.IsNullOrWhiteSpace(smsSenderId))
 {
-    builder.Services.AddScoped<ISmsSender>(sp =>
-        new AzureSmsSender(acsConnectionString, smsSenderId, sp.GetRequiredService<ILogger<AzureSmsSender>>()));
+    builder.Services.AddScoped<ISmsSender>(sp => new VonageSmsSender(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient(),
+        vonageApiKey, vonageApiSecret, smsSenderId,
+        sp.GetRequiredService<ILogger<VonageSmsSender>>()));
 }
 else
 {
