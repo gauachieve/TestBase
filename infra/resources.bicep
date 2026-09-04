@@ -14,6 +14,9 @@ param mysqlAdministratorLogin string
 @secure()
 param stagingGateAccessKey string = ''
 
+@description('Forhåndsregistrert alfanumerisk SMS-avsender-ID — tom verdi gir MockSmsSender, se main.bicep')
+param smsSenderId string = ''
+
 // Testmiljø uten ekte pasientdata — passordet genereres deterministisk og lagres kun i Key Vault.
 var mysqlAdministratorPassword = 'Tb${uniqueString(resourceGroup().id, resourceToken)}!26'
 
@@ -212,6 +215,10 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           // provision (skjedde 2026-09-02, se docs/beslutningslogg.md).
           name: 'StagingGate__AccessKey'
           value: stagingGateAccessKey
+        }
+        {
+          name: 'Sms__SenderId'
+          value: smsSenderId
         }
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'

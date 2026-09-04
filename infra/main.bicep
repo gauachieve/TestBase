@@ -16,6 +16,9 @@ param mysqlAdministratorLogin string = 'testbaseadmin'
 @secure()
 param stagingGateAccessKey string = ''
 
+@description('Forhåndsregistrert alfanumerisk SMS-avsender-ID (f.eks. "PsyTest") — tom verdi gir MockSmsSender. Settes via azd-miljøvariabelen SMS_SENDER_ID når Azure har godkjent søknaden (se docs/beslutningslogg.md "SMS-integrasjon").')
+param smsSenderId string = ''
+
 var resourceToken = uniqueString(subscription().id, environmentName, location)
 var tags = {
   'azd-env-name': environmentName
@@ -36,6 +39,7 @@ module resources 'resources.bicep' = {
     tags: tags
     mysqlAdministratorLogin: mysqlAdministratorLogin
     stagingGateAccessKey: stagingGateAccessKey
+    smsSenderId: smsSenderId
   }
 }
 

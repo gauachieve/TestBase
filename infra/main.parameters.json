@@ -10,6 +10,9 @@
     },
     "stagingGateAccessKey": {
       "value": "${STAGING_GATE_ACCESS_KEY}"
+    },
+    "smsSenderId": {
+      "value": "${SMS_SENDER_ID}"
     }
   }
 }

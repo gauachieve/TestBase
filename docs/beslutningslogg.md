@@ -1048,6 +1048,40 @@ sikkerhetsklassifisereren, se `docs/beslutningslogg.md` sin generelle sikkerhets
 satt, plukker `Program.cs` automatisk opp `AzureEmailSender` lokalt også, uten kodeendring —
 samme valgmekanisme som allerede styrer dette i Azure.
 
+### SMS-integrasjon: valgt Azure Communication Services (2026-09-04)
+
+Vurderte tre spor for ekte SMS med navngitt avsender ("PsyTest" i stedet for et telefonnummer):
+Azure Communication Services (samme ressurs/faktura som e-post), Link Mobility (norsk aktør,
+direkte operatørforbindelser, ~380 EUR + mva engangsavgift for avsendernavn, men mer
+salgsdrevet oppstart), og globale utviklervennlige plattformer (Twilio ~$0.065–0.07/SMS til
+Norge — dyrere enn nødvendig; 46elks/Messente billigere men mindre dokumentert for Norge
+spesifikt). Valgte Azure Communication Services — samme mønster som e-post, minst ny
+infrastruktur å forholde seg til.
+
+**Viktig, uavhengig av leverandørvalg:** Norge krever **forhåndsregistrert** alfanumerisk
+avsender-ID (i motsetning til Sverige/Danmark som tillater dynamisk/øyeblikkelig avsender-ID) —
+dette er et krav fra de norske mobiloperatørene, ikke en Azure-spesifikk begrensning. Forventet
+behandlingstid **6–8 uker** ifølge Microsofts egen dokumentasjon. Avsender-ID er kun
+énveis-utgående (kan ikke motta svar/STOP-meldinger) — uproblematisk her, appen har ingen
+innkommende SMS-flyt noe sted.
+
+**Kodesiden er klar:** `AzureSmsSender` (`TestBase.Shared/Providers/AzureSmsSender.cs`), samme
+mønster som `AzureEmailSender` — bruker SAMME `Acs:ConnectionString` som e-post (SMS er en
+frittstående kapabilitet på samme Communication Services-ressurs, ikke en egen underressurs slik
+e-postdomenet er). `Program.cs` velger `AzureSmsSender` kun når BÅDE `Acs:ConnectionString` OG
+`Sms:SenderId` er satt, ellers `MockSmsSender` som før — lokalt miljø upåvirket. Ingen
+ARM/Bicep-ressurstype finnes for selve avsender-ID-søknaden (bekreftet via `az provider show` —
+kun `EmailServices/Domains/SenderUsernames` finnes, intet SMS-ekvivalent), så dette kan IKKE
+automatiseres via `infra/resources.bicep` slik e-postdomenet ble.
+
+**Gjenstår — MÅ gjøres av bruker selv i Azure Portal** (krever trolig organisasjonsinfo/
+bruksbeskrivelse Claude Code ikke bør fylle ut på brukers vegne): Åpne
+`acs-testbase-tk46vyxboocho`-ressursen i Azure Portal, finn "Alphanumeric Sender ID" i venstre
+meny, "Preregistered"-fanen, "Submit an application", avsendernavn "PsyTest". Når godkjent: sett
+App Service-innstillingen `Sms__SenderId=PsyTest` (samme "kodifiser i Bicep via azd-miljøvariabel"-
+mønster som `StagingGate__AccessKey`, IKKE bare CLI, se "Nesten-hendelse"-notatet under
+e-post-seksjonen) — da plukker `Program.cs` automatisk opp `AzureSmsSender`.
+
 ## Åpne punkter til senere faser
 
 - CI/CD-pipeline for `azd deploy` (i dag kjøres `azd up`/`azd deploy` manuelt fra lokal maskin) —

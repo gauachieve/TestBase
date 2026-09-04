@@ -124,7 +124,6 @@ builder.Services.AddAuthorization(options =>
 // valgt og avtale signert (se beslutningsloggen).
 builder.Services.AddScoped<IBankIdProvider, MockBankIdProvider>();
 builder.Services.AddScoped<IVippsClient, MockVippsClient>();
-builder.Services.AddScoped<ISmsSender, MockSmsSender>();
 builder.Services.AddScoped<ICaptchaProvider, MockCaptchaProvider>();
 
 // E-post: ekte utsending via Azure Communication Services når "Acs:ConnectionString"
@@ -141,6 +140,21 @@ if (!string.IsNullOrEmpty(acsConnectionString))
 else
 {
     builder.Services.AddScoped<IEmailSender, MockEmailSender>();
+}
+
+// SMS: ekte utsending via samme Azure Communication Services-ressurs når
+// "Sms:SenderId" er satt (forhåndsregistrert alfanumerisk avsender-ID —
+// Norge krever dette, ingen dynamisk avsender-ID der, se
+// docs/beslutningslogg.md), ellers MockSmsSender.
+var smsSenderId = builder.Configuration["Sms:SenderId"];
+if (!string.IsNullOrEmpty(acsConnectionString) && !string.IsNullOrEmpty(smsSenderId))
+{
+    builder.Services.AddScoped<ISmsSender>(sp =>
+        new AzureSmsSender(acsConnectionString, smsSenderId, sp.GetRequiredService<ILogger<AzureSmsSender>>()));
+}
+else
+{
+    builder.Services.AddScoped<ISmsSender, MockSmsSender>();
 }
 
 // --- Web ------------------------------------------------------------------
