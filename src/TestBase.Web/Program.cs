@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
@@ -117,6 +119,67 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("PasientOmrade", policy =>
         policy.RequireRole(nameof(UserRole.Pasient), nameof(UserRole.Utvikler)));
 });
+
+// --- BankID-testintegrasjon (diagnostisk, IKKE koblet til produksjonsinnlogging) ---
+// Ekte BankID via Idura sitt OIDC-endepunkt — kun for å bekrefte at selve integrasjonen
+// fungerer teknisk. IKKE en erstatning for MockBankIdProvider/IBankIdProvider ennå: dette
+// er en gratis Idura TEST-konto, ingen reell BankID-produksjonsavtale (se beslutningsloggen
+// "BankID-testintegrasjon via Idura"). Nås kun via /DevDemo → /BankIdTest/Start, gatet på
+// IsDevelopment() i selve handlerne (ikke bare skjult i UI, se kjente fallgruver i CLAUDE.md).
+var iduraAuthority = builder.Configuration["BankId:Idura:Authority"];
+var iduraClientId = builder.Configuration["BankId:Idura:ClientId"];
+var iduraClientSecret = builder.Configuration["BankId:Idura:ClientSecret"];
+if (!string.IsNullOrWhiteSpace(iduraAuthority) && !string.IsNullOrWhiteSpace(iduraClientId) && !string.IsNullOrWhiteSpace(iduraClientSecret))
+{
+    var iduraAcrValues = builder.Configuration["BankId:Idura:AcrValues"] ?? "urn:grn:authn:no:bankid:high";
+    builder.Services.AddAuthentication().AddOpenIdConnect("BankIdTest", options =>
+    {
+        options.Authority = iduraAuthority;
+        options.ClientId = iduraClientId;
+        options.ClientSecret = iduraClientSecret;
+        options.ResponseType = "code";
+        options.ResponseMode = "form_post";
+        options.CallbackPath = "/signin-bankid-test";
+        options.SaveTokens = false;
+        options.Scope.Clear();
+        options.Scope.Add("openid");
+        options.Scope.Add("ssn");
+
+        // form_post svarer med en cross-site POST fra Idura sitt domene — korrelasjons-/
+        // nonce-cookien MÅ tillate dette, ellers feiler valideringen ("Correlation failed").
+        options.CorrelationCookie.SameSite = SameSiteMode.None;
+        options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.NonceCookie.SameSite = SameSiteMode.None;
+        options.NonceCookie.SecurePolicy = CookieSecurePolicy.Always;
+
+        options.Events = new OpenIdConnectEvents
+        {
+            OnRedirectToIdentityProvider = ctx =>
+            {
+                ctx.ProtocolMessage.AcrValues = iduraAcrValues;
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = async ctx =>
+            {
+                var claimsTekst = string.Join('\n', ctx.Principal?.Claims.Select(c => $"{c.Type}: {c.Value}") ?? []);
+                var tempData = ctx.HttpContext.RequestServices
+                    .GetRequiredService<ITempDataDictionaryFactory>()
+                    .GetTempData(ctx.HttpContext);
+                tempData["BankIdTestClaims"] = claimsTekst;
+                tempData.Save();
+                ctx.HandleResponse();
+                ctx.Response.Redirect("/BankIdTest/Resultat");
+                await Task.CompletedTask;
+            },
+            OnRemoteFailure = ctx =>
+            {
+                ctx.HandleResponse();
+                ctx.Response.Redirect("/BankIdTest/Resultat?feil=" + Uri.EscapeDataString(ctx.Failure?.Message ?? "Ukjent feil"));
+                return Task.CompletedTask;
+            }
+        };
+    });
+}
 
 // --- Eksterne leverandører: mock i dev/test til ekte avtaler er på plass -
 // TODO (fase 2/6): registrer ekte implementasjoner her, gatet på

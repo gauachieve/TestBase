@@ -27,3 +27,6 @@ Thumbs.db
 
 ## Azure Developer CLI (azd) lokal miljøstate — kan inneholde ressurs-IDer/tilkoblingsdetaljer
 .azure/
+
+## Playwright MCP nettleserautomatisering — lokale skjermbilder/logger/snapshots per økt
+.playwright-mcp/

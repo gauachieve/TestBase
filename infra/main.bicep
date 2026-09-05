@@ -27,6 +27,16 @@ param vonageApiKey string = ''
 @secure()
 param vonageApiSecret string = ''
 
+@description('Idura (BankID-testintegrasjon) OIDC Authority, f.eks. https://psytest.test.idura.broker — tom verdi deaktiverer BankID-testintegrasjonen (se docs/beslutningslogg.md).')
+param bankIdIduraAuthority string = ''
+
+@description('Idura Client ID for BankID-testintegrasjonen — ikke hemmelig, men settes via azd-miljøvariabel for konsistens.')
+param bankIdIduraClientId string = ''
+
+@description('Idura Client Secret for BankID-testintegrasjonen — settes via azd-miljøvariabelen BANKID_IDURA_CLIENT_SECRET, ALDRI som literal her.')
+@secure()
+param bankIdIduraClientSecret string = ''
+
 var resourceToken = uniqueString(subscription().id, environmentName, location)
 var tags = {
   'azd-env-name': environmentName
@@ -50,6 +60,9 @@ module resources 'resources.bicep' = {
     smsSenderId: smsSenderId
     vonageApiKey: vonageApiKey
     vonageApiSecret: vonageApiSecret
+    bankIdIduraAuthority: bankIdIduraAuthority
+    bankIdIduraClientId: bankIdIduraClientId
+    bankIdIduraClientSecret: bankIdIduraClientSecret
   }
 }
 

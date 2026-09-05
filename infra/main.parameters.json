@@ -19,6 +19,15 @@
     },
     "vonageApiSecret": {
       "value": "${VONAGE_API_SECRET}"
+    },
+    "bankIdIduraAuthority": {
+      "value": "${BANKID_IDURA_AUTHORITY}"
+    },
+    "bankIdIduraClientId": {
+      "value": "${BANKID_IDURA_CLIENT_ID}"
+    },
+    "bankIdIduraClientSecret": {
+      "value": "${BANKID_IDURA_CLIENT_SECRET}"
     }
   }
 }

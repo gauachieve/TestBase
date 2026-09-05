@@ -16,8 +16,8 @@
 <ul>
     <li><strong>BankID:</strong> @(Model.BankIdResult?.Success == true ? $"OK — {Model.BankIdResult.FullName}" : "Feilet")</li>
     <li><strong>Vipps:</strong> @(Model.VippsResult?.Success == true ? $"OK — referanse {Model.VippsResult.TransactionReference}" : "Feilet")</li>
-    <li><strong>SMS:</strong> sendt (se logg)</li>
-    <li><strong>E-post:</strong> sendt (se logg)</li>
+    <li><strong>SMS:</strong> @(Model.SmsFeilmelding is null ? "sendt (se logg)" : $"Feilet — {Model.SmsFeilmelding}")</li>
+    <li><strong>E-post:</strong> @(Model.EpostFeilmelding is null ? "sendt (se logg)" : $"Feilet — {Model.EpostFeilmelding}")</li>
 </ul>
 
 <p>
@@ -26,3 +26,16 @@
     i alle miljøer, jf. beslutningsloggen) faktisk virker mot den lokale
     Docker-databasen.
 </p>
+
+@if (Model.EktBankIdTilgjengelig)
+{
+    <h2>Ekte BankID-testintegrasjon (Idura)</h2>
+    <p>
+        Dette er en gratis Idura-testkonto, ikke en ekte BankID-produksjonsavtale — se
+        beslutningsloggen. Utløser en ekte BankID-innlogging (bruk et testpersonnummer
+        generert via <a href="https://ra-preprod.bankidnorge.no/#!/generate">BankID sitt eget
+        testverktøy</a>, passord <code>qwer1234</code>, engangskode <code>otp</code>) og viser
+        rå claims tilbake — ikke koblet til noen ekte konto i systemet.
+    </p>
+    <p><a href="/BankIdTest/Start">Test ekte BankID (Idura)</a></p>
+}

@@ -23,6 +23,14 @@ public static class StagingGate
     private const string CookieNavn = ".TestBase.StagingGate";
     private const string FormFeltNavn = "tilgangsnokkel";
 
+    // OIDC-callbacken for BankID-testintegrasjonen (Program.cs, CallbackPath) svarer med en
+    // cross-site POST fra Idura sitt domene (response_mode=form_post) — StagingGate-cookien er
+    // SameSite=Lax og blir da IKKE sendt av nettleseren, så denne ene, faste stien må unntas fra
+    // sperren. Trygt: stien er hardkodet (ingen wildcard), og selve OIDC-håndteringen validerer
+    // state/nonce/PKCE uansett — en vilkårlig POST hit uten en ekte Idura-autorisasjonskode gir
+    // ingenting.
+    private const string BankIdCallbackSti = "/signin-bankid-test";
+
     public static void UseStagingGate(this WebApplication app)
     {
         var tilgangsnokkel = app.Configuration["StagingGate:AccessKey"];
@@ -36,7 +44,7 @@ public static class StagingGate
 
         app.Use(async (context, next) =>
         {
-            if (HarGyldigCookie(context, beskytter))
+            if (context.Request.Path.StartsWithSegments(BankIdCallbackSti) || HarGyldigCookie(context, beskytter))
             {
                 await next();
                 return;

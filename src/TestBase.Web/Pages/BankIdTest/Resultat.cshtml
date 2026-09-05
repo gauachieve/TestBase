@@ -1,0 +1,24 @@
+@page
+@model TestBase.Web.Pages.BankIdTest.ResultatModel
+@{
+    ViewData["Title"] = "BankID-testresultat";
+}
+
+<h1>BankID-testresultat (Idura)</h1>
+<p>Diagnostisk resultat fra en ekte BankID-testinnlogging — ikke koblet til noen ekte konto i systemet.</p>
+
+@if (Model.Feil is not null)
+{
+    <p style="color: darkred;">Feil: @Model.Feil</p>
+}
+else if (Model.Claims is not null)
+{
+    <h2>Claims mottatt fra BankID</h2>
+    <pre style="background: #f4f4f4; padding: 1rem; white-space: pre-wrap;">@Model.Claims</pre>
+}
+else
+{
+    <p>Ingen resultat funnet — prøv igjen fra <a href="/DevDemo">/DevDemo</a>.</p>
+}
+
+<p><a href="/DevDemo">Tilbake til /DevDemo</a></p>

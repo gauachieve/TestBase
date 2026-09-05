@@ -25,6 +25,16 @@ param vonageApiKey string = ''
 @secure()
 param vonageApiSecret string = ''
 
+@description('Idura OIDC Authority for BankID-testintegrasjonen — se main.bicep')
+param bankIdIduraAuthority string = ''
+
+@description('Idura Client ID for BankID-testintegrasjonen — se main.bicep')
+param bankIdIduraClientId string = ''
+
+@description('Idura Client Secret for BankID-testintegrasjonen — se main.bicep')
+@secure()
+param bankIdIduraClientSecret string = ''
+
 // Testmiljø uten ekte pasientdata — passordet genereres deterministisk og lagres kun i Key Vault.
 var mysqlAdministratorPassword = 'Tb${uniqueString(resourceGroup().id, resourceToken)}!26'
 
@@ -201,6 +211,16 @@ resource vonageApiSecretSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = 
   }
 }
 
+// BankID-testintegrasjon via Idura (diagnostisk, se docs/beslutningslogg.md) — tom verdi
+// (' ') gir en deaktivert integrasjon i Program.cs (string.IsNullOrWhiteSpace-sjekk).
+resource bankIdIduraClientSecretSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'BankIdIduraClientSecret'
+  properties: {
+    value: empty(bankIdIduraClientSecret) ? ' ' : bankIdIduraClientSecret
+  }
+}
+
 resource appService 'Microsoft.Web/sites@2023-12-01' = {
   name: appServiceName
   location: location
@@ -254,6 +274,18 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'Vonage__ApiSecret'
           value: '@Microsoft.KeyVault(SecretUri=${vonageApiSecretSecret.properties.secretUri})'
+        }
+        {
+          name: 'BankId__Idura__Authority'
+          value: bankIdIduraAuthority
+        }
+        {
+          name: 'BankId__Idura__ClientId'
+          value: bankIdIduraClientId
+        }
+        {
+          name: 'BankId__Idura__ClientSecret'
+          value: '@Microsoft.KeyVault(SecretUri=${bankIdIduraClientSecretSecret.properties.secretUri})'
         }
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'

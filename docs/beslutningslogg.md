@@ -1128,6 +1128,97 @@ hva som faktisk er tilgjengelig i portalen/APIen — når noe virker "off" (som 
 om at kun tre land vises), er en rask, billig empirisk test mot en konkurrents faktiske API en mer
 pålitelig kilde enn å fortsette å lete i dokumentasjon som kan være foreldet eller aspirasjonell.
 
+### BankID-testintegrasjon via Idura (2026-09-05)
+
+Etter at ekte SMS (Vonage) og e-post (Azure Communication Services) var på plass, var neste
+naturlige spørsmål om noe tilsvarende kunne gjøres for BankID uten å vente på en reell
+produksjonsavtale (som fortsatt ikke finnes, se "Leverandørstatus" øverst i dette dokumentet).
+**Idura** (tidligere Criipto, nylig kjøpt av BankID BankAxept) tilbyr en gratis test-tenant
+(`psytest.test.idura.broker`) med et fullverdig BankID OIDC-testmiljø — ingen registrerings-
+ventetid, i motsetning til Azure Communication Services SMS som strandet på nettopp dette for
+Norge (se "SMS-integrasjon: byttet fra Azure til Vonage").
+
+**Viktig avgrensning:** dette er BEVISST holdt som en diagnostisk sideintegrasjon, IKKE en
+erstatning for `IBankIdProvider`/`MockBankIdProvider` i den faktiske innloggingsflyten
+(`Pages/Konto/LoggInn`, Behandlerportal/Pasientportal). Grunnen er den samme som gjelder for
+BankID/Vipps generelt (se "Leverandørstatus"): en gratis Idura-testkonto er ikke en signert
+BankID-produksjonsavtale, og selve identitetsverifiseringen (hvilket personnummer som faktisk
+skal logges inn som hva i domenemodellen) er en betydelig større beslutning enn det som var
+til vurdering her. Integrasjonen finnes derfor kun som et eget, isolert testverktøy:
+`/DevDemo` → "Test ekte BankID (Idura)" → `/BankIdTest/Start` → ekte BankID-innlogging → 
+`/BankIdTest/Resultat` (viser ALLE claims BankID faktisk returnerer, rått, uten å gjette navn
+på personnummer-claimet på forhånd).
+
+**Teknisk:** `Microsoft.AspNetCore.Authentication.OpenIdConnect` (NuGet — IKKE inkludert i
+`Microsoft.AspNetCore.App`-shared-framework-referansen slik Cookie-autentisering er, må legges
+til eksplisitt) registrert som en named scheme `"BankIdTest"` i `Program.cs`, kun når
+`BankId:Idura:Authority`/`ClientId`/`ClientSecret` faktisk er satt (samme "fravær av
+konfigurasjon = av"-mønster som Vonage/ACS). `response_mode=form_post` + `ResponseType=code`
+(Authorization Code med PKCE). `acr_values` styrer hvilket BankID-sikkerhetsnivå som kreves:
+`urn:grn:authn:no:bankid:substantial` feilet med "You must activate the BankID app" — krever en
+reell, aktivert BankID-app-installasjon, umulig i et rent testoppsett. `urn:grn:authn:no:bankid:high`
+derimot matcher Iduras dokumenterte testbrukerflyt (engangskode `otp` + passord `qwer1234`, ingen
+app nødvendig) og er derfor valgt som standardverdi. `OnTokenValidated` fanger opp responsen selv
+(`ctx.HandleResponse()`) i stedet for å la standard-cookie-signeringen kjøre, lagrer alle claims
+som tekst i `TempData`, og redirecter til `/BankIdTest/Resultat` — bevisst valgt fremfor å skrive
+en ekte auth-cookie, siden dette ikke skal kunne forveksles med en reell innlogging noe sted i
+systemet. Test-personnummer/synteiske identiteter opprettes via BankID sitt eget
+`ra-preprod.bankidnorge.no`-testverktøy (Test Number Generator + End User-søk), ikke noe vi bygde
+selv.
+
+To reelle feil ble avdekket og rettet underveis i verifiseringen, begge verdt å huske for
+fremtidige OIDC-baserte integrasjoner i dette prosjektet:
+
+1. **`DevDemo` krasjet (500) etter at ekte SMS/e-post var konfigurert i Azure.**
+   `DevDemoModel.OnGetAsync` kalte ubetinget `_sms.SendAsync("+4700000000", ...)` og
+   `_email.SendAsync("dev@example.test", ...)` ved hver sidevisning — helt ufarlig med mock, men
+   ekte Vonage/ACS avviser åpenbart oppdiktede mottakeradresser (`Azure.RequestFailedException:
+   EmailDroppedAllRecipientsSuppressed`). Rettet ved å pakke begge kallene i try/catch og vise
+   feilmeldingen i UI i stedet for å la siden krasje — `/DevDemo` er en diagnostisk side, den skal
+   tåle at en avhengighet feiler uten å ta med seg resten av siden.
+2. **`StagingGate` (se samme seksjon lenger opp) blokkerte selve BankID-callbacken med 401** etter
+   en ellers vellykket BankID-innlogging. Årsak: `response_mode=form_post` gjør at Idura POSTer
+   cross-site tilbake til vår `CallbackPath` (`/signin-bankid-test`) — StagingGate-cookien er
+   `SameSite=Lax`, og nettlesere sender IKKE en Lax-cookie på en cross-site POST. Rettet med et
+   snevert, hardkodet unntak for nøyaktig denne ene stien i `StagingGate.cs` — trygt fordi stien
+   er fast (ingen wildcard) og selve OIDC-håndteringen uansett validerer state/nonce/PKCE, så en
+   vilkårlig POST mot denne stien uten en ekte Idura-autorisasjonskode oppnår ingenting. Generell
+   lærdom: enhver fremtidig funksjon som mottar en cross-site `form_post`-callback (flere OIDC-
+   identity-providere følger samme mønster) vil støte på nøyaktig denne SameSite-kollisjonen mot
+   `StagingGate` og trenger samme type unntak.
+
+Verifisert ende-til-ende 2026-09-05 med ekte nettleserautomatisering (Playwright MCP, se
+"Playwright MCP for nettleserautomatisering" under) direkte mot `www.psytest.no` (ikke bare det
+frittstående `oidcdebugger.com`-verktøyet som ble brukt til å diagnostisere `acr_values`-valget
+først): `/BankIdTest/Start` → Idura → BankID-testinnlogging (personnummer, engangskode `otp`,
+passord `qwer1234`) → `/signin-bankid-test`-callback → `/BankIdTest/Resultat` viser reelle claims,
+inkl. `socialno`, `name`, `authenticationtype: urn:grn:authn:no:bankid:high`.
+
+Infrastruktur: samme mønster som Vonage/ACS — tre azd-miljøvariabler
+(`BANKID_IDURA_AUTHORITY`/`BANKID_IDURA_CLIENT_ID`/`BANKID_IDURA_CLIENT_SECRET`) →
+`infra/main.parameters.json` → `infra/main.bicep`/`infra/resources.bicep`, client secret som
+`@secure()`-parameter lagret i Key Vault (`BankIdIduraClientSecret`), ALDRI literal i Bicep.
+
+**Lærdom (driftsmessig, ikke kode):** et `azd deploy web`-kjøring rapporterte `SUCCESS` men endret
+faktisk aldri kjørende kode — loggen inneholdt en lett-å-overse advarsel
+(`"Deployment completed, but azd observed no App Service deployment status change for 5m0s"`)
+som var eneste signal om at noe var galt (observert som et 404 på en helt ny endepunkt-sti rett
+etter en "vellykket" deploy). Løsningen var ganske enkelt å kjøre `azd deploy web` på nytt — men
+lærdommen er å faktisk lese hele deploy-loggen for advarsler, ikke bare stole på
+`SUCCESS`-linjen, når noe nylig deployet ikke oppfører seg som forventet.
+
+### Playwright MCP for nettleserautomatisering (2026-09-05)
+
+Lagt til som en MCP-server (`claude mcp add -s user playwright -- npx @playwright/mcp@latest`)
+etter gjentatte økter der skjermbilde-basert veiledning av bruker gjennom eksterne
+dashbord (domene.no, Idura, BankID RA-verktøy) var tregt og feilutsatt sammenlignet med å kunne
+navigere/klikke/lese selv. Krevde Node.js installert (`winget install --id OpenJS.NodeJS.LTS -e`)
+— `npx.cmd` trenger `node` på PATH, og en allerede åpen terminal-økt fanger ikke opp en PATH-
+endring gjort av en installer som kjørte i mellomtiden; løsningen var å starte en helt ny
+terminal og gjenoppta økten (`claude --continue`), ikke noe som kan fikses i den samme prosessen.
+Brukt til å kjøre selve sluttverifiseringen av BankID-integrasjonen over, direkte mot den
+deployede appen.
+
 ## Åpne punkter til senere faser
 
 - CI/CD-pipeline for `azd deploy` (i dag kjøres `azd up`/`azd deploy` manuelt fra lokal maskin) —
@@ -1210,4 +1301,8 @@ pålitelig kilde enn å fortsette å lete i dokumentasjon som kan være foreldet
 - Rediger/slett av SIDER/LEDD i admin-forfatterverktøyet (kun opprett i dag) — selve testens egne
   felt (navn/beskrivelse/belønningstekst/aktiv) kan nå redigeres, se "Rediger-funksjon for
   administrator/test/pasient".
+- BankID-testintegrasjonen via Idura (se samme seksjon) er kun et diagnostisk sideverktøy —
+  koble ekte BankID inn i selve innloggingsflyten (`IBankIdProvider`) er en egen, mye større
+  beslutning (identitetsmodell, hvilket personnummer-claim som faktisk skal brukes, produksjons-
+  avtale) som ikke er tatt ennå.
 - Polering av admin-/behandlerportal-/pasientportal-UI (dagens sider er funksjonelle, ikke visuelt ferdige).
