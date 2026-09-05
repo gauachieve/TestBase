@@ -1219,6 +1219,44 @@ terminal og gjenoppta økten (`claude --continue`), ikke noe som kan fikses i de
 Brukt til å kjøre selve sluttverifiseringen av BankID-integrasjonen over, direkte mot den
 deployede appen.
 
+### Seed av brukerens egen admin-konto (2026-09-05)
+
+For å kunne teste hele admin/behandler/pasient-flyten selv (ikke bare med fiktive
+test-personnumre via `PersonnummerOverride`, se "Tildelingsflyt for tester + BankID
+personnummer-overstyring") ble brukerens egen, ekte administrator-konto (navn +
+personnummer) lagt til — men BEVISST aldri som en literal i kildekode. Dette repoet er
+offentlig på GitHub, og et ekte norsk personnummer i en committed fil ville vært
+permanent eksponert (git-historikk beholder det selv etter en senere "fjerning").
+
+Løsning: fire nye konfigurasjonsnøkler (`Seed:AdminPersonnummer`/`AdminNavn`/
+`AdminMobilNr`/`AdminEpost`), lest av en idempotent seed-blokk i `Program.cs` (samme
+mønster som `IInnebygdTestSeeder`) som kjører ved hver oppstart inni den eksisterende
+`IsDevelopment()`-seed-blokken — dekker BÅDE lokalt OG Azure test-App Service, siden
+sistnevnte fortsatt kjører i Development-modus. Oppslag mot eksisterende administratorer
+skjer via `AdminAuthenticationService.FinnVedPersonnummerAsync` (i minnet, siden
+personnummer er kryptert i databasen) før noe opprettes, så kontoen aldri dupliseres —
+og den gjenopprettes automatisk etter enhver database-gjenoppretting, uten manuelt
+gjentatt arbeid.
+
+Konfigurasjonen settes UTELUKKENDE via `dotnet user-secrets` lokalt og
+`azd env set SEED_ADMIN_*` → Key Vault-hemmeligheter i Azure (samme
+`@secure()`-parameter-mønster som Idura/Vonage-hemmelighetene) — aldri literal i
+`appsettings.*.json` (som selv er committed) eller i Bicep. Fraværende konfigurasjon =
+ingen seeding, samme "av som standard"-prinsipp som resten av leverandørintegrasjonene.
+
+Kontoen logger inn med ekte BankID+2FA-flyt (ikke passord-unntaket), og siden ekte SMS
+(Vonage)/e-post (ACS) allerede er konfigurert i Azure test-App Service, mottar den
+faktiske 2FA-koder på ekte mobil/e-post der (i tillegg til dev-miljøets kodevisning i
+UI). Verifisert ende-til-ende 2026-09-05 med Playwright mot `www.psytest.no`: personnummer-
+oppslag fant riktig administrator, 2FA-bekreftelse fungerte, og kontoen vises korrekt i
+`/Admin/Administratorer` uten duplikater.
+
+**Lærdom, ikke rettet i denne økten:** `/Konto/BekreftKode` sin tekst ("mock — ingen
+ekte SMS sendes i dev") er nå misvisende i Azure test-App Service, som faktisk sender en
+ekte SMS via Vonage i tillegg til å vise koden i UI — teksten ble skrevet før ekte
+SMS-integrasjon fantes og er ikke oppdatert siden. Kun kosmetisk (koden vises uansett),
+men bør rettes til å skille "kun i dev vises koden her" fra "SMS er ekte når konfigurert".
+
 ## Åpne punkter til senere faser
 
 - CI/CD-pipeline for `azd deploy` (i dag kjøres `azd up`/`azd deploy` manuelt fra lokal maskin) —

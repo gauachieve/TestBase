@@ -28,6 +28,18 @@
     },
     "bankIdIduraClientSecret": {
       "value": "${BANKID_IDURA_CLIENT_SECRET}"
+    },
+    "seedAdminPersonnummer": {
+      "value": "${SEED_ADMIN_PERSONNUMMER}"
+    },
+    "seedAdminNavn": {
+      "value": "${SEED_ADMIN_NAVN}"
+    },
+    "seedAdminMobilNr": {
+      "value": "${SEED_ADMIN_MOBILNR}"
+    },
+    "seedAdminEpost": {
+      "value": "${SEED_ADMIN_EPOST}"
     }
   }
 }

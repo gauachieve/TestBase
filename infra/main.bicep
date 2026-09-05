@@ -37,6 +37,22 @@ param bankIdIduraClientId string = ''
 @secure()
 param bankIdIduraClientSecret string = ''
 
+@description('Ekte personnummer for en seedet administrator-konto (IKKE syntetisk testdata) — tom verdi deaktiverer seedingen. Settes via azd-miljøvariabelen SEED_ADMIN_PERSONNUMMER, ALDRI som literal her (se docs/beslutningslogg.md "Seed av brukerens egen admin-konto").')
+@secure()
+param seedAdminPersonnummer string = ''
+
+@description('Fullt navn for den seedede administrator-kontoen. Settes via azd-miljøvariabelen SEED_ADMIN_NAVN, ALDRI som literal her.')
+@secure()
+param seedAdminNavn string = ''
+
+@description('Mobilnummer (for ekte SMS-2FA) for den seedede administrator-kontoen. Settes via azd-miljøvariabelen SEED_ADMIN_MOBILNR, ALDRI som literal her.')
+@secure()
+param seedAdminMobilNr string = ''
+
+@description('E-post (for ekte e-post-2FA) for den seedede administrator-kontoen. Settes via azd-miljøvariabelen SEED_ADMIN_EPOST, ALDRI som literal her.')
+@secure()
+param seedAdminEpost string = ''
+
 var resourceToken = uniqueString(subscription().id, environmentName, location)
 var tags = {
   'azd-env-name': environmentName
@@ -63,6 +79,10 @@ module resources 'resources.bicep' = {
     bankIdIduraAuthority: bankIdIduraAuthority
     bankIdIduraClientId: bankIdIduraClientId
     bankIdIduraClientSecret: bankIdIduraClientSecret
+    seedAdminPersonnummer: seedAdminPersonnummer
+    seedAdminNavn: seedAdminNavn
+    seedAdminMobilNr: seedAdminMobilNr
+    seedAdminEpost: seedAdminEpost
   }
 }
 

@@ -292,6 +292,39 @@ if (app.Environment.IsDevelopment())
         await db.SaveChangesAsync();
     }
 
+    // Seed av brukerens EGEN administrator-konto (ekte personnummer, IKKE syntetisk
+    // testdata som resten av dev-seedingen) — ALDRI en literal her, kun konfigurasjon
+    // (dotnet user-secrets lokalt, Key Vault-hemmeligheter i Azure), siden dette
+    // repoet er offentlig på GitHub. Fraværende konfigurasjon = av, samme mønster som
+    // Vonage/ACS/Idura. Kjører idempotent ved HVER oppstart, uavhengig av
+    // dev-admin-blokken over, slik at kontoen overlever enhver database-
+    // gjenoppretting (lokalt eller i Azure test-App Service, som fortsatt kjører i
+    // Development-modus) uten manuell gjeninnlegging. Se beslutningsloggen
+    // "Seed av brukerens egen admin-konto". Bør revurderes den dagen en reell
+    // produksjonssetting med ekte BankID-avtale kommer — da bør kontoen opprettes via
+    // den faktiske produksjonsflyten, ikke fortsette å leve som en oppstartsseed.
+    var seedAdminPersonnummer = app.Configuration["Seed:AdminPersonnummer"];
+    if (!string.IsNullOrWhiteSpace(seedAdminPersonnummer))
+    {
+        var seedAuthService = scope.ServiceProvider.GetRequiredService<AdminAuthenticationService>();
+        if (await seedAuthService.FinnVedPersonnummerAsync(seedAdminPersonnummer) is null)
+        {
+            var seedAdminNavn = app.Configuration["Seed:AdminNavn"] ?? "Administrator";
+            db.Administratorer.Add(new Administrator
+            {
+                AdminId = app.Configuration["Seed:AdminId"]
+                    ?? seedAdminNavn.ToLowerInvariant().Replace(' ', '-'),
+                MobilNr = app.Configuration["Seed:AdminMobilNr"] ?? "+4700000000",
+                Email = app.Configuration["Seed:AdminEpost"] ?? "admin@example.test",
+                FulltNavn = seedAdminNavn,
+                Personnummer = seedAdminPersonnummer,
+                HprNr = "0000000",
+                OpprettetUtc = DateTimeOffset.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+    }
+
     // Regenerer innebygde tester (WHO-5 m.fl.) — samme idempotente mekanisme
     // som også er tilgjengelig via en admin-knapp i alle miljøer, se
     // Areas/Admin/Pages/Tester/Index.cshtml.cs.

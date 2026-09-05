@@ -35,6 +35,22 @@ param bankIdIduraClientId string = ''
 @secure()
 param bankIdIduraClientSecret string = ''
 
+@description('Ekte personnummer for en seedet administrator-konto — se main.bicep')
+@secure()
+param seedAdminPersonnummer string = ''
+
+@description('Fullt navn for den seedede administrator-kontoen — se main.bicep')
+@secure()
+param seedAdminNavn string = ''
+
+@description('Mobilnummer for den seedede administrator-kontoen — se main.bicep')
+@secure()
+param seedAdminMobilNr string = ''
+
+@description('E-post for den seedede administrator-kontoen — se main.bicep')
+@secure()
+param seedAdminEpost string = ''
+
 // Testmiljø uten ekte pasientdata — passordet genereres deterministisk og lagres kun i Key Vault.
 var mysqlAdministratorPassword = 'Tb${uniqueString(resourceGroup().id, resourceToken)}!26'
 
@@ -221,6 +237,42 @@ resource bankIdIduraClientSecretSecret 'Microsoft.KeyVault/vaults/secrets@2023-0
   }
 }
 
+// Seed av brukerens egen administrator-konto (ekte personnummer, IKKE syntetisk
+// testdata) — se Program.cs og docs/beslutningslogg.md "Seed av brukerens egen
+// admin-konto". Tom verdi (' ') deaktiverer seedingen (Program.cs sin
+// string.IsNullOrWhiteSpace-sjekk), samme mønster som de andre hemmelighetene her.
+resource seedAdminPersonnummerSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'SeedAdminPersonnummer'
+  properties: {
+    value: empty(seedAdminPersonnummer) ? ' ' : seedAdminPersonnummer
+  }
+}
+
+resource seedAdminNavnSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'SeedAdminNavn'
+  properties: {
+    value: empty(seedAdminNavn) ? ' ' : seedAdminNavn
+  }
+}
+
+resource seedAdminMobilNrSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'SeedAdminMobilNr'
+  properties: {
+    value: empty(seedAdminMobilNr) ? ' ' : seedAdminMobilNr
+  }
+}
+
+resource seedAdminEpostSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'SeedAdminEpost'
+  properties: {
+    value: empty(seedAdminEpost) ? ' ' : seedAdminEpost
+  }
+}
+
 resource appService 'Microsoft.Web/sites@2023-12-01' = {
   name: appServiceName
   location: location
@@ -286,6 +338,22 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'BankId__Idura__ClientSecret'
           value: '@Microsoft.KeyVault(SecretUri=${bankIdIduraClientSecretSecret.properties.secretUri})'
+        }
+        {
+          name: 'Seed__AdminPersonnummer'
+          value: '@Microsoft.KeyVault(SecretUri=${seedAdminPersonnummerSecret.properties.secretUri})'
+        }
+        {
+          name: 'Seed__AdminNavn'
+          value: '@Microsoft.KeyVault(SecretUri=${seedAdminNavnSecret.properties.secretUri})'
+        }
+        {
+          name: 'Seed__AdminMobilNr'
+          value: '@Microsoft.KeyVault(SecretUri=${seedAdminMobilNrSecret.properties.secretUri})'
+        }
+        {
+          name: 'Seed__AdminEpost'
+          value: '@Microsoft.KeyVault(SecretUri=${seedAdminEpostSecret.properties.secretUri})'
         }
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
