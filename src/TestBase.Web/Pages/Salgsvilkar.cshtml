@@ -1,0 +1,120 @@
+@page
+@model TestBase.Web.Pages.SalgsvilkarModel
+@{
+    ViewData["Title"] = "Salgsvilkår";
+}
+
+<h1>Salgsvilkår</h1>
+
+<div style="background:#fff3cd; border:1px solid #ffe69c; border-radius:0.5rem; padding:1rem 1.25rem; margin-bottom:2rem;">
+    <strong>Dette er et utkast, ikke juridisk kvalitetssikret.</strong>
+    Teksten under er ment å dekke Vipps MobilePay sine minimumskrav til salgsvilkår for
+    nettsted-verifisering, og skal gjennomgås/erstattes av jurist før tjenesten tas i bruk
+    med ekte pasienter. Se også <code>docs/compliance-dpia-utkast.md</code>, som har samme
+    status. Kontaktinformasjon og organisasjonsnummer under er plassholdere og må fylles
+    inn med reelle opplysninger.
+</div>
+
+<h2>1. Parter</h2>
+<p>
+    Disse salgsvilkårene gjelder for kjøp gjort på psytest.no ("PsyTest"), driftet av
+    <strong>[Firmanavn — plassholder]</strong>, organisasjonsnummer
+    <strong>[000 000 000 — plassholder]</strong>, adresse
+    <strong>[Adresse — plassholder]</strong> ("vi"/"PsyTest").
+</p>
+<p>
+    Et kjøp på PsyTest involverer tre parter, ikke to som i et vanlig nettbutikk-kjøp:
+</p>
+<ul>
+    <li>
+        <strong>Behandler</strong> — den autoriserte psykologspesialisten (eller en kollega i
+        kontorfellesskapet) som har det faglige behandlingsansvaret for pasienten, og som
+        avgjør hvilken psykologisk test som skal gjennomføres som en del av behandlingen.
+        Behandler bestiller/tildeler testen til pasienten i systemet — pasienten velger ikke
+        selv hvilken test som skal kjøpes, slik man ville gjort i en ordinær nettbutikk.
+    </li>
+    <li>
+        <strong>Pasient</strong> — mottakeren av behandlingen, som gjennomfører den tildelte
+        testen og betaler for den via PsyTest.
+    </li>
+    <li>
+        <strong>PsyTest</strong> — plattformen som formidler betalingen fra pasient og gjør
+        testen teknisk tilgjengelig, på vegne av behandler/praksisen.
+    </li>
+</ul>
+<p>
+    Selve det faglige behandlingsforholdet (utredning, diagnostisering, oppfølging) er et
+    forhold mellom behandler og pasient, regulert av helselovgivningen — IKKE en del av dette
+    salgsavtaleforholdet. Disse salgsvilkårene gjelder kun selve betalingen for tilgang til å
+    gjennomføre testen.
+</p>
+
+<h2>2. Betaling</h2>
+<p>
+    Prisen for hver test fastsettes av behandler/praksisen og vises til pasienten før
+    betaling. Betaling skjer i norske kroner (NOK) via Vipps eller kort (inkl. Apple Pay/
+    Google Pay), og må være bekreftet før pasienten får tilgang til å fylle ut testen.
+    Betalingsopplysninger (korttall e.l.) lagres ALDRI av PsyTest selv — kun en
+    transaksjonsreferanse fra betalingsleverandøren (Vipps/Stripe) knyttet til ordren.
+</p>
+
+<h2>3. Levering</h2>
+<p>
+    Dette er en digital tjeneste, ikke et fysisk produkt. "Levering" skjer ved at pasienten
+    får tilgang til å fylle ut den tildelte testen umiddelbart etter bekreftet betaling,
+    via egen pålogging (BankID). Ingen fysisk forsendelse er involvert.
+</p>
+
+<h2>4. Angrerett</h2>
+<p>
+    Som hovedregel har forbrukere 14 dagers angrerett ved kjøp av varer og tjenester over
+    internett, jf. angrerettloven. For digitale tjenester som leveres og påbegynnes med
+    forbrukerens uttrykkelige samtykke før 14-dagersfristen er ute, kan angreretten falle
+    bort når leveringen/gjennomføringen er fullført, jf. angrerettloven § 22.
+</p>
+<p>
+    <strong>[Denne seksjonen må kvalitetssikres av jurist</strong> — riktig klassifisering av
+    en psykologisk test opp mot unntakene i § 22 (digitalt innhold vs. fullført tjeneste) er
+    ikke gjort her, og teksten under er et foreløpig utgangspunkt, ikke en endelig vurdering.]
+</p>
+<ul>
+    <li>Pasienten kan angre kjøpet og få full refusjon frem til testen er påbegynt.</li>
+    <li>
+        Når pasienten aktivt starter utfyllingen av testen, samtykker pasienten samtidig til
+        at gjennomføringen starter umiddelbart — angreretten kan da falle bort helt eller
+        delvis for den aktuelle testen, avhengig av endelig juridisk vurdering.
+    </li>
+</ul>
+
+<h2>5. Retur</h2>
+<p>
+    Siden tjenesten er digital og ikke en fysisk vare, er retur i tradisjonell forstand ikke
+    aktuelt. Ved teknisk feil som har hindret gjennomføring av en betalt test, kontakt
+    behandler eller PsyTest (se kontaktinformasjon under) for retting eller refusjon.
+</p>
+
+<h2>6. Reklamasjon</h2>
+<p>
+    Henvendelser om feil ved betalingen eller tjenesten rettes til
+    <a href="#">[e-postadresse — plassholder]</a> eller
+    <a href="#">[telefonnummer — plassholder]</a>. Vi tilstreber å svare innen rimelig tid.
+    Reklamasjoner knyttet til selve den faglige behandlingen rettes til behandler direkte,
+    ikke til PsyTest som plattform.
+</p>
+
+<h2>7. Konfliktløsning</h2>
+<p>
+    Dersom en klage ikke løses i minnelighet, kan forbrukeren bringe saken inn for
+    <a href="https://www.forbrukerradet.no/">Forbrukerrådet</a> eller
+    <a href="https://ec.europa.eu/consumers/odr">EU-kommisjonens klageportal (ODR)</a>.
+    Avtalen er underlagt norsk rett, med norske domstoler som verneting.
+</p>
+
+<h2>Kontaktinformasjon</h2>
+<p>
+    <strong>[Firmanavn — plassholder]</strong><br />
+    Org.nr. <strong>[000 000 000 — plassholder]</strong><br />
+    <strong>[Adresse — plassholder]</strong><br />
+    E-post: <strong>[e-postadresse — plassholder]</strong><br />
+    Telefon: <strong>[telefonnummer — plassholder]</strong>
+</p>

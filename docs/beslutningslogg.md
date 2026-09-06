@@ -1377,8 +1377,46 @@ når ingen verdi faktisk var satt, og dermed slått av hele nøkkelskjema-sperre
 utilsiktet. Rettet til `IsNullOrWhiteSpace` (samme fallgruve som alle andre
 `empty(x) ? ' ' : x`-konfigurerte verdier i dette prosjektet må sjekkes med).
 
+### Salgsvilkår-side for Vipps sin nettsted-verifisering (2026-09-06)
+
+Vipps sin merchant-registrering krever en salgsvilkår-side som minst dekker Parter/
+Betaling/Levering/Angrerett/Retur/Reklamasjonshåndtering/Konfliktløsning, pluss synlig
+firmanavn/organisasjonsnummer/adresse/telefon/e-post (se
+https://vippsmobilepay.com/nb-NO/legal/krav-til-nettside). Ny side `/Salgsvilkar`
+(`Pages/Salgsvilkar.cshtml(.cs)`, lenket fra footer i `_Layout.cshtml`) dekker alle
+disse seksjonene.
+
+**Bevisst forskjellig fra en vanlig nettbutikk:** kjøpet involverer TRE parter, ikke to
+— Behandler (den autoriserte psykologspesialisten som har det faglige
+behandlingsansvaret og BESTILLER/TILDELER testen som en del av behandlingen — pasienten
+velger ikke selv hvilken test som "kjøpes"), Pasient (mottar behandlingen, gjennomfører
+og betaler for testen), og PsyTest (plattformen som formidler selve betalingen). "Parter"-
+seksjonen er skrevet for å gjøre dette tydelig — det faglige behandlingsforholdet
+(utredning/diagnostisering) er eksplisitt IKKE en del av selve salgsavtalen, kun
+betalingen for tilgang til å gjennomføre testen er det.
+
+**Eksplisitt UTKAST, samme status som `docs/compliance-dpia-utkast.md`** — bruker skal
+la en jurist kvalitetssikre/erstatte teksten før reelle pasienter bruker tjenesten.
+Spesielt angrerett-seksjonen (§ 22-unntak for digitalt innhold/fullførte tjenester) er
+markert som juridisk ikke-vurdert i selve sideteksten — riktig klassifisering av en
+psykologisk test opp mot disse unntakene er en reell juridisk vurdering, ikke gjort her.
+
+**Reell, ennå ikke lukket blokkerende gap:** footer sin kontaktinfo (`_Layout.cshtml`)
+hadde fra før kun plassholder e-post/telefon, og manglet organisasjonsnummer/adresse
+HELT — begge nå lagt til som plassholdere i footer OG på selve salgsvilkår-siden, men
+Vipps sin nettsted-verifisering krever ekte informasjon her. Dette må fylles inn av
+bruker (og trolig samkjøres med den faktiske organisasjonsformen som til slutt brukes
+for Vipps-merchant-avtalen) før verifiseringen faktisk kan bestås — se "Åpne punkter".
+
 ## Åpne punkter til senere faser
 
+- Fyll inn ekte firmanavn/organisasjonsnummer/adresse/telefon/e-post i footer
+  (`_Layout.cshtml`) og på `/Salgsvilkar` — i dag rene plassholdere, se "Salgsvilkår-side
+  for Vipps sin nettsted-verifisering". Sannsynlig blokkerende for at Vipps sin
+  nettsted-verifisering faktisk skal bestås.
+- La en jurist kvalitetssikre/erstatte `/Salgsvilkar` (samme status som
+  `docs/compliance-dpia-utkast.md`) før reelle pasienter bruker tjenesten — spesielt
+  angrerett-vurderingen (angrerettloven § 22) er eksplisitt ikke gjort her.
 - Fjern `StagingGate:BasicAuthUsername`/`BasicAuthPassword` igjen (se "Midlertidig
   HTTP Basic Auth i StagingGate") så snart Vipps sin merchant-registrering har bestått
   "Verifiser nettstedet" — ikke la den midlertidige native Basic Auth-dialogen stå
