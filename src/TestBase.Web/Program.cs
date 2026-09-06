@@ -186,8 +186,45 @@ if (!string.IsNullOrWhiteSpace(iduraAuthority) && !string.IsNullOrWhiteSpace(idu
 // builder.Environment.IsDevelopment(), når BankID-/Vipps-/SMS-leverandør er
 // valgt og avtale signert (se beslutningsloggen).
 builder.Services.AddScoped<IBankIdProvider, MockBankIdProvider>();
-builder.Services.AddScoped<IVippsClient, MockVippsClient>();
 builder.Services.AddScoped<ICaptchaProvider, MockCaptchaProvider>();
+
+// Vipps: ekte ePayment API-klient når Vipps:ClientId/ClientSecret/SubscriptionKey/
+// MerchantSerialNumber alle er satt, ellers MockVippsClient. Registrert som
+// Singleton siden VippsPaymentClient cacher tilgangstoken i minnet på tvers av
+// forespørsler (se VippsPaymentClient). Miljø (test/produksjon) styres av
+// Vipps:Miljo — "Test" (standard) mot apitest.vipps.no, "Produksjon" mot api.vipps.no.
+var vippsClientId = builder.Configuration["Vipps:ClientId"];
+var vippsClientSecret = builder.Configuration["Vipps:ClientSecret"];
+var vippsSubscriptionKey = builder.Configuration["Vipps:SubscriptionKey"];
+var vippsMerchantSerialNumber = builder.Configuration["Vipps:MerchantSerialNumber"];
+if (!string.IsNullOrWhiteSpace(vippsClientId) && !string.IsNullOrWhiteSpace(vippsClientSecret) &&
+    !string.IsNullOrWhiteSpace(vippsSubscriptionKey) && !string.IsNullOrWhiteSpace(vippsMerchantSerialNumber))
+{
+    var vippsBaseUrl = builder.Configuration["Vipps:Miljo"] == "Produksjon"
+        ? "https://api.vipps.no"
+        : "https://apitest.vipps.no";
+    builder.Services.AddSingleton<IVippsClient>(sp => new VippsPaymentClient(
+        new HttpClient(), vippsBaseUrl, vippsClientId, vippsClientSecret, vippsSubscriptionKey, vippsMerchantSerialNumber,
+        sp.GetRequiredService<ILogger<VippsPaymentClient>>()));
+}
+else
+{
+    builder.Services.AddScoped<IVippsClient, MockVippsClient>();
+}
+
+// Stripe (kort/Apple Pay/Google Pay): ekte klient når Stripe:SecretKey er satt,
+// ellers MockStripeClient. Apple Pay krever i tillegg domeneverifisering i
+// Stripe Dashboard (se docs/beslutningslogg.md) — ikke noe som kan kodifiseres her.
+var stripeSecretKey = builder.Configuration["Stripe:SecretKey"];
+if (!string.IsNullOrWhiteSpace(stripeSecretKey))
+{
+    builder.Services.AddScoped<IStripeClient>(sp =>
+        new StripePaymentClient(stripeSecretKey, sp.GetRequiredService<ILogger<StripePaymentClient>>()));
+}
+else
+{
+    builder.Services.AddScoped<IStripeClient, MockStripeClient>();
+}
 
 // E-post: ekte utsending via Azure Communication Services når "Acs:ConnectionString"
 // er satt (kun i Azure test-App Service, aldri lokalt), ellers MockEmailSender —
@@ -260,6 +297,7 @@ app.UseAuthorization();
 
 app.MapRazorPages();
 app.MapHealthChecks("/health");
+app.MapPaymentWebhooks();
 
 // --- Dev-seed: fiktiv administrator slik at innlogging virker uten manuelle
 // steg lokalt. KUN i Development, og KUN syntetisk testdata (fiktivt

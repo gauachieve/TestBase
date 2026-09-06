@@ -14,6 +14,7 @@ public sealed class DevDemoModel : PageModel
     private readonly IAuditLogger _auditLogger;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuthenticationSchemeProvider _schemes;
+    private readonly IConfiguration _configuration;
 
     public DevDemoModel(
         IBankIdProvider bankId,
@@ -22,7 +23,8 @@ public sealed class DevDemoModel : PageModel
         IEmailSender email,
         IAuditLogger auditLogger,
         ICurrentUserContext currentUser,
-        IAuthenticationSchemeProvider schemes)
+        IAuthenticationSchemeProvider schemes,
+        IConfiguration configuration)
     {
         _bankId = bankId;
         _vipps = vipps;
@@ -31,20 +33,34 @@ public sealed class DevDemoModel : PageModel
         _auditLogger = auditLogger;
         _currentUser = currentUser;
         _schemes = schemes;
+        _configuration = configuration;
     }
 
     public BankIdResult? BankIdResult { get; private set; }
-    public VippsPaymentResult? VippsResult { get; private set; }
     public bool EktBankIdTilgjengelig { get; private set; }
+    public bool EktVippsTilgjengelig { get; private set; }
+    public bool EktStripeTilgjengelig { get; private set; }
     public string? SmsFeilmelding { get; private set; }
     public string? EpostFeilmelding { get; private set; }
+    public string? VippsFeilmelding { get; private set; }
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         EktBankIdTilgjengelig = await _schemes.GetSchemeAsync("BankIdTest") is not null;
+        EktVippsTilgjengelig = !string.IsNullOrWhiteSpace(_configuration["Vipps:ClientId"]);
+        EktStripeTilgjengelig = !string.IsNullOrWhiteSpace(_configuration["Stripe:SecretKey"]);
 
         BankIdResult = await _bankId.AuthenticateAsync(cancellationToken: cancellationToken);
-        VippsResult = await _vipps.ChargeAsync(0m, "Dev-demo testbelastning", cancellationToken);
+
+        // Fiktiv returUrl — denne demo-siden fullfører aldri en ekte betaling, den
+        // bekrefter kun at OpprettBetalingAsync-kallet selv går gjennom. Se
+        // /BetalingTest for den faktiske ende-til-ende-flyten.
+        var vippsResultat = await _vipps.OpprettBetalingAsync(
+            $"devdemo-{Guid.NewGuid():N}", 1m, "Dev-demo testbelastning", "https://example.test/devdemo-ignorer", cancellationToken);
+        if (!vippsResultat.Success)
+        {
+            VippsFeilmelding = vippsResultat.ErrorMessage;
+        }
 
         // Fiktive mottakere ("+4700000000"/"dev@example.test") — mock-leverandørene bryr seg
         // ikke, men ekte leverandører (Azure Communication Services/Vonage, når konfigurert,

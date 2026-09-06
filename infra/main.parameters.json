@@ -40,6 +40,30 @@
     },
     "seedAdminEpost": {
       "value": "${SEED_ADMIN_EPOST}"
+    },
+    "vippsClientId": {
+      "value": "${VIPPS_CLIENT_ID}"
+    },
+    "vippsClientSecret": {
+      "value": "${VIPPS_CLIENT_SECRET}"
+    },
+    "vippsSubscriptionKey": {
+      "value": "${VIPPS_SUBSCRIPTION_KEY}"
+    },
+    "vippsMerchantSerialNumber": {
+      "value": "${VIPPS_MERCHANT_SERIAL_NUMBER}"
+    },
+    "vippsWebhookSecret": {
+      "value": "${VIPPS_WEBHOOK_SECRET}"
+    },
+    "stripeSecretKey": {
+      "value": "${STRIPE_SECRET_KEY}"
+    },
+    "stripePublishableKey": {
+      "value": "${STRIPE_PUBLISHABLE_KEY}"
+    },
+    "stripeWebhookSecret": {
+      "value": "${STRIPE_WEBHOOK_SECRET}"
     }
   }
 }

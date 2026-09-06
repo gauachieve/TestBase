@@ -1,0 +1,54 @@
+@page
+@model TestBase.Web.Pages.BetalingTest.StripeModel
+@{
+    ViewData["Title"] = "Test ekte Stripe-betaling";
+}
+
+<h1>Test ekte Stripe-betaling</h1>
+<p>
+    Diagnostisk sideverktøy — kort, Apple Pay og Google Pay vises automatisk under
+    hvis enheten/nettleseren støtter dem. Bruk
+    <a href="https://docs.stripe.com/testing#cards">Stripes testkort</a> (f.eks.
+    <code>4242 4242 4242 4242</code>, en vilkårlig fremtidig dato, en vilkårlig CVC)
+    i test-modus — ingen ekte penger flyttes.
+</p>
+
+@if (Model.Feil is not null)
+{
+    <p style="color: darkred;">Feil: @Model.Feil</p>
+}
+else
+{
+    <form id="betalingsskjema">
+        <div id="payment-element"></div>
+        <button id="send-knapp" type="submit">Betal 1 kr</button>
+        <p id="betalingsfeil" style="color: darkred;"></p>
+    </form>
+
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        const stripe = Stripe('@Model.PublishableKey');
+        const elements = stripe.elements({ clientSecret: '@Model.ClientSecret' });
+        const paymentElement = elements.create('payment');
+        paymentElement.mount('#payment-element');
+
+        document.getElementById('betalingsskjema').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            document.getElementById('send-knapp').disabled = true;
+
+            const { error } = await stripe.confirmPayment({
+                elements,
+                confirmParams: {
+                    return_url: window.location.origin + '/BetalingTest/StripeResultat'
+                }
+            });
+
+            if (error) {
+                document.getElementById('betalingsfeil').textContent = error.message;
+                document.getElementById('send-knapp').disabled = false;
+            }
+        });
+    </script>
+}
+
+<p><a href="/DevDemo">Tilbake til /DevDemo</a></p>

@@ -1257,6 +1257,84 @@ ekte SMS via Vonage i tillegg til å vise koden i UI — teksten ble skrevet fø
 SMS-integrasjon fantes og er ikke oppdatert siden. Kun kosmetisk (koden vises uansett),
 men bør rettes til å skille "kun i dev vises koden her" fra "SMS er ekte når konfigurert".
 
+### Vipps + Stripe (Apple Pay/Google Pay) (2026-09-06)
+
+Kravdokumentet spesifiserte opprinnelig kun Vipps som betalingsløsning (Del 4: "kan
+det hende de må betale for den... for nå støtte VIPPS"). Bruker ønsket i tillegg Apple
+Pay/Google Pay-støtte. Research avdekket at Vipps sin egen ePayment API IKKE støtter
+Apple Pay/Google Pay som betalingsmiddel — de er nettleser-/enhets-baserte lommebok-
+teknologier som kun dukker opp via en betalingsprosessor som eksplisitt støtter dem
+(f.eks. Stripe/Adyen/Nexi), ikke noe Vipps selv formidler. Valgte **Stripe** som andre
+leverandør (i tillegg til Vipps, ikke i stedet for) — kostnadsanalyse viste at
+initialkostnaden ligger på Vipps uansett (som brukeren ville støttet uavhengig av
+Apple/Google Pay), mens Stripe i seg selv ikke har noen fast kostnad (se under).
+
+**Kostnadsbilde (research, ikke forhandlet avtale):** Vipps sin reelle utviklerAPI
+(ikke "Vipps Go", som kun er betalingslenker uten API) ligger under "Vipps Business" —
+rundt 1,25–1,75 % per transaksjon, "0 til ~200 kr/mnd avhengig av modul" (ikke fullt
+bekreftet om grunn-nettbutikk-modulen faktisk er kr 0/mnd — bør avklares direkte med
+Vipps salg før en reell avtale inngås). Stripe: kr 0 i oppstarts-/månedsavgift, ca.
+1,5 % + 1,80 kr per kort-/Apple Pay/Google Pay-transaksjon i Norge — Apple/Google tar
+ingen egen avgift for å aktivere lommeboken, den følger samme sats som et vanlig
+kortkjøp. Se kildehenvisninger i selve samtaleloggen (ikke gjentatt her, kan endre seg).
+
+**Teknisk, begge asynkrone (IKKE en synkron "charge"-samtale, i motsetning til den
+opprinnelige `IVippsClient.ChargeAsync`-stubben fra fase 0):**
+
+- **Vipps** (`VippsPaymentClient`, ekte ePayment API): `IVippsClient` redesignet til
+  `OpprettBetalingAsync` (oppretter en betaling, gir en `RedirectUrl` brukeren sendes
+  til) + `HentStatusAsync` (spør Vipps om faktisk utfall — ALDRI stol på at brukeren
+  kommer tilbake på returUrl som bevis alene). Tilgangstoken hentes via
+  `/accesstoken/get` og caches i minnet (~1 time), derfor registrert som **Singleton**
+  i DI (ikke Scoped som resten av leverandørene) — se kommentarer i selve klassen.
+- **Stripe** (`StripePaymentClient`, offisiell Stripe.net-SDK v52.4.1): `IStripeClient`
+  med `OpprettBetalingsintensjonAsync` (oppretter en `PaymentIntent` med
+  `automatic_payment_methods` — dette er det som gjør at Apple Pay/Google Pay dukker
+  opp automatisk i Stripes "Payment Element" på klientsiden når enheten støtter det,
+  ingen egen kode per betalingsmiddel nødvendig) + `HentStatusAsync`.
+- **Webhooks** (`Security/PaymentWebhooks.cs`, `/webhooks/vipps` og `/webhooks/stripe`):
+  bevisst minimal-API-endepunkter, IKKE Razor Pages — Razor Pages sin automatiske
+  antiforgery-validering på POST-handlere ville avvist disse, siden Vipps/Stripe sine
+  servere naturligvis ikke har vår antiforgery-cookie. Stripe-verifisering bruker
+  Stripe sin egen SDK-metode (`EventUtility.ConstructEvent`) og er umiddelbart
+  verifiserbar siden Stripe sitt testmiljø er selvbetjent. Vipps-verifisering er
+  implementert etter Vipps sin offentlige dokumentasjon (kanonisk streng
+  `{METHOD}\n{PATH}\n{DATE};{HOST};{CONTENT_HASH}`, HMAC-SHA256 med webhook-
+  hemmeligheten, signatur i `Authorization`-headeren) — men er **IKKE bekreftet mot et
+  ekte, levende Vipps-webhook-kall ennå**, se avsnittet under om sandkasse-tilgang.
+  `HentStatusAsync`/polling er derfor den reelle fallback-mekanismen inntil dette er
+  verifisert live.
+- **StagingGate**: begge webhook-stiene er unntatt sperren (`StagingGate.cs`), samme
+  resonnement som BankID-callbacken — et server-til-server-kall fra Vipps/Stripe har
+  ingen mulighet til å sende vår cookie, og den reelle sikkerheten er HMAC-
+  signaturverifiseringen inni selve handleren.
+- **Diagnostisk sideverktøy** (`/BetalingTest/Vipps` og `/BetalingTest/Stripe`, lenket
+  fra `/DevDemo` når konfigurert): samme mønster som `/BankIdTest` — verifiserer selve
+  den tekniske integrasjonen (en ekte 1-krone testbetaling) UTEN å være koblet til noen
+  reell "betal for test"-flyt i pasientsystemet. Den faktiske forretningsflyten (når i
+  pasientreisen betaling skjer, prising, hvilken leverandør pasienten velger) er
+  BEVISST IKKE designet her — bruker skal designe denne selv.
+
+**Sandkasse-tilgang, ulik friksjon (viktig for videre arbeid):**
+- **Stripe**: selvbetjent, umiddelbar — akkurat som Idura for BankID. Ingen ventetid.
+  Apple Pay på nett krever i tillegg domeneverifisering i Stripe Dashboard (last opp en
+  fil, eller registrer domenet via API) — en engangs, manuell dashueby-oppgave, ikke
+  noe som kan kodifiseres i Bicep.
+- **Vipps**: IKKE selvbetjent — sandkasse-/testmiljøet krever enten et allerede
+  godkjent kunde-/merchant-forhold, ELLER en "partner-søknad" (raskere, men fortsatt
+  en godkjenningsrunde) — mer likt ACS SMS sin Norge-friksjon enn Idura sin frie
+  BankID-testkonto. Ende-til-ende-verifisering av den ekte Vipps-integrasjonen
+  (inkludert webhook-signaturen) må derfor vente til brukeren har fått testtilgang.
+
+**Reell feil funnet og rettet underveis:** `Pages/BetalingTest/Vipps.cshtml` manglet
+først `@model`-direktivet (kopiert fra `BankIdTest/Start.cshtml`-mønsteret, men
+`@model`-linjen ble glemt). Konsekvens: siden returnerte stille `200 OK` med TOM body
+i stedet for enten å kjøre `VippsModel.OnGetAsync` sin logikk eller feile synlig —
+Razor Pages faller tilbake til en tom standard-side når en `.cshtml`-fil mangler
+`@model`, den kobler IKKE automatisk til en likt-navngitt PageModel-klasse i samme
+mappe basert på filnavn alene. Rettet ved å legge til
+`@model TestBase.Web.Pages.BetalingTest.VippsModel`. Se også ny fallgruve i CLAUDE.md.
+
 ## Åpne punkter til senere faser
 
 - CI/CD-pipeline for `azd deploy` (i dag kjøres `azd up`/`azd deploy` manuelt fra lokal maskin) —

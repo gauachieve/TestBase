@@ -31,6 +31,17 @@ public static class StagingGate
     // ingenting.
     private const string BankIdCallbackSti = "/signin-bankid-test";
 
+    // Samme resonnement som BankIdCallbackSti, men for server-til-server-kall i
+    // stedet for en nettleser-redirect: Vipps/Stripe sine servere har ingen
+    // mulighet til å sende vår StagingGate-cookie i det hele tatt. Den reelle
+    // sikkerheten er HMAC-signaturverifisering inni selve handleren, se
+    // Security/PaymentWebhooks.cs.
+    private static readonly string[] BetalingsWebhookStier =
+    [
+        PaymentWebhooks.VippsWebhookSti,
+        PaymentWebhooks.StripeWebhookSti
+    ];
+
     public static void UseStagingGate(this WebApplication app)
     {
         var tilgangsnokkel = app.Configuration["StagingGate:AccessKey"];
@@ -44,7 +55,9 @@ public static class StagingGate
 
         app.Use(async (context, next) =>
         {
-            if (context.Request.Path.StartsWithSegments(BankIdCallbackSti) || HarGyldigCookie(context, beskytter))
+            if (context.Request.Path.StartsWithSegments(BankIdCallbackSti) ||
+                BetalingsWebhookStier.Any(sti => context.Request.Path.StartsWithSegments(sti)) ||
+                HarGyldigCookie(context, beskytter))
             {
                 await next();
                 return;

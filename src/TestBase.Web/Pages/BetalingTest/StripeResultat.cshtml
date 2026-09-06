@@ -1,0 +1,20 @@
+@page
+@model TestBase.Web.Pages.BetalingTest.StripeResultatModel
+@{
+    ViewData["Title"] = "Stripe-betalingstestresultat";
+}
+
+<h1>Stripe-betalingstestresultat</h1>
+<p>Diagnostisk resultat fra en ekte Stripe-testbetaling — ikke koblet til noen ekte ordre i systemet.</p>
+
+<p>Betalings-ID: <code>@Model.BetalingsId</code></p>
+
+@if (Model.Status is not null)
+{
+    <p>
+        Status:
+        <strong>@(Model.Status.Success ? (Model.Status.ErBetalt ? "Betalt" : "Ikke betalt") : $"Feilet — {Model.Status.ErrorMessage}")</strong>
+    </p>
+}
+
+<p><a href="/DevDemo">Tilbake til /DevDemo</a></p>

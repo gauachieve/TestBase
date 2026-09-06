@@ -53,7 +53,7 @@ Prosjektet er et Git-repo i `C:\code\TestBase`.
 - **Produksjon:** Azure App Service + Azure Database for MySQL – Flexible Server. Test-miljøet er satt opp via `azd` (se `azure.yaml`/`infra/`) og kjører i Sweden Central, ikke det opprinnelig planlagte Norway East/West — regional MySQL-kapasitet manglet der (se `docs/beslutningslogg.md`, "Sky-deploy til Azure (azd)"); må revurderes før reell produksjonssetting med ekte pasientdata. IKKE egen Windows Server/IIS — det opprinnelige kravet om dette er revidert bort.
 - **Lokal utvikling:** Docker Compose (lokal MySQL-container) + `dotnet watch run`. Bevisst holdt enkelt og sky-fritt for rask iterasjon.
 - **Sikkerhetsprinsipp — arkitektur nå, infrastruktur senere:** Tilgangsstyring og audit-logging er bygget inn i kodearkitekturen fra dag én (`TestBase.Shared/Security/`: `ICurrentUserContext`, `IAuditLogger`) og er aktiv i ALLE miljøer, også lokalt — men peker på enkle lokale dummy-nøkler i dev og ekte Azure Key Vault/IAM i prod. Følg dette mønsteret videre: ny sikkerhetsrelatert kode skal alltid være aktiv i dev også, bare med enklere infrastruktur bak.
-- **Eksterne leverandører (BankID, Vipps, SMS, e-post):** BankID og Vipps har fortsatt ingen PRODUKSJONSAVTALER. E-post (Azure Communication Services) og SMS (Vonage) har begge en ekte, fungerende integrasjon i Azure test-App Service nå — se beslutningsloggen under "Ekte e-postutsending via Azure Communication Services" og "SMS-integrasjon: byttet fra Azure til Vonage". All kode mot disse går bak grensesnitt (`IBankIdProvider`, `IVippsClient`, `ISmsSender`, `IEmailSender`) med mock-implementasjoner i `TestBase.Shared/Providers/Mock/` som brukes lokalt uansett, slik at utvikling ikke er avhengig av ekte avtaler/kontoer. Se `/DevDemo`-siden for eksempel på bruk. I tillegg finnes det siden 2026-09-05 en ekte, gratis Idura BankID-TEST-integrasjon (`/DevDemo` → "Test ekte BankID (Idura)") — kun et diagnostisk sideverktøy, IKKE koblet til `IBankIdProvider`/den faktiske innloggingsflyten, se beslutningsloggen "BankID-testintegrasjon via Idura".
+- **Eksterne leverandører (BankID, Vipps, SMS, e-post, betaling):** BankID og Vipps har fortsatt ingen PRODUKSJONSAVTALER (Vipps sin ekte ePayment API-integrasjon, se under, er kodeklar men uverifisert live siden Vipps sitt sandkassemiljø krever et godkjent kunde-/partnerforhold, ikke selvbetjent som Idura). Stripe (kort/Apple Pay/Google Pay) har en ekte, selvbetjent test-integrasjon — se `IStripeClient`/`StripePaymentClient` og beslutningsloggen "Vipps + Stripe (Apple Pay/Google Pay)". E-post (Azure Communication Services) og SMS (Vonage) har begge en ekte, fungerende integrasjon i Azure test-App Service nå — se beslutningsloggen under "Ekte e-postutsending via Azure Communication Services" og "SMS-integrasjon: byttet fra Azure til Vonage". All kode mot disse går bak grensesnitt (`IBankIdProvider`, `IVippsClient`, `ISmsSender`, `IEmailSender`) med mock-implementasjoner i `TestBase.Shared/Providers/Mock/` som brukes lokalt uansett, slik at utvikling ikke er avhengig av ekte avtaler/kontoer. Se `/DevDemo`-siden for eksempel på bruk. I tillegg finnes det siden 2026-09-05 en ekte, gratis Idura BankID-TEST-integrasjon (`/DevDemo` → "Test ekte BankID (Idura)") — kun et diagnostisk sideverktøy, IKKE koblet til `IBankIdProvider`/den faktiske innloggingsflyten, se beslutningsloggen "BankID-testintegrasjon via Idura".
 - **Ingen ekte pasientdata i dev/test noensinne** — kun syntetiske testdata.
 
 ## Prosjektstruktur
@@ -119,6 +119,13 @@ src/
                            behandler BankID+2FA, og pasient BankID)
     Security/BotVern.cs      Honeypot + minimumstid-vern for offentlige skjemaer (registrering/
                            invitasjon — se også ICaptchaProvider for innloggingssidenes CAPTCHA)
+    Security/StagingGate.cs  Sperre foran hele test-appen (se egen fallgruve under) — unntar
+                           BankID-OIDC-callbacken og Vipps/Stripe-webhook-stiene eksplisitt
+    Security/PaymentWebhooks.cs  Minimal-API-endepunkter (IKKE Razor Pages, se beslutningsloggen)
+                           for Vipps-/Stripe-webhooks, med signaturverifisering
+    Pages/BetalingTest/      Diagnostisk test av ekte Vipps-/Stripe-betaling (samme mønster som
+                           Pages/BankIdTest/) — IKKE koblet til noen reell betalingsflyt i
+                           pasientsystemet ennå, se beslutningsloggen
     Properties/launchSettings.json   (setter ASPNETCORE_ENVIRONMENT=Development)
     appsettings.json / appsettings.Development.json
   TestBase.Shared/       Klassebibliotek (har FrameworkReference til Microsoft.AspNetCore.App
@@ -149,16 +156,23 @@ src/
                              ITestSkaaringsberegner, Who5Skaaringsberegner
     Domain/Tester/InnebygdeTester/  Regenereringsmekanisme (fase 5): IInnebygdTestSeeder,
                              Who5TestSeeder — idempotent, kalt fra dev-seed OG admin-knapp
-    Providers/             IBankIdProvider, IVippsClient, ISmsSender, IEmailSender,
-                           AzureEmailSender (ekte e-post via Azure Communication Services,
-                           se beslutningsloggen "Ekte e-postutsending via Azure Communication
-                           Services"), VonageSmsSender (ekte SMS via Vonage sitt Messages API,
-                           IKKE Azure — Norge manglet i praksis en fungerende selvbetjent
-                           alfanumerisk avsender-ID-flyt i Azure Portal, se beslutningsloggen
-                           "SMS-integrasjon: byttet fra Azure til Vonage")
-    Providers/Mock/        Mock-implementasjoner av alle fire — fortsatt brukt lokalt for
-                           alle, og i Azure for det som ikke er konfigurert med ekte
-                           legitimasjon (App Service-innstillinger, se Program.cs)
+    Providers/             IBankIdProvider, IVippsClient, IStripeClient, ISmsSender,
+                           IEmailSender, AzureEmailSender (ekte e-post via Azure
+                           Communication Services, se beslutningsloggen "Ekte
+                           e-postutsending via Azure Communication Services"),
+                           VonageSmsSender (ekte SMS via Vonage sitt Messages API, IKKE
+                           Azure — Norge manglet i praksis en fungerende selvbetjent
+                           alfanumerisk avsender-ID-flyt i Azure Portal, se
+                           beslutningsloggen "SMS-integrasjon: byttet fra Azure til
+                           Vonage"), VippsPaymentClient (ekte Vipps ePayment API,
+                           asynkron opprett+status, IKKE en synkron "charge"),
+                           StripePaymentClient (ekte Stripe via Stripe.net — kort/Apple
+                           Pay/Google Pay, se beslutningsloggen "Vipps + Stripe (Apple
+                           Pay/Google Pay)")
+    Providers/Mock/        Mock-implementasjoner av alle fem grensesnitt — fortsatt
+                           brukt lokalt for alle, og i Azure for det som ikke er
+                           konfigurert med ekte legitimasjon (App Service-innstillinger,
+                           se Program.cs)
     Data/AppDbContext.cs   EF Core-kontekst — ALL databasetilgang skal gå gjennom denne.
                            Personnummer krypteres i hvile via DataProtection (se beslutningsloggen)
     Migrations/            EF Core migrations (generert med dotnet ef)
@@ -220,6 +234,8 @@ dotnet watch run
 - Et OIDC-endepunkt (BankID via Idura, se beslutningsloggen "BankID-testintegrasjon via Idura") som bruker `response_mode=form_post` mottar en cross-site POST fra identity-providerens domene på sin `CallbackPath` — en `SameSite=Lax`-cookie (StagingGate sin gate-cookie, MEN også `CorrelationCookie`/`NonceCookie` som ASP.NET Core selv setter opp default på Lax) blir IKKE sendt av nettleseren på en slik cross-site POST. `CorrelationCookie`/`NonceCookie` må settes eksplisitt til `SameSite=None`+`Secure=Always` i OIDC-options, og enhver egen app-gate (som `StagingGate`) trenger et snevert, hardkodet unntak for nøyaktig denne callback-stien — se `StagingGate.cs`. Gjelder enhver fremtidig OIDC-basert integrasjon med `form_post`, ikke bare BankID-testen.
 - `Microsoft.AspNetCore.Authentication.OpenIdConnect` er IKKE inkludert i `Microsoft.AspNetCore.App`-shared-framework-referansen (i motsetning til Cookie-autentisering, som er det) — gir `CS0234` med mindre pakken legges til eksplisitt (`dotnet add package Microsoft.AspNetCore.Authentication.OpenIdConnect`).
 - `azd deploy` kan rapportere `SUCCESS` uten at koden faktisk endret seg på kjørende App Service — se etter advarselen `"Deployment completed, but azd observed no App Service deployment status change for ...m"` i loggen (lett å overse når man kun sjekker exit code/siste linje). Løsning var ganske enkelt å kjøre `azd deploy` på nytt; lærdommen er å lese hele deploy-loggen ved uventet oppførsel rett etter en "vellykket" deploy, ikke bare stole på siste linje.
+- En `.cshtml`-fil med en tilhørende code-behind-`PageModel` (`X.cshtml` + `X.cshtml.cs`) kobles IKKE automatisk sammen basert på filnavn/mappeplassering alene — `.cshtml`-filen MÅ ha en eksplisitt `@model Fullt.Kvalifisert.NavnPaaModel`-direktiv. Uten den faller Razor Pages tilbake til en implisitt, tom standard-side: siden returnerer stille `200 OK` med TOM body, og `PageModel`-klassens `OnGet(Async)`/`OnPost(Async)` kjører ALDRI — ingen kompilatorfeil, ingen runtime-feil, bare et stille feil resultat som lett tolkes som "gaten fungerte" eller "alt er OK" når det faktisk betyr "koden din kjørte aldri". Skjedde med `Pages/BetalingTest/Vipps.cshtml` (glemte `@model` ved kopiering av `BankIdTest/Start.cshtml`-mønsteret for en side uten synlig markup) — testet ALLTID med et faktisk forventet avvik (f.eks. en gated 404) på en side uten markup, ikke bare en 200/close-enough-status.
+- Mange samtidige `dotnet build`/`dotnet run`/`dotnet watch run`-kall i én lang økt etterlater seg lett flere hengende `TestBase.Web.exe`/`dotnet.exe`-prosesser som fortsatt lytter på 5257/7257 fra TIDLIGERE kodeversjoner — påfølgende `curl`-tester mot "localhost" kan da stille treffe en gammel prosess i stedet for den nye, og gi resultater som ser ut som en reell bug i ny kode. Sjekk alltid `tasklist`/`netstat -ano | grep <port>` og drep alle gamle `TestBase.Web.exe`-prosesser (ikke bare anta at forrige `dotnet run`-kommando i samme Bash-kall faktisk avsluttet) før man stoler på et overraskende testresultat — vurder `dotnet clean` også hvis mistanke om stale `obj`/`bin`-artefakter.
 
 ## Hvordan jobbe videre
 

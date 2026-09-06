@@ -51,6 +51,36 @@ param seedAdminMobilNr string = ''
 @secure()
 param seedAdminEpost string = ''
 
+@description('Vipps ePayment API Client ID — se main.bicep')
+@secure()
+param vippsClientId string = ''
+
+@description('Vipps ePayment API Client Secret — se main.bicep')
+@secure()
+param vippsClientSecret string = ''
+
+@description('Vipps Ocp-Apim-Subscription-Key — se main.bicep')
+@secure()
+param vippsSubscriptionKey string = ''
+
+@description('Vipps Merchant Serial Number — se main.bicep')
+param vippsMerchantSerialNumber string = ''
+
+@description('Hemmelighet for Vipps-webhook-verifisering — se main.bicep')
+@secure()
+param vippsWebhookSecret string = ''
+
+@description('Stripe secret key — se main.bicep')
+@secure()
+param stripeSecretKey string = ''
+
+@description('Stripe publishable key — se main.bicep')
+param stripePublishableKey string = ''
+
+@description('Hemmelighet for Stripe-webhook-verifisering — se main.bicep')
+@secure()
+param stripeWebhookSecret string = ''
+
 // Testmiljø uten ekte pasientdata — passordet genereres deterministisk og lagres kun i Key Vault.
 var mysqlAdministratorPassword = 'Tb${uniqueString(resourceGroup().id, resourceToken)}!26'
 
@@ -273,6 +303,49 @@ resource seedAdminEpostSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   }
 }
 
+// Vipps + Stripe (Apple Pay/Google Pay) — se docs/beslutningslogg.md "Vipps + Stripe
+// (Apple Pay/Google Pay)". Tom verdi (' ') gir en deaktivert integrasjon i Program.cs
+// (string.IsNullOrWhiteSpace-sjekk), samme mønster som de andre hemmelighetene her.
+resource vippsClientSecretSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'VippsClientSecret'
+  properties: {
+    value: empty(vippsClientSecret) ? ' ' : vippsClientSecret
+  }
+}
+
+resource vippsSubscriptionKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'VippsSubscriptionKey'
+  properties: {
+    value: empty(vippsSubscriptionKey) ? ' ' : vippsSubscriptionKey
+  }
+}
+
+resource vippsWebhookSecretSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'VippsWebhookSecret'
+  properties: {
+    value: empty(vippsWebhookSecret) ? ' ' : vippsWebhookSecret
+  }
+}
+
+resource stripeSecretKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'StripeSecretKey'
+  properties: {
+    value: empty(stripeSecretKey) ? ' ' : stripeSecretKey
+  }
+}
+
+resource stripeWebhookSecretSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'StripeWebhookSecret'
+  properties: {
+    value: empty(stripeWebhookSecret) ? ' ' : stripeWebhookSecret
+  }
+}
+
 resource appService 'Microsoft.Web/sites@2023-12-01' = {
   name: appServiceName
   location: location
@@ -354,6 +427,38 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'Seed__AdminEpost'
           value: '@Microsoft.KeyVault(SecretUri=${seedAdminEpostSecret.properties.secretUri})'
+        }
+        {
+          name: 'Vipps__ClientId'
+          value: vippsClientId
+        }
+        {
+          name: 'Vipps__ClientSecret'
+          value: '@Microsoft.KeyVault(SecretUri=${vippsClientSecretSecret.properties.secretUri})'
+        }
+        {
+          name: 'Vipps__SubscriptionKey'
+          value: '@Microsoft.KeyVault(SecretUri=${vippsSubscriptionKeySecret.properties.secretUri})'
+        }
+        {
+          name: 'Vipps__MerchantSerialNumber'
+          value: vippsMerchantSerialNumber
+        }
+        {
+          name: 'Vipps__WebhookSecret'
+          value: '@Microsoft.KeyVault(SecretUri=${vippsWebhookSecretSecret.properties.secretUri})'
+        }
+        {
+          name: 'Stripe__SecretKey'
+          value: '@Microsoft.KeyVault(SecretUri=${stripeSecretKeySecret.properties.secretUri})'
+        }
+        {
+          name: 'Stripe__PublishableKey'
+          value: stripePublishableKey
+        }
+        {
+          name: 'Stripe__WebhookSecret'
+          value: '@Microsoft.KeyVault(SecretUri=${stripeWebhookSecretSecret.properties.secretUri})'
         }
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'

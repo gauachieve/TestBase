@@ -53,6 +53,36 @@ param seedAdminMobilNr string = ''
 @secure()
 param seedAdminEpost string = ''
 
+@description('Vipps ePayment API Client ID — tom verdi gir MockVippsClient. Settes via azd-miljøvariabelen VIPPS_CLIENT_ID (se docs/beslutningslogg.md "Vipps + Stripe (Apple Pay/Google Pay)").')
+@secure()
+param vippsClientId string = ''
+
+@description('Vipps ePayment API Client Secret — settes via azd-miljøvariabelen VIPPS_CLIENT_SECRET, ALDRI som literal her.')
+@secure()
+param vippsClientSecret string = ''
+
+@description('Vipps Ocp-Apim-Subscription-Key — settes via azd-miljøvariabelen VIPPS_SUBSCRIPTION_KEY, ALDRI som literal her.')
+@secure()
+param vippsSubscriptionKey string = ''
+
+@description('Vipps Merchant Serial Number (MSN) — ikke hemmelig, men settes via azd-miljøvariabel for konsistens.')
+param vippsMerchantSerialNumber string = ''
+
+@description('Hemmelighet for å verifisere Vipps sine webhook-forespørsler (fra webhook-registreringen, se Security/PaymentWebhooks.cs) — settes via azd-miljøvariabelen VIPPS_WEBHOOK_SECRET, ALDRI som literal her.')
+@secure()
+param vippsWebhookSecret string = ''
+
+@description('Stripe secret key (kort/Apple Pay/Google Pay) — tom verdi gir MockStripeClient. Settes via azd-miljøvariabelen STRIPE_SECRET_KEY, ALDRI som literal her.')
+@secure()
+param stripeSecretKey string = ''
+
+@description('Stripe publishable key — ikke hemmelig (brukes i nettleseren), men settes via azd-miljøvariabel for konsistens.')
+param stripePublishableKey string = ''
+
+@description('Hemmelighet for å verifisere Stripe sine webhook-forespørsler (fra Stripe Dashboard) — settes via azd-miljøvariabelen STRIPE_WEBHOOK_SECRET, ALDRI som literal her.')
+@secure()
+param stripeWebhookSecret string = ''
+
 var resourceToken = uniqueString(subscription().id, environmentName, location)
 var tags = {
   'azd-env-name': environmentName
@@ -83,6 +113,14 @@ module resources 'resources.bicep' = {
     seedAdminNavn: seedAdminNavn
     seedAdminMobilNr: seedAdminMobilNr
     seedAdminEpost: seedAdminEpost
+    vippsClientId: vippsClientId
+    vippsClientSecret: vippsClientSecret
+    vippsSubscriptionKey: vippsSubscriptionKey
+    vippsMerchantSerialNumber: vippsMerchantSerialNumber
+    vippsWebhookSecret: vippsWebhookSecret
+    stripeSecretKey: stripeSecretKey
+    stripePublishableKey: stripePublishableKey
+    stripeWebhookSecret: stripeWebhookSecret
   }
 }
 
