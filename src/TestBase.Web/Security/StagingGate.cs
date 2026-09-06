@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.DataProtection;
 
 namespace TestBase.Web.Security;
@@ -53,11 +54,28 @@ public static class StagingGate
         var beskytter = app.Services.GetRequiredService<IDataProtectionProvider>()
             .CreateProtector("TestBase.StagingGate.v1");
 
+        // Midlertidig HTTP Basic Auth-vei i TILLEGG til nøkkel-skjemaet under — kun for
+        // automatiserte tredjeparts nettsted-verifiseringer (f.eks. Vipps sin
+        // merchant-registrering "Verifiser nettstedet", som ber om brukernavn+passord,
+        // ikke vårt egendefinerte nøkkelfelt). Aktiveres KUN når BEGGE
+        // StagingGate:BasicAuthUsername/BasicAuthPassword er satt — fravær = av, samme
+        // mønster som resten av StagingGate. Fjern konfigurasjonen igjen når
+        // verifiseringen er fullført (se docs/beslutningslogg.md) — mens den er aktiv,
+        // ser ALLE besøkende uten cookie en nettleser-native Basic Auth-dialog i
+        // stedet for vår egen HTML-side, fordi WWW-Authenticate-headeren trigger det
+        // uansett innhold i responsen.
+        var basicAuthBrukernavn = app.Configuration["StagingGate:BasicAuthUsername"];
+        var basicAuthPassord = app.Configuration["StagingGate:BasicAuthPassword"];
+        // IsNullOrWhiteSpace, ikke IsNullOrEmpty: Key Vault-plassholderen for "ikke satt"
+        // er ett mellomrom (" "), ikke tom streng — se mønsteret i infra/resources.bicep.
+        var basicAuthAktiv = !string.IsNullOrWhiteSpace(basicAuthBrukernavn) && !string.IsNullOrWhiteSpace(basicAuthPassord);
+
         app.Use(async (context, next) =>
         {
             if (context.Request.Path.StartsWithSegments(BankIdCallbackSti) ||
                 BetalingsWebhookStier.Any(sti => context.Request.Path.StartsWithSegments(sti)) ||
-                HarGyldigCookie(context, beskytter))
+                HarGyldigCookie(context, beskytter) ||
+                (basicAuthAktiv && HarGyldigBasicAuth(context, basicAuthBrukernavn!, basicAuthPassord!)))
             {
                 await next();
                 return;
@@ -79,6 +97,10 @@ public static class StagingGate
             }
 
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            if (basicAuthAktiv)
+            {
+                context.Response.Headers.WWWAuthenticate = "Basic realm=\"TestBase\"";
+            }
             context.Response.ContentType = "text/html; charset=utf-8";
             await context.Response.WriteAsync($$"""
                 <!doctype html>
@@ -93,6 +115,35 @@ public static class StagingGate
                 </body></html>
                 """);
         });
+    }
+
+    private static bool HarGyldigBasicAuth(HttpContext context, string brukernavn, string passord)
+    {
+        var header = context.Request.Headers.Authorization.ToString();
+        if (!header.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        try
+        {
+            var dekodet = Encoding.UTF8.GetString(Convert.FromBase64String(header["Basic ".Length..]));
+            var delt = dekodet.Split(':', 2);
+            if (delt.Length != 2)
+            {
+                return false;
+            }
+
+            var brukernavnOk = CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(delt[0]), Encoding.UTF8.GetBytes(brukernavn));
+            var passordOk = CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(delt[1]), Encoding.UTF8.GetBytes(passord));
+            return brukernavnOk && passordOk;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 
     private static bool HarGyldigCookie(HttpContext context, IDataProtector beskytter)

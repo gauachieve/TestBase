@@ -81,6 +81,14 @@ param stripePublishableKey string = ''
 @secure()
 param stripeWebhookSecret string = ''
 
+@description('Midlertidig HTTP Basic Auth-brukernavn for StagingGate — se main.bicep')
+@secure()
+param stagingGateBasicAuthUsername string = ''
+
+@description('Midlertidig HTTP Basic Auth-passord for StagingGate — se main.bicep')
+@secure()
+param stagingGateBasicAuthPassword string = ''
+
 // Testmiljø uten ekte pasientdata — passordet genereres deterministisk og lagres kun i Key Vault.
 var mysqlAdministratorPassword = 'Tb${uniqueString(resourceGroup().id, resourceToken)}!26'
 
@@ -346,6 +354,24 @@ resource stripeWebhookSecretSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01
   }
 }
 
+// Midlertidig — kun for tredjeparts nettsted-verifisering (Vipps merchant-registrering),
+// se main.bicep og docs/beslutningslogg.md. Fjern verdien igjen når verifiseringen er ferdig.
+resource stagingGateBasicAuthUsernameSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'StagingGateBasicAuthUsername'
+  properties: {
+    value: empty(stagingGateBasicAuthUsername) ? ' ' : stagingGateBasicAuthUsername
+  }
+}
+
+resource stagingGateBasicAuthPasswordSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'StagingGateBasicAuthPassword'
+  properties: {
+    value: empty(stagingGateBasicAuthPassword) ? ' ' : stagingGateBasicAuthPassword
+  }
+}
+
 resource appService 'Microsoft.Web/sites@2023-12-01' = {
   name: appServiceName
   location: location
@@ -459,6 +485,14 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'Stripe__WebhookSecret'
           value: '@Microsoft.KeyVault(SecretUri=${stripeWebhookSecretSecret.properties.secretUri})'
+        }
+        {
+          name: 'StagingGate__BasicAuthUsername'
+          value: '@Microsoft.KeyVault(SecretUri=${stagingGateBasicAuthUsernameSecret.properties.secretUri})'
+        }
+        {
+          name: 'StagingGate__BasicAuthPassword'
+          value: '@Microsoft.KeyVault(SecretUri=${stagingGateBasicAuthPasswordSecret.properties.secretUri})'
         }
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'

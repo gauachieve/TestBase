@@ -1347,8 +1347,42 @@ fremstår som automatisert) — det siste "bekreft betaling"-steget ble derfor f
 manuelt av bruker i egen nettleser i stedet, noe som er forventet og riktig oppførsel
 fra Stripe sin side, ikke en feil i integrasjonen.
 
+### Midlertidig HTTP Basic Auth i StagingGate (2026-09-06)
+
+Vipps sin merchant-registrering (som bruker gikk for i stedet for partner-programmet,
+se "Vipps + Stripe" — riktig valg for en enkeltpraksis som skal ta betalt for egne
+tjenester, ikke bygge integrasjoner for andre) har et "Verifiser nettstedet"-steg som
+krever standard HTTP Basic Auth (eget brukernavn+passord-skjema i søknaden) for
+passordbeskyttede nettsteder. `StagingGate` sitt egendefinerte
+ett-felts-nøkkelskjema er ikke noe en automatisert tredjeparts nettsted-verifiserer
+kan fylle ut.
+
+Løsning: en midlertidig, EKSTRA aksepteringsvei i `StagingGate.cs` — ekte HTTP Basic
+Auth, aktivert KUN når `StagingGate:BasicAuthUsername`/`BasicAuthPassword` begge er
+satt (samme "fravær = av"-mønster som resten av StagingGate/leverandørene). Når
+aktiv, sendes `WWW-Authenticate: Basic`-header på 401-responsen — dette gjør at ALLE
+besøkende uten gyldig cookie ser nettleserens NATIVE Basic Auth-dialog i stedet for
+vår egen HTML-nøkkelside, siden nettlesere reagerer på selve headeren uansett
+responsinnhold. Bevisst akseptert som en midlertidig kosmetisk endring, ikke noe å
+la stå permanent — fjern `StagingGate:BasicAuthUsername`/`BasicAuthPassword`
+(`azd env set` til tomme verdier + `azd provision`) så snart Vipps sin
+nettsted-verifisering er bestått, for å gå tilbake til kun nøkkelskjemaet.
+
+**Reell feil unngått under implementasjon:** skrev først `IsNullOrEmpty` for å sjekke
+om Basic Auth-konfigurasjonen var satt — ville vært feil, siden Key Vault sin
+plassholderverdi for "ikke satt" er ETT MELLOMROM (`' '`), ikke tom streng (se
+`empty(x) ? ' ' : x`-mønsteret i `infra/resources.bicep`, brukt for ALLE hemmeligheter
+her). `IsNullOrEmpty(" ")` er `false` — ville gjort Basic Auth "aktiv" i Azure selv
+når ingen verdi faktisk var satt, og dermed slått av hele nøkkelskjema-sperren
+utilsiktet. Rettet til `IsNullOrWhiteSpace` (samme fallgruve som alle andre
+`empty(x) ? ' ' : x`-konfigurerte verdier i dette prosjektet må sjekkes med).
+
 ## Åpne punkter til senere faser
 
+- Fjern `StagingGate:BasicAuthUsername`/`BasicAuthPassword` igjen (se "Midlertidig
+  HTTP Basic Auth i StagingGate") så snart Vipps sin merchant-registrering har bestått
+  "Verifiser nettstedet" — ikke la den midlertidige native Basic Auth-dialogen stå
+  permanent i stedet for nøkkelskjemaet.
 - CI/CD-pipeline for `azd deploy` (i dag kjøres `azd up`/`azd deploy` manuelt fra lokal maskin) —
   naturlig neste steg for sky-deploy-delen av Del 1, se "Sky-deploy til Azure (azd)".
 - Regionvalg for reell produksjon: bekreft Norway East/West-kapasitet på nytt (eller revurder

@@ -83,6 +83,14 @@ param stripePublishableKey string = ''
 @secure()
 param stripeWebhookSecret string = ''
 
+@description('Midlertidig HTTP Basic Auth-brukernavn for StagingGate, kun til automatiserte tredjeparts nettsted-verifiseringer (f.eks. Vipps sin merchant-registrering) — tom verdi deaktiverer det. Settes via azd-miljøvariabelen STAGING_GATE_BASIC_AUTH_USERNAME, fjernes igjen når verifiseringen er fullført (se docs/beslutningslogg.md).')
+@secure()
+param stagingGateBasicAuthUsername string = ''
+
+@description('Midlertidig HTTP Basic Auth-passord for StagingGate — settes via azd-miljøvariabelen STAGING_GATE_BASIC_AUTH_PASSWORD, ALDRI som literal her.')
+@secure()
+param stagingGateBasicAuthPassword string = ''
+
 var resourceToken = uniqueString(subscription().id, environmentName, location)
 var tags = {
   'azd-env-name': environmentName
@@ -121,6 +129,8 @@ module resources 'resources.bicep' = {
     stripeSecretKey: stripeSecretKey
     stripePublishableKey: stripePublishableKey
     stripeWebhookSecret: stripeWebhookSecret
+    stagingGateBasicAuthUsername: stagingGateBasicAuthUsername
+    stagingGateBasicAuthPassword: stagingGateBasicAuthPassword
   }
 }
 

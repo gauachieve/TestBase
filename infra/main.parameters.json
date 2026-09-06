@@ -64,6 +64,12 @@
     },
     "stripeWebhookSecret": {
       "value": "${STRIPE_WEBHOOK_SECRET}"
+    },
+    "stagingGateBasicAuthUsername": {
+      "value": "${STAGING_GATE_BASIC_AUTH_USERNAME}"
+    },
+    "stagingGateBasicAuthPassword": {
+      "value": "${STAGING_GATE_BASIC_AUTH_PASSWORD}"
     }
   }
 }
