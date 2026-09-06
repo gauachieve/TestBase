@@ -36,7 +36,8 @@ public sealed class StripeModel : PageModel
             return NotFound();
         }
 
-        var resultat = await _stripe.OpprettBetalingsintensjonAsync(1m, "Diagnostisk testbetaling (PsyTest)", cancellationToken);
+        // Stripe har en minimumsgrense på 3 kr for NOK-transaksjoner.
+        var resultat = await _stripe.OpprettBetalingsintensjonAsync(5m, "Diagnostisk testbetaling (PsyTest)", cancellationToken);
         if (!resultat.Success || resultat.ClientSecret is null)
         {
             Feil = resultat.ErrorMessage ?? "Ukjent feil";

@@ -1335,6 +1335,18 @@ Razor Pages faller tilbake til en tom standard-side når en `.cshtml`-fil mangle
 mappe basert på filnavn alene. Rettet ved å legge til
 `@model TestBase.Web.Pages.BetalingTest.VippsModel`. Se også ny fallgruve i CLAUDE.md.
 
+**Stripe verifisert ende-til-ende 2026-09-06** med brukerens egen, gratis, selvbetjente
+Stripe-sandkasse: `/BetalingTest/Stripe` opprettet en ekte `PaymentIntent` (avdekket
+underveis at Stripe har en minimumsgrense på kr 3,00 for NOK — den opprinnelige
+diagnostiske summen på 1 kr ble avvist med en ekte, presis feilmelding fra Stripe sin
+API, rettet til 5 kr), viste Payment Element med ekte testkort (`4242 4242 4242 4242`),
+og fullførte betalingen — landet på `/BetalingTest/StripeResultat` med status "Betalt".
+Automatisert gjennomklikking via Playwright ble stoppet av Stripe sin egen
+bot-/svindeldeteksjon (en hCaptcha-utfordring, sannsynligvis fordi Playwright-trafikk
+fremstår som automatisert) — det siste "bekreft betaling"-steget ble derfor fullført
+manuelt av bruker i egen nettleser i stedet, noe som er forventet og riktig oppførsel
+fra Stripe sin side, ikke en feil i integrasjonen.
+
 ## Åpne punkter til senere faser
 
 - CI/CD-pipeline for `azd deploy` (i dag kjøres `azd up`/`azd deploy` manuelt fra lokal maskin) —
