@@ -43,7 +43,7 @@ public sealed class TesterModel : PageModel
 
         PartnerId = partner.Id;
         PartnerNavn = partner.Navn;
-        KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken);
+        KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken: cancellationToken);
         TilgjengeligeTestIder = (await _db.PartnerTestTilganger.Where(t => t.PartnerId == id).Select(t => t.TestId).ToListAsync(cancellationToken)).ToHashSet();
         return Page();
     }

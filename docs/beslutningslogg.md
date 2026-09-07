@@ -1474,6 +1474,40 @@ fortsatt går rett gjennom uten noen betalingssperre eller ledger-rader) — 14/
 grønt. Manuelt via Playwright: opprettet en ekte partner og satt WHO-5-prising
 gjennom Superadmin-kontoen, bekreftet i databasen.
 
+### Håndhevet partnerens test-allow-list ved tildeling (2026-09-07)
+
+Full manuell ende-til-ende-verifisering av hele "Partner System + Test
+Monetization" (Superadmin setter prising → oppretter partner → inviterer
+behandler → kobler behandler til partner + gjør partner-admin → partner-admin
+setter egen andel → behandler legger til pasient → tildeler med honorar →
+pasient betaler ekte Stripe-testkort → fullfører testen → Superadmin sin
+`/Admin/Okonomi` viser riktige tall) fungerte perfekt og bekreftet hele
+regnestykket (50 kr plattform + 30 kr partner + 100 kr honorar = 180 kr totalt,
+"Inntekt fra salg" 50 kr, "Utgift til salg" 130 kr — alt stemte eksakt).
+
+Underveis ble ett reelt hull avdekket: `PartnerTestTilgang` (allow-listen,
+se forrige seksjon) var kun håndhevet i Superadmin/partner-admin sin
+KONFIGURASJON av allow-listen, ikke faktisk i selve tildelingsflyten — en
+partner-tilknyttet behandler så og kunne tildele ALLE aktive tester, ikke
+bare de på partnerens liste. Usynlig i den manuelle testen siden WHO-5 var
+eneste test i systemet. Rettet i to lag (samme "gate ved bruk, ikke bare i
+viewet"-prinsipp som CLAUDE.md sine kjente fallgruver allerede advarer om):
+
+1. `TestService.HentKategoriTreAsync` fikk en ny valgfri `partnerId`-parameter
+   — når satt, filtreres tre-visningen (steg 2 i tildelingsflyten) til KUN
+   partnerens tillatte tester. `null` (admin, uavhengig behandler, ELLER
+   Superadmin sin egen allow-list-konfigurasjonsside som nettopp trenger ALLE
+   tester å velge blant) → ingen filtrering, uendret oppførsel.
+2. `TestTildelingsService.TildelOgVarsleAsync` filtrerer nå SELV `testIder`
+   ned til partnerens allow-list FØR noe opprettes, uavhengig av hva som ble
+   sendt inn — en rå POST med en test utenfor allow-listen oppretter rett og
+   slett ingen tildeling for den testen, i stedet for å stole på at UI-listen
+   alene hindrer det.
+
+Ny enhetstest (`PartnerbehandlerKanIkkeTildeleTestUtenforAllowList` i
+`BetalingPipelineTests.cs`) dekker begge lagene mot en ekte database — 15/15
+grønt totalt.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt

@@ -161,18 +161,38 @@ public sealed class TestService
 
     public sealed record KategoriMedTester(TestKategori Kategori, IReadOnlyList<Test> Tester);
 
-    /// <summary>Alle standardkategorier (alfabetisk) med sine aktive tester, til tildelingsflytens tre-visning.</summary>
-    public async Task<IReadOnlyList<KategoriMedTester>> HentKategoriTreAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Alle standardkategorier (alfabetisk) med sine aktive tester, til
+    /// tildelingsflytens tre-visning. <paramref name="partnerId"/> null (admin,
+    /// uavhengig behandler, eller Superadmin sin allow-list-konfigurasjon som
+    /// nettopp trenger ALLE tester å velge blant) → ingen filtrering. Satt
+    /// (en partner-tilknyttet behandler skal tildele) → viser KUN tester på
+    /// partnerens PartnerTestTilgang-allow-list, se
+    /// docs/beslutningslogg.md "Partner System + Test Monetization".
+    /// </summary>
+    public async Task<IReadOnlyList<KategoriMedTester>> HentKategoriTreAsync(
+        long? partnerId = null, CancellationToken cancellationToken = default)
     {
         var kategorier = await _db.TestKategorier.OrderBy(k => k.Navn).ToListAsync(cancellationToken);
         var koblinger = await _db.TestKategoriKoblinger.ToListAsync(cancellationToken);
         var aktiveTester = await _db.Tester.Where(t => t.ErAktiv).ToDictionaryAsync(t => t.Id, cancellationToken);
 
+        HashSet<long>? tillatteTestIder = null;
+        if (partnerId is not null)
+        {
+            tillatteTestIder = (await _db.PartnerTestTilganger
+                .Where(t => t.PartnerId == partnerId.Value)
+                .Select(t => t.TestId)
+                .ToListAsync(cancellationToken)).ToHashSet();
+        }
+
         return kategorier.Select(k =>
         {
             var testIder = koblinger.Where(kob => kob.TestKategoriId == k.Id).Select(kob => kob.TestId);
             var tester = testIder.Select(id => aktiveTester.GetValueOrDefault(id)).Where(t => t is not null)
-                .Select(t => t!).OrderBy(t => t.Navn).ToList();
+                .Select(t => t!)
+                .Where(t => tillatteTestIder is null || tillatteTestIder.Contains(t.Id))
+                .OrderBy(t => t.Navn).ToList();
             return new KategoriMedTester(k, tester);
         }).ToList();
     }

@@ -91,12 +91,26 @@ public sealed class TestTildelingsService
         CancellationToken cancellationToken = default)
     {
         var pasienter = await _db.Pasienter.Where(p => pasientIder.Contains(p.Id)).ToListAsync(cancellationToken);
-        var tester = await _db.Tester.Where(t => testIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, cancellationToken);
 
-        var prisPerTestId = await BeregnPrisPerTestAsync(behandlerId, tester, onsketHonorarKrPerTestId, cancellationToken);
         var behandlerPartnerId = behandlerId is null
             ? null
             : (await _db.Behandlere.Where(b => b.Id == behandlerId).Select(b => b.PartnerId).FirstOrDefaultAsync(cancellationToken));
+
+        // Håndhever partnerens test-allow-list HER også, ikke bare i tre-visningen
+        // (HentKategoriTreAsync) — en rå POST med en testId utenfor
+        // PartnerTestTilgang skal ikke kunne opprette en tildeling for den, se
+        // kjent fallgruve i CLAUDE.md om å kun gate i viewet.
+        if (behandlerPartnerId is not null)
+        {
+            var tillatteTestIder = await _db.PartnerTestTilganger
+                .Where(t => t.PartnerId == behandlerPartnerId.Value)
+                .Select(t => t.TestId)
+                .ToListAsync(cancellationToken);
+            testIder = testIder.Where(tillatteTestIder.Contains).ToList();
+        }
+
+        var tester = await _db.Tester.Where(t => testIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, cancellationToken);
+        var prisPerTestId = await BeregnPrisPerTestAsync(behandlerId, tester, onsketHonorarKrPerTestId, cancellationToken);
 
         var perPasient = new List<TildeltPasientResultat>();
         foreach (var pasient in pasienter)

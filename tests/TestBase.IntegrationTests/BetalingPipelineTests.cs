@@ -127,6 +127,81 @@ public sealed class BetalingPipelineTests
     }
 
     [Fact]
+    public async Task PartnerbehandlerKanIkkeTildeleTestUtenforAllowList()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var testService = scope.ServiceProvider.GetRequiredService<TestService>();
+        var tildelingsService = scope.ServiceProvider.GetRequiredService<TestTildelingsService>();
+
+        var partner = new Partner { Navn = "Allow-list-partner AS", OpprettetAvAdministratorId = 1, OpprettetUtc = DateTimeOffset.UtcNow };
+        db.Partnere.Add(partner);
+        await db.SaveChangesAsync();
+
+        var behandler = new Behandler
+        {
+            MobilNr = "+4790000003",
+            Email = "allowlist-test@example.test",
+            Fornavn = "Allowlist",
+            Etternavn = "Testbehandler",
+            Status = BehandlerStatus.Aktiv,
+            PartnerId = partner.Id,
+            OpprettetUtc = DateTimeOffset.UtcNow
+        };
+        db.Behandlere.Add(behandler);
+        await db.SaveChangesAsync();
+
+        // To tester — partneren får KUN tilgang til den ene.
+        var tillattTest = await testService.OpprettTestAsync("Tillatt test", null, null, kode: null);
+        var ikkeTillattTest = await testService.OpprettTestAsync("Ikke tillatt test", null, null, kode: null);
+        db.PartnerTestTilganger.Add(new PartnerTestTilgang
+        {
+            PartnerId = partner.Id, TestId = tillattTest.Id, GittAvAdministratorId = 1, OpprettetUtc = DateTimeOffset.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var pasient = new Pasient
+        {
+            Personnummer = "01019077777",
+            MobilNr = "+4792000001",
+            Email = "allowlist-pasient@example.test",
+            Navn = "Allowlist Pasient",
+            BehandlerId = behandler.Id,
+            Status = PasientStatus.Aktiv,
+            OpprettetUtc = DateTimeOffset.UtcNow
+        };
+        db.Pasienter.Add(pasient);
+        await db.SaveChangesAsync();
+
+        // Prøver å tildele BEGGE tester i én batch — akkurat som en rå POST som
+        // omgår tre-visningens filtrering ville sett ut, se
+        // TestTildelingsService.TildelOgVarsleAsync.
+        var resultat = await tildelingsService.TildelOgVarsleAsync(
+            new[] { pasient.Id }, new[] { tillattTest.Id, ikkeTillattTest.Id }, behandlerId: behandler.Id, administratorId: null,
+            onsketHonorarKrPerTestId: new Dictionary<long, decimal?>(),
+            baseUrl: "https://localhost", CancellationToken.None);
+
+        // Kun den tillatte testen skal faktisk ha blitt tildelt.
+        var lenker = resultat.PerPasient.Single().Lenker;
+        Assert.Single(lenker);
+        Assert.Equal("Tillatt test", lenker[0].TestNavn);
+
+        var tildelinger = await db.TestTildelinger.Where(t => t.PasientId == pasient.Id).ToListAsync();
+        Assert.Single(tildelinger);
+        Assert.Equal(tillattTest.Id, tildelinger[0].TestId);
+
+        // Kategori-tre-visningen (steg 2 i tildelingsflyten) skal heller aldri
+        // vise den ikke-tillatte testen til denne partnerens behandlere.
+        await testService.SikreStandardkategorierAsync();
+        await testService.KoblTestTilKategoriAsync(tillattTest.Id, "Kjerne");
+        await testService.KoblTestTilKategoriAsync(ikkeTillattTest.Id, "Kjerne");
+        var kategoriTre = await testService.HentKategoriTreAsync(partnerId: partner.Id);
+        var synligeTestNavn = kategoriTre.SelectMany(k => k.Tester).Select(t => t.Navn).ToList();
+        Assert.Contains("Tillatt test", synligeTestNavn);
+        Assert.DoesNotContain("Ikke tillatt test", synligeTestNavn);
+    }
+
+    [Fact]
     public async Task TildelUtenPrising_ErIkkePakrevdOgSkaperIngenLedger()
     {
         using var scope = _factory.Services.CreateScope();

@@ -42,13 +42,13 @@ public sealed class TesterModel : PageModel
 
         PasientIderCsv = csv;
         await LastValgtePasienterAsync(csv, cancellationToken);
-        KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken);
+        KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken: cancellationToken);
     }
 
     public async Task<IActionResult> OnPostSendAsync(CancellationToken cancellationToken)
     {
         await LastValgtePasienterAsync(PasientIderCsv, cancellationToken);
-        KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken);
+        KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken: cancellationToken);
 
         if (!ValgtePasienter.Any())
         {

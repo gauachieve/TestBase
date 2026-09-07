@@ -58,7 +58,7 @@ public sealed class TesterModel : PageModel
 
         PasientIderCsv = csv;
         await LastValgtePasienterAsync(csv, cancellationToken);
-        KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken);
+        KategoriTre = await _testService.HentKategoriTreAsync(_currentUser.PartnerId, cancellationToken);
 
         var behandlerId = HentBehandlerId();
         var sisteHonorar = new Dictionary<long, decimal>();
@@ -72,7 +72,7 @@ public sealed class TesterModel : PageModel
     public async Task<IActionResult> OnPostSendAsync(CancellationToken cancellationToken)
     {
         await LastValgtePasienterAsync(PasientIderCsv, cancellationToken);
-        KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken);
+        KategoriTre = await _testService.HentKategoriTreAsync(_currentUser.PartnerId, cancellationToken);
 
         if (!ValgtePasienter.Any())
         {
