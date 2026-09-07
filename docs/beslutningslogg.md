@@ -1508,6 +1508,29 @@ Ny enhetstest (`PartnerbehandlerKanIkkeTildeleTestUtenforAllowList` i
 `BetalingPipelineTests.cs`) dekker begge lagene mot en ekte database — 15/15
 grønt totalt.
 
+### Automatisk EF-migrasjon ved oppstart — eneste vei til psytest.no sin database (2026-09-07)
+
+Etter forrige rettings-commit skulle den nye migrasjonen
+(`20260906235354_PartnerSystemOgTestPrising`) også ut til test-App Service.
+Da ble et reelt, hittil udokumentert hull avdekket: Azure MySQL Flexible
+Server sin brannmur har KUN regelen `AllowAzureServices` (0.0.0.0–0.0.0.0) —
+ingen regel slipper til utviklerens lokale maskin, så `dotnet ef database
+update` kan ikke kjøres direkte mot den. `Program.cs` hadde heller ingen
+`Database.MigrateAsync()`-vei, og ingenting i denne loggen forklarer hvordan
+tidligere migrasjoner faktisk kom seg til Azure — antagelig manuelt/ad-hoc.
+
+Løst permanent: `Database.MigrateAsync()` kjøres nå automatisk helt først i
+dev-seed-blokken i `Program.cs` (`if (app.Environment.IsDevelopment())`).
+Dette dekker Azure test-App Service også, siden den (se samme blokks
+eksisterende kommentar om superadmin-seeden) bevisst fortsatt kjører i
+Development-modus. Trygt fordi: (1) miljøet har uansett kun syntetisk
+testdata, jf. "ingen ekte pasientdata i dev/test noensinne", (2)
+`MigrateAsync` er idempotent — ingenting skjer på oppstarter uten ventende
+migrasjoner. Dette må revurderes den dagen appen kjører i ekte
+Production-modus mot en database med reelle pasientdata — automatisk migrasjon
+ved hver oppstart er en rimelig avveining for et testmiljø, ikke noe som bør
+videreføres ukritisk til en reell driftssetting.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt

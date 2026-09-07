@@ -328,6 +328,15 @@ if (app.Environment.IsDevelopment())
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
+    // Kjør ventende EF Core-migrasjoner automatisk ved oppstart. Nødvendig fordi
+    // Azure test-App Service sin MySQL Flexible Server-brannmur kun har
+    // "AllowAzureServices" (ingen regel for utviklerens lokale maskin) — det
+    // finnes ingen annen etablert vei for å få nye migrasjoner til psytest.no.
+    // Trygt her: kun syntetisk testdata i dette miljøet (jf. "ingen ekte
+    // pasientdata i dev/test noensinne"), og MigrateAsync er idempotent —
+    // ingenting skjer på oppstarter uten ventende migrasjoner.
+    await db.Database.MigrateAsync();
+
     if (!await db.Administratorer.AnyAsync())
     {
         var authService = scope.ServiceProvider.GetRequiredService<AdminAuthenticationService>();
