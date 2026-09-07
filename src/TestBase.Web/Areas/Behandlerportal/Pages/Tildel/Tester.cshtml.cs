@@ -37,9 +37,15 @@ public sealed class TesterModel : PageModel
     /// Behandlerens eget honorar per test (kun relevant for tester med prising
     /// konfigurert, se docs/beslutningslogg.md "Partner System + Test
     /// Monetization") — tom/manglende verdi faller tilbake til
-    /// Test.TypiskBehandlerHonorarKr i TestPrisberegner.
+    /// Test.TypiskBehandlerHonorarKr i TestPrisberegner. IKKE [BindProperty]:
+    /// et Dictionary&lt;long,...&gt; som MVC ikke finner noen "HonorarKr[...]"-
+    /// felter for (f.eks. hvis ingen av testene i batchen har prising
+    /// konfigurert) faller tilbake til å tolke ALLE andre skjemafelt-NAVN
+    /// (som "PasientIderCsv") som dictionary-nøkler og kaster
+    /// FormatException når disse ikke er tall — se
+    /// docs/beslutningslogg.md. Leses derfor manuelt fra Request.Form i
+    /// stedet, se LesHonorarFraSkjema().
     /// </summary>
-    [BindProperty]
     public Dictionary<long, decimal?> HonorarKr { get; set; } = new();
 
     public IReadOnlyList<TestService.KategoriMedTester> KategoriTre { get; private set; } = Array.Empty<TestService.KategoriMedTester>();
@@ -71,6 +77,7 @@ public sealed class TesterModel : PageModel
 
     public async Task<IActionResult> OnPostSendAsync(CancellationToken cancellationToken)
     {
+        HonorarKr = LesHonorarFraSkjema();
         await LastValgtePasienterAsync(PasientIderCsv, cancellationToken);
         KategoriTre = await _testService.HentKategoriTreAsync(_currentUser.PartnerId, cancellationToken);
 
@@ -116,4 +123,29 @@ public sealed class TesterModel : PageModel
 
     private long HentBehandlerId() =>
         long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var id) ? id : 0;
+
+    private Dictionary<long, decimal?> LesHonorarFraSkjema()
+    {
+        var resultat = new Dictionary<long, decimal?>();
+        foreach (var key in Request.Form.Keys)
+        {
+            if (!key.StartsWith("HonorarKr[", StringComparison.Ordinal) || !key.EndsWith(']'))
+            {
+                continue;
+            }
+
+            var idDel = key[10..^1];
+            if (!long.TryParse(idDel, out var testId))
+            {
+                continue;
+            }
+
+            var raw = Request.Form[key].ToString();
+            resultat[testId] = decimal.TryParse(raw, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var verdi)
+                ? verdi
+                : null;
+        }
+
+        return resultat;
+    }
 }

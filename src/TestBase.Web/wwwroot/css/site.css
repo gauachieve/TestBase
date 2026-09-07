@@ -953,3 +953,10 @@ dialog#oppsummeringDialog::backdrop { background: rgba(22, 24, 31, 0.5); }
   .cookie-banner { left: 0.5rem; right: 0.5rem; bottom: 0.5rem; flex-direction: column; align-items: stretch; }
   .cookie-banner .btn { width: 100%; }
 }
+
+/* Rammer manglende/ugyldige obligatoriske felt i rødt etter et forsøkt
+   skjema-innsending — se wwwroot/js/validering.js. */
+form.skjema-forsokt-sendt :invalid {
+  border: 2px solid #c0392b;
+  background: #fdecea;
+}

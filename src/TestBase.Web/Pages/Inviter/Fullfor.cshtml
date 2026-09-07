@@ -18,19 +18,19 @@ else
     }
 
     <form method="post">
-        <div><label>Fornavn</label><br /><input asp-for="Fornavn" /></div>
-        <div><label>Etternavn</label><br /><input asp-for="Etternavn" /></div>
-        <div><label>Personnummer</label><br /><input asp-for="Personnummer" /></div>
-        <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
-        <div><label>E-post</label><br /><input asp-for="Epost" /></div>
-        <div><label>HPR-nummer</label><br /><input asp-for="HprNr" /></div>
-        <div><label>Kontonummer (for godtgjørelse)</label><br /><input asp-for="Kontonummer" /></div>
+        <div><label>Fornavn</label><br /><input asp-for="Fornavn" required /></div>
+        <div><label>Etternavn</label><br /><input asp-for="Etternavn" required /></div>
+        <div><label>Personnummer</label><br /><input asp-for="Personnummer" required /></div>
+        <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" required /></div>
+        <div><label>E-post</label><br /><input asp-for="Epost" type="email" required /></div>
+        <div><label>HPR-nummer</label><br /><input asp-for="HprNr" required /></div>
+        <div><label>Kontonummer (for godtgjørelse)</label><br /><input asp-for="Kontonummer" required /></div>
         <div><label>Arbeidsadresse (valgfritt)</label><br /><input asp-for="Arbeidsadresse" /></div>
         <div><label>Tittel (valgfritt)</label><br /><input asp-for="Tittel" /></div>
 
         <h2>Brukeravtale</h2>
         <pre style="white-space: pre-wrap; border: 1px solid #ccc; padding: 1rem; max-height: 300px; overflow-y: auto;">@Model.AvtaleTekst</pre>
-        <label><input asp-for="GodtarAvtale" type="checkbox" /> Jeg har lest og godtar brukeravtalen</label>
+        <label><input asp-for="GodtarAvtale" type="checkbox" required /> Jeg har lest og godtar brukeravtalen</label>
 
         <!-- Bot-vern: skjult for mennesker, men botter fyller ofte ut alt -->
         <div style="position: absolute; left: -9999px;" aria-hidden="true">

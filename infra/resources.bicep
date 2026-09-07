@@ -495,6 +495,15 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           value: '@Microsoft.KeyVault(SecretUri=${stagingGateBasicAuthPasswordSecret.properties.secretUri})'
         }
         {
+          // Brukes til å bygge lenker i SMS/e-post fra bakgrunnstjenester som ikke
+          // har en HttpContext å lese vertsnavnet fra (se
+          // DagligPaaminnelseBakgrunnstjeneste.cs) — uten denne falt lenkene
+          // tilbake til den hardkodede lokale utviklings-URL-en, se
+          // docs/beslutningslogg.md.
+          name: 'Varsling__BaseUrl'
+          value: 'https://www.psytest.no'
+        }
+        {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
           value: '1'
         }

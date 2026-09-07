@@ -1558,6 +1558,98 @@ Rettet:
 Verifisert lokalt: bygget grønt, 15/15 tester grønt, og manuelt i nettleser
 (Playwright) — nav-knappene og lenken vises og fungerer som forventet.
 
+### Bug-runde etter brukerens andre manuelle gjennomgang (2026-09-07)
+
+Brukeren logget ut som Superadmin og inn igjen som partner-admin, og fant en
+rekke reelle feil. Rettet i denne runden:
+
+1. **Krasj ved tildeling som behandler**: `System.FormatException: The input
+   string 'PasientIderCsv' was not in a correct format` i
+   `DictionaryModelBinder`. Rotårsak: `Behandlerportal/Tildel/Tester.cshtml.cs`
+   sin `[BindProperty] Dictionary<long, decimal?> HonorarKr` — når INGEN test
+   i batchen har prising konfigurert (så ingen `HonorarKr[...]`-felt postes i
+   det hele tatt), faller ASP.NET Cores modellbinder for et TOPPNIVÅ
+   Dictionary/collection-`[BindProperty]` tilbake til å tolke ALLE andre
+   skjemafelt-NAVN på siden (som `PasientIderCsv`, `TestIder`) som om de var
+   dictionary-nøkler, og kaster når disse ikke er tall. Dette er en reell,
+   dokumentert ASP.NET Core-fallgruve for Dictionary/collection-typede
+   `[BindProperty]`-egenskaper uten treff på sitt eget prefiks — IKKE noe som
+   fanges av å kalle `OnPostSendAsync` direkte i en test (slik
+   `BetalingPipelineTests.cs` gjør), siden det hopper forbi selve
+   modellbinding-pipelinen. Rettet ved å fjerne `[BindProperty]` fra
+   `HonorarKr` helt og lese den manuelt fra `Request.Form` i stedet
+   (`LesHonorarFraSkjema()`) — strukturelt umulig for MVC å røre egenskapen nå,
+   ikke bare en symptomlapp. Ny kjent fallgruve, bør inn i CLAUDE.md.
+2. **Partner-admin hadde ingen navigasjon i det hele tatt**: samme klasse feil
+   som Superadmin-navigasjonshullet over, men for `ErPartnerAdministrator` —
+   `_Layout.cshtml` sin `erBehandler`-blokk manglet helt lenker til
+   `Behandlerportal/MinPartner/Behandlere` og `.../Prising`. Funksjonaliteten
+   fantes allerede og virket (bygget tidligere), den var bare uoppdagelig.
+   Lagt til to nye knapper ("Min partner", "Partnerprising"), synlige kun når
+   `CurrentUser.ErPartnerAdministrator`.
+3. **Manglende honorar-mulighet ved tildeling** var i praksis samme
+   grunnårsak som (1)+(2) kombinert: testen som ble tildelt manglet
+   `StorstePrisKr > 0` (aldri konfigurert, siden Prising-siden var
+   unåbar), så `@if (test.StorstePrisKr > 0)` i tildelingssiden aldri viste
+   honorar-feltet — og selve forsøket på å sende krasjet i tillegg pga (1).
+4. **`/Behandlerportal/Oppgaver`-lenken i daglige påminnelser pekte på
+   `localhost:7257`** på selve psytest.no: `DagligPaaminnelseBakgrunnstjeneste`
+   bygger lenker fra `Varsling:BaseUrl`-konfigurasjon, som aldri var satt i
+   Azure (fallback var den hardkodede lokale utviklings-URL-en). Lagt til
+   `Varsling__BaseUrl = https://www.psytest.no` i `infra/resources.bicep` sin
+   `appSettings`-liste (literal, ikke hemmelig — offentlig domenenavn).
+   Krever `azd provision` for å ta effekt, ikke bare `azd deploy`.
+5. **`Admin/Partnere/Rediger.cshtml` sin nye lenke ("administrer tester og
+   prising") gikk faktisk BARE til allow-list-siden** (avkrysningsbokser for
+   hvilke tester partneren får), ikke noe reelt prisingsgrensesnitt — siden
+   selve pris-grensene er GLOBALE per test (`Admin/Tester/Prising`), ikke
+   partner-spesifikke. Delt opp i to tydelige lenker: én til allow-listen, én
+   direkte til den globale prissiden.
+6. **Kunne kun legge til eksisterende, uavhengige behandlere i en partner via
+   en nedtrekksliste** — ingen måte å invitere en helt ny behandler (eller
+   gjøre noen til partner-admin) ved å skrive inn e-post. Lagt til på
+   `Admin/Partnere/Rediger.cshtml`:
+   - Et enkelt e-postfelt: finnes en uavhengig behandler med den e-posten,
+     vises en eksplisitt bekreftelsesprompt ("Fant eksisterende behandler X —
+     koble til?") FØR noe faktisk kobles — ingen stille kobling. Finnes ingen
+     match, sendes en vanlig invitasjon (`BehandlerInvitasjonService`, som
+     allerede støttet `partnerId`) med e-post som eneste kontaktmetode.
+     E-post som matcher en administrator-konto avvises med feilmelding.
+   - Et bulk-felt (tekstområde, én e-post per linje/komma-separert) som gjør
+     det samme for flere e-poster samtidig, UTEN enkeltvis bekreftelse (lista
+     er allerede eksplisitt skrevet inn av Superadmin) — rapporterer
+     "N koblet, M invitert, hoppet over: ..." i én oppsummering.
+   - (Partner-admin sin EGEN invitasjon av kolleger — SMS ELLER e-post, se
+     `Behandlerportal/MinPartner/Behandlere.cshtml` — fantes faktisk allerede
+     fra før og virket; den var bare uoppdagelig pga. punkt 2 over.)
+7. **`/Admin/Okonomi` periodisert**: viste tidligere kun to alltid-summerte
+   tall (siden systemets begynnelse). Bygget om til måned-for-måned-rader for
+   inneværende år (med en "Hittil i år"-fotrad), og ett summert tall per
+   TIDLIGERE, avsluttede kalenderår (kollapset til én rad når året er omme,
+   slik brukeren spesifiserte) — se `Areas/Admin/Pages/Okonomi/Index.cshtml.cs`.
+8. **Manglende felt fikk ingen visuell rød-innramming ved innsendingsforsøk**
+   på noen skjema (pasient-/behandler-/administrator-/partner-registrering).
+   Lagt til en global, sidebred mekanisme: `wwwroot/js/validering.js`
+   (fanger `submit` på ALLE `<form>`, kjører `checkValidity()`, legger til
+   klassen `skjema-forsokt-sendt` på selve FORM-elementet KUN ved feilet
+   forsøk — ikke ved sidelasting, for å unngå rødt før brukeren har rukket å
+   gjøre noe) + en CSS-regel i `site.css`
+   (`form.skjema-forsokt-sendt :invalid { border: 2px solid ...; }`). Lagt til
+   `required`/`type="email"` på de faktisk obligatoriske feltene i de mest
+   sentrale registreringsskjemaene (pasient-egenregistrering,
+   behandler-invitasjon-fullføring, ny administrator, ny partner) slik at
+   native HTML5-validering faktisk har noe å style. IKKE gjort uttømmende for
+   ALLE skjema i systemet i denne runden — mekanismen virker automatisk for
+   ethvert fremtidig skjema med `required`-attributter, men eldre skjema uten
+   `required` i det hele tatt (f.eks. behandler/admin sine invitér-skjema, som
+   bevisst tillater "enten mobil ELLER e-post" og derfor ikke passer en enkel
+   `required`) er ikke gjennomgått ett for ett.
+
+Verifisert: bygget grønt, 15/15 tester grønt (uendret — ingen av disse
+rettingene hadde eksisterende testdekning, se punkt 1 sin forklaring på
+HVORFOR krasjen ikke ble fanget av eksisterende tester). Punkt 4 krever
+`azd provision` (infra-endring), ikke bare `azd deploy`.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt

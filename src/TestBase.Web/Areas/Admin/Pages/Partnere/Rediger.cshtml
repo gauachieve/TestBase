@@ -6,15 +6,24 @@
 
 <h1>Rediger partner — @Model.PartnerNavn</h1>
 
-<p><a href="/Admin/Partnere/Tester/@Model.PartnerId">Administrer tester og prising for denne partneren</a></p>
+<p>
+    <a href="/Admin/Partnere/Tester/@Model.PartnerId">Velg hvilke tester partneren får tilgang til</a>
+    &nbsp;|&nbsp;
+    <a href="/Admin/Tester/Prising">Sett pris-grenser for tester (globalt, gjelder alle partnere)</a>
+</p>
 
 @if (Model.Feilmelding is not null)
 {
     <p style="color: darkred;">@Model.Feilmelding</p>
 }
 
+@if (Model.Infomelding is not null)
+{
+    <p style="color: darkgreen;">@Model.Infomelding</p>
+}
+
 <form method="post">
-    <div><label>Navn</label><br /><input asp-for="Navn" /></div>
+    <div><label>Navn</label><br /><input asp-for="Navn" required /></div>
     <div><label>Kontaktperson</label><br /><input asp-for="KontaktpersonNavn" /></div>
     <div><label>Kontakt-e-post</label><br /><input asp-for="KontaktEpost" /></div>
     <div><label>Kontakt-mobilnummer</label><br /><input asp-for="KontaktMobilNr" /></div>
@@ -56,14 +65,33 @@
     </tbody>
 </table>
 
-<h3>Legg til eksisterende (uavhengig) behandler</h3>
-<form method="post" asp-page-handler="LeggTilBehandler">
+<h3>Legg til eller inviter behandler via e-post</h3>
+<p>Finnes det allerede en uavhengig behandler med denne e-posten, kobles den til partneren (etter bekreftelse under). Finnes ingen konto, sendes en vanlig invitasjon til e-posten.</p>
+
+@if (Model.MatchFunnet is not null)
+{
+    <p>
+        Fant eksisterende behandler <strong>@(Model.MatchFunnet.Visningsnavn ?? Model.MatchFunnet.Email)</strong> (@Model.MatchFunnet.Email).
+        Koble denne til partneren?
+    </p>
+    <form method="post" asp-page-handler="LeggTilBehandler" style="display:inline;">
+        <input type="hidden" name="id" value="@Model.PartnerId" />
+        <input type="hidden" name="behandlerId" value="@Model.MatchFunnet.Id" />
+        <button type="submit">Ja, koble til</button>
+    </form>
+}
+
+<form method="post" asp-page-handler="InviterEllerKoble">
     <input type="hidden" name="id" value="@Model.PartnerId" />
-    <select name="behandlerId">
-    @foreach (var b in Model.UavhengigeBehandlere)
-    {
-        <option value="@b.Id">@(b.Visningsnavn ?? b.Email)</option>
-    }
-    </select>
-    <button type="submit">Legg til</button>
+    <input type="email" name="epost" placeholder="behandler@eksempel.no" required />
+    <button type="submit">Legg til / inviter</button>
+</form>
+
+<h3>Bulk-inviter flere behandlere</h3>
+<p>Én e-post per linje (eller komma-separert). Nye e-poster får en invitasjonslenke; e-poster som matcher en eksisterende uavhengig behandler kobles rett til partneren.</p>
+<form method="post" asp-page-handler="BulkInviter">
+    <input type="hidden" name="id" value="@Model.PartnerId" />
+    <textarea name="epostListe" rows="5" cols="40" placeholder="person1@eksempel.no&#10;person2@eksempel.no"></textarea>
+    <br />
+    <button type="submit">Send bulk-invitasjoner</button>
 </form>

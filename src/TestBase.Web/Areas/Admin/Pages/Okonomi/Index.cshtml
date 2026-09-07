@@ -5,7 +5,69 @@
 }
 
 <h1>Økonomi</h1>
-<p><em>Foreløpig visning — kun to summerte tall, alle tider. Format/tekst avklares senere.</em></p>
+<p><em>Periodisert visning — måned for måned i inneværende år, summert per tidligere kalenderår. Format/tekst avklares senere.</em></p>
 
-<p>Inntekt fra salg: <strong>@Model.InntektFraSalgKr.ToString("0.00") kr</strong></p>
-<p>Utgift til salg: <strong>@Model.UtgiftTilSalgKr.ToString("0.00") kr</strong></p>
+<h2>Inneværende år</h2>
+<table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Periode</th>
+            <th>Inntekt fra salg</th>
+            <th>Utgift til salg</th>
+            <th>Netto</th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var rad in Model.MånederIInneværendeÅr)
+    {
+        <tr>
+            <td>@rad.Etikett</td>
+            <td>@rad.InntektKr.ToString("0.00") kr</td>
+            <td>@rad.UtgiftKr.ToString("0.00") kr</td>
+            <td>@rad.NettoKr.ToString("0.00") kr</td>
+        </tr>
+    }
+    @if (!Model.MånederIInneværendeÅr.Any())
+    {
+        <tr><td colspan="4"><em>Ingen bevegelser registrert ennå i år.</em></td></tr>
+    }
+    </tbody>
+    <tfoot>
+        <tr style="font-weight: bold;">
+            <td>@Model.HittilIÅr.Etikett</td>
+            <td>@Model.HittilIÅr.InntektKr.ToString("0.00") kr</td>
+            <td>@Model.HittilIÅr.UtgiftKr.ToString("0.00") kr</td>
+            <td>@Model.HittilIÅr.NettoKr.ToString("0.00") kr</td>
+        </tr>
+    </tfoot>
+</table>
+
+<h2>Tidligere år</h2>
+@if (!Model.TidligereÅr.Any())
+{
+    <p><em>Ingen avsluttede kalenderår med bevegelser ennå.</em></p>
+}
+else
+{
+    <table border="1" cellpadding="6" cellspacing="0">
+        <thead>
+            <tr>
+                <th>År</th>
+                <th>Inntekt fra salg</th>
+                <th>Utgift til salg</th>
+                <th>Netto</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var rad in Model.TidligereÅr)
+        {
+            <tr>
+                <td>@rad.Etikett</td>
+                <td>@rad.InntektKr.ToString("0.00") kr</td>
+                <td>@rad.UtgiftKr.ToString("0.00") kr</td>
+                <td>@rad.NettoKr.ToString("0.00") kr</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

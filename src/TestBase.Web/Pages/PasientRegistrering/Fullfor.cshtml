@@ -24,15 +24,15 @@ else
     }
 
     <form method="post">
-        <div><label>Navn</label><br /><input asp-for="Navn" /></div>
-        <div><label>Personnummer</label><br /><input asp-for="Personnummer" /></div>
-        <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
-        <div><label>E-post</label><br /><input asp-for="Epost" /></div>
+        <div><label>Navn</label><br /><input asp-for="Navn" required /></div>
+        <div><label>Personnummer</label><br /><input asp-for="Personnummer" required /></div>
+        <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" required /></div>
+        <div><label>E-post</label><br /><input asp-for="Epost" type="email" required /></div>
 
         <div>
             <label>Biologisk kjønn ved fødsel</label><br />
-            <label><input type="radio" asp-for="BiologiskKjonnVedFodsel" value="@BiologiskKjonn.Mann" /> Mann</label>
-            <label><input type="radio" asp-for="BiologiskKjonnVedFodsel" value="@BiologiskKjonn.Kvinne" /> Kvinne</label>
+            <label><input type="radio" asp-for="BiologiskKjonnVedFodsel" value="@BiologiskKjonn.Mann" required /> Mann</label>
+            <label><input type="radio" asp-for="BiologiskKjonnVedFodsel" value="@BiologiskKjonn.Kvinne" required /> Kvinne</label>
         </div>
 
         <div>
@@ -47,14 +47,14 @@ else
 
         <div>
             <label>Hvordan vil du bli varslet om nye tester?</label><br />
-            <label><input type="radio" asp-for="Varslingspreferanse" value="@Varslingspreferanse.Sms" /> Kun SMS</label>
+            <label><input type="radio" asp-for="Varslingspreferanse" value="@Varslingspreferanse.Sms" required /> Kun SMS</label>
             <label><input type="radio" asp-for="Varslingspreferanse" value="@Varslingspreferanse.Epost" /> Kun e-post</label>
             <label><input type="radio" asp-for="Varslingspreferanse" value="@Varslingspreferanse.Begge" /> Begge (anbefalt)</label>
         </div>
 
         <h2>Samtykke</h2>
         <pre style="white-space: pre-wrap; border: 1px solid #ccc; padding: 1rem; max-height: 300px; overflow-y: auto;">@Model.AvtaleTekst</pre>
-        <div><label><input asp-for="GodtarLagringAvData" type="checkbox" /> Jeg samtykker til lagring av opplysningene mine</label></div>
+        <div><label><input asp-for="GodtarLagringAvData" type="checkbox" required /> Jeg samtykker til lagring av opplysningene mine</label></div>
         <div><label><input asp-for="GodtarMuligVippsBetaling" type="checkbox" /> Jeg godtar at jeg kan bli bedt om å betale en mindre sum via Vipps for å fylle ut enkelte tester</label></div>
 
         <!-- Bot-vern: skjult for mennesker, men botter fyller ofte ut alt -->

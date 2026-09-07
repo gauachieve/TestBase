@@ -110,6 +110,11 @@
                         <a class="funksjonsknapp" href="/Behandlerportal/Pasienter"><partial name="_Ikon" model="@("pasienter")" />Pasienter</a>
                         <a class="funksjonsknapp" href="/Behandlerportal/Tildel/Pasienter"><partial name="_Ikon" model="@("tildel")" />Tildel tester</a>
                         <a class="funksjonsknapp" href="/Behandlerportal/Behandlere/Inviter"><partial name="_Ikon" model="@("inviter")" />Inviter kollega</a>
+                        @if (CurrentUser.ErPartnerAdministrator)
+                        {
+                            <a class="funksjonsknapp" href="/Behandlerportal/MinPartner/Behandlere"><partial name="_Ikon" model="@("behandlere")" />Min partner</a>
+                            <a class="funksjonsknapp" href="/Behandlerportal/MinPartner/Prising"><partial name="_Ikon" model="@("tester")" />Partnerprising</a>
+                        }
                         <a class="funksjonsknapp" href="/Behandlerportal/Oppgaver">
                             <partial name="_Ikon" model="@("oppgaver")" />Oppgaver
                             @if (antallUlesteMeldinger > 0)
@@ -173,5 +178,6 @@
     </footer>
 
     <partial name="_CookieSamtykke" />
+    <script src="~/js/validering.js"></script>
 </body>
 </html>
