@@ -13,7 +13,8 @@
 
     long BrukerId() => long.TryParse(CurrentUser.UserId.Split(':').LastOrDefault(), out var id) ? id : 0;
 
-    var erAdmin = CurrentUser.IsAuthenticated && (CurrentUser.Role == UserRole.Administrator || CurrentUser.Role == UserRole.Utvikler);
+    var erAdmin = CurrentUser.IsAuthenticated && (CurrentUser.Role == UserRole.Administrator || CurrentUser.Role == UserRole.Superadmin || CurrentUser.Role == UserRole.Utvikler);
+    var erSuperadmin = CurrentUser.IsAuthenticated && (CurrentUser.Role == UserRole.Superadmin || CurrentUser.Role == UserRole.Utvikler);
     var erBehandler = CurrentUser.IsAuthenticated && (CurrentUser.Role == UserRole.Behandler || CurrentUser.Role == UserRole.Utvikler);
     var erPasient = CurrentUser.IsAuthenticated && (CurrentUser.Role == UserRole.Pasient || CurrentUser.Role == UserRole.Utvikler);
 
@@ -96,6 +97,12 @@
                         <a class="funksjonsknapp" href="/Admin/Tester"><partial name="_Ikon" model="@("tester")" />Tester</a>
                         <a class="funksjonsknapp" href="/Admin/Tildel/Pasienter"><partial name="_Ikon" model="@("tildel")" />Tildel tester</a>
                         <a class="funksjonsknapp" href="/Admin/Oppgaver"><partial name="_Ikon" model="@("oppgaver")" />Oppgaver</a>
+                        @if (erSuperadmin)
+                        {
+                            <a class="funksjonsknapp" href="/Admin/Partnere"><partial name="_Ikon" model="@("administratorer")" />Partnere</a>
+                            <a class="funksjonsknapp" href="/Admin/Tester/Prising"><partial name="_Ikon" model="@("tester")" />Prising</a>
+                            <a class="funksjonsknapp" href="/Admin/Okonomi"><partial name="_Ikon" model="@("oppgaver")" />Økonomi</a>
+                        }
                     }
                     @if (erBehandler)
                     {

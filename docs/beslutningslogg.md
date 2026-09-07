@@ -1531,6 +1531,33 @@ Production-modus mot en database med reelle pasientdata — automatisk migrasjon
 ved hver oppstart er en rimelig avveining for et testmiljø, ikke noe som bør
 videreføres ukritisk til en reell driftssetting.
 
+### Manglende navigasjon til Superadmin-sidene (2026-09-07)
+
+Da brukeren logget inn som sin egen Superadmin-konto på psytest.no fant hen
+umiddelbart et reelt UX-hull: `_Layout.cshtml` sin `erAdmin`-sjekk (styrer
+hele funksjons-nav-raden) var aldri oppdatert til å inkludere
+`UserRole.Superadmin` da den rollen ble lagt til — en ren Superadmin (uten
+også å være Utvikler) fikk altså INGEN admin-knapper i det hele tatt, ikke
+bare manglende lenke til Partnere. Usynlig under selve
+Partner System-utviklingen fordi all lokal/manuell testing skjedde som
+Utvikler (som alltid har inkludert Superadmin-sidene i policyene, se
+`Program.cs`), aldri som en ren `Administrator.ErSuperadmin=true`-konto.
+
+Rettet:
+- Ny `erSuperadmin`-variabel (`Role == Superadmin || Role == Utvikler`) i
+  `_Layout.cshtml`, og `erAdmin` utvidet til å inkludere `Superadmin` slik at
+  en ren Superadmin i det minste ser alt en Administrator ser.
+- Tre nye funksjonsknapper ("Partnere", "Prising", "Økonomi") lagt til i
+  admin-funksjonsnavet, synlige kun når `erSuperadmin`.
+- `Admin/Partnere/Rediger.cshtml` (partnerens redigeringsside) manglet en vei
+  videre til allow-list/prisingssiden (`Admin/Partnere/Tester/{id}`) — den
+  fantes kun som en lenke tilbake på `Admin/Partnere/Index.cshtml`, ikke inne
+  på selve redigeringssiden. Lagt til en direkte lenke øverst på
+  redigeringssiden.
+
+Verifisert lokalt: bygget grønt, 15/15 tester grønt, og manuelt i nettleser
+(Playwright) — nav-knappene og lenken vises og fungerer som forventet.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt
