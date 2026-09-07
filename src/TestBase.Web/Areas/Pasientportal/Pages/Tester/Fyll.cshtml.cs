@@ -46,6 +46,14 @@ public sealed class FyllModel : PageModel
             return NotFound();
         }
 
+        // Betaling må være bekreftet (eller ikke påkrevd) før utfylling kan starte, jf.
+        // kravdokumentet — se docs/beslutningslogg.md "Partner System + Test Monetization".
+        var betaling = await _testService.HentBetalingAsync(id, cancellationToken);
+        if (betaling is { Status: BetalingStatus.Venter })
+        {
+            return RedirectToPage("Betal", new { id });
+        }
+
         Innhold = innhold;
 
         if (innhold.Tildeling.Status == TestTildelingStatus.Fullfort)
@@ -64,6 +72,14 @@ public sealed class FyllModel : PageModel
         if (innhold is null || innhold.Tildeling.PasientId != HentPasientId())
         {
             return NotFound();
+        }
+
+        // Gates ved bruk, ikke bare på OnGetAsync — en rå POST kan ellers hoppe over
+        // betalingssjekken, se CLAUDE.md sine kjente fallgruver.
+        var betaling = await _testService.HentBetalingAsync(id, cancellationToken);
+        if (betaling is { Status: BetalingStatus.Venter })
+        {
+            return RedirectToPage("Betal", new { id });
         }
 
         Innhold = innhold;

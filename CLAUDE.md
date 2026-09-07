@@ -43,6 +43,18 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   handlingssett: Godkjenn/Forkast-og-send-på-nytt før godkjenning, Kopier-til-utklippstavle/
   Skriv-ut/Send-kopi-til-pasienten etter. Se `docs/beslutningslogg.md` under "Rapportvisning som
   A4-'papir'".
+- **Partner System + Test Monetization** (2026-09-07, kraftig forenklet fra det opprinnelige,
+  mye større forslaget i `finance_system.docx`): `Partner`-entitet (Superadmin-opprettet, egen
+  `UserRole.Superadmin` — strengt supersett av Administrator), Superadmin-kuratert allow-list for
+  hvilke tester en partner får (`PartnerTestTilgang`), partner-admin (BEVISST ikke egen rolle, kun
+  en claim på Behandler — se `AppClaimTypes.ErPartnerAdministrator`/`PartnerId`) setter partnerens
+  egen andel per test (`PartnerTestAndel`, klemt til et Superadmin-satt gulv). Hver test har nå
+  Min/Maks-PASIENTPRIS + typisk behandler-honorar (`TestPrisberegner` beregner totalpris, se
+  `docs/beslutningslogg.md`). Betaling gater nå `Pasientportal/Tester/Fyll` reelt (Vipps/Stripe via
+  en ny `Betal`-side som gjenbruker `/BetalingTest`-mønsteret) med en finansiell snapshot
+  (`TestTildelingBetaling`) og regnskapslogg (`Pengebevegelse`). Stripe Connect-utbetaling,
+  abonnements-fakturering, partner-branding/embedding og multi-språk er ALLE eksplisitt utsatt —
+  se `docs/beslutningslogg.md` under samme overskrift for full liste over hva som IKKE er bygget.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

@@ -19,8 +19,14 @@ public sealed record StripeStatusResultat(bool Success, bool ErBetalt, string? E
 /// </summary>
 public interface IStripeClient
 {
+    /// <summary>
+    /// <paramref name="referanse"/> lagres som Stripe-metadata ("referanse") på
+    /// betalingsintensjonen — webhook-mottakeren (PaymentWebhooks.cs) leser den
+    /// tilbake derfra for å vite HVILKEN TestTildeling betalingen gjelder,
+    /// siden Stripe sin egen PaymentIntent-id ikke er noe vi velger selv.
+    /// </summary>
     Task<StripeOpprettetBetaling> OpprettBetalingsintensjonAsync(
-        decimal belopNok, string beskrivelse, CancellationToken cancellationToken = default);
+        decimal belopNok, string beskrivelse, string referanse, CancellationToken cancellationToken = default);
 
     Task<StripeStatusResultat> HentStatusAsync(string betalingsId, CancellationToken cancellationToken = default);
 }

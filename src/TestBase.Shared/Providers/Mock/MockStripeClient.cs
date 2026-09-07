@@ -17,12 +17,12 @@ public sealed class MockStripeClient : IStripeClient
     }
 
     public Task<StripeOpprettetBetaling> OpprettBetalingsintensjonAsync(
-        decimal belopNok, string beskrivelse, CancellationToken cancellationToken = default)
+        decimal belopNok, string beskrivelse, string referanse, CancellationToken cancellationToken = default)
     {
         var fiktivId = $"MOCK-{Guid.NewGuid():N}";
         _logger.LogInformation(
-            "[MOCK Stripe] Simulerer opprettelse av betalingsintensjon {Id} på {Belop} kr for '{Beskrivelse}'.",
-            fiktivId, belopNok, beskrivelse);
+            "[MOCK Stripe] Simulerer opprettelse av betalingsintensjon {Id} på {Belop} kr for '{Beskrivelse}' (referanse {Referanse}).",
+            fiktivId, belopNok, beskrivelse, referanse);
 
         return Task.FromResult(new StripeOpprettetBetaling(true, fiktivId, ClientSecret: null, ErrorMessage: null));
     }

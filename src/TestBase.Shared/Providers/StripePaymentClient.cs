@@ -25,7 +25,7 @@ public sealed class StripePaymentClient : IStripeClient
     }
 
     public async Task<StripeOpprettetBetaling> OpprettBetalingsintensjonAsync(
-        decimal belopNok, string beskrivelse, CancellationToken cancellationToken = default)
+        decimal belopNok, string beskrivelse, string referanse, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -34,6 +34,7 @@ public sealed class StripePaymentClient : IStripeClient
                 Amount = (long)Math.Round(belopNok * 100m, MidpointRounding.AwayFromZero),
                 Currency = "nok",
                 Description = beskrivelse,
+                Metadata = new Dictionary<string, string> { ["referanse"] = referanse },
                 AutomaticPaymentMethods = new PaymentIntentAutomaticPaymentMethodsOptions { Enabled = true }
             };
             var requestOptions = new RequestOptions { ApiKey = _secretKey };

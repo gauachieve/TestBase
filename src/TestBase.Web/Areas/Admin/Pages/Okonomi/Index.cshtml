@@ -1,0 +1,11 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Okonomi.IndexModel
+@{
+    ViewData["Title"] = "Økonomi";
+}
+
+<h1>Økonomi</h1>
+<p><em>Foreløpig visning — kun to summerte tall, alle tider. Format/tekst avklares senere.</em></p>
+
+<p>Inntekt fra salg: <strong>@Model.InntektFraSalgKr.ToString("0.00") kr</strong></p>
+<p>Utgift til salg: <strong>@Model.UtgiftTilSalgKr.ToString("0.00") kr</strong></p>

@@ -225,6 +225,80 @@ public sealed class TestService
         return test?.TypiskBehandlerHonorarKr ?? 0m;
     }
 
+    public Task<TestTildelingBetaling?> HentBetalingAsync(long tildelingId, CancellationToken cancellationToken = default) =>
+        _db.TestTildelingBetalinger.FirstOrDefaultAsync(b => b.TestTildelingId == tildelingId, cancellationToken);
+
+    /// <summary>
+    /// Markerer en tildelings betaling som fullført og skriver
+    /// regnskapsloggen (Pengebevegelse) — kalt fra BÅDE webhook-mottakeren
+    /// (autoritativ, se PaymentWebhooks.cs) OG betalings-retur-siden (synkron
+    /// fallback, viktig for Vipps siden webhook-signaturen ikke er
+    /// live-verifisert ennå, se docs/beslutningslogg.md). Idempotent — andre
+    /// kall etter det første er en no-op, slik at webhook og retur-side ikke
+    /// dobbeltfører pengebevegelser uansett rekkefølge de skjer i.
+    /// </summary>
+    public async Task<bool> MarkerBetalingBetaltAsync(
+        long tildelingId, BetalingMetode metode, string? leverandorReferanse, CancellationToken cancellationToken = default)
+    {
+        var betaling = await _db.TestTildelingBetalinger.FirstOrDefaultAsync(b => b.TestTildelingId == tildelingId, cancellationToken);
+        if (betaling is null || betaling.Status == BetalingStatus.Betalt)
+        {
+            return false;
+        }
+
+        betaling.Status = BetalingStatus.Betalt;
+        betaling.Metode = metode;
+        betaling.BetalingsleverandorReferanse = leverandorReferanse;
+        betaling.BetaltUtc = DateTimeOffset.UtcNow;
+
+        var tildeling = await _db.TestTildelinger.FirstAsync(t => t.Id == tildelingId, cancellationToken);
+        var na = DateTimeOffset.UtcNow;
+
+        _db.Pengebevegelser.Add(new Pengebevegelse
+        {
+            Type = PengebevegelseType.PasientBetalingMottatt,
+            BelopKr = betaling.PasientTotalprisKr,
+            TestTildelingId = tildelingId,
+            BehandlerId = tildeling.TildeltAvBehandlerId,
+            PartnerId = betaling.PartnerId,
+            OpprettetUtc = na
+        });
+        _db.Pengebevegelser.Add(new Pengebevegelse
+        {
+            Type = PengebevegelseType.PlattformInntekt,
+            BelopKr = betaling.PlattformAndelKr,
+            TestTildelingId = tildelingId,
+            OpprettetUtc = na
+        });
+
+        if (betaling.PartnerAndelKr is > 0)
+        {
+            _db.Pengebevegelser.Add(new Pengebevegelse
+            {
+                Type = PengebevegelseType.PartnerAndel,
+                BelopKr = betaling.PartnerAndelKr.Value,
+                TestTildelingId = tildelingId,
+                PartnerId = betaling.PartnerId,
+                OpprettetUtc = na
+            });
+        }
+
+        if (betaling.BehandlerHonorarKr > 0)
+        {
+            _db.Pengebevegelser.Add(new Pengebevegelse
+            {
+                Type = PengebevegelseType.BehandlerHonorar,
+                BelopKr = betaling.BehandlerHonorarKr,
+                TestTildelingId = tildelingId,
+                BehandlerId = tildeling.TildeltAvBehandlerId,
+                OpprettetUtc = na
+            });
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public Task<List<TestTildeling>> HentTildelingerForPasientAsync(long pasientId, CancellationToken cancellationToken = default) =>
         _db.TestTildelinger.Where(t => t.PasientId == pasientId).OrderByDescending(t => t.TildeltUtc).ToListAsync(cancellationToken);
 

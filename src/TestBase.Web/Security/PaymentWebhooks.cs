@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Stripe;
+using TestBase.Shared.Domain.Tester;
 
 namespace TestBase.Web.Security;
 
@@ -30,14 +32,19 @@ public static class PaymentWebhooks
     public const string VippsWebhookSti = "/webhooks/vipps";
     public const string StripeWebhookSti = "/webhooks/stripe";
 
+    /// <summary>Referanseformatet BÅDE Vipps- og Stripe-betalinger opprettes med — se Pasientportal/Tester/Betal.cshtml.cs.</summary>
+    public const string TildelingReferansePrefiks = "tildeling-";
+
     public static void MapPaymentWebhooks(this WebApplication app)
     {
         var logger = app.Logger;
-        app.MapPost(VippsWebhookSti, (HttpContext context, IConfiguration config) => HandleVippsWebhookAsync(context, config, logger));
-        app.MapPost(StripeWebhookSti, (HttpContext context, IConfiguration config) => HandleStripeWebhookAsync(context, config, logger));
+        app.MapPost(VippsWebhookSti, (HttpContext context, IConfiguration config, TestService testService) =>
+            HandleVippsWebhookAsync(context, config, testService, logger));
+        app.MapPost(StripeWebhookSti, (HttpContext context, IConfiguration config, TestService testService) =>
+            HandleStripeWebhookAsync(context, config, testService, logger));
     }
 
-    private static async Task<IResult> HandleVippsWebhookAsync(HttpContext context, IConfiguration config, ILogger logger)
+    private static async Task<IResult> HandleVippsWebhookAsync(HttpContext context, IConfiguration config, TestService testService, ILogger logger)
     {
         var webhookSecret = config["Vipps:WebhookSecret"];
         if (string.IsNullOrWhiteSpace(webhookSecret))
@@ -59,9 +66,51 @@ public static class PaymentWebhooks
         var json = Encoding.UTF8.GetString(body);
         logger.LogInformation("Vipps-webhook mottatt og verifisert: {Json}", json);
 
-        // TODO (når ekte "betal for test"-flyt designes, se beslutningsloggen):
-        // oppdater ordre-/tildelingsstatus i databasen basert på hendelsen her.
+        // MERK: eksakt JSON-form er ikke bekreftet mot et ekte Vipps-webhook-kall ennå
+        // (se klassedoken over) — leser "reference" fra rot-objektet, med et forsøk på
+        // en nestet "data.reference" som fallback. HentStatusAsync-basert polling på
+        // Betal-siden er den reelle fallbacken inntil dette er live-verifisert.
+        var referanse = LesVippsReferanse(json, logger);
+        if (referanse is not null && TryParseTildelingId(referanse, out var tildelingId))
+        {
+            await testService.MarkerBetalingBetaltAsync(tildelingId, BetalingMetode.Vipps, referanse, context.RequestAborted);
+        }
+        else
+        {
+            logger.LogWarning("Vipps-webhook: fant ingen gjenkjennelig tildelings-referanse i payloaden.");
+        }
+
         return Results.Ok();
+    }
+
+    private static string? LesVippsReferanse(string json, ILogger logger)
+    {
+        try
+        {
+            using var dokument = JsonDocument.Parse(json);
+            if (dokument.RootElement.TryGetProperty("reference", out var referanseElement))
+            {
+                return referanseElement.GetString();
+            }
+            if (dokument.RootElement.TryGetProperty("data", out var dataElement) &&
+                dataElement.TryGetProperty("reference", out var nestetReferanseElement))
+            {
+                return nestetReferanseElement.GetString();
+            }
+        }
+        catch (JsonException ex)
+        {
+            logger.LogWarning(ex, "Klarte ikke å tolke Vipps-webhook-payload som JSON.");
+        }
+
+        return null;
+    }
+
+    private static bool TryParseTildelingId(string referanse, out long tildelingId)
+    {
+        tildelingId = 0;
+        return referanse.StartsWith(TildelingReferansePrefiks, StringComparison.Ordinal) &&
+            long.TryParse(referanse.AsSpan(TildelingReferansePrefiks.Length), out tildelingId);
     }
 
     private static bool ErVippsSignaturGyldig(HttpRequest request, byte[] body, string secret, out string feilmelding)
@@ -107,10 +156,10 @@ public static class PaymentWebhooks
         return likhet;
     }
 
-    private static Task<IResult> HandleStripeWebhookAsync(HttpContext context, IConfiguration config, ILogger logger) =>
-        HandleStripeWebhookCoreAsync(context, config, logger);
+    private static Task<IResult> HandleStripeWebhookAsync(HttpContext context, IConfiguration config, TestService testService, ILogger logger) =>
+        HandleStripeWebhookCoreAsync(context, config, testService, logger);
 
-    private static async Task<IResult> HandleStripeWebhookCoreAsync(HttpContext context, IConfiguration config, ILogger logger)
+    private static async Task<IResult> HandleStripeWebhookCoreAsync(HttpContext context, IConfiguration config, TestService testService, ILogger logger)
     {
         var webhookSecret = config["Stripe:WebhookSecret"];
         if (string.IsNullOrWhiteSpace(webhookSecret))
@@ -127,8 +176,14 @@ public static class PaymentWebhooks
             var hendelse = EventUtility.ConstructEvent(json, signaturHeader, webhookSecret);
             logger.LogInformation("Stripe-webhook mottatt og verifisert: {Type} ({Id})", hendelse.Type, hendelse.Id);
 
-            // TODO (når ekte "betal for test"-flyt designes, se beslutningsloggen):
-            // oppdater ordre-/tildelingsstatus i databasen basert på hendelsen her.
+            if (hendelse.Type == EventTypes.PaymentIntentSucceeded &&
+                hendelse.Data.Object is PaymentIntent betalingsintensjon &&
+                betalingsintensjon.Metadata.TryGetValue("referanse", out var referanse) &&
+                TryParseTildelingId(referanse, out var tildelingId))
+            {
+                await testService.MarkerBetalingBetaltAsync(tildelingId, BetalingMetode.Stripe, betalingsintensjon.Id, context.RequestAborted);
+            }
+
             return Results.Ok();
         }
         catch (StripeException ex)

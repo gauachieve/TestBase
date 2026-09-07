@@ -1408,7 +1408,97 @@ Vipps sin nettsted-verifisering krever ekte informasjon her. Dette må fylles in
 bruker (og trolig samkjøres med den faktiske organisasjonsformen som til slutt brukes
 for Vipps-merchant-avtalen) før verifiseringen faktisk kan bestås — se "Åpne punkter".
 
+### Partner System + Test Monetization (2026-09-07)
+
+Stor ny funksjon bygget etter en lang avklaringsrunde med bruker (opprinnelig
+skissert, mye større, i `finance_system.docx`) — se hele planen i
+`C:\Users\gaute\.claude\plans\fizzy-churning-dusk.md` for full kontekst og
+resonnement. Bevisst kraftig forenklet fra det opprinnelige dokumentet:
+partner-egen database/pålogging/embedding, ekte Stripe Connect-utbetaling,
+multi-språk testversjoner og formell regnskapsstandard er ALLE eksplisitt
+utsatt til senere — se "Åpne punkter" under.
+
+**Ny datamodell:** `Partner` (Superadmin oppretter), `PartnerTestTilgang`
+(Superadmin-kuratert allow-list — partneren velger IKKE selv hvilke tester de
+får), `PartnerTestAndel` (partnerens EGEN andel per test, satt av deres egen
+partner-admin, alltid klemt til minst Superadmin sitt gulv), `Test` fikk
+prisingsfelt (`MinstePrisKr`/`StorstePrisKr`/`TypiskBehandlerHonorarKr`/
+`MinstePartnerAndelKr` — Min/Maks er grenser på PASIENTENS TOTALPRIS, ikke
+bare behandlerens honorar, bekreftet eksplisitt med bruker), `Behandler` fikk
+`PartnerId`/`ErPartnerAdministrator`/`HarEgetAbonnement`, `Administrator` fikk
+`ErSuperadmin`. Finansiell snapshot (`TestTildelingBetaling`, 1:1 mot
+`TestTildeling`, bevisst en EGEN tabell fremfor flere nye kolonner direkte på
+`TestTildeling` — se kjent EF-fallgruve om feiltolkede kolonneendringer i
+CLAUDE.md) og en ren regnskapslogg (`Pengebevegelse`).
+
+**Roller:** Ny `UserRole.Superadmin` — strengt supersett av `Administrator`
+(inkludert i `AdminOmrade`-policyen), egen `SuperadminOmrade`-policy for
+partner-/prisingssider. Kun ÉN reell konto får dette (den config-seedede
+admin-kontoen, se "Seed av brukerens egen admin-konto"). Partner-admin er
+BEVISST IKKE en ny rolle — kun en claim (`ErPartnerAdministrator`/`PartnerId`)
+satt ved innlogging, sjekket via en `RequireAssertion`-policy
+(`PartnerAdminOmrade`). Rad-nivå-filtrering (kun samme partner) håndheves
+eksplisitt i hver spørring, ikke av policyen alene.
+
+**Prisingsformel** (`TestPrisberegner`, ren/tilstandsløs, 8 enhetstester i
+`TestPrisberegnerTests.cs`): `plattform` (0 hvis dekket av abonnement) +
+`partner` (0 hvis ingen partner) + `behandlerHonorar` (behandlerens ønskede
+beløp, standard = testens typiske honorar) klemmes samlet til testens
+Min/Maks — overskrides maks, er det ALLTID behandlerens egen andel som
+reduseres, plattform-/partnerandelen er garanterte gulv. Beregnes ÉN gang per
+test per tildelingsbatch (identisk for alle pasienter fra samme behandler i
+samme batch) i `TestTildelingsService.TildelOgVarsleAsync`, som nå også
+skriver én `TestTildelingBetaling`-rad per tildeling.
+
+**Betalingsflyt:** `Pasientportal/Tester/Fyll` sjekker nå
+`TestTildelingBetaling.Status` (gatet i BÅDE `OnGetAsync` og `OnPostAsync`,
+jf. kjent fallgruve om å kun gate i viewet) og sender til en ny
+`Pasientportal/Tester/Betal`-side (gjenbruker EKSAKT samme mønster som det
+allerede verifiserte `/BetalingTest` — Vipps-redirect eller Stripe Payment
+Element) når betaling er `Venter`. `Security/PaymentWebhooks.cs` sin
+tidligere TODO er nå fullført: Vipps-webhooken leser `reference` fra
+JSON-payloaden (format `tildeling-{id}`, MERK: eksakt JSON-form fortsatt ikke
+bekreftet mot et ekte Vipps-kall, se "Vipps + Stripe"), Stripe-webhooken leser
+en `referanse`-metadata-verdi satt på `PaymentIntent` ved opprettelse
+(`IStripeClient.OpprettBetalingsintensjonAsync` fikk en ny påkrevd
+`referanse`-parameter). Begge kaller samme
+`TestService.MarkerBetalingBetaltAsync` (idempotent — trygt om webhook og
+brukerens retur-side (`BetalResultat`, synkron `HentStatusAsync`-fallback,
+viktig for Vipps siden webhooken ikke er live-verifisert) begge prøver).
+
+**Verifisert:** 8 enhetstester (`TestPrisberegnerTests`) + 2 nye
+ende-til-ende-tester (`BetalingPipelineTests`, mot en ekte migrert
+testdatabase — dekker både en full betaling-til-ledger-runde MED
+partner/honorar, idempotens ved dobbel bekreftelse, og at en uprissatt test
+fortsatt går rett gjennom uten noen betalingssperre eller ledger-rader) — 14/14
+grønt. Manuelt via Playwright: opprettet en ekte partner og satt WHO-5-prising
+gjennom Superadmin-kontoen, bekreftet i databasen.
+
 ## Åpne punkter til senere faser
+
+- Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt
+  utsatt i denne fasen, se "Partner System + Test Monetization". Databasen
+  (Pengebevegelse) er bevisst formet slik at dette er tilføybart senere uten
+  ombygging, men selve integrasjonen er ikke startet.
+- Den faktiske tilbakevendende abonnements-FAKTURERINGEN (å faktisk trekke
+  behandler/partner sitt kort månedlig) er ikke bygget — kun tilstanden
+  (`HarEgetAbonnement`/`HarAktivtAbonnement`) finnes, satt manuelt inntil videre.
+- Partner-egen database/pålogging/embedding i partnerens eget nettsted — helt
+  utsatt, ingen konkret partner-spesifikasjon finnes ennå til å bygge mot.
+- Multi-språk testversjoner (sende engelsk versjon av en test fra norsk side)
+  og partner-theming (farger/logo) — begge eksplisitt utsatt fra det
+  opprinnelige `finance_system.docx`-forslaget.
+- Formell regnskapsstandard-eksport (SAF-T e.l.) for `/Admin/Okonomi` —
+  siden er bevisst en placeholder (to tall) inntil bruker gir eksakt
+  tekst/format, og bør uansett kvalitetssikres av regnskapsfører.
+- Vipps-webhookens JSON-parsing (`reference`-feltet) er ikke bekreftet mot et
+  ekte, levende kall ennå — se "Vipps + Stripe (Apple Pay/Google Pay)" og
+  "Partner System + Test Monetization". `HentStatusAsync`-fallbacken på
+  `BetalResultat`-siden er det som faktisk holder Vipps-betalinger fungerende
+  inntil dette er live-verifisert.
+- Ingen UI for å vise pasienten kvittering/betalingshistorikk ennå — kun selve
+  betalings-gaten er bygget.
+
 
 - Fyll inn ekte firmanavn/organisasjonsnummer/adresse/telefon/e-post i footer
   (`_Layout.cshtml`) og på `/Salgsvilkar` — i dag rene plassholdere, se "Salgsvilkår-side

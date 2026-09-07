@@ -1,0 +1,18 @@
+@page "{id:long}"
+@model TestBase.Web.Areas.Pasientportal.Pages.Tester.BetalResultatModel
+@{
+    ViewData["Title"] = "Betalingsresultat";
+}
+
+<h1>Betalingsresultat</h1>
+
+@if (Model.ErBetalt)
+{
+    <p>Betaling bekreftet! Du kan nå fylle ut testen.</p>
+    <p><a href="/Pasientportal/Tester/Fyll/@Model.TildelingId">Gå til testen</a></p>
+}
+else
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+    <p><a href="/Pasientportal/Tester/Betal/@Model.TildelingId">Prøv betalingen på nytt</a></p>
+}

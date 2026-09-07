@@ -1,0 +1,60 @@
+@page "{id:long}"
+@model TestBase.Web.Areas.Pasientportal.Pages.Tester.BetalModel
+@{
+    ViewData["Title"] = "Betal for test";
+}
+
+<h1>Betal for @Model.TestNavn</h1>
+<p>Du må betale <strong>@Model.TotalprisKr.ToString("0.00") kr</strong> før du kan fylle ut testen.</p>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+@if (Model.VippsTilgjengelig)
+{
+    <form method="post" asp-page-handler="Vipps">
+        <button type="submit">Betal med Vipps</button>
+    </form>
+}
+
+@if (Model.StripeTilgjengelig)
+{
+    <h2>Betal med kort / Apple Pay / Google Pay</h2>
+    <form id="betalingsskjema">
+        <div id="payment-element"></div>
+        <button id="send-knapp" type="submit">Betal @Model.TotalprisKr.ToString("0.00") kr</button>
+        <p id="betalingsfeil" style="color: darkred;"></p>
+    </form>
+
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        const stripe = Stripe('@Model.StripePublishableKey');
+        const elements = stripe.elements({ clientSecret: '@Model.StripeClientSecret' });
+        const paymentElement = elements.create('payment');
+        paymentElement.mount('#payment-element');
+
+        document.getElementById('betalingsskjema').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            document.getElementById('send-knapp').disabled = true;
+
+            const { error } = await stripe.confirmPayment({
+                elements,
+                confirmParams: {
+                    return_url: window.location.origin + '/Pasientportal/Tester/BetalResultat/@Model.TildelingId'
+                }
+            });
+
+            if (error) {
+                document.getElementById('betalingsfeil').textContent = error.message;
+                document.getElementById('send-knapp').disabled = false;
+            }
+        });
+    </script>
+}
+
+@if (!Model.VippsTilgjengelig && !Model.StripeTilgjengelig)
+{
+    <p>Ingen betalingsmetode er konfigurert. Kontakt administrator.</p>
+}
