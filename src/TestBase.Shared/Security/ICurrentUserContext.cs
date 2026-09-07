@@ -11,7 +11,15 @@ public enum UserRole
     Utvikler,
     Administrator,
     Behandler,
-    Pasient
+    Pasient,
+
+    /// <summary>
+    /// Strengt supersett av Administrator — ser alt en Administrator ser,
+    /// pluss partner-/prisingssider ingen andre admin-kontoer når. Kun ment
+    /// for ÉN reell konto, se Administrator.ErSuperadmin og
+    /// docs/beslutningslogg.md "Partner System + Test Monetization".
+    /// </summary>
+    Superadmin
 }
 
 /// <summary>
@@ -27,4 +35,10 @@ public interface ICurrentUserContext
     string DisplayName { get; }
     UserRole Role { get; }
     bool IsAuthenticated { get; }
+
+    /// <summary>Se AppClaimTypes.PartnerId — null hvis ikke innlogget som en partner-tilknyttet Behandler.</summary>
+    long? PartnerId { get; }
+
+    /// <summary>Se AppClaimTypes.ErPartnerAdministrator.</summary>
+    bool ErPartnerAdministrator { get; }
 }

@@ -59,6 +59,14 @@ else if (Model.ValgtePasienter.Any())
                                 <input type="checkbox" name="TestIder" value="@test.Id" class="tildel-test-checkbox" data-test-id="@test.Id" />
                                 @test.Navn
                             </label>
+                            @if (test.StorstePrisKr > 0)
+                            {
+                                <label>
+                                    Ditt honorar (kr, maks @test.StorstePrisKr.ToString("0.00")):
+                                    <input type="number" step="0.01" min="0" max="@test.StorstePrisKr"
+                                           name="HonorarKr[@test.Id]" value="@Model.SistBrukteHonorarPerTestId.GetValueOrDefault(test.Id)" />
+                                </label>
+                            }
                         </li>
                     }
                     </ul>

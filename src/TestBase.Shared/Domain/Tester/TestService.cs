@@ -201,6 +201,30 @@ public sealed class TestService
         return tildeling;
     }
 
+    /// <summary>
+    /// Siste honorar denne behandleren selv valgte for denne testen (se
+    /// TestTildelingBetaling.BehandlerHonorarKr) — brukt til å forhåndsutfylle
+    /// honorarfeltet i tildelingsflyten. Faller tilbake til
+    /// Test.TypiskBehandlerHonorarKr når behandleren aldri har tildelt denne
+    /// testen før.
+    /// </summary>
+    public async Task<decimal> HentSisteHonorarAsync(long behandlerId, long testId, CancellationToken cancellationToken = default)
+    {
+        var sisteHonorar = await _db.TestTildelinger
+            .Where(t => t.TildeltAvBehandlerId == behandlerId && t.TestId == testId)
+            .OrderByDescending(t => t.TildeltUtc)
+            .Join(_db.TestTildelingBetalinger, t => t.Id, b => b.TestTildelingId, (t, b) => (decimal?)b.BehandlerHonorarKr)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (sisteHonorar is not null)
+        {
+            return sisteHonorar.Value;
+        }
+
+        var test = await _db.Tester.FirstOrDefaultAsync(t => t.Id == testId, cancellationToken);
+        return test?.TypiskBehandlerHonorarKr ?? 0m;
+    }
+
     public Task<List<TestTildeling>> HentTildelingerForPasientAsync(long pasientId, CancellationToken cancellationToken = default) =>
         _db.TestTildelinger.Where(t => t.PasientId == pasientId).OrderByDescending(t => t.TildeltUtc).ToListAsync(cancellationToken);
 

@@ -42,6 +42,11 @@ public sealed class AppDbContext : DbContext
     public DbSet<TestKategori> TestKategorier => Set<TestKategori>();
     public DbSet<TestKategoriKobling> TestKategoriKoblinger => Set<TestKategoriKobling>();
     public DbSet<BehandlerMelding> BehandlerMeldinger => Set<BehandlerMelding>();
+    public DbSet<Partner> Partnere => Set<Partner>();
+    public DbSet<PartnerTestTilgang> PartnerTestTilganger => Set<PartnerTestTilgang>();
+    public DbSet<PartnerTestAndel> PartnerTestAndeler => Set<PartnerTestAndel>();
+    public DbSet<TestTildelingBetaling> TestTildelingBetalinger => Set<TestTildelingBetaling>();
+    public DbSet<Pengebevegelse> Pengebevegelser => Set<Pengebevegelse>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -102,6 +107,7 @@ public sealed class AppDbContext : DbContext
             entity.Property(b => b.Tittel).HasMaxLength(128);
             entity.Property(b => b.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
             entity.Property(b => b.PaaminnelseKanal).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.HasIndex(b => b.PartnerId);
             entity.Ignore(b => b.Visningsnavn);
         });
 
@@ -171,6 +177,10 @@ public sealed class AppDbContext : DbContext
             entity.Property(t => t.Beskrivelse).HasMaxLength(2000);
             entity.Property(t => t.Belonningstekst).HasMaxLength(2000);
             entity.Property(t => t.RapportIntroduksjon).HasMaxLength(1000);
+            entity.Property(t => t.MinstePrisKr).HasColumnType("decimal(10,2)");
+            entity.Property(t => t.StorstePrisKr).HasColumnType("decimal(10,2)");
+            entity.Property(t => t.TypiskBehandlerHonorarKr).HasColumnType("decimal(10,2)");
+            entity.Property(t => t.MinstePartnerAndelKr).HasColumnType("decimal(10,2)");
         });
 
         modelBuilder.Entity<TestSide>(entity =>
@@ -232,6 +242,57 @@ public sealed class AppDbContext : DbContext
             entity.HasKey(m => m.Id);
             entity.HasIndex(m => new { m.BehandlerId, m.LestUtc });
             entity.HasIndex(m => m.TestTildelingId);
+        });
+
+        modelBuilder.Entity<Partner>(entity =>
+        {
+            entity.ToTable("partnere");
+            entity.HasKey(p => p.Id);
+            entity.Property(p => p.Navn).HasMaxLength(256).IsRequired();
+            entity.Property(p => p.KontaktpersonNavn).HasMaxLength(256);
+            entity.Property(p => p.KontaktEpost).HasMaxLength(256);
+            entity.Property(p => p.KontaktMobilNr).HasMaxLength(32);
+        });
+
+        modelBuilder.Entity<PartnerTestTilgang>(entity =>
+        {
+            entity.ToTable("partner_test_tilganger");
+            entity.HasKey(t => t.Id);
+            entity.HasIndex(t => new { t.PartnerId, t.TestId }).IsUnique();
+        });
+
+        modelBuilder.Entity<PartnerTestAndel>(entity =>
+        {
+            entity.ToTable("partner_test_andeler");
+            entity.HasKey(a => a.Id);
+            entity.HasIndex(a => new { a.PartnerId, a.TestId }).IsUnique();
+            entity.Property(a => a.AndelKr).HasColumnType("decimal(10,2)");
+        });
+
+        modelBuilder.Entity<TestTildelingBetaling>(entity =>
+        {
+            entity.ToTable("test_tildeling_betalinger");
+            entity.HasKey(b => b.Id);
+            entity.HasIndex(b => b.TestTildelingId).IsUnique();
+            entity.Property(b => b.PasientTotalprisKr).HasColumnType("decimal(10,2)");
+            entity.Property(b => b.BehandlerHonorarKr).HasColumnType("decimal(10,2)");
+            entity.Property(b => b.PlattformAndelKr).HasColumnType("decimal(10,2)");
+            entity.Property(b => b.PartnerAndelKr).HasColumnType("decimal(10,2)");
+            entity.Property(b => b.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+            entity.Property(b => b.Metode).HasConversion<string>().HasMaxLength(16);
+            entity.Property(b => b.BetalingsleverandorReferanse).HasMaxLength(128);
+        });
+
+        modelBuilder.Entity<Pengebevegelse>(entity =>
+        {
+            entity.ToTable("pengebevegelser");
+            entity.HasKey(p => p.Id);
+            entity.Property(p => p.Type).HasConversion<string>().HasMaxLength(32).IsRequired();
+            entity.Property(p => p.BelopKr).HasColumnType("decimal(10,2)");
+            entity.Property(p => p.Beskrivelse).HasMaxLength(500);
+            entity.HasIndex(p => p.TestTildelingId);
+            entity.HasIndex(p => p.BehandlerId);
+            entity.HasIndex(p => p.PartnerId);
         });
     }
 }

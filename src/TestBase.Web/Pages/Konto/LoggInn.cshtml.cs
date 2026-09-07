@@ -106,11 +106,12 @@ public sealed class LoggInnModel : PageModel
         var administrator = await _adminAuth.FinnVedPersonnummerAsync(bankIdResultat.PersonNummer, cancellationToken);
         if (administrator is not null)
         {
+            var administratorRolle = administrator.ErSuperadmin ? UserRole.Superadmin : UserRole.Administrator;
             if (BetroddEnhet.ErBetrodd(HttpContext, ToFaktorPrincipalType.Administrator, administrator.Id))
             {
-                await AuthSignIn.LoggInnAsync(HttpContext, "administrator", administrator.Id, administrator.FulltNavn, UserRole.Administrator, HuskMeg);
+                await AuthSignIn.LoggInnAsync(HttpContext, "administrator", administrator.Id, administrator.FulltNavn, administratorRolle, HuskMeg);
                 await _auditLogger.LogAsync(
-                    administrator.AdminId, nameof(UserRole.Administrator), "InnloggingOk",
+                    administrator.AdminId, administratorRolle.ToString(), "InnloggingOk",
                     nameof(Administrator), administrator.Id.ToString(), "BankID (betrodd enhet — 2FA hoppet over)", cancellationToken);
                 return TilMaalEtterInnlogging("Admin", "/Administratorer/Index");
             }
@@ -120,7 +121,7 @@ public sealed class LoggInnModel : PageModel
             {
                 TempData["DevToFaktorKode"] = kode;
             }
-            TempData["ToFaktorRolle"] = nameof(UserRole.Administrator);
+            TempData["ToFaktorRolle"] = administratorRolle.ToString();
             TempData["ToFaktorId"] = administrator.Id.ToString();
             TempData["ToFaktorHuskMeg"] = HuskMeg;
             TempData["ToFaktorReturnUrl"] = ReturnUrl;
@@ -148,7 +149,9 @@ public sealed class LoggInnModel : PageModel
 
             if (BetroddEnhet.ErBetrodd(HttpContext, ToFaktorPrincipalType.Behandler, behandler.Id))
             {
-                await AuthSignIn.LoggInnAsync(HttpContext, "behandler", behandler.Id, behandler.Visningsnavn ?? "Behandler", UserRole.Behandler, HuskMeg);
+                await AuthSignIn.LoggInnAsync(
+                    HttpContext, "behandler", behandler.Id, behandler.Visningsnavn ?? "Behandler", UserRole.Behandler, HuskMeg,
+                    behandler.PartnerId, behandler.ErPartnerAdministrator);
                 await _auditLogger.LogAsync(
                     $"behandler:{behandler.Id}", nameof(UserRole.Behandler), "InnloggingOk",
                     nameof(Behandler), behandler.Id.ToString(), "BankID (betrodd enhet — 2FA hoppet over)", cancellationToken);

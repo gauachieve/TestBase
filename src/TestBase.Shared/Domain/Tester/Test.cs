@@ -37,4 +37,21 @@ public sealed class Test
 
     public bool ErAktiv { get; set; } = true;
     public DateTimeOffset OpprettetUtc { get; set; }
+
+    // --- Prising (Superadmin-only, se docs/beslutningslogg.md "Partner System +
+    // Test Monetization") — default 0 for alle eksisterende/nye tester inntil en
+    // Superadmin faktisk konfigurerer dem, slik at ingenting endrer oppførsel
+    // før noen aktivt velger å prise en test.
+
+    /// <summary>Nedre grense for pasientens TOTALPRIS for denne testen — 0 betyr "kan tilbys gratis" (se TestPrisberegner).</summary>
+    public decimal MinstePrisKr { get; set; }
+
+    /// <summary>Øvre grense for pasientens TOTALPRIS for denne testen (plattform + partner + behandler-honorar til sammen).</summary>
+    public decimal StorstePrisKr { get; set; }
+
+    /// <summary>Foreslått standard behandler-honorar, vist i tildelingsskjemaet før behandler har noen egen historikk på denne testen.</summary>
+    public decimal TypiskBehandlerHonorarKr { get; set; }
+
+    /// <summary>Superadmin-satt gulv for hvor lite en partner-admin kan sette sin egen PartnerTestAndel til.</summary>
+    public decimal MinstePartnerAndelKr { get; set; }
 }

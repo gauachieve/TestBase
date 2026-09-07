@@ -34,4 +34,12 @@ public sealed class AuthenticatedCurrentUserContext : ICurrentUserContext
         && Enum.TryParse<UserRole>(_principal!.FindFirstValue(ClaimTypes.Role), out var rolle)
         ? rolle
         : UserRole.Pasient;
+
+    public long? PartnerId => IsAuthenticated
+        && long.TryParse(_principal!.FindFirstValue(AppClaimTypes.PartnerId), out var partnerId)
+        ? partnerId
+        : null;
+
+    public bool ErPartnerAdministrator => IsAuthenticated
+        && _principal!.FindFirstValue(AppClaimTypes.ErPartnerAdministrator) == bool.TrueString;
 }

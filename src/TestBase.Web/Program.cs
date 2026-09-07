@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
@@ -43,6 +44,7 @@ builder.Services.AddScoped<PasientAuthenticationService>();
 builder.Services.AddScoped<PasientInvitasjonService>();
 builder.Services.AddScoped<TestService>();
 builder.Services.AddScoped<TestTildelingsService>();
+builder.Services.AddSingleton<TestPrisberegner>();
 builder.Services.AddScoped<BehandlerMeldingService>();
 builder.Services.AddScoped<PaaminnelseService>();
 builder.Services.AddHostedService<DagligPaaminnelseBakgrunnstjeneste>();
@@ -112,12 +114,27 @@ builder.Services
 
 builder.Services.AddAuthorization(options =>
 {
+    // Superadmin er et strengt supersett av Administrator — inkludert her slik at en
+    // Superadmin ALDRI blir utestengt fra en vanlig admin-side, se docs/beslutningslogg.md
+    // "Partner System + Test Monetization".
     options.AddPolicy("AdminOmrade", policy =>
-        policy.RequireRole(nameof(UserRole.Administrator), nameof(UserRole.Utvikler)));
+        policy.RequireRole(nameof(UserRole.Administrator), nameof(UserRole.Superadmin), nameof(UserRole.Utvikler)));
     options.AddPolicy("BehandlerOmrade", policy =>
         policy.RequireRole(nameof(UserRole.Behandler), nameof(UserRole.Utvikler)));
     options.AddPolicy("PasientOmrade", policy =>
         policy.RequireRole(nameof(UserRole.Pasient), nameof(UserRole.Utvikler)));
+    options.AddPolicy("SuperadminOmrade", policy =>
+        policy.RequireRole(nameof(UserRole.Superadmin), nameof(UserRole.Utvikler)));
+
+    // Partner-admin er bevisst IKKE en egen UserRole (fortsatt en Behandler, bare med en
+    // ekstra evne) — se AppClaimTypes.ErPartnerAdministrator/PartnerId og
+    // docs/beslutningslogg.md "Partner System + Test Monetization". RequireAssertion
+    // fremfor en egen IAuthorizationRequirement-klasse siden dette er én enkel claim-sjekk.
+    options.AddPolicy("PartnerAdminOmrade", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.IsInRole(nameof(UserRole.Utvikler)) ||
+            (ctx.User.IsInRole(nameof(UserRole.Behandler)) &&
+             ctx.User.FindFirstValue(AppClaimTypes.ErPartnerAdministrator) == bool.TrueString)));
 });
 
 // --- BankID-testintegrasjon (diagnostisk, IKKE koblet til produksjonsinnlogging) ---
@@ -345,10 +362,11 @@ if (app.Environment.IsDevelopment())
     if (!string.IsNullOrWhiteSpace(seedAdminPersonnummer))
     {
         var seedAuthService = scope.ServiceProvider.GetRequiredService<AdminAuthenticationService>();
-        if (await seedAuthService.FinnVedPersonnummerAsync(seedAdminPersonnummer) is null)
+        var seedAdmin = await seedAuthService.FinnVedPersonnummerAsync(seedAdminPersonnummer);
+        if (seedAdmin is null)
         {
             var seedAdminNavn = app.Configuration["Seed:AdminNavn"] ?? "Administrator";
-            db.Administratorer.Add(new Administrator
+            seedAdmin = new Administrator
             {
                 AdminId = app.Configuration["Seed:AdminId"]
                     ?? seedAdminNavn.ToLowerInvariant().Replace(' ', '-'),
@@ -358,9 +376,19 @@ if (app.Environment.IsDevelopment())
                 Personnummer = seedAdminPersonnummer,
                 HprNr = "0000000",
                 OpprettetUtc = DateTimeOffset.UtcNow
-            });
-            await db.SaveChangesAsync();
+            };
+            db.Administratorer.Add(seedAdmin);
         }
+
+        // Denne kontoen er den eneste som noensinne skal ha Superadmin (se
+        // docs/beslutningslogg.md "Partner System + Test Monetization") — satt/
+        // selvhelbredende her ved hver oppstart, samme mønster som resten av denne seeden.
+        if (!seedAdmin.ErSuperadmin)
+        {
+            seedAdmin.ErSuperadmin = true;
+        }
+
+        await db.SaveChangesAsync();
     }
 
     // Regenerer innebygde tester (WHO-5 m.fl.) — samme idempotente mekanisme

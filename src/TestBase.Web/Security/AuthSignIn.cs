@@ -19,14 +19,18 @@ public static class AuthSignIn
         long brukerId,
         string displayName,
         UserRole rolle,
-        bool huskMeg)
+        bool huskMeg,
+        long? partnerId = null,
+        bool erPartnerAdministrator = false)
     {
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, $"{brukerIdPrefix}:{brukerId}"),
             new(ClaimTypes.Name, displayName),
             new(ClaimTypes.Role, rolle.ToString()),
-            new(AppClaimTypes.BaseRolle, rolle.ToString())
+            new(AppClaimTypes.BaseRolle, rolle.ToString()),
+            new(AppClaimTypes.PartnerId, partnerId?.ToString() ?? string.Empty),
+            new(AppClaimTypes.ErPartnerAdministrator, erPartnerAdministrator.ToString())
         };
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));

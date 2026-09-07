@@ -64,7 +64,7 @@ public sealed class BekreftKodeModel : PageModel
         var returnUrl = TempData["ToFaktorReturnUrl"] as string;
         DevKode = TempData["DevToFaktorKode"] as string;
 
-        return rolle == UserRole.Administrator
+        return rolle is UserRole.Administrator or UserRole.Superadmin
             ? await BekreftAdministratorAsync(id, huskMeg, returnUrl, rolleVerdi, idVerdi, cancellationToken)
             : await BekreftBehandlerAsync(id, huskMeg, returnUrl, rolleVerdi, idVerdi, cancellationToken);
     }
@@ -95,9 +95,10 @@ public sealed class BekreftKodeModel : PageModel
 
         BetroddEnhet.Marker(HttpContext, ToFaktorPrincipalType.Administrator, administrator.Id, BetroddEnhetLevetid());
 
-        await AuthSignIn.LoggInnAsync(HttpContext, "administrator", administrator.Id, administrator.FulltNavn, UserRole.Administrator, huskMeg);
+        var administratorRolle = administrator.ErSuperadmin ? UserRole.Superadmin : UserRole.Administrator;
+        await AuthSignIn.LoggInnAsync(HttpContext, "administrator", administrator.Id, administrator.FulltNavn, administratorRolle, huskMeg);
         await _auditLogger.LogAsync(
-            administrator.AdminId, nameof(UserRole.Administrator), "InnloggingOk",
+            administrator.AdminId, administratorRolle.ToString(), "InnloggingOk",
             nameof(Administrator), administrator.Id.ToString(), "BankID+2FA", cancellationToken);
 
         return TilMaalEtterInnlogging(returnUrl, "Admin", "/Administratorer/Index");
@@ -129,7 +130,9 @@ public sealed class BekreftKodeModel : PageModel
 
         BetroddEnhet.Marker(HttpContext, ToFaktorPrincipalType.Behandler, behandler.Id, BetroddEnhetLevetid());
 
-        await AuthSignIn.LoggInnAsync(HttpContext, "behandler", behandler.Id, behandler.Visningsnavn ?? "Behandler", UserRole.Behandler, huskMeg);
+        await AuthSignIn.LoggInnAsync(
+            HttpContext, "behandler", behandler.Id, behandler.Visningsnavn ?? "Behandler", UserRole.Behandler, huskMeg,
+            behandler.PartnerId, behandler.ErPartnerAdministrator);
         await _auditLogger.LogAsync(
             $"behandler:{behandler.Id}", nameof(UserRole.Behandler), "InnloggingOk",
             nameof(Behandler), behandler.Id.ToString(), "BankID+2FA", cancellationToken);

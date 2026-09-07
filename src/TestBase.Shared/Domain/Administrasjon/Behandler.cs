@@ -47,6 +47,30 @@ public sealed class Behandler
     public DateTimeOffset OpprettetUtc { get; set; }
     public DateTimeOffset? ArkivertUtc { get; set; }
 
+    /// <summary>
+    /// Null = uavhengig behandler (dagens oppførsel for alle, uendret). Satt
+    /// = tilknyttet en Partner — se docs/beslutningslogg.md "Partner System +
+    /// Test Monetization". Kun en Superadmin kan sette denne (Admin/Partnere).
+    /// </summary>
+    public long? PartnerId { get; set; }
+
+    /// <summary>
+    /// Kun meningsfylt når <see cref="PartnerId"/> er satt — gir rett til å
+    /// legge til/fjerne kolleger INNENFOR samme partner (PartnerAdminOmrade),
+    /// og til å sette partnerens egen andel per test (PartnerTestAndel).
+    /// Invarianten (kun relevant sammen med PartnerId) håndheves i
+    /// tjenestelaget, ikke i databasen — samme mønster som "nøyaktig én av
+    /// InvitertAv*" over.
+    /// </summary>
+    public bool ErPartnerAdministrator { get; set; }
+
+    /// <summary>
+    /// Dekker denne behandlerens egne plattformkostnader (se
+    /// TestPrisberegner) — selve den tilbakevendende faktureringsmotoren er
+    /// bevisst IKKE bygget i denne fasen, kun denne tilstanden.
+    /// </summary>
+    public bool HarEgetAbonnement { get; set; }
+
     /// <summary>Daglig påminnelse om ugodkjente fullførte rapporter — se PaaminnelseService, satt under Behandlerportal/Innstillinger.</summary>
     public bool OnskerDagligPaaminnelse { get; set; }
     public Varslingspreferanse PaaminnelseKanal { get; set; } = Varslingspreferanse.Begge;

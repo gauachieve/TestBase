@@ -13,4 +13,6 @@ public sealed class DevCurrentUserContext : ICurrentUserContext
     public string DisplayName => "Utvikler (lokalt dev-miljø)";
     public UserRole Role => UserRole.Utvikler;
     public bool IsAuthenticated => true;
+    public long? PartnerId => null;
+    public bool ErPartnerAdministrator => false;
 }

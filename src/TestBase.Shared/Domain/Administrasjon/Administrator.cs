@@ -20,6 +20,16 @@ public sealed class Administrator
 
     public required string HprNr { get; set; }
     public string? PasswordHash { get; set; }
+
+    /// <summary>
+    /// Strengt supersett av vanlig Administrator — ser alt en Administrator
+    /// ser, PLUSS partner-/prisingssider ingen andre admin-kontoer når (se
+    /// docs/beslutningslogg.md "Partner System + Test Monetization"). Kun
+    /// ment for ÉN reell konto — settes av den config-styrte admin-seeden i
+    /// Program.cs, aldri via vanlig admin-CRUD.
+    /// </summary>
+    public bool ErSuperadmin { get; set; }
+
     public bool ErArkivert { get; set; }
     public DateTimeOffset? ArkivertUtc { get; set; }
     public DateTimeOffset OpprettetUtc { get; set; }

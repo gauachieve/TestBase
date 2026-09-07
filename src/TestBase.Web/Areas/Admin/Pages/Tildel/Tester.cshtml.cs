@@ -66,6 +66,7 @@ public sealed class TesterModel : PageModel
         var pasientIder = ValgtePasienter.Select(p => p.Pasient.Id).ToList();
         Resultat = await _tildelingsService.TildelOgVarsleAsync(
             pasientIder, testIder, behandlerId: null, administratorId: HentAdministratorId(),
+            onsketHonorarKrPerTestId: new Dictionary<long, decimal?>(),
             baseUrl: $"{Request.Scheme}://{Request.Host}", cancellationToken);
 
         await _auditLogger.LogAsync(

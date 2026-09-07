@@ -34,13 +34,15 @@ public sealed class TestTildelingsService
 {
     private readonly AppDbContext _db;
     private readonly TestService _testService;
+    private readonly TestPrisberegner _prisberegner;
     private readonly ISmsSender _sms;
     private readonly IEmailSender _email;
 
-    public TestTildelingsService(AppDbContext db, TestService testService, ISmsSender sms, IEmailSender email)
+    public TestTildelingsService(AppDbContext db, TestService testService, TestPrisberegner prisberegner, ISmsSender sms, IEmailSender email)
     {
         _db = db;
         _testService = testService;
+        _prisberegner = prisberegner;
         _sms = sms;
         _email = email;
     }
@@ -70,18 +72,31 @@ public sealed class TestTildelingsService
         return pasienter.Select(p => new PasientMedBehandlernavn(p, behandlerNavnById.GetValueOrDefault(p.BehandlerId))).ToList();
     }
 
-    /// <summary>Oppretter én TestTildeling per (pasient × test) og varsler hver pasient med lenker til sine nye tester.</summary>
+    /// <summary>
+    /// Oppretter én TestTildeling per (pasient × test) og varsler hver pasient
+    /// med lenker til sine nye tester. Når <paramref name="behandlerId"/> er satt,
+    /// beregnes og snapshottes også prisen for hver test ÉN gang (identisk for
+    /// alle pasienter i denne batchen fra samme behandler, se
+    /// docs/beslutningslogg.md "Partner System + Test Monetization") — admin-
+    /// direkte tildeling (<paramref name="administratorId"/>) hopper over
+    /// prising helt, det finnes ingen behandler å prise på vegne av.
+    /// </summary>
     public async Task<TildelingsBatchResultat> TildelOgVarsleAsync(
         IReadOnlyList<long> pasientIder,
         IReadOnlyList<long> testIder,
         long? behandlerId,
         long? administratorId,
+        IReadOnlyDictionary<long, decimal?> onsketHonorarKrPerTestId,
         string baseUrl,
         CancellationToken cancellationToken = default)
     {
         var pasienter = await _db.Pasienter.Where(p => pasientIder.Contains(p.Id)).ToListAsync(cancellationToken);
-        var testNavnById = await _db.Tester.Where(t => testIder.Contains(t.Id))
-            .ToDictionaryAsync(t => t.Id, t => t.Navn, cancellationToken);
+        var tester = await _db.Tester.Where(t => testIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, cancellationToken);
+
+        var prisPerTestId = await BeregnPrisPerTestAsync(behandlerId, tester, onsketHonorarKrPerTestId, cancellationToken);
+        var behandlerPartnerId = behandlerId is null
+            ? null
+            : (await _db.Behandlere.Where(b => b.Id == behandlerId).Select(b => b.PartnerId).FirstOrDefaultAsync(cancellationToken));
 
         var perPasient = new List<TildeltPasientResultat>();
         foreach (var pasient in pasienter)
@@ -92,16 +107,71 @@ public sealed class TestTildelingsService
                 var tildeling = await _testService.TildelAsync(
                     testId, pasient.Id, behandlerId: behandlerId, administratorId: administratorId,
                     frist: null, varighetMinutter: null, cancellationToken: cancellationToken);
+
+                var pris = prisPerTestId.GetValueOrDefault(testId);
+                _db.TestTildelingBetalinger.Add(new TestTildelingBetaling
+                {
+                    TestTildelingId = tildeling.Id,
+                    PasientTotalprisKr = pris?.PasientTotalprisKr ?? 0m,
+                    BehandlerHonorarKr = pris?.BehandlerHonorarKr ?? 0m,
+                    PlattformAndelKr = pris?.PlattformAndelKr ?? 0m,
+                    PartnerAndelKr = pris?.PartnerAndelKr,
+                    PartnerId = behandlerPartnerId,
+                    DekketAvAbonnement = pris?.DekketAvAbonnement ?? false,
+                    Status = pris is null || pris.PasientTotalprisKr <= 0m ? BetalingStatus.IkkePakrevd : BetalingStatus.Venter,
+                    OpprettetUtc = DateTimeOffset.UtcNow
+                });
+
                 lenker.Add(new TestLenke(
-                    testNavnById.GetValueOrDefault(testId, "(ukjent test)"),
+                    tester.GetValueOrDefault(testId)?.Navn ?? "(ukjent test)",
                     $"{baseUrl.TrimEnd('/')}/Pasientportal/Tester/Fyll/{tildeling.Id}"));
             }
+            await _db.SaveChangesAsync(cancellationToken);
 
             var (sendtSms, sendtEpost) = await VarsleAsync(pasient, BygMelding(lenker), "Nye tester tildelt i PsyTest", cancellationToken);
             perPasient.Add(new TildeltPasientResultat(pasient.Id, pasient.Navn, lenker, sendtSms, sendtEpost));
         }
 
         return new TildelingsBatchResultat(perPasient);
+    }
+
+    /// <summary>Beregner prisen for hver test ÉN gang for hele batchen — se TildelOgVarsleAsync.</summary>
+    private async Task<Dictionary<long, PrisberegningResultat>> BeregnPrisPerTestAsync(
+        long? behandlerId, IReadOnlyDictionary<long, Test> tester,
+        IReadOnlyDictionary<long, decimal?> onsketHonorarKrPerTestId, CancellationToken cancellationToken)
+    {
+        var resultat = new Dictionary<long, PrisberegningResultat>();
+        if (behandlerId is null)
+        {
+            return resultat;
+        }
+
+        var behandler = await _db.Behandlere.FirstOrDefaultAsync(b => b.Id == behandlerId, cancellationToken);
+        if (behandler is null)
+        {
+            return resultat;
+        }
+
+        var partner = behandler.PartnerId is null
+            ? null
+            : await _db.Partnere.FirstOrDefaultAsync(p => p.Id == behandler.PartnerId, cancellationToken);
+        var dekketAvAbonnement = behandler.HarEgetAbonnement || (partner?.HarAktivtAbonnement ?? false);
+
+        foreach (var (testId, test) in tester)
+        {
+            decimal? effektivPartnerAndelKr = null;
+            if (partner is not null)
+            {
+                var partnerAndel = await _db.PartnerTestAndeler
+                    .FirstOrDefaultAsync(a => a.PartnerId == partner.Id && a.TestId == testId, cancellationToken);
+                effektivPartnerAndelKr = Math.Max(partnerAndel?.AndelKr ?? 0m, test.MinstePartnerAndelKr);
+            }
+
+            resultat[testId] = _prisberegner.Beregn(
+                test, dekketAvAbonnement, onsketHonorarKrPerTestId.GetValueOrDefault(testId), effektivPartnerAndelKr);
+        }
+
+        return resultat;
     }
 
     /// <summary>

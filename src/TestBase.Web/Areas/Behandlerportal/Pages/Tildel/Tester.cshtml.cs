@@ -33,7 +33,17 @@ public sealed class TesterModel : PageModel
     [BindProperty]
     public List<long> TestIder { get; set; } = new();
 
+    /// <summary>
+    /// Behandlerens eget honorar per test (kun relevant for tester med prising
+    /// konfigurert, se docs/beslutningslogg.md "Partner System + Test
+    /// Monetization") — tom/manglende verdi faller tilbake til
+    /// Test.TypiskBehandlerHonorarKr i TestPrisberegner.
+    /// </summary>
+    [BindProperty]
+    public Dictionary<long, decimal?> HonorarKr { get; set; } = new();
+
     public IReadOnlyList<TestService.KategoriMedTester> KategoriTre { get; private set; } = Array.Empty<TestService.KategoriMedTester>();
+    public IReadOnlyDictionary<long, decimal> SistBrukteHonorarPerTestId { get; private set; } = new Dictionary<long, decimal>();
     public IReadOnlyList<PasientMedBehandlernavn> ValgtePasienter { get; private set; } = Array.Empty<PasientMedBehandlernavn>();
     public string? Feilmelding { get; private set; }
     public TildelingsBatchResultat? Resultat { get; private set; }
@@ -49,6 +59,14 @@ public sealed class TesterModel : PageModel
         PasientIderCsv = csv;
         await LastValgtePasienterAsync(csv, cancellationToken);
         KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken);
+
+        var behandlerId = HentBehandlerId();
+        var sisteHonorar = new Dictionary<long, decimal>();
+        foreach (var test in KategoriTre.SelectMany(k => k.Tester))
+        {
+            sisteHonorar[test.Id] = await _testService.HentSisteHonorarAsync(behandlerId, test.Id, cancellationToken);
+        }
+        SistBrukteHonorarPerTestId = sisteHonorar;
     }
 
     public async Task<IActionResult> OnPostSendAsync(CancellationToken cancellationToken)
@@ -70,9 +88,10 @@ public sealed class TesterModel : PageModel
         }
 
         var pasientIder = ValgtePasienter.Select(p => p.Pasient.Id).ToList();
+        var onsketHonorarKrPerTestId = testIder.ToDictionary(id => id, id => HonorarKr.GetValueOrDefault(id));
         Resultat = await _tildelingsService.TildelOgVarsleAsync(
             pasientIder, testIder, behandlerId: HentBehandlerId(), administratorId: null,
-            baseUrl: $"{Request.Scheme}://{Request.Host}", cancellationToken);
+            onsketHonorarKrPerTestId, baseUrl: $"{Request.Scheme}://{Request.Host}", cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "TildelTesterBatch",

@@ -107,8 +107,12 @@ public sealed class RapportModel : PageModel
         if (forkastet && Pasient is not null && Test is not null)
         {
             var baseUrl = $"{Request.Scheme}://{Request.Host}";
+            // Beholder samme honorar som forrige tildeling av denne testen — dette er en
+            // "send på nytt", ikke en ny prisingsbeslutning.
+            var forrigeHonorar = await _testService.HentSisteHonorarAsync(behandlerId, Test.Id, cancellationToken);
             await _tildelingsService.TildelOgVarsleAsync(
                 new[] { Pasient.Id }, new[] { Test.Id }, behandlerId: behandlerId, administratorId: null,
+                new Dictionary<long, decimal?> { [Test.Id] = forrigeHonorar },
                 baseUrl: baseUrl, cancellationToken: cancellationToken);
 
             await _auditLogger.LogAsync(
