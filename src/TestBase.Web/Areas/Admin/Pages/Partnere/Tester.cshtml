@@ -1,0 +1,36 @@
+@page "{id:long}"
+@model TestBase.Web.Areas.Admin.Pages.Partnere.TesterModel
+@{
+    ViewData["Title"] = "Partnerens tester";
+}
+
+<h1>Tester tilgjengelig for @Model.PartnerNavn</h1>
+<p><a href="/Admin/Partnere/Rediger/@Model.PartnerId">Tilbake til partneren</a></p>
+
+@foreach (var kategori in Model.KategoriTre)
+{
+    <details open>
+        <summary>@kategori.Kategori.Navn</summary>
+        @if (!kategori.Tester.Any())
+        {
+            <p><em>Ingen tester i denne kategorien ennå.</em></p>
+        }
+        else
+        {
+            <ul>
+            @foreach (var test in kategori.Tester)
+            {
+                var tilgjengelig = Model.TilgjengeligeTestIder.Contains(test.Id);
+                <li>
+                    <form method="post" asp-page-handler="Toggle" style="display:inline;">
+                        <input type="hidden" name="id" value="@Model.PartnerId" />
+                        <input type="hidden" name="testId" value="@test.Id" />
+                        <button type="submit">@(tilgjengelig ? "✓ Tilgjengelig — fjern" : "Ikke tilgjengelig — legg til")</button>
+                    </form>
+                    @test.Navn
+                </li>
+            }
+            </ul>
+        }
+    </details>
+}

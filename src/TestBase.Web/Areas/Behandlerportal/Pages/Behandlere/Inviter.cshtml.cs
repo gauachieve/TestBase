@@ -44,7 +44,7 @@ public sealed class InviterModel : PageModel
         var baseUrl = $"{Request.Scheme}://{Request.Host}";
 
         var resultat = await _invitasjonService.InviterAsync(
-            MobilNr, Epost, administratorId: null, behandlerId: behandlerId, baseUrl, cancellationToken);
+            MobilNr, Epost, administratorId: null, behandlerId: behandlerId, baseUrl: baseUrl, cancellationToken: cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "InviterBehandler",

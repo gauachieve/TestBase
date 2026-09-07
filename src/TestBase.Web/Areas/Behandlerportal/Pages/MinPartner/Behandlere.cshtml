@@ -1,0 +1,51 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.MinPartner.BehandlereModel
+@{
+    ViewData["Title"] = "Min partner — behandlere";
+}
+
+<h1>Behandlere i min partner</h1>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+@if (Model.InvitasjonsLenke is not null)
+{
+    <p>Invitasjon sendt. Lenke (mock-modus viser den her, sendes normalt kun på SMS/e-post): <a href="@Model.InvitasjonsLenke">@Model.InvitasjonsLenke</a></p>
+}
+
+<table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Navn</th>
+            <th>E-post</th>
+            <th>Status</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var b in Model.Kolleger)
+    {
+        <tr>
+            <td>@(b.Visningsnavn ?? "(ikke fullført)")</td>
+            <td>@b.Email</td>
+            <td>@b.Status</td>
+            <td>
+                <form method="post" asp-page-handler="Fjern" style="display:inline;">
+                    <input type="hidden" name="behandlerId" value="@b.Id" />
+                    <button type="submit">Fjern fra partner</button>
+                </form>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<h2>Inviter ny kollega</h2>
+<form method="post" asp-page-handler="Inviter">
+    <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
+    <div><label>E-post</label><br /><input asp-for="Epost" /></div>
+    <button type="submit">Inviter</button>
+</form>

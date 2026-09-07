@@ -289,9 +289,12 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeAreaFolder("Admin", "/Pasienter", "AdminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Tester", "AdminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Tildel", "AdminOmrade");
+    options.Conventions.AuthorizeAreaFolder("Admin", "/Partnere", "SuperadminOmrade");
+    options.Conventions.AuthorizeAreaFolder("Admin", "/Tester/Prising", "SuperadminOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Behandlere", "BehandlerOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Pasienter", "BehandlerOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Tildel", "BehandlerOmrade");
+    options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/MinPartner", "PartnerAdminOmrade");
 });
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>("mysql");

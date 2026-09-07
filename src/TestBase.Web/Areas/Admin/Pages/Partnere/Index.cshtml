@@ -1,0 +1,39 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Partnere.IndexModel
+@{
+    ViewData["Title"] = "Partnere";
+}
+
+<h1>Partnere</h1>
+<p><a href="/Admin/Partnere/Ny">+ Ny partner</a></p>
+
+<table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Navn</th>
+            <th>Kontaktperson</th>
+            <th>Abonnement</th>
+            <th>Status</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var p in Model.Partnere)
+    {
+        <tr>
+            <td>@p.Navn</td>
+            <td>@(p.KontaktpersonNavn ?? "-")</td>
+            <td>@(p.HarAktivtAbonnement ? "Aktivt" : "Ingen")</td>
+            <td>@(p.ErArkivert ? "Arkivert" : "Aktiv")</td>
+            <td>
+                <a href="/Admin/Partnere/Rediger/@p.Id">Rediger</a> |
+                <a href="/Admin/Partnere/Tester/@p.Id">Tester</a> |
+                <form method="post" asp-page-handler="Arkiver" style="display:inline;">
+                    <input type="hidden" name="id" value="@p.Id" />
+                    <button type="submit">@(p.ErArkivert ? "Gjenåpne" : "Arkiver")</button>
+                </form>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

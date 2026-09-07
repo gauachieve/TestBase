@@ -1,0 +1,39 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.MinPartner.PrisingModel
+@{
+    ViewData["Title"] = "Min partner — prising";
+}
+
+<h1>Min partners andel per test</h1>
+<p>Andelen klemmes alltid opp til minst det Superadmin har satt som gulv for testen.</p>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Test</th>
+            <th>Vår andel (kr)</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var rad in Model.Tester)
+    {
+        var skjemaId = $"andel-{rad.Test.Id}";
+        <tr>
+            <td>@rad.Test.Navn</td>
+            <td><input form="@skjemaId" type="number" step="0.01" min="@rad.Test.MinstePartnerAndelKr" name="andelKr" value="@rad.EffektivAndelKr" /></td>
+            <td>
+                <button type="submit" form="@skjemaId">Lagre</button>
+                <form id="@skjemaId" method="post">
+                    <input type="hidden" name="testId" value="@rad.Test.Id" />
+                </form>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

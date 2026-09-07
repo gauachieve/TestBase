@@ -1,0 +1,49 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Tester.Prising.IndexModel
+@{
+    ViewData["Title"] = "Testprising";
+}
+
+<h1>Testprising</h1>
+<p>
+    Minste/største pris er grenser på PASIENTENS TOTALPRIS (ikke bare behandlerens
+    honorar) — minste pris 0 markerer at testen kan tilbys gratis. Se
+    docs/beslutningslogg.md "Partner System + Test Monetization".
+</p>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Test</th>
+            <th>Minste pris (kr)</th>
+            <th>Største pris (kr)</th>
+            <th>Typisk behandler-honorar (kr)</th>
+            <th>Minste partnerandel (kr)</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var test in Model.Tester)
+    {
+        var skjemaId = $"prising-{test.Id}";
+        <tr>
+            <td>@test.Navn</td>
+            <td><input form="@skjemaId" type="number" step="0.01" min="0" name="minstePrisKr" value="@test.MinstePrisKr" /></td>
+            <td><input form="@skjemaId" type="number" step="0.01" min="0" name="storstePrisKr" value="@test.StorstePrisKr" /></td>
+            <td><input form="@skjemaId" type="number" step="0.01" min="0" name="typiskBehandlerHonorarKr" value="@test.TypiskBehandlerHonorarKr" /></td>
+            <td><input form="@skjemaId" type="number" step="0.01" min="0" name="minstePartnerAndelKr" value="@test.MinstePartnerAndelKr" /></td>
+            <td>
+                <button type="submit" form="@skjemaId">Lagre</button>
+                <form id="@skjemaId" method="post">
+                    <input type="hidden" name="testId" value="@test.Id" />
+                </form>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

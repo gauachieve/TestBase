@@ -1,0 +1,67 @@
+@page "{id:long}"
+@model TestBase.Web.Areas.Admin.Pages.Partnere.RedigerModel
+@{
+    ViewData["Title"] = "Rediger partner";
+}
+
+<h1>Rediger partner — @Model.PartnerNavn</h1>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<form method="post">
+    <div><label>Navn</label><br /><input asp-for="Navn" /></div>
+    <div><label>Kontaktperson</label><br /><input asp-for="KontaktpersonNavn" /></div>
+    <div><label>Kontakt-e-post</label><br /><input asp-for="KontaktEpost" /></div>
+    <div><label>Kontakt-mobilnummer</label><br /><input asp-for="KontaktMobilNr" /></div>
+    <div><label><input asp-for="HarAktivtAbonnement" type="checkbox" /> Har aktivt abonnement (dekker behandlernes plattformkostnader)</label></div>
+    <button type="submit">Lagre</button>
+</form>
+
+<h2>Tilknyttede behandlere</h2>
+<table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Navn</th>
+            <th>E-post</th>
+            <th>Partner-admin</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var b in Model.TilknyttedeBehandlere)
+    {
+        <tr>
+            <td>@(b.Visningsnavn ?? "(ikke fullført)")</td>
+            <td>@b.Email</td>
+            <td>@(b.ErPartnerAdministrator ? "Ja" : "Nei")</td>
+            <td>
+                <form method="post" asp-page-handler="TogglePartnerAdmin" style="display:inline;">
+                    <input type="hidden" name="id" value="@Model.PartnerId" />
+                    <input type="hidden" name="behandlerId" value="@b.Id" />
+                    <button type="submit">@(b.ErPartnerAdministrator ? "Fjern partner-admin" : "Gjør til partner-admin")</button>
+                </form>
+                <form method="post" asp-page-handler="FjernBehandler" style="display:inline;">
+                    <input type="hidden" name="id" value="@Model.PartnerId" />
+                    <input type="hidden" name="behandlerId" value="@b.Id" />
+                    <button type="submit">Fjern fra partner</button>
+                </form>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<h3>Legg til eksisterende (uavhengig) behandler</h3>
+<form method="post" asp-page-handler="LeggTilBehandler">
+    <input type="hidden" name="id" value="@Model.PartnerId" />
+    <select name="behandlerId">
+    @foreach (var b in Model.UavhengigeBehandlere)
+    {
+        <option value="@b.Id">@(b.Visningsnavn ?? b.Email)</option>
+    }
+    </select>
+    <button type="submit">Legg til</button>
+</form>

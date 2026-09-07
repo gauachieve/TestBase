@@ -1,0 +1,20 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Partnere.NyModel
+@{
+    ViewData["Title"] = "Ny partner";
+}
+
+<h1>Ny partner</h1>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<form method="post">
+    <div><label>Navn</label><br /><input asp-for="Navn" /></div>
+    <div><label>Kontaktperson</label><br /><input asp-for="KontaktpersonNavn" /></div>
+    <div><label>Kontakt-e-post</label><br /><input asp-for="KontaktEpost" /></div>
+    <div><label>Kontakt-mobilnummer</label><br /><input asp-for="KontaktMobilNr" /></div>
+    <button type="submit">Opprett</button>
+</form>

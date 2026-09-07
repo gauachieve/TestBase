@@ -44,6 +44,7 @@ public sealed class BehandlerInvitasjonService
         long? administratorId,
         long? behandlerId,
         string baseUrl,
+        long? partnerId = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(mobilNr) && string.IsNullOrWhiteSpace(epost))
@@ -63,6 +64,7 @@ public sealed class BehandlerInvitasjonService
             Status = BehandlerStatus.Invitert,
             InvitertAvAdministratorId = administratorId,
             InvitertAvBehandlerId = behandlerId,
+            PartnerId = partnerId,
             OpprettetUtc = DateTimeOffset.UtcNow
         };
         _db.Behandlere.Add(behandler);
