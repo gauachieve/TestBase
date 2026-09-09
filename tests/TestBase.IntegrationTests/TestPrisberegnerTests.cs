@@ -109,4 +109,19 @@ public sealed class TestPrisberegnerTests
 
         Assert.Equal(0m, resultat.PasientTotalprisKr);
     }
+
+    [Fact]
+    public void SmsGebyr_LeggesOvenpaKlemtTotalOgGarPlattformen()
+    {
+        // Selv en maks-klemt test (400) skal få SMS-gebyret lagt OVENPÅ, ikke klemt
+        // bort — gebyret er en kanal-kostnad, ikke en del av testens prisgrenser.
+        var test = LagTest(minstePris: 100, storstePris: 400, typiskHonorar: 1000, minstePartnerAndel: 50);
+        var resultat = new TestPrisberegner().Beregn(test, dekketAvAbonnement: false, onsketHonorarKr: null, effektivPartnerAndelKr: 50m, smsGebyrKr: 5m);
+
+        Assert.Equal(405m, resultat.PasientTotalprisKr);
+        Assert.Equal(105m, resultat.PlattformAndelKr);
+        Assert.Equal(50m, resultat.PartnerAndelKr);
+        Assert.Equal(250m, resultat.BehandlerHonorarKr);
+        Assert.Equal(5m, resultat.SmsGebyrKr);
+    }
 }

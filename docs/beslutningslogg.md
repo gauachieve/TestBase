@@ -1650,6 +1650,107 @@ rettingene hadde eksisterende testdekning, se punkt 1 sin forklaring på
 HVORFOR krasjen ikke ble fanget av eksisterende tester). Punkt 4 krever
 `azd provision` (infra-endring), ikke bare `azd deploy`.
 
+### Tredje bug-runde: tildelingsdialogen, prising-input, pasientvisning på tvers av partnerskapet (2026-09-09/10)
+
+Brukerens tredje manuelle gjennomgang denne uken. Rettet:
+
+1. **Knappestørrelse/-farge i tildelingsdialogen**: "Gå til oppsummering",
+   "Avbryt" og "Bekreft og send" i `Behandlerportal/Tildel/Tester.cshtml` og
+   `Admin/Tildel/Tester.cshtml` hadde ingen `.btn`-klasse i det hele tatt
+   (nettleserens standard, uformaterte knapp). Lagt til `.btn .btn-accent`
+   (oransje) for de bekreftende, og en NY klasse `.btn-muted` (nøytral grå
+   outline, bevisst forskjellig fra både `.btn-accent` og `.btn-outline` — jf.
+   brukerens "kanskje avbryt-knapper bør være en annen fargekombo") for Avbryt.
+2. **Reell prisoppsummering i dialogen**: dialogen viste bare testnavn, ingen
+   pris, og ingen mulighet til å velge varslingsmetode — begge deler manglet
+   helt (IKKE en visningsfeil, funksjonaliteten fantes ikke). Lagt til:
+   - Tre valgknapper (SMS/E-post/Begge) i dialogen. `TestTildelingsService.TildelOgVarsleAsync`
+     fikk en ny `varslingsmetode`-parameter (default `Begge`) som nå ALLTID er et
+     eksplisitt valg fra avsenderen for selve tildelingen — pasientens egen
+     lagrede `Varslingspreferanse` brukes fortsatt uendret for
+     `SendRapportKopiAsync` (rapport-kopier), det er en annen flyt.
+   - En JavaScript-speiling av `TestPrisberegner.Beregn` i `wwwroot/js/tildel.js`
+     som viser pris PER TEST og summert i bunn for HELE batchen (inkl. hvem som
+     får hvor mye — plattform/partner/behandler) FØR innsending, uten
+     server-tur. Prisdataene (Min/Maks/typisk honorar/partnerandel/dekket-av-
+     abonnement) leses fra nye `data-*`-attributter på hver test-checkbox,
+     hentet via en ny `TestTildelingsService.HentPrisingskontekstAsync`.
+     Admin-siden har ingen slike attributter (admin-tildeling er alltid
+     "IkkePåkrevd") — JS-en degraderer stille til bare testnavn der.
+   - **SMS koster penger å sende (Vonage) — nytt `Priser:SmsGebyrKr`-
+     konfigurasjonsnøkkel** (default 0 kr, samme mønster som `Varsling:BaseUrl`
+     — settes uten redeploy). Når varslingsmetoden inkluderer SMS, legges
+     gebyret OVENPÅ pasientens klemte totalpris (ikke inni Min/Maks-grensene —
+     det er en kanalkostnad, ikke en del av selve testens pris) og går i sin
+     helhet til plattformandelen. `TestPrisberegner.Beregn` fikk en ny
+     `smsGebyrKr`-parameter (default 0, lagt til SIST i signaturen — ingen
+     eksisterende kallsteder påvirket). **Reell konsekvens å være obs på**: en
+     helt gratis/uprist test (Min=Maks=0) kan bli betalingspliktig UTELUKKENDE
+     fordi SMS ble valgt som varslingsmetode for den utsendingen — bevisst
+     akseptert som riktig (plattformen må dekke den reelle SMS-kostnaden fra
+     NOEN), men verdt å huske hvis det oppleves som overraskende senere.
+     `Priser:SmsGebyrKr` MÅ settes til et reelt tall før reell bruk — 0 kr nå.
+3. **`DictionaryModelBinder`-krasjen fra forrige runde re-dukket delvis opp
+   som en NY, mer alvorlig oppdagelse**: da prisfeltene på
+   `Admin/Tester/Prising` og `Behandlerportal/MinPartner/Prising` ble undersøkt
+   for høyrejustering, viste det seg at de faktisk konfigurerte prisene
+   (f.eks. 50 kr) IKKE vises i feltene i det hele tatt — feltene fremstår tomme.
+   Årsak: `value="@test.MinstePrisKr"` bruker Razors STANDARD `ToString()`, som
+   følger serverens gjeldende KULTUR (norsk Windows → komma som
+   desimalskilletegn, f.eks. "50,00") — men HTML5 `<input type="number">`
+   krever ALLTID punktum, uansett sidespråk, og forkaster stille en verdi med
+   komma (feltet vises tomt, ingen feilmelding). **Reell fare**: en admin som
+   åpner siden, ser et tomt felt (uvitende om at det faktisk er en tidligere
+   satt pris under overflaten) og trykker "Lagre" uten å skrive inn noe på
+   nytt, ville stille NULLSTILT en fungerende pris til 0 kr. Rettet ved å
+   bruke `.ToString(System.Globalization.CultureInfo.InvariantCulture)` på
+   ALLE `value=`/`min=`/`max=`-attributter på `type="number"`-felt i hele
+   appen (6 forekomster funnet og rettet: 4 på Admin/Tester/Prising, 1 på
+   MinPartner/Prising, 1 honorar-feltet på Behandlerportal/Tildel/Tester) — ny
+   kjent fallgruve, lagt til CLAUDE.md. Rene visningstekster (som "maks X kr"
+   utenfor et faktisk skjemafelt) er IKKE endret — komma er korrekt der, det
+   er kun maskinlesbare HTML5-attributter som må være invariant-formatert.
+4. **NOK i stedet for kr + høyrejustering + mystisk hvit boks** på samme to
+   prisingssider: kolonneoverskriftene sa "(kr)", ikke per rad; tallene var
+   venstrejustert; og en synlig tom hvit boks dukket opp etter tallet. Sistnevnte
+   var det tomme `<form>`-elementet som holder den skjulte `testId`-en (HTML5
+   "form=id"-trikset fra CLAUDE.md sine kjente fallgruver) — et `<form>` er et
+   blokkelement som tar synlig plass selv når det er tomt. Rettet: "(NOK)" i
+   overskriften OG "NOK" etter hvert felt, en ny `.tall-input`-CSS-klasse
+   (`text-align: right`), og `hidden`-attributt på de tomme skjemaene (påvirker
+   ikke selve "form=id"-koblingen — kun skjulte elementer kan fortsatt være
+   gyldige skjema-mål).
+5. **Partner-admin sett ALLE pasienter i partnerskapet, admin fikk en
+   Partner-kolonne**: `Behandlerportal/Pasienter/Index.cshtml.cs` viste
+   tidligere KUN innloggede behandler sine egne pasienter, uansett rolle. Nå:
+   når `CurrentUser.ErPartnerAdministrator`, vises ALLE pasienter for ALLE
+   behandlere i partnerskapet, med en ny Behandler-kolonne (samme prinsipp som
+   `Admin/Pasienter` alt viste på tvers av behandlere). `Admin/Pasienter`
+   fikk i tillegg en ny Partner-kolonne. Siden `Detaljer.cshtml.cs` og
+   `Rediger.cshtml.cs` fortsatt håndhevet "kun egen pasient", ville en
+   partner-admin ha sett raden i listen men fått 404/redirect ved klikk — ny
+   delt `HarTilgangAsync`-sjekk (egen pasient ELLER partner-admin i samme
+   partnerskap som pasientens behandler) lagt til begge steder.
+6. **"Bytt behandler"-popup på Rediger pasient**: ny handler
+   `OnPostByttBehandlerAsync` + en `<dialog>` med alle behandlere i SAMME
+   partnerskap som pasientens nåværende behandler (tom liste — og popupen
+   vises ikke i det hele tatt — hvis behandleren er uavhengig, siden det da
+   ikke finnes noe partnerskap å velge innenfor). Tilgjengelig for BÅDE
+   pasientens egen behandler (vanlig "overlever saken til en kollega") og en
+   partner-admin (via den utvidede tilgangen i punkt 5).
+
+Verifisert: bygget grønt, 16/16 tester grønt (inkl. en ny
+`TestPrisberegnerTests`-test for SMS-gebyr-formelen), samt manuell
+Playwright-gjennomgang lokalt av tildelingsdialogen (knappefarger, testnavn i
+oppsummeringen, ingen konsoll-feil) og prisingssidene (NOK, høyrejustering,
+faktiske lagrede tall vises nå korrekt). IKKE live-testet med ekte
+partner+behandler+pris-oppsett: den fulle pris-forhåndsvisningen i
+Behandlerportal-dialogen (med partnerandel og SMS-gebyr faktisk beregnet) og
+"Bytt behandler"-popupen med flere reelle behandlere i samme partnerskap er
+verifisert ved kodegjennomgang og at formelen matcher `TestPrisberegner`
+(samme enhetstestede formel), men ikke klikket gjennom med ekte data denne
+runden.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt

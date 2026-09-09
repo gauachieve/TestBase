@@ -20,10 +20,10 @@
     <thead>
         <tr>
             <th>Test</th>
-            <th>Minste pris (kr)</th>
-            <th>Største pris (kr)</th>
-            <th>Typisk behandler-honorar (kr)</th>
-            <th>Minste partnerandel (kr)</th>
+            <th>Minste pris (NOK)</th>
+            <th>Største pris (NOK)</th>
+            <th>Typisk behandler-honorar (NOK)</th>
+            <th>Minste partnerandel (NOK)</th>
             <th></th>
         </tr>
     </thead>
@@ -33,13 +33,13 @@
         var skjemaId = $"prising-{test.Id}";
         <tr>
             <td>@test.Navn</td>
-            <td><input form="@skjemaId" type="number" step="0.01" min="0" name="minstePrisKr" value="@test.MinstePrisKr" /></td>
-            <td><input form="@skjemaId" type="number" step="0.01" min="0" name="storstePrisKr" value="@test.StorstePrisKr" /></td>
-            <td><input form="@skjemaId" type="number" step="0.01" min="0" name="typiskBehandlerHonorarKr" value="@test.TypiskBehandlerHonorarKr" /></td>
-            <td><input form="@skjemaId" type="number" step="0.01" min="0" name="minstePartnerAndelKr" value="@test.MinstePartnerAndelKr" /></td>
+            <td><input form="@skjemaId" type="number" step="0.01" min="0" name="minstePrisKr" value="@test.MinstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /> NOK</td>
+            <td><input form="@skjemaId" type="number" step="0.01" min="0" name="storstePrisKr" value="@test.StorstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /> NOK</td>
+            <td><input form="@skjemaId" type="number" step="0.01" min="0" name="typiskBehandlerHonorarKr" value="@test.TypiskBehandlerHonorarKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /> NOK</td>
+            <td><input form="@skjemaId" type="number" step="0.01" min="0" name="minstePartnerAndelKr" value="@test.MinstePartnerAndelKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /> NOK</td>
             <td>
                 <button type="submit" form="@skjemaId">Lagre</button>
-                <form id="@skjemaId" method="post">
+                <form id="@skjemaId" method="post" hidden>
                     <input type="hidden" name="testId" value="@test.Id" />
                 </form>
             </td>

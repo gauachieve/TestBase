@@ -5,11 +5,15 @@
     ViewData["Title"] = "Pasienter";
 }
 
-<h1>Mine pasienter</h1>
+<h1>@(Model.ViserHelePartnerskapet ? $"Pasienter i {Model.PartnerNavn}" : "Mine pasienter")</h1>
 <p>
     <a href="/Behandlerportal/Pasienter/Ny">+ Legg til pasient</a> |
     <a href="/Behandlerportal/Pasienter/Gruppeimport">Gruppeimport</a>
 </p>
+@if (Model.ViserHelePartnerskapet)
+{
+    <p><em>Du ser alle pasienter for alle behandlere i partnerskapet, siden du er partner-admin.</em></p>
+}
 
 <div>
     <label for="pasientSok">Søk</label><br />
@@ -21,6 +25,10 @@
     <thead>
         <tr>
             <th>Navn</th>
+            @if (Model.ViserHelePartnerskapet)
+            {
+                <th>Behandler</th>
+            }
             <th>Gruppe</th>
             <th>Mobil</th>
             <th>E-post</th>
@@ -35,9 +43,13 @@
     @foreach (var rad in Model.Rader)
     {
         var p = rad.Pasient;
-        var sok = $"{p.Navn} {p.Gruppenavn} {p.MobilNr} {p.Email} {p.Personnummer} {p.Status}".ToLowerInvariant();
+        var sok = $"{p.Navn} {rad.BehandlerNavn} {p.Gruppenavn} {p.MobilNr} {p.Email} {p.Personnummer} {p.Status}".ToLowerInvariant();
         <tr data-sok="@sok">
             <td><a href="/Behandlerportal/Pasienter/Detaljer/@p.Id">@(p.Navn ?? "(ikke fullført)")</a></td>
+            @if (Model.ViserHelePartnerskapet)
+            {
+                <td>@(rad.BehandlerNavn ?? "-")</td>
+            }
             <td>@(p.Gruppenavn ?? "-")</td>
             <td>@p.MobilNr</td>
             <td>@p.Email</td>

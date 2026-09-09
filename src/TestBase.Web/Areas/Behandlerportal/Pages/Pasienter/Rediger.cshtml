@@ -15,10 +15,42 @@
     <input type="hidden" asp-for="Id" />
     <div><label>Navn (valgfritt)</label><br /><input asp-for="Navn" /></div>
     <div><label>Gruppe (valgfritt)</label><br /><input asp-for="Gruppenavn" /></div>
-    <div><label>Personnummer</label><br /><input asp-for="Personnummer" /></div>
-    <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
-    <div><label>E-post</label><br /><input asp-for="Epost" /></div>
+    <div><label>Personnummer</label><br /><input asp-for="Personnummer" required /></div>
+    <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" required /></div>
+    <div><label>E-post</label><br /><input asp-for="Epost" type="email" required /></div>
     <button type="submit">Lagre</button>
 </form>
+
+@if (Model.BehandlereIPartnerskapet.Any())
+{
+    <p><button type="button" id="apneByttBehandler" class="btn btn-outline btn-sm">Bytt behandler</button></p>
+
+    <dialog id="byttBehandlerDialog">
+        <h2>Bytt behandler</h2>
+        <p>Pasienten flyttes til en annen behandler i samme partnerskap.</p>
+        <form method="post" asp-page-handler="ByttBehandler">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <select name="nyBehandlerId">
+            @foreach (var b in Model.BehandlereIPartnerskapet)
+            {
+                <option value="@b.Id" selected="@(b.Id == Model.EierBehandlerId)">
+                    @(b.Visningsnavn ?? b.Email)@(b.Id == Model.EierBehandlerId ? " (nåværende)" : "")
+                </option>
+            }
+            </select>
+            <button type="button" id="lukkByttBehandler" class="btn btn-muted">Avbryt</button>
+            <button type="submit" class="btn btn-accent">Bytt</button>
+        </form>
+    </dialog>
+
+    <script>
+        document.getElementById('apneByttBehandler').addEventListener('click', function () {
+            document.getElementById('byttBehandlerDialog').showModal();
+        });
+        document.getElementById('lukkByttBehandler').addEventListener('click', function () {
+            document.getElementById('byttBehandlerDialog').close();
+        });
+    </script>
+}
 
 <p><a href="/Behandlerportal/Pasienter/Detaljer/@Model.Id">Se detaljer</a> | <a href="/Behandlerportal/Pasienter">Tilbake til pasienter</a></p>

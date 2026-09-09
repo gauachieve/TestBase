@@ -88,7 +88,7 @@ public sealed class BetalingPipelineTests
         var resultat = await tildelingsService.TildelOgVarsleAsync(
             new[] { pasient.Id }, new[] { test.Id }, behandlerId: behandler.Id, administratorId: null,
             onsketHonorarKrPerTestId: new Dictionary<long, decimal?> { [test.Id] = 120m },
-            baseUrl: "https://localhost", CancellationToken.None);
+            baseUrl: "https://localhost", cancellationToken: CancellationToken.None);
 
         var tildelingId = resultat.PerPasient.Single().Lenker.Single().Lenke.Split('/').Last();
         var tildeling = await db.TestTildelinger.FirstAsync(t => t.PasientId == pasient.Id && t.TestId == test.Id);
@@ -179,7 +179,7 @@ public sealed class BetalingPipelineTests
         var resultat = await tildelingsService.TildelOgVarsleAsync(
             new[] { pasient.Id }, new[] { tillattTest.Id, ikkeTillattTest.Id }, behandlerId: behandler.Id, administratorId: null,
             onsketHonorarKrPerTestId: new Dictionary<long, decimal?>(),
-            baseUrl: "https://localhost", CancellationToken.None);
+            baseUrl: "https://localhost", cancellationToken: CancellationToken.None);
 
         // Kun den tillatte testen skal faktisk ha blitt tildelt.
         var lenker = resultat.PerPasient.Single().Lenker;
@@ -239,7 +239,7 @@ public sealed class BetalingPipelineTests
         var resultat = await tildelingsService.TildelOgVarsleAsync(
             new[] { pasient.Id }, new[] { test.Id }, behandlerId: behandler.Id, administratorId: null,
             onsketHonorarKrPerTestId: new Dictionary<long, decimal?>(),
-            baseUrl: "https://localhost", CancellationToken.None);
+            baseUrl: "https://localhost", cancellationToken: CancellationToken.None);
 
         var tildeling = await db.TestTildelinger.FirstAsync(t => t.PasientId == pasient.Id && t.TestId == test.Id);
         var betaling = await testService.HentBetalingAsync(tildeling.Id);

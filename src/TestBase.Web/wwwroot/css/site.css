@@ -76,6 +76,16 @@ code {
 }
 .btn-outline:hover { background: var(--ink); color: #fff; }
 .btn-sm { padding: 0.5rem 1rem; font-size: 0.75rem; }
+.btn-muted {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--muted);
+}
+.btn-muted:hover { background: var(--bg-soft); border-color: var(--muted); color: var(--ink-soft); }
+
+/* Tall-/beløpsfelt i prisings-tabeller — se Admin/Tester/Prising og
+   Behandlerportal/MinPartner/Prising. */
+.tall-input { width: 6rem; text-align: right; }
 
 /* ---------- Dev bar ---------- */
 .dev-bar {

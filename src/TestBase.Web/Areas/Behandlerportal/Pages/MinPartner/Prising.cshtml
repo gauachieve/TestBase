@@ -16,7 +16,7 @@
     <thead>
         <tr>
             <th>Test</th>
-            <th>Vår andel (kr)</th>
+            <th>Vår andel (NOK)</th>
             <th></th>
         </tr>
     </thead>
@@ -26,10 +26,10 @@
         var skjemaId = $"andel-{rad.Test.Id}";
         <tr>
             <td>@rad.Test.Navn</td>
-            <td><input form="@skjemaId" type="number" step="0.01" min="@rad.Test.MinstePartnerAndelKr" name="andelKr" value="@rad.EffektivAndelKr" /></td>
+            <td><input form="@skjemaId" type="number" step="0.01" min="@rad.Test.MinstePartnerAndelKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" name="andelKr" value="@rad.EffektivAndelKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /> NOK</td>
             <td>
                 <button type="submit" form="@skjemaId">Lagre</button>
-                <form id="@skjemaId" method="post">
+                <form id="@skjemaId" method="post" hidden>
                     <input type="hidden" name="testId" value="@rad.Test.Id" />
                 </form>
             </td>

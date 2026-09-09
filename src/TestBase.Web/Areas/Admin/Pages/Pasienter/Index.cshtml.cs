@@ -24,7 +24,7 @@ public sealed class IndexModel : PageModel
         _testService = testService;
     }
 
-    public sealed record PasientRad(Pasient Pasient, string? BehandlerNavn, int Tildelt, int Besvart);
+    public sealed record PasientRad(Pasient Pasient, string? BehandlerNavn, string? PartnerNavn, int Tildelt, int Besvart);
 
     public List<PasientRad> Rader { get; private set; } = new();
 
@@ -34,13 +34,17 @@ public sealed class IndexModel : PageModel
 
         var behandlere = await _db.Behandlere.ToListAsync(cancellationToken);
         var behandlerNavnById = behandlere.ToDictionary(b => b.Id, b => b.Visningsnavn);
+        var partnerIdPerBehandlerId = behandlere.ToDictionary(b => b.Id, b => b.PartnerId);
+        var partnerNavnById = (await _db.Partnere.ToListAsync(cancellationToken)).ToDictionary(p => p.Id, p => p.Navn);
 
         var tellinger = await _testService.HentTildelingTellingerAsync(pasienter.Select(p => p.Id).ToList(), cancellationToken);
 
         Rader = pasienter.Select(p =>
         {
             var telling = tellinger.GetValueOrDefault(p.Id, new TestService.TildelingTelling(0, 0));
-            return new PasientRad(p, behandlerNavnById.GetValueOrDefault(p.BehandlerId), telling.Tildelt, telling.Besvart);
+            var partnerId = partnerIdPerBehandlerId.GetValueOrDefault(p.BehandlerId);
+            var partnerNavn = partnerId is null ? null : partnerNavnById.GetValueOrDefault(partnerId.Value);
+            return new PasientRad(p, behandlerNavnById.GetValueOrDefault(p.BehandlerId), partnerNavn, telling.Tildelt, telling.Besvart);
         }).ToList();
     }
 }

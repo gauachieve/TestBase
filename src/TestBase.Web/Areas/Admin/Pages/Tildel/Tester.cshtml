@@ -56,7 +56,7 @@ else if (Model.ValgtePasienter.Any())
                     {
                         <li>
                             <label>
-                                <input type="checkbox" name="TestIder" value="@test.Id" class="tildel-test-checkbox" data-test-id="@test.Id" />
+                                <input type="checkbox" name="TestIder" value="@test.Id" class="tildel-test-checkbox" data-test-id="@test.Id" data-test-navn="@test.Navn" />
                                 @test.Navn
                             </label>
                         </li>
@@ -67,10 +67,18 @@ else if (Model.ValgtePasienter.Any())
         }
         </div>
 
-        <button type="button" id="apneOppsummering">Gå til oppsummering</button>
+        <button type="button" id="apneOppsummering" class="btn btn-accent">Gå til oppsummering</button>
 
         <dialog id="oppsummeringDialog">
             <h2>Bekreft utsending</h2>
+
+            <fieldset>
+                <legend>Varslingsmetode for denne utsendingen</legend>
+                <label><input type="radio" name="Varslingsmetode" value="Sms" class="tildel-varslingsmetode" /> SMS</label>
+                <label><input type="radio" name="Varslingsmetode" value="Epost" class="tildel-varslingsmetode" /> E-post</label>
+                <label><input type="radio" name="Varslingsmetode" value="Begge" class="tildel-varslingsmetode" checked /> Begge</label>
+            </fieldset>
+
             <p>Du sender følgende tester:</p>
             <ul id="oppsummeringTester"></ul>
             <p>til følgende pasienter:</p>
@@ -80,8 +88,8 @@ else if (Model.ValgtePasienter.Any())
                 <li>@(p.Pasient.Navn ?? "(ikke fullført)")</li>
             }
             </ul>
-            <button type="button" id="lukkOppsummering">Avbryt</button>
-            <button type="submit">Bekreft og send</button>
+            <button type="button" id="lukkOppsummering" class="btn btn-muted">Avbryt</button>
+            <button type="submit" class="btn btn-accent">Bekreft og send</button>
         </dialog>
     </form>
 

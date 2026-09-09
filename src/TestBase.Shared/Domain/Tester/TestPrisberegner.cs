@@ -7,7 +7,7 @@ namespace TestBase.Shared.Domain.Tester;
 /// </summary>
 public sealed record PrisberegningResultat(
     decimal PasientTotalprisKr, decimal BehandlerHonorarKr, decimal PlattformAndelKr,
-    decimal? PartnerAndelKr, bool DekketAvAbonnement);
+    decimal? PartnerAndelKr, bool DekketAvAbonnement, decimal SmsGebyrKr = 0m);
 
 /// <summary>
 /// Ren, tilstandsløs prisberegner — se docs/beslutningslogg.md "Partner System +
@@ -20,22 +20,27 @@ public sealed record PrisberegningResultat(
 /// tilbys gratis". Overskrider ønsket sum StorstePrisKr, er det ALLTID
 /// behandlerens eget honorar som reduseres — plattform- og partnerandelen er
 /// garanterte gulv som aldri kuttes.
+///
+/// <paramref name="smsGebyrKr"/> (satt av kalleren når varslingsmetoden for
+/// batchen inkluderer SMS, se TestTildelingsService) legges til OVENPÅ den
+/// klemte totalprisen — det er et rent gebyr for selve varslingskanalen, ikke
+/// en del av testens Min/Max-grenser, og går i sin helhet til plattformandelen.
 /// </summary>
 public sealed class TestPrisberegner
 {
     public PrisberegningResultat Beregn(
-        Test test, bool dekketAvAbonnement, decimal? onsketHonorarKr, decimal? effektivPartnerAndelKr)
+        Test test, bool dekketAvAbonnement, decimal? onsketHonorarKr, decimal? effektivPartnerAndelKr, decimal smsGebyrKr = 0m)
     {
         var plattformAndel = dekketAvAbonnement ? 0m : test.MinstePrisKr;
         var partnerAndel = effektivPartnerAndelKr ?? 0m;
         var onsketTotal = plattformAndel + partnerAndel + (onsketHonorarKr ?? test.TypiskBehandlerHonorarKr);
 
         var storstePris = Math.Max(test.StorstePrisKr, test.MinstePrisKr);
-        var totalKr = Math.Clamp(onsketTotal, test.MinstePrisKr, storstePris);
-        var behandlerHonorar = Math.Max(0m, totalKr - plattformAndel - partnerAndel);
+        var totalKrUtenSms = Math.Clamp(onsketTotal, test.MinstePrisKr, storstePris);
+        var behandlerHonorar = Math.Max(0m, totalKrUtenSms - plattformAndel - partnerAndel);
 
         return new PrisberegningResultat(
-            totalKr, behandlerHonorar, plattformAndel,
-            effektivPartnerAndelKr.HasValue ? partnerAndel : null, dekketAvAbonnement);
+            totalKrUtenSms + smsGebyrKr, behandlerHonorar, plattformAndel + smsGebyrKr,
+            effektivPartnerAndelKr.HasValue ? partnerAndel : null, dekketAvAbonnement, smsGebyrKr);
     }
 }

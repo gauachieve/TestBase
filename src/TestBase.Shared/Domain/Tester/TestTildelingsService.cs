@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Providers;
@@ -21,6 +22,16 @@ public sealed record TildeltPasientResultat(
 public sealed record TildelingsBatchResultat(IReadOnlyList<TildeltPasientResultat> PerPasient);
 
 /// <summary>
+/// Prisingskonteksten for ÉN behandler, brukt til å vise en levende
+/// pris-oppsummering i tildelingsdialogen FØR innsending (se
+/// wwwroot/js/tildel.js og Behandlerportal/Tildel/Tester.cshtml) — samme
+/// input-verdier som TestTildelingsService sin egen (private)
+/// BeregnPrisPerTestAsync bruker på skrivetidspunktet.
+/// </summary>
+public sealed record PrisingskontekstForBehandler(
+    bool DekketAvAbonnement, IReadOnlyDictionary<long, decimal> EffektivPartnerAndelPerTestId, decimal SmsGebyrKr);
+
+/// <summary>
 /// Tildelingsflyten: behandler ELLER admin velger flere pasienter og flere
 /// tester (via kategori-treet, se TestService.HentKategoriTreAsync) og sender
 /// dem i ett steg, jf. beslutningsloggen "Tildelingsflyt for tester". Bygger
@@ -37,14 +48,67 @@ public sealed class TestTildelingsService
     private readonly TestPrisberegner _prisberegner;
     private readonly ISmsSender _sms;
     private readonly IEmailSender _email;
+    private readonly IConfiguration _configuration;
 
-    public TestTildelingsService(AppDbContext db, TestService testService, TestPrisberegner prisberegner, ISmsSender sms, IEmailSender email)
+    public TestTildelingsService(AppDbContext db, TestService testService, TestPrisberegner prisberegner, ISmsSender sms, IEmailSender email, IConfiguration configuration)
     {
         _db = db;
         _testService = testService;
         _prisberegner = prisberegner;
         _sms = sms;
         _email = email;
+        _configuration = configuration;
+    }
+
+    /// <summary>
+    /// Gebyr lagt til pasientens totalpris når varslingsmetoden for batchen
+    /// inkluderer SMS (se TildelOgVarsleAsync/Beregn) — dekker den reelle
+    /// kostnaden ved SMS-utsending (Vonage). Konfigurerbar uten redeploy
+    /// (samme mønster som Varsling:BaseUrl), 0 kr inntil satt til et reelt tall.
+    /// </summary>
+    private decimal HentSmsGebyrKr() =>
+        _configuration.GetValue<decimal?>("Priser:SmsGebyrKr") ?? 0m;
+
+    /// <summary>
+    /// Leses av tildelingssiden sin OnGetAsync for å bygge en levende
+    /// pris-forhåndsvisning i oppsummerings-dialogen (JS speiler
+    /// TestPrisberegner.Beregn) FØR noe faktisk sendes inn — se
+    /// PrisingskontekstForBehandler.
+    /// </summary>
+    public async Task<PrisingskontekstForBehandler> HentPrisingskontekstAsync(
+        long behandlerId, IReadOnlyList<long> testIder, CancellationToken cancellationToken = default)
+    {
+        var behandler = await _db.Behandlere.FirstOrDefaultAsync(b => b.Id == behandlerId, cancellationToken);
+        if (behandler is null)
+        {
+            return new PrisingskontekstForBehandler(false, new Dictionary<long, decimal>(), HentSmsGebyrKr());
+        }
+
+        var partner = behandler.PartnerId is null
+            ? null
+            : await _db.Partnere.FirstOrDefaultAsync(p => p.Id == behandler.PartnerId, cancellationToken);
+        var dekketAvAbonnement = behandler.HarEgetAbonnement || (partner?.HarAktivtAbonnement ?? false);
+
+        var effektivPartnerAndel = new Dictionary<long, decimal>();
+        if (partner is not null)
+        {
+            var tester = await _db.Tester.Where(t => testIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, cancellationToken);
+            var andeler = await _db.PartnerTestAndeler
+                .Where(a => a.PartnerId == partner.Id && testIder.Contains(a.TestId))
+                .ToDictionaryAsync(a => a.TestId, cancellationToken);
+
+            foreach (var testId in testIder)
+            {
+                if (!tester.TryGetValue(testId, out var test))
+                {
+                    continue;
+                }
+
+                effektivPartnerAndel[testId] = Math.Max(andeler.GetValueOrDefault(testId)?.AndelKr ?? 0m, test.MinstePartnerAndelKr);
+            }
+        }
+
+        return new PrisingskontekstForBehandler(dekketAvAbonnement, effektivPartnerAndel, HentSmsGebyrKr());
     }
 
     /// <summary>
@@ -88,6 +152,7 @@ public sealed class TestTildelingsService
         long? administratorId,
         IReadOnlyDictionary<long, decimal?> onsketHonorarKrPerTestId,
         string baseUrl,
+        Varslingspreferanse varslingsmetode = Varslingspreferanse.Begge,
         CancellationToken cancellationToken = default)
     {
         var pasienter = await _db.Pasienter.Where(p => pasientIder.Contains(p.Id)).ToListAsync(cancellationToken);
@@ -110,7 +175,8 @@ public sealed class TestTildelingsService
         }
 
         var tester = await _db.Tester.Where(t => testIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, cancellationToken);
-        var prisPerTestId = await BeregnPrisPerTestAsync(behandlerId, tester, onsketHonorarKrPerTestId, cancellationToken);
+        var inkludererSms = varslingsmetode is Varslingspreferanse.Sms or Varslingspreferanse.Begge;
+        var prisPerTestId = await BeregnPrisPerTestAsync(behandlerId, tester, onsketHonorarKrPerTestId, inkludererSms, cancellationToken);
 
         var perPasient = new List<TildeltPasientResultat>();
         foreach (var pasient in pasienter)
@@ -142,7 +208,7 @@ public sealed class TestTildelingsService
             }
             await _db.SaveChangesAsync(cancellationToken);
 
-            var (sendtSms, sendtEpost) = await VarsleAsync(pasient, BygMelding(lenker), "Nye tester tildelt i PsyTest", cancellationToken);
+            var (sendtSms, sendtEpost) = await VarsleAsync(pasient, BygMelding(lenker), "Nye tester tildelt i PsyTest", varslingsmetode, cancellationToken);
             perPasient.Add(new TildeltPasientResultat(pasient.Id, pasient.Navn, lenker, sendtSms, sendtEpost));
         }
 
@@ -152,7 +218,7 @@ public sealed class TestTildelingsService
     /// <summary>Beregner prisen for hver test ÉN gang for hele batchen — se TildelOgVarsleAsync.</summary>
     private async Task<Dictionary<long, PrisberegningResultat>> BeregnPrisPerTestAsync(
         long? behandlerId, IReadOnlyDictionary<long, Test> tester,
-        IReadOnlyDictionary<long, decimal?> onsketHonorarKrPerTestId, CancellationToken cancellationToken)
+        IReadOnlyDictionary<long, decimal?> onsketHonorarKrPerTestId, bool inkludererSms, CancellationToken cancellationToken)
     {
         var resultat = new Dictionary<long, PrisberegningResultat>();
         if (behandlerId is null)
@@ -182,7 +248,8 @@ public sealed class TestTildelingsService
             }
 
             resultat[testId] = _prisberegner.Beregn(
-                test, dekketAvAbonnement, onsketHonorarKrPerTestId.GetValueOrDefault(testId), effektivPartnerAndelKr);
+                test, dekketAvAbonnement, onsketHonorarKrPerTestId.GetValueOrDefault(testId), effektivPartnerAndelKr,
+                smsGebyrKr: inkludererSms ? HentSmsGebyrKr() : 0m);
         }
 
         return resultat;
@@ -213,20 +280,27 @@ public sealed class TestTildelingsService
         var melding = $"Rapporten din for {test?.Navn ?? "en test"} er klar. Se den her: {lenke}";
 
         await _testService.SettRapportSynlighetAsync(tildelingId, true, cancellationToken);
-        var (sendtSms, sendtEpost) = await VarsleAsync(pasient, melding, "Rapporten din er klar i PsyTest", cancellationToken);
+        var (sendtSms, sendtEpost) = await VarsleAsync(pasient, melding, "Rapporten din er klar i PsyTest", pasient.Varslingspreferanse, cancellationToken);
         return sendtSms || sendtEpost;
     }
 
+    /// <summary>
+    /// <paramref name="varslingsmetode"/> er ALLTID et eksplisitt valg fra
+    /// kalleren — for TildelOgVarsleAsync er det behandlerens/adminens valg i
+    /// tildelingsdialogen (ikke lenger pasientens lagrede
+    /// Varslingspreferanse), for SendRapportKopiAsync er det fortsatt
+    /// pasientens egen lagrede preferanse (uendret oppførsel der).
+    /// </summary>
     private async Task<(bool SendtSms, bool SendtEpost)> VarsleAsync(
-        Pasient pasient, string meldingstekst, string epostEmne, CancellationToken cancellationToken)
+        Pasient pasient, string meldingstekst, string epostEmne, Varslingspreferanse varslingsmetode, CancellationToken cancellationToken)
     {
         var harMobil = !string.IsNullOrWhiteSpace(pasient.MobilNr);
         var harEpost = !string.IsNullOrWhiteSpace(pasient.Email);
 
-        var vilSms = pasient.Varslingspreferanse is Varslingspreferanse.Sms or Varslingspreferanse.Begge;
-        var vilEpost = pasient.Varslingspreferanse is Varslingspreferanse.Epost or Varslingspreferanse.Begge;
+        var vilSms = varslingsmetode is Varslingspreferanse.Sms or Varslingspreferanse.Begge;
+        var vilEpost = varslingsmetode is Varslingspreferanse.Epost or Varslingspreferanse.Begge;
 
-        // Hvis preferansen ikke kan oppfylles i det hele tatt (f.eks. "kun SMS" men
+        // Hvis valgt metode ikke kan oppfylles i det hele tatt (f.eks. "kun SMS" men
         // mobilnummer mangler), fall tilbake til hva pasienten faktisk har registrert
         // — bedre å varsle på en annen kanal enn å ikke varsle i det hele tatt.
         if (!(vilSms && harMobil) && !(vilEpost && harEpost))

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Domain.Tester;
 using TestBase.Shared.Security;
 
@@ -26,6 +27,10 @@ public sealed class TesterModel : PageModel
 
     [BindProperty]
     public List<long> TestIder { get; set; } = new();
+
+    /// <summary>Valgt i oppsummerings-dialogen — se Behandlerportal-motstykket for full begrunnelse.</summary>
+    [BindProperty]
+    public Varslingspreferanse Varslingsmetode { get; set; } = Varslingspreferanse.Begge;
 
     public IReadOnlyList<TestService.KategoriMedTester> KategoriTre { get; private set; } = Array.Empty<TestService.KategoriMedTester>();
     public IReadOnlyList<PasientMedBehandlernavn> ValgtePasienter { get; private set; } = Array.Empty<PasientMedBehandlernavn>();
@@ -67,7 +72,8 @@ public sealed class TesterModel : PageModel
         Resultat = await _tildelingsService.TildelOgVarsleAsync(
             pasientIder, testIder, behandlerId: null, administratorId: HentAdministratorId(),
             onsketHonorarKrPerTestId: new Dictionary<long, decimal?>(),
-            baseUrl: $"{Request.Scheme}://{Request.Host}", cancellationToken);
+            baseUrl: $"{Request.Scheme}://{Request.Host}",
+            varslingsmetode: Varslingsmetode, cancellationToken: cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "TildelTesterBatch",

@@ -42,10 +42,8 @@ public sealed class DetaljerModel : PageModel
 
     public async Task<IActionResult> OnGetAsync(long id, CancellationToken cancellationToken)
     {
-        var behandlerId = HentBehandlerId();
-
-        Pasient = await _db.Pasienter.FirstOrDefaultAsync(p => p.Id == id && p.BehandlerId == behandlerId, cancellationToken);
-        if (Pasient is null)
+        Pasient = await _db.Pasienter.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+        if (Pasient is null || !await HarTilgangAsync(Pasient, cancellationToken))
         {
             return NotFound();
         }
@@ -58,8 +56,8 @@ public sealed class DetaljerModel : PageModel
     {
         var behandlerId = HentBehandlerId();
 
-        Pasient = await _db.Pasienter.FirstOrDefaultAsync(p => p.Id == id && p.BehandlerId == behandlerId, cancellationToken);
-        if (Pasient is null)
+        Pasient = await _db.Pasienter.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+        if (Pasient is null || !await HarTilgangAsync(Pasient, cancellationToken))
         {
             return NotFound();
         }
@@ -94,4 +92,28 @@ public sealed class DetaljerModel : PageModel
 
     private long HentBehandlerId() =>
         long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var id) ? id : 0;
+
+    /// <summary>
+    /// Egen pasient ELLER (partner-admin OG pasientens behandler tilhører
+    /// samme partner) — se docs/beslutningslogg.md om utvidet pasientvisning
+    /// for partner-admin.
+    /// </summary>
+    private async Task<bool> HarTilgangAsync(Pasient pasient, CancellationToken cancellationToken)
+    {
+        if (pasient.BehandlerId == HentBehandlerId())
+        {
+            return true;
+        }
+
+        if (!_currentUser.ErPartnerAdministrator || _currentUser.PartnerId is null)
+        {
+            return false;
+        }
+
+        var eierPartnerId = await _db.Behandlere
+            .Where(b => b.Id == pasient.BehandlerId)
+            .Select(b => b.PartnerId)
+            .FirstOrDefaultAsync(cancellationToken);
+        return eierPartnerId == _currentUser.PartnerId;
+    }
 }

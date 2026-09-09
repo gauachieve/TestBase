@@ -37,7 +37,10 @@ else if (Model.ValgtePasienter.Any())
 {
     <p>Tildeler til: <strong>@string.Join(", ", Model.ValgtePasienter.Select(p => p.Pasient.Navn ?? "(ikke fullført)"))</strong></p>
 
-    <form method="post" asp-page-handler="Send" id="tildelForm">
+    <form method="post" asp-page-handler="Send" id="tildelForm"
+          data-dekket-av-abonnement="@Model.Prisingskontekst.DekketAvAbonnement.ToString().ToLowerInvariant()"
+          data-sms-gebyr-kr="@Model.Prisingskontekst.SmsGebyrKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+          data-antall-pasienter="@Model.ValgtePasienter.Count">
         <input type="hidden" asp-for="PasientIderCsv" />
 
         <div class="tildel-kategori-tre">
@@ -56,15 +59,21 @@ else if (Model.ValgtePasienter.Any())
                     {
                         <li>
                             <label>
-                                <input type="checkbox" name="TestIder" value="@test.Id" class="tildel-test-checkbox" data-test-id="@test.Id" />
+                                <input type="checkbox" name="TestIder" value="@test.Id" class="tildel-test-checkbox" data-test-id="@test.Id"
+                                       data-test-navn="@test.Navn"
+                                       data-minste-pris="@test.MinstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                       data-storste-pris="@test.StorstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                       data-typisk-honorar="@test.TypiskBehandlerHonorarKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                       data-partner-andel="@Model.Prisingskontekst.EffektivPartnerAndelPerTestId.GetValueOrDefault(test.Id).ToString(System.Globalization.CultureInfo.InvariantCulture)" />
                                 @test.Navn
                             </label>
                             @if (test.StorstePrisKr > 0)
                             {
                                 <label>
-                                    Ditt honorar (kr, maks @test.StorstePrisKr.ToString("0.00")):
-                                    <input type="number" step="0.01" min="0" max="@test.StorstePrisKr"
-                                           name="HonorarKr[@test.Id]" value="@Model.SistBrukteHonorarPerTestId.GetValueOrDefault(test.Id)" />
+                                    Ditt honorar (NOK, maks @test.StorstePrisKr.ToString("0.00")):
+                                    <input type="number" step="0.01" min="0" max="@test.StorstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input tildel-honorar-input"
+                                           id="honorar-@test.Id" data-test-id="@test.Id"
+                                           name="HonorarKr[@test.Id]" value="@Model.SistBrukteHonorarPerTestId.GetValueOrDefault(test.Id).ToString(System.Globalization.CultureInfo.InvariantCulture)" />
                                 </label>
                             }
                         </li>
@@ -75,12 +84,22 @@ else if (Model.ValgtePasienter.Any())
         }
         </div>
 
-        <button type="button" id="apneOppsummering">Gå til oppsummering</button>
+        <button type="button" id="apneOppsummering" class="btn btn-accent">Gå til oppsummering</button>
 
         <dialog id="oppsummeringDialog">
             <h2>Bekreft utsending</h2>
+
+            <fieldset>
+                <legend>Varslingsmetode for denne utsendingen</legend>
+                <label><input type="radio" name="Varslingsmetode" value="Sms" class="tildel-varslingsmetode" /> SMS</label>
+                <label><input type="radio" name="Varslingsmetode" value="Epost" class="tildel-varslingsmetode" /> E-post</label>
+                <label><input type="radio" name="Varslingsmetode" value="Begge" class="tildel-varslingsmetode" checked /> Begge</label>
+            </fieldset>
+
             <p>Du sender følgende tester:</p>
             <ul id="oppsummeringTester"></ul>
+            <p id="oppsummeringTotal" style="font-weight: bold;"></p>
+
             <p>til følgende pasienter:</p>
             <ul>
             @foreach (var p in Model.ValgtePasienter)
@@ -88,8 +107,8 @@ else if (Model.ValgtePasienter.Any())
                 <li>@(p.Pasient.Navn ?? "(ikke fullført)")</li>
             }
             </ul>
-            <button type="button" id="lukkOppsummering">Avbryt</button>
-            <button type="submit">Bekreft og send</button>
+            <button type="button" id="lukkOppsummering" class="btn btn-muted">Avbryt</button>
+            <button type="submit" class="btn btn-accent">Bekreft og send</button>
         </dialog>
     </form>
 

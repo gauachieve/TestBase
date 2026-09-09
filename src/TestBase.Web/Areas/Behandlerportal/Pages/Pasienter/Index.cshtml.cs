@@ -23,23 +23,55 @@ public sealed class IndexModel : PageModel
         _currentUser = currentUser;
     }
 
-    public sealed record PasientRad(Pasient Pasient, int Tildelt, int Besvart);
+    public sealed record PasientRad(Pasient Pasient, string? BehandlerNavn, int Tildelt, int Besvart);
 
     public List<PasientRad> Rader { get; private set; } = new();
 
+    /// <summary>
+    /// True for en partner-admin — da vises ALLE pasienter for ALLE behandlere
+    /// i partnerskapet (med Behandler-kolonne), ikke bare egne, samme prinsipp
+    /// som Admin/Pasienter viser på tvers av alle behandlere. En vanlig
+    /// partner-tilknyttet (men ikke partner-admin) behandler ser fortsatt kun
+    /// egne pasienter.
+    /// </summary>
+    public bool ViserHelePartnerskapet { get; private set; }
+    public string? PartnerNavn { get; private set; }
+
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
-        var behandlerId = HentBehandlerId();
-        var pasienter = await _db.Pasienter
-            .Where(p => p.BehandlerId == behandlerId)
-            .OrderByDescending(p => p.OpprettetUtc)
-            .ToListAsync(cancellationToken);
+        ViserHelePartnerskapet = _currentUser.ErPartnerAdministrator && _currentUser.PartnerId is not null;
+
+        List<Pasient> pasienter;
+        Dictionary<long, string?> behandlerNavnById = new();
+
+        if (ViserHelePartnerskapet)
+        {
+            var partnerId = _currentUser.PartnerId!.Value;
+            var behandlereIPartner = await _db.Behandlere.Where(b => b.PartnerId == partnerId).ToListAsync(cancellationToken);
+            behandlerNavnById = behandlereIPartner.ToDictionary(b => b.Id, b => b.Visningsnavn);
+            var behandlerIder = behandlereIPartner.Select(b => b.Id).ToList();
+
+            pasienter = await _db.Pasienter
+                .Where(p => behandlerIder.Contains(p.BehandlerId))
+                .OrderByDescending(p => p.OpprettetUtc)
+                .ToListAsync(cancellationToken);
+
+            PartnerNavn = (await _db.Partnere.FirstOrDefaultAsync(p => p.Id == partnerId, cancellationToken))?.Navn;
+        }
+        else
+        {
+            var behandlerId = HentBehandlerId();
+            pasienter = await _db.Pasienter
+                .Where(p => p.BehandlerId == behandlerId)
+                .OrderByDescending(p => p.OpprettetUtc)
+                .ToListAsync(cancellationToken);
+        }
 
         var tellinger = await _testService.HentTildelingTellingerAsync(pasienter.Select(p => p.Id).ToList(), cancellationToken);
         Rader = pasienter.Select(p =>
         {
             var telling = tellinger.GetValueOrDefault(p.Id, new TestService.TildelingTelling(0, 0));
-            return new PasientRad(p, telling.Tildelt, telling.Besvart);
+            return new PasientRad(p, behandlerNavnById.GetValueOrDefault(p.BehandlerId), telling.Tildelt, telling.Besvart);
         }).ToList();
     }
 

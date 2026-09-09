@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Domain.Tester;
 using TestBase.Shared.Security;
 
@@ -33,6 +34,10 @@ public sealed class TesterModel : PageModel
     [BindProperty]
     public List<long> TestIder { get; set; } = new();
 
+    /// <summary>Valgt i oppsummerings-dialogen — overstyrer pasientens egen lagrede Varslingspreferanse for denne batchen, se TestTildelingsService.TildelOgVarsleAsync.</summary>
+    [BindProperty]
+    public Varslingspreferanse Varslingsmetode { get; set; } = Varslingspreferanse.Begge;
+
     /// <summary>
     /// Behandlerens eget honorar per test (kun relevant for tester med prising
     /// konfigurert, se docs/beslutningslogg.md "Partner System + Test
@@ -54,6 +59,9 @@ public sealed class TesterModel : PageModel
     public string? Feilmelding { get; private set; }
     public TildelingsBatchResultat? Resultat { get; private set; }
 
+    /// <summary>Brukes av tildel.js til å speile TestPrisberegner.Beregn client-side for en levende pris-forhåndsvisning i oppsummerings-dialogen.</summary>
+    public PrisingskontekstForBehandler Prisingskontekst { get; private set; } = new(false, new Dictionary<long, decimal>(), 0m);
+
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         if (TempData.Peek("TildelPasientIder") is not string csv || string.IsNullOrWhiteSpace(csv))
@@ -67,12 +75,14 @@ public sealed class TesterModel : PageModel
         KategoriTre = await _testService.HentKategoriTreAsync(_currentUser.PartnerId, cancellationToken);
 
         var behandlerId = HentBehandlerId();
+        var alleTestIder = KategoriTre.SelectMany(k => k.Tester).Select(t => t.Id).Distinct().ToList();
         var sisteHonorar = new Dictionary<long, decimal>();
-        foreach (var test in KategoriTre.SelectMany(k => k.Tester))
+        foreach (var testId in alleTestIder)
         {
-            sisteHonorar[test.Id] = await _testService.HentSisteHonorarAsync(behandlerId, test.Id, cancellationToken);
+            sisteHonorar[testId] = await _testService.HentSisteHonorarAsync(behandlerId, testId, cancellationToken);
         }
         SistBrukteHonorarPerTestId = sisteHonorar;
+        Prisingskontekst = await _tildelingsService.HentPrisingskontekstAsync(behandlerId, alleTestIder, cancellationToken);
     }
 
     public async Task<IActionResult> OnPostSendAsync(CancellationToken cancellationToken)
@@ -98,7 +108,8 @@ public sealed class TesterModel : PageModel
         var onsketHonorarKrPerTestId = testIder.ToDictionary(id => id, id => HonorarKr.GetValueOrDefault(id));
         Resultat = await _tildelingsService.TildelOgVarsleAsync(
             pasientIder, testIder, behandlerId: HentBehandlerId(), administratorId: null,
-            onsketHonorarKrPerTestId, baseUrl: $"{Request.Scheme}://{Request.Host}", cancellationToken);
+            onsketHonorarKrPerTestId, baseUrl: $"{Request.Scheme}://{Request.Host}",
+            varslingsmetode: Varslingsmetode, cancellationToken: cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "TildelTesterBatch",
