@@ -1831,6 +1831,71 @@ for en generell trivselsindeks. `BetalingPipelineTests.cs` sin
 en vilkårlig testkategori (ikke knyttet til WHO-5 spesifikt) — byttet til
 "Diagnostikk, tverrgående og øvrige verktøy". 16/16 tester grønt.
 
+### Åtte nye innebygde tester fra Helsebiblioteket (2026-09-12)
+
+Bygget de første åtte testene fra `Helsebiblioteket_psykologiske_og_nevropsykologiske_tester.xlsx`
+etter nøyaktig samme mønster som WHO-5 (egen `IInnebygdTestSeeder` + `ITestSkaaringsberegner` per
+test, se `docs/beslutningslogg.md` fase 5): **Cambridge atferdsskala (EQ40), RAADS-R, WURS,
+MADRS-S, Forenklet søvnutredningsskjema (SOVN), PHQ-9, IPDS (IOWA), TRAPS I**. Fullstendig
+implementasjonsplan (per-test kilde, skala, skåringsformel) ligger i
+`C:\Users\gaute\.claude\plans\fizzy-churning-dusk.md`; rå kildeforskning (fullstendig
+spørsmålstekst + skåringsgrunnlag hentet direkte fra hver PDF/nettside) i
+`C:\Users\gaute\AppData\Local\Temp\claude\test-research\*.md` — begge referert her siden de er
+FASIT for hvorfor tekstene/formlene er som de er, ikke gjentatt i sin helhet i denne loggen.
+
+**Reelt, tidligere ukjent hull avdekket og rettet**: `Behandlerportal/Pasienter/Rapport.cshtml.cs`
+sin `TestService.BeregnSkaaringAsync` returnerer `null` (→ 404 for behandler) for enhver test UTEN
+en registrert `ITestSkaaringsberegner` — dette gjaldt umerket alle åtte, inkludert
+søvnskjemaet som i kildedokumentet er et rent kartleggingsskjema UTEN offisiell sumskår. Løst ved
+at også søvnskjemaet fikk en egen skåringsklasse (`SovnSkaaringsberegner`) som produserer en enkel,
+ikke-klinisk sum av de 14 hovedsymptomene pluss strukturerte indikator-flagg (mulig søvnapné/
+narkolepsi-mistanke), tydelig merket som IKKE en validert skår.
+
+**To reelle, tidligere ukjente motor-begrensninger avdekket og rettet i samme runde** (begge
+bakoverkompatible, ingen eksisterende tester påvirket):
+
+1. `TestLeddSvaralternativer.Parse` splittet på ALLE komma — brøt sammen for MADRS-S, hvis
+   offisielle svartekster selv inneholder komma ("Jeg kjenner meg for det meste nedstemt, men
+   iblant kjennes det lettere."). Rettet til å splitte KUN på komma etterfulgt av "tall:" (neste
+   par) via en enkel regex — WHO-5 sin skala (ingen interne komma) parses identisk som før.
+2. `TestService.BeregnSkaaringAsync` leverte svar til skåringsklassen i databasens tilfeldige
+   rekkefølge, ikke garantert lik spørsmålenes faktiske rekkefølge — usynlig for WHO-5 (alle 5 ledd
+   teller likt, rekkefølge er irrelevant for en ren sum), men kritisk for PHQ-9 (må ekskludere det
+   10. funksjonsspørsmålet) og TRAPS I (må hoppe over del 1 sine 16 ledd og kun skåre del 2 sine
+   20). Rettet: svar sorteres nå eksplisitt etter (side.Rekkefolge, ledd.Rekkefolge) før de sendes
+   til `ITestSkaaringsberegner.BeregnSkaaring` — nødvendig fordi `TestLedd.Rekkefolge` telles PER
+   SIDE, ikke globalt (side 2 sitt ledd 1 ville ellers sortert før side 1 sitt ledd 5 uten å også
+   sortere på siden selv).
+
+**To av de åtte (EQ40, WURS) manglet en offisiell skåringsnøkkel i selve det norske
+kildedokumentet** — brukeren godkjente eksplisitt (via spørsmål under planlegging) å bruke kjente
+internasjonale nøkler i stedet, tydelig merket i kode/rapport som ikke bekreftet av
+rettighetshaver for akkurat denne norske oversettelsen:
+- **EQ40**: hentet og lest hele Baron-Cohen & Wheelwright (2004) sin originalartikkel (inkl.
+  appendix med alle 60 originalitems + offisiell skåringsnøkkel). Verifiserte deretter, ledd for
+  ledd, at den norske PDF-ens 40 items er EKSAKT de 40 scorede originalitemene (de 20
+  fyll-spørsmålene allerede fjernet), i samme rekkefølge — dvs. retningen (enig-/uenig-keyed) er
+  ikke gjettet, men 1:1 innholdsmatchet.
+- **WURS**: hentet Ward, Wender & Reimherr (1993) sin offisielle WURS-25-item-liste (25 av de 61)
+  og cutoff (46) fra to uavhengige kilder, matchet hvert av de 25 engelske items mot et entydig
+  norsk motstykke i den norske 61-item-listen. Alle 25 fant nøyaktig ett treff.
+
+**Ny testfil** `tests/TestBase.IntegrationTests/SkaaringsberegnereTests.cs` (9 nye enhetstester,
+25/25 totalt grønt) — dekker spesielt de mest feilutsatte formlene (RAADS-R og EQ40 sin reverserte
+skåring, WURS sin 25-av-61-delmengde, PHQ-9 sin ekskluderte 10. spørsmål, TRAPS I sin
+del-1-hopping). Dette var FØRSTE gang noen skåringsklasse i prosjektet fikk egen enhetstestdekning
+(WHO-5 har aldri hatt det).
+
+**Verifisert**: bygget grønt, 25/25 tester grønt. Full manuell ende-til-ende-gjennomgang av PHQ-9
+lokalt (valgt som enkleste struktur uten reversering): dukket opp korrekt under "Depresjon og
+bipolaritet" i tildelingstreet → tildelt uten prising (ingen 404/krasj) → fylt ut som pasient med
+alle 9 hovedspørsmål satt til "Mer enn halvparten av dagene" (verdi 2) og funksjonsspørsmålet til
+en vilkårlig verdi → rapportside viste korrekt Råskår 18/27 (67 %), fortolkning "moderat til
+alvorlig" — bekrefter at BÅDE ordrekkefølge-fiksen OG ekskluderingslogikken fungerer korrekt med
+ekte data, ikke bare i enhetstestene. De øvrige syv er verifisert via kodegjennomgang +
+enhetstestene over, IKKE klikket gjennom fullt ut hver, gitt omfanget (åtte fulle instrumenter i
+én runde).
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt

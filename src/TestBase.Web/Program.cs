@@ -53,6 +53,24 @@ builder.Services.AddHostedService<DagligPaaminnelseBakgrunnstjeneste>();
 builder.Services.AddScoped<ITestSkaaringsberegner, Who5Skaaringsberegner>();
 builder.Services.AddScoped<IInnebygdTestSeeder, Who5TestSeeder>();
 
+// Åtte tester fra Helsebiblioteket (2026-09), se docs/beslutningslogg.md.
+builder.Services.AddScoped<ITestSkaaringsberegner, Phq9Skaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, Phq9TestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, IpdsSkaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, IpdsTestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, MadrsSSkaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, MadrsSTestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, TrapsISkaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, TrapsITestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, RaadsRSkaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, RaadsRTestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, WursSkaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, WursTestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, Eq40Skaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, Eq40TestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, SovnSkaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, SovnTestSeeder>();
+
 // Admin og Behandlerportal deler nå én samlet innloggingsside (/Konto/LoggInn
 // — BankID finner personen og logger inn på høyeste rolle selv, uten at
 // brukeren velger portal, se Pages/Konto/LoggInn.cshtml.cs). Pasientportal har

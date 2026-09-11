@@ -576,7 +576,20 @@ public sealed class TestService
             return null;
         }
 
-        var svar = await _db.TestSvar.Where(s => s.TestTildelingId == tildelingId).ToListAsync(cancellationToken);
+        // Sortert etter (side.Rekkefolge, ledd.Rekkefolge) — IKKE bare databasens
+        // naturlige rekkefølge, som ikke er garantert, og IKKE bare ledd.Rekkefolge
+        // alene (den telles PER SIDE, så side 2 sitt ledd 1 ville ellers sortert
+        // før side 1 sitt ledd 5). Nødvendig for skåringsklasser som må
+        // ekskludere ett bestemt (typisk siste) ledd fra sumskåren basert på
+        // posisjon, se PHQ-9 sitt funksjonsspørsmål.
+        var svar = await (
+            from s in _db.TestSvar
+            join l in _db.TestLedd on s.TestLeddId equals l.Id
+            join side in _db.TestSider on l.TestSideId equals side.Id
+            where s.TestTildelingId == tildelingId
+            orderby side.Rekkefolge, l.Rekkefolge
+            select s
+        ).ToListAsync(cancellationToken);
         return beregner.BeregnSkaaring(svar);
     }
 
