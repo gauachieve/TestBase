@@ -193,8 +193,8 @@ public sealed class BetalingPipelineTests
         // Kategori-tre-visningen (steg 2 i tildelingsflyten) skal heller aldri
         // vise den ikke-tillatte testen til denne partnerens behandlere.
         await testService.SikreStandardkategorierAsync();
-        await testService.KoblTestTilKategoriAsync(tillattTest.Id, "Kjerne");
-        await testService.KoblTestTilKategoriAsync(ikkeTillattTest.Id, "Kjerne");
+        await testService.KoblTestTilKategoriAsync(tillattTest.Id, "Diagnostikk, tverrgående og øvrige verktøy");
+        await testService.KoblTestTilKategoriAsync(ikkeTillattTest.Id, "Diagnostikk, tverrgående og øvrige verktøy");
         var kategoriTre = await testService.HentKategoriTreAsync(partnerId: partner.Id);
         var synligeTestNavn = kategoriTre.SelectMany(k => k.Tester).Select(t => t.Navn).ToList();
         Assert.Contains("Tillatt test", synligeTestNavn);

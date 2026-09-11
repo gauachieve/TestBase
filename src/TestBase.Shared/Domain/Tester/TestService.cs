@@ -130,19 +130,61 @@ public sealed class TestService
     /// De faste kategoriene i tildelingsflytens tre-visning, alfabetisk. Ingen
     /// admin-UI for å opprette/slette kategorier ennå — se beslutningsloggen.
     /// Idempotent: kalles trygt ved hver oppstart, som IInnebygdTestSeeder.
+    /// Byttet ut i sin helhet 2026-09 fra de opprinnelige syv (Allianse/Angst/
+    /// Depresjon/Funksjon/Kjerne/Nevropsykologiske/Utredning) til Helsebibliotekets
+    /// 16 praktiske kategorier for psykologiske/nevropsykologiske skåringsverktøy
+    /// (se docs/beslutningslogg.md og kildearket
+    /// Helsebiblioteket_psykologiske_og_nevropsykologiske_tester.xlsx, fanen
+    /// "Kategorier") — IKKE bare et tillegg, se SikreStandardkategorierAsync sin
+    /// opprydding av de gamle navnene.
     /// </summary>
     public static readonly IReadOnlyList<string> StandardKategorier = new[]
     {
-        "Allianse", "Angst", "Depresjon", "Funksjon", "Kjerne", "Nevropsykologiske", "Utredning"
+        "Kognisjon, demens og nevropsykologisk screening",
+        "ADHD, autisme og nevroutvikling",
+        "Søvn og døgnrytme",
+        "Rus og avhengighet",
+        "Spiseforstyrrelser og kroppsbilde",
+        "Traumer, dissosiasjon og belastninger",
+        "Angst, tvang og relaterte plager",
+        "Depresjon og bipolaritet",
+        "Psykose og alvorlige psykiske lidelser",
+        "Personlighet, relasjoner og sosial fungering",
+        "Vold, selvmord og risikovurdering",
+        "Seksuell helse og kjønn",
+        "Barn og unges psykiske helse – generelt",
+        "Funksjon, livskvalitet og behandlingsutfall",
+        "Somatiske symptomer, smerte og utmattelse",
+        "Diagnostikk, tverrgående og øvrige verktøy"
     };
 
+    /// <summary>
+    /// Legger til manglende standardkategorier OG fjerner enhver
+    /// TestKategori som IKKE lenger er i StandardKategorier (med sine
+    /// TestKategoriKobling-rader) — en reell "bytt ut", ikke bare et tillegg,
+    /// se klassekommentaren på StandardKategorier. Trygt: dette er kun
+    /// gruppering i tildelingsflytens tre-visning, ikke selve testene eller
+    /// tildelingene, som begge lever videre uendret.
+    /// </summary>
     public async Task SikreStandardkategorierAsync(CancellationToken cancellationToken = default)
     {
-        var eksisterende = await _db.TestKategorier.Select(k => k.Navn).ToListAsync(cancellationToken);
-        foreach (var navn in StandardKategorier.Except(eksisterende))
+        var eksisterende = await _db.TestKategorier.ToListAsync(cancellationToken);
+        var eksisterendeNavn = eksisterende.Select(k => k.Navn).ToList();
+
+        foreach (var navn in StandardKategorier.Except(eksisterendeNavn))
         {
             _db.TestKategorier.Add(new TestKategori { Navn = navn, OpprettetUtc = DateTimeOffset.UtcNow });
         }
+
+        var foreldede = eksisterende.Where(k => !StandardKategorier.Contains(k.Navn)).ToList();
+        if (foreldede.Count > 0)
+        {
+            var foreldedeIder = foreldede.Select(k => k.Id).ToList();
+            var koblinger = await _db.TestKategoriKoblinger.Where(kob => foreldedeIder.Contains(kob.TestKategoriId)).ToListAsync(cancellationToken);
+            _db.TestKategoriKoblinger.RemoveRange(koblinger);
+            _db.TestKategorier.RemoveRange(foreldede);
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
     }
 

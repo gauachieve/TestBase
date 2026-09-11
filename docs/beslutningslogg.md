@@ -1793,6 +1793,44 @@ dev-miljøet ikke har ekte Vipps-legitimasjon konfigurert (kun Stripe-
 testnøkler) — det er forventet, ikke en feil; Azure test-miljøet har ekte
 Vipps-legitimasjon i Key Vault og viser begge betalingsknappene.
 
+### Testkategorier byttet ut med Helsebibliotekets 16 praktiske kategorier (2026-09-11)
+
+Brukeren ga oss `Helsebiblioteket_psykologiske_og_nevropsykologiske_tester.xlsx`
+— en kuratert oversikt over 206 skåringsverktøy fra helsebiblioteket.no, med
+egne faner "Alle verktøy" (lenker, målgruppe, tilgang/lisensmerknad per
+verktøy), "Direkte filer", og "Kategorier" (16 praktiske hovedkategorier
+definert for akkurat denne arbeidsboken). Dette skal være kildegrunnlaget
+for nye innebygde tester fremover — se også egen seksjon under for de første
+åtte testene som bygges fra denne kilden.
+
+`TestService.StandardKategorier` (de syv opprinnelige: Allianse/Angst/
+Depresjon/Funksjon/Kjerne/Nevropsykologiske/Utredning — satt sammen ad hoc
+under fase 6, ikke fra noen ekstern kilde) er byttet HELT UT med
+Helsebibliotekets 16: Kognisjon/demens/nevropsykologisk screening; ADHD,
+autisme og nevroutvikling; Søvn og døgnrytme; Rus og avhengighet;
+Spiseforstyrrelser og kroppsbilde; Traumer, dissosiasjon og belastninger;
+Angst, tvang og relaterte plager; Depresjon og bipolaritet; Psykose og
+alvorlige psykiske lidelser; Personlighet, relasjoner og sosial fungering;
+Vold, selvmord og risikovurdering; Seksuell helse og kjønn; Barn og unges
+psykiske helse – generelt; Funksjon, livskvalitet og behandlingsutfall;
+Somatiske symptomer, smerte og utmattelse; Diagnostikk, tverrgående og
+øvrige verktøy.
+
+Dette er en REELL bytt-ut, ikke bare et tillegg: `SikreStandardkategorierAsync`
+fjernet tidligere kun manglende kategorier, aldri foreldede — utvidet til nå
+også å slette enhver `TestKategori` (og dens `TestKategoriKobling`-rader) som
+ikke lenger er i listen, kjørt idempotent ved hver oppstart (som før). Verifisert
+lokalt: startet appen mot en database med de syv gamle kategoriene fra
+tidligere testing, bekreftet via direkte DB-spørring at alle syv ble fjernet
+og erstattet med nøyaktig de 16 nye, uten manuell opprydding.
+
+WHO-5 (tidligere i "Kjerne", som ikke lenger finnes) er flyttet til
+"Funksjon, livskvalitet og behandlingsutfall" — nærmeste semantiske treff
+for en generell trivselsindeks. `BetalingPipelineTests.cs` sin
+`PartnerbehandlerKanIkkeTildeleTestUtenforAllowList`-test brukte "Kjerne" som
+en vilkårlig testkategori (ikke knyttet til WHO-5 spesifikt) — byttet til
+"Diagnostikk, tverrgående og øvrige verktøy". 16/16 tester grønt.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt

@@ -26,7 +26,7 @@ public sealed class Who5TestSeeder : IInnebygdTestSeeder
         "… følt at mitt daglige liv har vært fylt av ting som interesserer meg"
     };
 
-    private const string Kategori = "Kjerne";
+    private const string Kategori = "Funksjon, livskvalitet og behandlingsutfall";
 
     /// <summary>
     /// Fritt oversatt fra WHOs engelske instrumentbeskrivelse (ikke selve
