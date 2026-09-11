@@ -87,6 +87,92 @@ code {
    Behandlerportal/MinPartner/Prising. */
 .tall-input { width: 6rem; text-align: right; }
 
+/* ---------- Pasientens betalingsside (Pasientportal/Tester/Betal) ---------- */
+.checkout-card {
+  max-width: 440px;
+  margin: 3rem auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 2.25rem 2rem;
+  text-align: center;
+}
+.checkout-card .kicker {
+  color: var(--accent-dark);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+.checkout-card h1 { font-size: 1.35rem; margin-bottom: 0.15rem; }
+.checkout-pris {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 0.65rem 0 0.35rem;
+  letter-spacing: -0.01em;
+}
+.checkout-pris span { font-size: 1rem; font-weight: 700; color: var(--muted); margin-left: 0.35rem; letter-spacing: 0; }
+.checkout-info { font-size: 0.85rem; color: var(--muted); margin-bottom: 1.75rem; }
+.checkout-feilmelding { color: #c0392b; font-size: 0.88rem; margin-bottom: 1rem; }
+
+.betalingsvalg { display: flex; flex-direction: column; gap: 1rem; text-align: left; }
+
+.btn-vipps {
+  display: block;
+  width: 100%;
+  background: #ff5b24;
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.1rem;
+  font-family: var(--font);
+  border: none;
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+.btn-vipps:hover { background: #e34e1c; transform: translateY(-1px); }
+
+.checkout-skille {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin: 0.1rem 0;
+}
+.checkout-skille::before, .checkout-skille::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+.betalingsvalg-kort {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.15rem 1.25rem;
+}
+.betalingsvalg-kort-tittel { font-weight: 700; color: var(--ink); margin-bottom: 0.85rem; }
+.betalingsvalg-kort-metoder { font-size: 0.78rem; color: var(--muted); margin: 0.75rem 0 0; text-align: center; }
+.btn-kort {
+  display: block;
+  width: 100%;
+  margin-top: 0.9rem;
+  background: var(--ink);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.9rem;
+  font-weight: 700;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.btn-kort:hover { background: #000; }
+.btn-kort:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.checkout-vilkar { margin-top: 1.75rem; font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+.checkout-vilkar a { color: var(--muted); text-decoration: underline; }
+
 /* ---------- Dev bar ---------- */
 .dev-bar {
   background: #fff3e2;

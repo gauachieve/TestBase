@@ -4,30 +4,57 @@
     ViewData["Title"] = "Betal for test";
 }
 
-<h1>Betal for @Model.TestNavn</h1>
-<p>Du må betale <strong>@Model.TotalprisKr.ToString("0.00") kr</strong> før du kan fylle ut testen.</p>
+<div class="checkout-card">
+    <p class="kicker center">Betaling</p>
+    <h1>@Model.TestNavn</h1>
+    <p class="checkout-pris">@Model.TotalprisKr.ToString("0.00")<span>NOK</span></p>
+    <p class="checkout-info">Du får tilgang til å fylle ut testen med én gang betalingen er bekreftet.</p>
 
-@if (Model.Feilmelding is not null)
-{
-    <p style="color: darkred;">@Model.Feilmelding</p>
-}
+    @if (Model.Feilmelding is not null)
+    {
+        <p class="checkout-feilmelding">@Model.Feilmelding</p>
+    }
 
-@if (Model.VippsTilgjengelig)
-{
-    <form method="post" asp-page-handler="Vipps">
-        <button type="submit">Betal med Vipps</button>
-    </form>
-}
+    <div class="betalingsvalg">
+        @if (Model.VippsTilgjengelig)
+        {
+            <form method="post" asp-page-handler="Vipps">
+                <button type="submit" class="btn-vipps">Vipps</button>
+            </form>
+        }
+
+        @if (Model.VippsTilgjengelig && Model.StripeTilgjengelig)
+        {
+            <div class="checkout-skille">eller</div>
+        }
+
+        @if (Model.StripeTilgjengelig)
+        {
+            <div class="betalingsvalg-kort">
+                <p class="betalingsvalg-kort-tittel">Betal med kort</p>
+                <form id="betalingsskjema">
+                    <div id="payment-element"></div>
+                    <button id="send-knapp" type="submit" class="btn-kort">Betal @Model.TotalprisKr.ToString("0.00") NOK</button>
+                    <p id="betalingsfeil" class="checkout-feilmelding"></p>
+                </form>
+                <p class="betalingsvalg-kort-metoder">Kort &middot; Apple Pay &middot; Google Pay</p>
+            </div>
+        }
+    </div>
+
+    @if (!Model.VippsTilgjengelig && !Model.StripeTilgjengelig)
+    {
+        <p>Ingen betalingsmetode er konfigurert. Kontakt administrator.</p>
+    }
+
+    <p class="checkout-vilkar">
+        Betalingen er en engangsbetaling for denne ene testen — ikke et abonnement.
+        Ved å betale godtar du <a href="/salgsvilkar" target="_blank" rel="noopener">salgsvilkårene</a> våre.
+    </p>
+</div>
 
 @if (Model.StripeTilgjengelig)
 {
-    <h2>Betal med kort / Apple Pay / Google Pay</h2>
-    <form id="betalingsskjema">
-        <div id="payment-element"></div>
-        <button id="send-knapp" type="submit">Betal @Model.TotalprisKr.ToString("0.00") kr</button>
-        <p id="betalingsfeil" style="color: darkred;"></p>
-    </form>
-
     <script src="https://js.stripe.com/v3/"></script>
     <script>
         const stripe = Stripe('@Model.StripePublishableKey');
@@ -52,9 +79,4 @@
             }
         });
     </script>
-}
-
-@if (!Model.VippsTilgjengelig && !Model.StripeTilgjengelig)
-{
-    <p>Ingen betalingsmetode er konfigurert. Kontakt administrator.</p>
 }

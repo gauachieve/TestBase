@@ -1751,6 +1751,48 @@ verifisert ved kodegjennomgang og at formelen matcher `TestPrisberegner`
 (samme enhetstestede formel), men ikke klikket gjennom med ekte data denne
 runden.
 
+### Ekte betalingsside for pasienten — for Vipps sin nettsted-verifisering (2026-09-11)
+
+Vipps sin KYC-saksbehandler godtok "kun engangsbetaling, ikke faste
+betalinger" (se forrige runde), men kunne ikke godkjenne bestillingen uten å
+se selve produktet/tjenesten og prisen slik en ekte kunde ser det — noe som
+ikke var mulig siden alt ligger bak BankID-innlogging. Ba om enten
+testmiljø-tilgang eller et skjermbilde.
+
+`Pasientportal/Tester/Betal.cshtml` var fortsatt den rå diagnostiske
+utgaven fra da betalingsflyten først ble koblet til (ustylet `<button>`,
+ingen visuell polish) — bygget om til en ekte, presentabel betalingsside:
+
+- Én samlet totalpris i stor skrift (`TotalprisKr` — aldri en oppdelt
+  visning til pasienten, i tråd med det opprinnelige designprinsippet "Patient
+  never sees a breakdown").
+- En Vipps-knapp i Vipps sin offisielle merkevarefarge (`#ff5b24`) — ren
+  tekst/farge, ikke selve det varemerkebeskyttede logo-bildet, som er
+  standard og fullt ut akseptert praksis for norske nettbutikker.
+- Kortbetalingen (Stripe Payment Element) fikk en tydelig "Betal med
+  kort"-boks med samme visuelle vekt som Vipps-knappen, pluss en liten
+  "Kort · Apple Pay · Google Pay"-tekstlinje som stemmer med det
+  salgsvilkårene allerede lovet.
+- En eksplisitt "Dette er en engangsbetaling — ikke et abonnement"-setning
+  rett ved siden av betalingsknappene (samme sted en ekte kunde/Vipps-
+  saksbehandler faktisk ser den), pluss en direkte lenke til
+  `/salgsvilkar`.
+- Ny CSS-seksjon i `site.css` (`.checkout-card`, `.btn-vipps`, `.btn-kort`
+  m.fl.) — et avgrenset "kort" midt på siden, ikke løse skjemaelementer
+  strødd utover slik det var før.
+
+Verifisert med en full, reell ende-til-ende-manuell test lokalt: ny
+pasient opprettet med kjent personnummer → fullført egenregistrering →
+tildelt WHO-5 med honorar via den ordinære Behandlerportal-tildelingsflyten
+(som samtidig bekreftet at forrige rundes pris-forhåndsvisning i dialogen
+OG `DictionaryModelBinder`-fiksen begge fungerer korrekt med ekte data,
+ikke bare i teorien) → logget inn som pasienten via BankID-mock →
+betalingssiden viste riktig produktnavn og samlet pris (200,00 NOK), med
+fungerende salgsvilkår-lenke. Vipps-knappen vises ikke lokalt siden
+dev-miljøet ikke har ekte Vipps-legitimasjon konfigurert (kun Stripe-
+testnøkler) — det er forventet, ikke en feil; Azure test-miljøet har ekte
+Vipps-legitimasjon i Key Vault og viser begge betalingsknappene.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt
