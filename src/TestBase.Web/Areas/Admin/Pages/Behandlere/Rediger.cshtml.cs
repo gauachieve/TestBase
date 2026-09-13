@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
+using TestBase.Shared.Domain;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Security;
 
@@ -102,6 +103,12 @@ public sealed class RedigerModel : PageModel
         // har fullført egenregistrering ennå har ikke satt et personnummer.
         if (!string.IsNullOrWhiteSpace(Personnummer))
         {
+            if (!PersonnummerValidator.ErGyldigFormat(Personnummer))
+            {
+                Feilmelding = "Personnummer må bestå av nøyaktig 11 siffer.";
+                return Page();
+            }
+
             var eksisterendeMedPersonnummer = await _authService.FinnVedPersonnummerAsync(Personnummer, cancellationToken);
             if (eksisterendeMedPersonnummer is not null && eksisterendeMedPersonnummer.Id != Id)
             {

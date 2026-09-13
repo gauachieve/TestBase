@@ -175,6 +175,15 @@ public sealed class HeleFlytenTests
             ("Personnummer", MockPersonnummer), ("MobilNr", pasMobil),
             ("Epost", "pasient@integrationtest.local"), ("Varslingskanal", "Sms")), nyPasToken);
         Assert.Contains("/Behandlerportal/Pasienter", nyPasResp.RequestMessage!.RequestUri!.PathAndQuery);
+
+        // Hentes UMIDDELBART her, ikke etter tildelingen lenger nede — en ekte
+        // testtildeling via wizarden sender nå (korrekt) en egen varsel-SMS til samme
+        // mobilnummer, som ellers ville overskrevet "siste melding" og skjult
+        // registreringsinvitasjonens token.
+        var pasMelding = _factory.Sms.SisteMeldingTil(pasMobil) ?? "";
+        var pasToken = InvitasjonsToken.Match(pasMelding).Groups[1].Value;
+        Assert.NotEmpty(pasToken);
+
         await using (var scope = _factory.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -325,16 +334,19 @@ public sealed class HeleFlytenTests
             pasientId = (await db.Pasienter.SingleAsync(p => p.MobilNr == pasMobil)).Id;
         }
 
+        // Tildeling skjer nå via den fulle wizarden (Tildel/Tester), ikke lenger et
+        // direkte skjema på Detaljer-siden — se docs/beslutningslogg.md om hvorfor
+        // den forrige snarveien ble fjernet (hoppet forbi prising og varsling).
         var detaljerUrl = $"/Behandlerportal/Pasienter/Detaljer/{pasientId}";
-        var tildelToken = await SkjemaHjelper.HentTokenAsync(client, detaljerUrl);
-        await SkjemaHjelper.PostMedTokenAsync(client, detaljerUrl,
-            SkjemaHjelper.Felter(("TestId", testId.ToString())), tildelToken);
+        var tildelWizardToken = await SkjemaHjelper.HentTokenAsync(client, $"{detaljerUrl}?handler=Tildel");
+        await SkjemaHjelper.PostMedTokenAsync(client, "/Behandlerportal/Tildel/Tester?handler=Send",
+            SkjemaHjelper.Felter(
+                ("PasientIderCsv", pasientId.ToString()),
+                ("TestIder", testId.ToString()),
+                ("Varslingsmetode", "Begge")),
+            tildelWizardToken);
 
         // === J: Pasienten fullfører egenregistrering (ingen kontaktverifisering) ===
-        var pasMelding = _factory.Sms.SisteMeldingTil(pasMobil) ?? "";
-        var pasToken = InvitasjonsToken.Match(pasMelding).Groups[1].Value;
-        Assert.NotEmpty(pasToken);
-
         await client.GetAsync("/Konto/LoggUt");
 
         var pasFullforUrl = $"/PasientRegistrering/Fullfor/{pasToken}";
@@ -422,7 +434,7 @@ public sealed class HeleFlytenTests
             Assert.Contains("InviterBehandler", handlinger);
             Assert.Contains("LeggTilPasient", handlinger);
             Assert.Contains("GodkjennHpr", handlinger);
-            Assert.Contains("TildelTest", handlinger);
+            Assert.Contains("TildelTesterBatch", handlinger);
             Assert.Contains("FullforTest", handlinger);
         }
     }

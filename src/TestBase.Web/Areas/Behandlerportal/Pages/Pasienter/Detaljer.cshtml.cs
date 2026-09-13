@@ -27,18 +27,6 @@ public sealed class DetaljerModel : PageModel
 
     public Pasient? Pasient { get; private set; }
     public List<TildeltTestRad> Tildelinger { get; private set; } = new();
-    public List<Test> AktiveTester { get; private set; } = new();
-
-    [BindProperty]
-    public long TestId { get; set; }
-
-    [BindProperty]
-    public DateTime? Frist { get; set; }
-
-    [BindProperty]
-    public int? VarighetMinutter { get; set; }
-
-    public string? Feilmelding { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(long id, CancellationToken cancellationToken)
     {
@@ -52,26 +40,25 @@ public sealed class DetaljerModel : PageModel
         return Page();
     }
 
-    public async Task<IActionResult> OnPostAsync(long id, CancellationToken cancellationToken)
+    /// <summary>
+    /// Sender behandler til den fulle tildelingswizarden (Tildel/Tester) med
+    /// denne pasienten forhåndsvalgt, i stedet for å tildele direkte herfra —
+    /// en direkte tildeling her hoppet forbi BÅDE prising
+    /// (TestTildelingsService/TestPrisberegner) OG varsling (SMS/e-post), se
+    /// docs/beslutningslogg.md. TempData-nøkkelen må matche
+    /// Tildel/Pasienter.cshtml.cs sin, siden Tildel/Tester.cshtml.cs leser
+    /// nøyaktig denne nøkkelen.
+    /// </summary>
+    public async Task<IActionResult> OnGetTildelAsync(long id, CancellationToken cancellationToken)
     {
-        var behandlerId = HentBehandlerId();
-
-        Pasient = await _db.Pasienter.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
-        if (Pasient is null || !await HarTilgangAsync(Pasient, cancellationToken))
+        var pasient = await _db.Pasienter.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+        if (pasient is null || !await HarTilgangAsync(pasient, cancellationToken))
         {
             return NotFound();
         }
 
-        var tildeling = await _testService.TildelAsync(
-            TestId, id, behandlerId: behandlerId, administratorId: null,
-            frist: Frist is null ? null : new DateTimeOffset(Frist.Value, TimeSpan.Zero),
-            varighetMinutter: VarighetMinutter, cancellationToken: cancellationToken);
-
-        await _auditLogger.LogAsync(
-            _currentUser.UserId, _currentUser.Role.ToString(), "TildelTest",
-            nameof(TestTildeling), tildeling.Id.ToString(), $"PasientId {id}", cancellationToken);
-
-        return RedirectToPage(new { id });
+        TempData["TildelPasientIder"] = id.ToString();
+        return RedirectToPage("/Tildel/Tester", new { area = "Behandlerportal" });
     }
 
     private async Task LastInnListerAsync(long pasientId, CancellationToken cancellationToken)
@@ -86,8 +73,6 @@ public sealed class DetaljerModel : PageModel
                 t, test?.Navn ?? "(ukjent test)",
                 t.Status == TestTildelingStatus.Fullfort && _testService.HarSkaaringsberegner(test?.Kode));
         }).ToList();
-
-        AktiveTester = await _testService.HentAktiveTesterAsync(cancellationToken);
     }
 
     private long HentBehandlerId() =>

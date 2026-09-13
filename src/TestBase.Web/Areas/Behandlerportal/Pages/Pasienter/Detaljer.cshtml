@@ -59,31 +59,11 @@ else
 
 <h2>Tildel ny test</h2>
 
-@if (Model.Feilmelding is not null)
-{
-    <p style="color: darkred;">@Model.Feilmelding</p>
-}
-
-@if (!Model.AktiveTester.Any())
-{
-    <p>Ingen aktive tester finnes ennå — be administrator opprette en.</p>
-}
-else
-{
-    <form method="post">
-        <div>
-            <label>Test</label><br />
-            <select asp-for="TestId">
-                @foreach (var test in Model.AktiveTester)
-                {
-                    <option value="@test.Id">@test.Navn</option>
-                }
-            </select>
-        </div>
-        <div><label>Frist for oppstart (valgfritt)</label><br /><input asp-for="Frist" type="datetime-local" /></div>
-        <div><label>Varighet i minutter (valgfritt)</label><br /><input asp-for="VarighetMinutter" type="number" /></div>
-        <button type="submit">Tildel</button>
-    </form>
-}
+<p>
+    <a class="btn-accent" asp-page-handler="Tildel" asp-route-id="@Model.Pasient?.Id">
+        Tildel test til denne pasienten
+    </a>
+</p>
+<p><em>Åpner den vanlige tildelingswizarden med denne pasienten forhåndsvalgt — det er der prising og varsling (SMS/e-post) faktisk beregnes og sendes.</em></p>
 
 <p><a href="/Behandlerportal/Pasienter">Tilbake til pasienter</a></p>

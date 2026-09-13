@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
+using TestBase.Shared.Domain;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Security;
@@ -75,6 +76,14 @@ public sealed class RedigerModel : PageModel
         if (string.IsNullOrWhiteSpace(Personnummer) || string.IsNullOrWhiteSpace(MobilNr) || string.IsNullOrWhiteSpace(Epost))
         {
             Feilmelding = "Personnummer, mobilnummer og e-post er alle obligatoriske.";
+            EierBehandlerId = pasient.BehandlerId;
+            await LastBehandlereIPartnerskapetAsync(pasient.BehandlerId, cancellationToken);
+            return Page();
+        }
+
+        if (!PersonnummerValidator.ErGyldigFormat(Personnummer))
+        {
+            Feilmelding = "Personnummer må bestå av nøyaktig 11 siffer.";
             EierBehandlerId = pasient.BehandlerId;
             await LastBehandlereIPartnerskapetAsync(pasient.BehandlerId, cancellationToken);
             return Page();

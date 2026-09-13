@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
+using TestBase.Shared.Domain;
 using TestBase.Shared.Domain.Pasienter;
 using TestBase.Web.Security;
 
@@ -112,6 +113,12 @@ public sealed class FullforModel : PageModel
             BiologiskKjonnVedFodsel is null)
         {
             Feilmelding = "Navn, personnummer, mobilnummer, e-post og biologisk kjønn ved fødsel er obligatoriske.";
+            return Page();
+        }
+
+        if (!PersonnummerValidator.ErGyldigFormat(Personnummer))
+        {
+            Feilmelding = "Personnummer må bestå av nøyaktig 11 siffer.";
             return Page();
         }
 

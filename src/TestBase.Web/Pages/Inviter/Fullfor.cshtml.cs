@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
+using TestBase.Shared.Domain;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Web.Security;
 
@@ -114,6 +115,12 @@ public sealed class FullforModel : PageModel
             string.IsNullOrWhiteSpace(Kontonummer))
         {
             Feilmelding = "Alle felt unntatt arbeidsadresse og tittel er obligatoriske.";
+            return Page();
+        }
+
+        if (!PersonnummerValidator.ErGyldigFormat(Personnummer))
+        {
+            Feilmelding = "Personnummer må bestå av nøyaktig 11 siffer.";
             return Page();
         }
 

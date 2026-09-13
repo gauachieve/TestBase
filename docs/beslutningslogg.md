@@ -1896,6 +1896,59 @@ ekte data, ikke bare i enhetstestene. De øvrige syv er verifisert via kodegjenn
 enhetstestene over, IKKE klikket gjennom fullt ut hver, gitt omfanget (åtte fulle instrumenter i
 én runde).
 
+### Bugliste 2026-09-13, gruppe A — sikkerhet/dataintegritet (2026-09-13)
+
+Bruker leverte en 28-punkts bugliste (`bugs20260913.txt`) samlet fra faktisk bruk av test-miljøet.
+Planen delte den i fire grupper (A: sikkerhet/dataintegritet, B: slett/arkiver-modell, C: HPR-flyt,
+D: resten av UI-punktene), committet/deployet hver for seg — se `C:\Users\gaute\.claude\plans\
+fizzy-churning-dusk.md` for den fulle planen. Denne seksjonen dekker gruppe A.
+
+**Punkt 7 (tom personnummer-override) og punkt 1 (logo → localhost) reproduserte IKKE** —
+`MockBankIdProvider.AuthenticateAsync` bruker allerede `IsNullOrWhiteSpace` og faller korrekt
+tilbake til det faste mock-personnummeret (verifisert live med Playwright: tomt felt → går videre
+til 2FA som normalt), og `_Layout.cshtml` sin logo-lenke er allerede en relativ `"/"`-lenke (ingen
+localhost-forekomst funnet noe sted i kodebasen). Ingen kodeendring gjort for disse to — trolig
+en forveksling med en ELDRE, allerede rettet feil (jf. `docs/beslutningslogg.md` sine tidligere
+StagingGate/PersonnummerOverride-notater), eller et miljøspesifikt avvik som ikke reproduserte her.
+
+**Punkt 21 — reell sikkerhets-/dataintegritetsfeil, rettet**: `Behandlerportal/Pasienter/
+Detaljer.cshtml` hadde en "Tildel ny test"-miniform som postet rett til `TestService.TildelAsync`
+— denne veien hoppet forbi BÅDE prising (`TestTildelingsService`/`TestPrisberegner`) OG varsling
+(SMS/e-post er kablet inn i `TestTildelingsService`, ikke `TestService`). Fjernet miniformen helt;
+erstattet med en lenke (`OnGetTildelAsync`) som setter samme `TempData["TildelPasientIder"]`-nøkkel
+som steg 1 i den vanlige tildelingswizarden bruker, og sender behandler rett til
+`Tildel/Tester`-siden med pasienten forhåndsvalgt — all tildeling går nå uunngåelig gjennom den
+ekte wizarden. Verifisert live med Playwright: lenken fra pasientdetaljsiden lander på "Tildeler
+til: Vipps Demo" i wizarden. `HeleFlytenTests.cs` måtte oppdateres til å drive denne nye flyten
+(poste til `Tildel/Tester?handler=Send` i stedet for det gamle skjemaet) — avdekket samtidig en
+ekte forbedring: fordi wizarden nå faktisk sender en varsel-SMS til pasienten, måtte testen hente
+registreringsinvitasjonens SMS-token RETT ETTER pasientopprettelsen i stedet for etter tildelingen
+(ellers overskrev den nye varsel-SMS-en "siste melding" og skjulte inviterings-tokenet) — og
+audit-logg-handlingen endret navn fra `TildelTest` til `TildelTesterBatch` (batch-tildeling er nå
+eneste vei). 25/25 tester grønt etter oppdateringen.
+
+**Punkt 23 (ingen e-post mottatt) — rotårsak diagnostisert**: fryktet først manglende
+`Acs:ConnectionString`/`Email:SenderAddress`-konfigurasjon i Azure (siden `azd env get-values`
+ikke lister noen ACS-relatert variabel) — men `infra/resources.bicep` viser at
+`Microsoft.Communication/communicationServices` og tilhørende e-postdomene er EKTE, alltid-
+provisjonerte ressurser der tilkoblingsstrengen hentes direkte fra `communicationService.
+listKeys()` og lagres i Key Vault (`Acs__ConnectionString`/`Email__SenderAddress` i `appSettings`),
+IKKE fra en azd-miljøvariabel — konfigurasjonen er altså allerede korrekt og krever ingen fiks. Én
+reell, funnet forsendelse (en "Invitasjon til PsyTest"-e-post i en test-postkasse) bekrefter at
+ACS-utsendelse faktisk virker. Mest sannsynlige rotårsak for brukerens opplevde "aldri mottatt
+mail" er dermed punkt 21 sin bug alene (tildeling via snarveien sendte ALDRI noe varsel, uansett
+Varslingspreferanse) — løst av samme fiks som over.
+
+**Punkt 19 — PNR sanity-sjekk**: ny `PersonnummerValidator.ErGyldigFormat` (`TestBase.Shared/
+Domain/PersonnummerValidator.cs`) — ren formatsjekk (nøyaktig 11 sifre, kun tall), IKKE en MOD11-
+kontrollsifferalgoritme (ikke bedt om). Lagt til i alle skjemahandlere som tar imot et
+personnummer direkte fra bruker: `Administratorer/Ny`+`Rediger`, `Admin/Behandlere/Rediger`,
+`Behandlerportal/Pasienter/Rediger`, `Inviter/Fullfor`, `PasientRegistrering/Fullfor`. Bevisst
+UTELATT fra `Behandlerportal/Pasienter/Ny` — det skjemaet fjernes helt i gruppe D (behandler skal
+ikke lenger fylle inn PNR ved oppretting av pasient, kun ved BankID-innlogging). Verifisert live
+med Playwright: `Personnummer=123` → "Personnummer må bestå av nøyaktig 11 siffer.", gyldig verdi
+→ lagres som normalt.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt

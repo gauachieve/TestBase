@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
+using TestBase.Shared.Domain;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Security;
 
@@ -79,6 +80,12 @@ public sealed class RedigerModel : PageModel
             string.IsNullOrWhiteSpace(Personnummer) || string.IsNullOrWhiteSpace(HprNr))
         {
             Feilmelding = "AdminId, mobilnr, e-post, fullt navn, personnummer og HPR-nr er obligatoriske.";
+            return Page();
+        }
+
+        if (!PersonnummerValidator.ErGyldigFormat(Personnummer))
+        {
+            Feilmelding = "Personnummer må bestå av nøyaktig 11 siffer.";
             return Page();
         }
 
