@@ -8,6 +8,25 @@
 <h1>Behandlere</h1>
 <p><a href="/Admin/Behandlere/Inviter">+ Inviter ny behandler</a></p>
 
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+@if (Model.ErSuperadmin)
+{
+    <p>
+        @if (Model.VisSlettede)
+        {
+            <a href="/Admin/Behandlere">Skjul slettede</a>
+        }
+        else
+        {
+            <a href="/Admin/Behandlere?visSlettede=true">Vis slettede (kun Superadmin)</a>
+        }
+    </p>
+}
+
 <table border="1" cellpadding="6" cellspacing="0">
     <thead>
         <tr>
@@ -44,33 +63,58 @@
                     <text>Venter — frist @b.RegistrertUtc.Value.AddDays(7).ToString("d")</text>
                 }
             </td>
-            <td>@b.Status</td>
+            <td>@(b.ErSlettet ? "Slettet" : b.Status.ToString())</td>
             <td>
-                <a class="btn-icon" href="/Admin/Behandlere/Rediger/@b.Id" title="Rediger" aria-label="Rediger">
-                    <partial name="_Ikon" model="@("rediger")" />
-                </a>
-                @if (b.Status != BehandlerStatus.Arkivert)
+                @if (b.ErSlettet)
                 {
-                    var frysTittel = b.Status == BehandlerStatus.Fryst ? "Gjenåpne" : "Frys";
-                    <form method="post" asp-page-handler="Frys" style="display:inline;">
+                    <form method="post" asp-page-handler="GjenopprettFraSlettet" style="display:inline;">
                         <input type="hidden" name="id" value="@b.Id" />
-                        <button type="submit" class="btn-icon" title="@frysTittel" aria-label="@frysTittel">
-                            <partial name="_Ikon" model="@(b.Status == BehandlerStatus.Fryst ? "gjenaapne" : "frys")" />
+                        <button type="submit" class="btn-icon" title="Gjenopprett" aria-label="Gjenopprett">
+                            <partial name="_Ikon" model="@("gjenopprett")" />
                         </button>
                     </form>
-                    <form method="post" asp-page-handler="Arkiver" style="display:inline;">
-                        <input type="hidden" name="id" value="@b.Id" />
-                        <button type="submit" class="btn-icon" title="Arkiver" aria-label="Arkiver">
-                            <partial name="_Ikon" model="@("arkiver")" />
-                        </button>
-                    </form>
-                    @if (b.RegistrertUtc is not null)
+                }
+                else
+                {
+                    <a class="btn-icon" href="/Admin/Behandlere/Rediger/@b.Id" title="Rediger" aria-label="Rediger">
+                        <partial name="_Ikon" model="@("rediger")" />
+                    </a>
+                    @if (b.Status != BehandlerStatus.Arkivert)
                     {
-                        var godkjennTittel = b.HprGodkjent ? "Tilbakekall HPR-godkjenning" : "Godkjenn HPR";
-                        <form method="post" asp-page-handler="GodkjennHpr" style="display:inline;">
+                        var frysTittel = b.Status == BehandlerStatus.Fryst ? "Gjenåpne" : "Frys";
+                        <form method="post" asp-page-handler="Frys" style="display:inline;">
                             <input type="hidden" name="id" value="@b.Id" />
-                            <button type="submit" class="btn-icon" title="@godkjennTittel" aria-label="@godkjennTittel">
-                                <partial name="_Ikon" model="@(b.HprGodkjent ? "tilbakekall" : "godkjenn")" />
+                            <button type="submit" class="btn-icon" title="@frysTittel" aria-label="@frysTittel">
+                                <partial name="_Ikon" model="@(b.Status == BehandlerStatus.Fryst ? "gjenaapne" : "frys")" />
+                            </button>
+                        </form>
+                        <form method="post" asp-page-handler="Arkiver" style="display:inline;">
+                            <input type="hidden" name="id" value="@b.Id" />
+                            <button type="submit" class="btn-icon" title="Arkiver" aria-label="Arkiver">
+                                <partial name="_Ikon" model="@("arkiver")" />
+                            </button>
+                        </form>
+                        @if (b.RegistrertUtc is not null)
+                        {
+                            var godkjennTittel = b.HprGodkjent ? "Tilbakekall HPR-godkjenning" : "Godkjenn HPR";
+                            <form method="post" asp-page-handler="GodkjennHpr" style="display:inline;">
+                                <input type="hidden" name="id" value="@b.Id" />
+                                <button type="submit" class="btn-icon" title="@godkjennTittel" aria-label="@godkjennTittel">
+                                    <partial name="_Ikon" model="@(b.HprGodkjent ? "tilbakekall" : "godkjenn")" />
+                                </button>
+                            </form>
+                        }
+                    }
+                    else
+                    {
+                        <form method="post" asp-page-handler="Slett" style="display:inline;"
+                              data-captcha-sporsmal="@Model.CaptchaSporsmal"
+                              onsubmit="return bekreftSletting(this, 'behandleren @b.Visningsnavn')">
+                            <input type="hidden" name="id" value="@b.Id" />
+                            <input type="hidden" asp-for="CaptchaSignertFasit" />
+                            <input type="hidden" name="CaptchaSvar" />
+                            <button type="submit" class="btn-icon btn-icon--slett" title="Slett" aria-label="Slett">
+                                <partial name="_Ikon" model="@("slett")" />
                             </button>
                         </form>
                     }

@@ -27,4 +27,8 @@ public sealed class Partner
     public DateTimeOffset OpprettetUtc { get; set; }
     public bool ErArkivert { get; set; }
     public DateTimeOffset? ArkivertUtc { get; set; }
+
+    /// <summary>Andre steg etter arkivering — se Administrator.ErSlettet for full begrunnelse.</summary>
+    public bool ErSlettet { get; set; }
+    public DateTimeOffset? SlettetUtc { get; set; }
 }

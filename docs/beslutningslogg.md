@@ -1981,6 +1981,68 @@ buglisten — ekte slett-knapp for administratorer) MÅ eksplisitt hindre at see
 på at oppstarts-seedingen henter den tilbake — en admin som arkiverer/sletter denne kontoen ved et
 uhell bør få en tydelig feilmelding, ikke en stille handling som først krasjer appen ved neste omstart.
 
+### Bugliste 2026-09-13, gruppe B — slett/arkiver-modell + selvsletting (2026-09-13)
+
+Gruppe B av `bugs20260913.txt` (se gruppe A over for full kontekst/plan-referanse) — punktene 3, 4,
+6, 17 og 18: ekte sletting (ikke bare arkivering) for Administrator/Partner/Behandler/Pasient,
+bekreftelse+captcha på sletting, og selvbetjent kontosletting.
+
+**Datamodell**: ny migrasjon `LeggTilSlettetPaaFireEntiteter` legger til `ErSlettet`
+(bool)/`SlettetUtc` (nullable) på alle fire entiteter — et ANDRE nivå under eksisterende
+arkivering (`ErArkivert`/`Status==Arkivert`), ikke en erstatning. Slett-knappen er kun
+aktiv/synlig når raden allerede er arkivert (håndhevet BÅDE i UI — grået ut via
+`disabled="@(!x.ErArkivert)"` — OG server-side i selve handleren, uavhengig av UI-tilstand).
+Sletting skjuler raden fra alle andre enn Superadmin (`WHERE !ErSlettet` i standard-spørringen);
+Superadmin får en `?visSlettede=true`-visning (Administratorer, Behandlere, Admin/Pasienter — den
+sistnevnte siden Pasient-sletting selv skjer på den behandler-eide `Behandlerportal/Pasienter`,
+mens "vis alt + gjenopprett" hører hjemme på admin-oversikten Superadmin allerede bruker) med en
+grønn "Gjenopprett"-knapp (`_Ikon.cshtml` fikk et nytt `"slett"`-ikon også) som nullstiller BÅDE
+slettet- og arkivert-status i ett steg.
+
+**Sikkerhetssperre direkte utløst av forrige seksjons produksjonsutfall**: en administrator med
+`ErSuperadmin==true` kan verken arkiveres ELLER slettes via `Administratorer/Index.cshtml.cs` —
+lagt til som en eksplisitt kodesperre (ikke bare et håp om at oppstartsseedingen henter kontoen
+tilbake), nøyaktig lærdommen fra "Produksjonsutfall"-saken over.
+
+**Bekreftelse + captcha (punkt 17)**: gjenbruker det eksisterende `ICaptchaProvider`/
+`MockCaptchaProvider` fra innloggingssidene (samme enkle regnestykke-mønster, DataProtection-
+signert fasit tur-retur i et skjult felt) i stedet for et nytt tredjeparts-bibliotek. Ny delt
+JS-funksjon `bekreftSletting(form, hvaSlettes)` i `wwwroot/js/validering.js`: `confirm()` først,
+så `prompt()` for regnestykke-svaret, satt inn i et skjult `CaptchaSvar`-felt før faktisk innsending.
+
+**Reell bug funnet og rettet UNDERVEIS, ikke bare i teorien**: første Playwright-verifisering av
+selve slette-knappen feilet gjentatte ganger med "Feil svar på sikkerhetsspørsmålet" SELV MED
+korrekt uthentet og riktig utregnet svar. Rotårsak: i feilhåndteringsgrenen ble en FERSK
+`_captcha.LagUtfordring()` generert via `OnGetAsync(...)` og tilordnet
+`CaptchaSporsmal`/`CaptchaSignertFasit` — men Razors `asp-for`-taghjelper gjengir som kjent en
+POSTET verdi fra `ModelState` FREMFOR den gjeldende C#-modellverdien når ModelState allerede har en
+oppføring for feltnavnet (her: `CaptchaSignertFasit`, bundet fra forrige innsending). Resultatet:
+det synlige spørsmålet oppdaterte seg (fra modellverdien via `data-captcha-sporsmal`), mens det
+skjulte, faktiske signerte svaret som ble sendt inn IKKE gjorde det — et korrekt svar på det NYE
+spørsmålet ble dermed alltid verifisert mot det GAMLE signerte svaret, og feilet alltid. Fikset med
+`ModelState.Clear()` rett før `OnGetAsync(...)`-kallet i alle sju berørte feilhåndteringsgrener
+(Administratorer/Partnere/Behandlere-listene, Behandlerportal/Pasienter-listen, samt de tre
+selvslett-sidene under). Dette er en generell ASP.NET Core Razor Pages-fallgruve — enhver fremtidig
+side som gjenoppfrisker en `[BindProperty]`-verdi inne i SAMME POST-handler (ikke via redirect) må
+huske `ModelState.Clear()` først, ellers vinner alltid den opprinnelig posted verdien i viewet.
+
+**Selvsletting (punkt 6)**: ny handling "Slett min konto" for behandler
+(`Behandlerportal/Innstillinger.cshtml`, siden som fantes fra før), pasient (`Pasientportal/
+MinSide.cshtml`) og en helt ny, minimal admin-side (`Admin/MinKonto.cshtml` — admin hadde ingen
+selvbetjeningsside fra før). Alle tre går RETT til fullt slettet (arkivert+slettet i ett steg,
+ikke topartssteget admin ellers bruker) siden brukeren selv ber om å forsvinne umiddelbart, logger
+ut med `SignOutAsync` etterpå, og forblir synlig for Superadmin med samme gjenopprettingsvei.
+Admin-varianten nekter eksplisitt Superadmin-kontoen å slette seg selv (samme sperre som over).
+
+**Verifisert**: 25/25 tester grønt, `dotnet build` rent. Full Playwright-gjennomgang av hele
+slett/arkiver/gjenopprett-syklusen for Administrator (inkl. selve bug-jakten over — captcha-feilen
+ble funnet og bekreftet rettet live, ikke bare i kode), og full ende-til-ende selvsletting av en
+ekte (dev-only) administratorkonto (logget ut, kontoen borte fra standardvisningen etterpå). De
+øvrige tre entitetenes slett/gjenopprett-handlere (Partner, Behandler, Pasient) og selvsletting for
+behandler/pasient bruker identisk, allerede verifisert kode-mønster og er verifisert ved
+kodegjennomgang + enhetstestsuiten, ikke hver for seg klikket gjennom fullt ut — samme åpenhet om
+omfang som tidligere runder.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt

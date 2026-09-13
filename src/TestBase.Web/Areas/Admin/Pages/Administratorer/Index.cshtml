@@ -7,6 +7,25 @@
 <h1>Administratorer</h1>
 <p><a href="/Admin/Administratorer/Ny">+ Ny administrator</a></p>
 
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+@if (Model.ErSuperadmin)
+{
+    <p>
+        @if (Model.VisSlettede)
+        {
+            <a href="/Admin/Administratorer">Skjul slettede</a>
+        }
+        else
+        {
+            <a href="/Admin/Administratorer?visSlettede=true">Vis slettede (kun Superadmin)</a>
+        }
+    </p>
+}
+
 <table border="1" cellpadding="6" cellspacing="0">
     <thead>
         <tr>
@@ -30,17 +49,39 @@
             <td>@a.MobilNr</td>
             <td>@a.HprNr</td>
             <td>@(a.PasswordHash is not null ? "Passord (utviklingsmodus)" : "BankID + 2FA")</td>
-            <td>@(a.ErArkivert ? "Arkivert" : "Aktiv")</td>
+            <td>@(a.ErSlettet ? "Slettet" : a.ErArkivert ? "Arkivert" : "Aktiv")</td>
             <td>
-                <a class="btn-icon" href="/Admin/Administratorer/Rediger/@a.Id" title="Rediger" aria-label="Rediger">
-                    <partial name="_Ikon" model="@("rediger")" />
-                </a>
-                <form method="post" asp-page-handler="Arkiver" style="display:inline;">
-                    <input type="hidden" name="id" value="@a.Id" />
-                    <button type="submit" class="btn-icon" title="@(a.ErArkivert ? "Gjenopprett" : "Arkiver")" aria-label="@(a.ErArkivert ? "Gjenopprett" : "Arkiver")">
-                        <partial name="_Ikon" model="@(a.ErArkivert ? "gjenopprett" : "arkiver")" />
-                    </button>
-                </form>
+                @if (a.ErSlettet)
+                {
+                    <form method="post" asp-page-handler="GjenopprettFraSlettet" style="display:inline;">
+                        <input type="hidden" name="id" value="@a.Id" />
+                        <button type="submit" class="btn-icon" title="Gjenopprett" aria-label="Gjenopprett">
+                            <partial name="_Ikon" model="@("gjenopprett")" />
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <a class="btn-icon" href="/Admin/Administratorer/Rediger/@a.Id" title="Rediger" aria-label="Rediger">
+                        <partial name="_Ikon" model="@("rediger")" />
+                    </a>
+                    <form method="post" asp-page-handler="Arkiver" style="display:inline;">
+                        <input type="hidden" name="id" value="@a.Id" />
+                        <button type="submit" class="btn-icon" title="@(a.ErArkivert ? "Gjenopprett" : "Arkiver")" aria-label="@(a.ErArkivert ? "Gjenopprett" : "Arkiver")">
+                            <partial name="_Ikon" model="@(a.ErArkivert ? "gjenopprett" : "arkiver")" />
+                        </button>
+                    </form>
+                    <form method="post" asp-page-handler="Slett" style="display:inline;"
+                          data-captcha-sporsmal="@Model.CaptchaSporsmal"
+                          onsubmit="return bekreftSletting(this, 'administratoren @a.FulltNavn')">
+                        <input type="hidden" name="id" value="@a.Id" />
+                        <input type="hidden" asp-for="CaptchaSignertFasit" />
+                        <input type="hidden" name="CaptchaSvar" />
+                        <button type="submit" class="btn-icon btn-icon--slett" title="Slett" aria-label="Slett" disabled="@(!a.ErArkivert)">
+                            <partial name="_Ikon" model="@("slett")" />
+                        </button>
+                    </form>
+                }
             </td>
         </tr>
     }

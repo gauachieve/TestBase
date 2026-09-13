@@ -4,6 +4,9 @@
   --accent-dark: #d97c1f;
   --success: #2f9e44;
   --success-dark: #248a37;
+  --fare: #c0392b;
+  --fare-dark: #9c2d21;
+  --fare-lys: #f2d3ce;
   --ink: #16181f;
   --ink-soft: #4b4f58;
   --muted: #6b7280;
@@ -582,6 +585,17 @@ main.page .btn-icon {
 main.page .btn-icon:last-child { margin-right: 0; }
 main.page .btn-icon svg { display: block; pointer-events: none; }
 main.page .btn-icon:hover { background: var(--success-dark); transform: translateY(-1px); }
+
+/* Destruktive handlinger (permanent sletting, se bugliste 2026-09-13 punkt 17/18) —
+   rødt, tydelig atskilt fra de reversible grønne handlingene (rediger/arkiver/gjenopprett). */
+main.page .btn-icon--slett { background: var(--fare); }
+main.page .btn-icon--slett:hover { background: var(--fare-dark); }
+main.page .btn-icon--slett:disabled {
+  background: var(--fare-lys);
+  color: var(--fare-dark);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
 
 /* Primary forms (innlogging, opprett/inviter/fyll ut) -> card */
 main.page form:not([style*="display:inline"]) {

@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -5,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Pasienter;
+using TestBase.Shared.Providers;
 using TestBase.Shared.Security;
 
 namespace TestBase.Web.Areas.Behandlerportal.Pages;
@@ -22,13 +25,25 @@ public sealed class InnstillingerModel : PageModel
     private readonly AppDbContext _db;
     private readonly PaaminnelseService _paaminnelseService;
     private readonly ICurrentUserContext _currentUser;
+    private readonly ICaptchaProvider _captcha;
+    private readonly IAuditLogger _auditLogger;
 
-    public InnstillingerModel(AppDbContext db, PaaminnelseService paaminnelseService, ICurrentUserContext currentUser)
+    public InnstillingerModel(AppDbContext db, PaaminnelseService paaminnelseService, ICurrentUserContext currentUser, ICaptchaProvider captcha, IAuditLogger auditLogger)
     {
         _db = db;
         _paaminnelseService = paaminnelseService;
         _currentUser = currentUser;
+        _captcha = captcha;
+        _auditLogger = auditLogger;
     }
+
+    public string CaptchaSporsmal { get; private set; } = string.Empty;
+
+    [BindProperty]
+    public string CaptchaSignertFasit { get; set; } = string.Empty;
+
+    [BindProperty]
+    public string? CaptchaSvar { get; set; }
 
     [BindProperty]
     public bool OnskerDagligPaaminnelse { get; set; }
@@ -50,6 +65,10 @@ public sealed class InnstillingerModel : PageModel
         OnskerDagligPaaminnelse = behandler.OnskerDagligPaaminnelse;
         PaaminnelseKanal = behandler.PaaminnelseKanal;
         SistPaaminnetUtc = behandler.SistPaaminnetUtc;
+
+        var utfordring = _captcha.LagUtfordring();
+        CaptchaSporsmal = utfordring.SporsmalTekst;
+        CaptchaSignertFasit = utfordring.SignertFasit;
     }
 
     public async Task<IActionResult> OnPostLagreAsync(CancellationToken cancellationToken)
@@ -88,6 +107,45 @@ public sealed class InnstillingerModel : PageModel
 
         SistPaaminnetUtc = behandler.SistPaaminnetUtc;
         return Page();
+    }
+
+    /// <summary>
+    /// Selvbetjent kontosletting (bugliste 2026-09-13 punkt 6) — går rett til
+    /// slettet (samme sluttilstand som admin sin arkiver+slett i to steg),
+    /// siden brukeren selv ber om å bli borte umiddelbart. Logger ut med det
+    /// samme; kontoen forblir synlig for Superadmin (samme skjulingsmodell som
+    /// admin-utført sletting), som kan gjenopprette den ved en feil.
+    /// </summary>
+    public async Task<IActionResult> OnPostSlettMinKontoAsync(CancellationToken cancellationToken)
+    {
+        var behandler = await HentBehandlerAsync(cancellationToken);
+        if (behandler is null)
+        {
+            return NotFound();
+        }
+
+        if (!_captcha.Verifiser(CaptchaSignertFasit, CaptchaSvar))
+        {
+            // Se Administratorer/Index.cshtml.cs for hvorfor ModelState.Clear() må skje
+            // FØR OnGetAsync gjenoppfrisker CaptchaSporsmal/CaptchaSignertFasit.
+            ModelState.Clear();
+            await OnGetAsync(cancellationToken);
+            Melding = "Feil svar på sikkerhetsspørsmålet — sletting avbrutt.";
+            return Page();
+        }
+
+        behandler.Status = BehandlerStatus.Arkivert;
+        behandler.ArkivertUtc = DateTimeOffset.UtcNow;
+        behandler.ErSlettet = true;
+        behandler.SlettetUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.LogAsync(
+            _currentUser.UserId, _currentUser.Role.ToString(), "SlettEgenBehandlerKonto",
+            nameof(Behandler), behandler.Id.ToString(), cancellationToken: cancellationToken);
+
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        return RedirectToPage("/Index", new { area = "" });
     }
 
     private async Task<Behandler?> HentBehandlerAsync(CancellationToken cancellationToken)

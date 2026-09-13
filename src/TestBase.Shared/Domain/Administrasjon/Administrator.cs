@@ -33,4 +33,12 @@ public sealed class Administrator
     public bool ErArkivert { get; set; }
     public DateTimeOffset? ArkivertUtc { get; set; }
     public DateTimeOffset OpprettetUtc { get; set; }
+
+    /// <summary>
+    /// Andre steg etter arkivering — skjuler raden for ALLE andre enn Superadmin
+    /// (se Areas/Admin/Pages/Administratorer/Index.cshtml.cs). Kun tilgjengelig
+    /// når allerede arkivert, se docs/beslutningslogg.md "Bugliste 2026-09-13".
+    /// </summary>
+    public bool ErSlettet { get; set; }
+    public DateTimeOffset? SlettetUtc { get; set; }
 }

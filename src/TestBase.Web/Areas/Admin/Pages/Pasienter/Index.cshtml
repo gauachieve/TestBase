@@ -5,7 +5,21 @@
 }
 
 <h1>Pasienter</h1>
-<p>Alle pasienter på tvers av behandlere. Selve pasient-administrasjonen (legg til/rediger/arkiver) skjer hos den enkelte behandler.</p>
+<p>Alle pasienter på tvers av behandlere. Selve pasient-administrasjonen (legg til/rediger/arkiver/slett) skjer hos den enkelte behandler.</p>
+
+@if (Model.ErSuperadmin)
+{
+    <p>
+        @if (Model.VisSlettede)
+        {
+            <a href="/Admin/Pasienter">Skjul slettede</a>
+        }
+        else
+        {
+            <a href="/Admin/Pasienter?visSlettede=true">Vis slettede (kun Superadmin)</a>
+        }
+    </p>
+}
 
 <div>
     <label for="pasientSok">Søk</label><br />
@@ -26,6 +40,10 @@
             <th>Tildelt</th>
             <th>Besvart</th>
             <th>Status</th>
+            @if (Model.VisSlettede)
+            {
+                <th></th>
+            }
         </tr>
     </thead>
     <tbody>
@@ -43,7 +61,21 @@
             <td>@p.Personnummer</td>
             <td>@rad.Tildelt</td>
             <td>@rad.Besvart</td>
-            <td>@p.Status</td>
+            <td>@(p.ErSlettet ? "Slettet" : p.Status.ToString())</td>
+            @if (Model.VisSlettede)
+            {
+                <td>
+                    @if (p.ErSlettet)
+                    {
+                        <form method="post" asp-page-handler="GjenopprettFraSlettet" style="display:inline;">
+                            <input type="hidden" name="id" value="@p.Id" />
+                            <button type="submit" class="btn-icon" title="Gjenopprett" aria-label="Gjenopprett">
+                                <partial name="_Ikon" model="@("gjenopprett")" />
+                            </button>
+                        </form>
+                    }
+                </td>
+            }
         </tr>
     }
     </tbody>

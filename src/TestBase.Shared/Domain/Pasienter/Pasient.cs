@@ -42,4 +42,8 @@ public sealed class Pasient
     public long BehandlerId { get; set; }
     public DateTimeOffset OpprettetUtc { get; set; }
     public DateTimeOffset? ArkivertUtc { get; set; }
+
+    /// <summary>Andre steg etter arkivering (Status == Arkivert) — se Administrator.ErSlettet for full begrunnelse.</summary>
+    public bool ErSlettet { get; set; }
+    public DateTimeOffset? SlettetUtc { get; set; }
 }

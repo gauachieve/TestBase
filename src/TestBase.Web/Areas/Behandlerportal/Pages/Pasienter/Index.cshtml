@@ -14,6 +14,10 @@
 {
     <p><em>Du ser alle pasienter for alle behandlere i partnerskapet, siden du er partner-admin.</em></p>
 }
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
 
 <div>
     <label for="pasientSok">Søk</label><br />
@@ -65,6 +69,16 @@
                     <input type="hidden" name="id" value="@p.Id" />
                     <button type="submit" class="btn-icon" title="@(p.Status == PasientStatus.Arkivert ? "Gjenopprett" : "Arkiver")" aria-label="@(p.Status == PasientStatus.Arkivert ? "Gjenopprett" : "Arkiver")">
                         <partial name="_Ikon" model="@(p.Status == PasientStatus.Arkivert ? "gjenopprett" : "arkiver")" />
+                    </button>
+                </form>
+                <form method="post" asp-page-handler="Slett" style="display:inline;"
+                      data-captcha-sporsmal="@Model.CaptchaSporsmal"
+                      onsubmit="return bekreftSletting(this, 'pasienten @(p.Navn ?? "uten navn")')">
+                    <input type="hidden" name="id" value="@p.Id" />
+                    <input type="hidden" asp-for="CaptchaSignertFasit" />
+                    <input type="hidden" name="CaptchaSvar" />
+                    <button type="submit" class="btn-icon btn-icon--slett" title="Slett" aria-label="Slett" disabled="@(p.Status != PasientStatus.Arkivert)">
+                        <partial name="_Ikon" model="@("slett")" />
                     </button>
                 </form>
             </td>

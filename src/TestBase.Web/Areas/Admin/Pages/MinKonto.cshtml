@@ -1,0 +1,29 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.MinKontoModel
+@{
+    ViewData["Title"] = "Min konto";
+}
+
+<h1>Min konto</h1>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+@if (Model.ErSuperadmin)
+{
+    <p><em>Superadmin-kontoen kan ikke slettes herfra.</em></p>
+}
+else
+{
+    <h2>Slett min konto</h2>
+    <p>Dette arkiverer og skjuler kontoen din umiddelbart, og logger deg ut. Kun Superadmin kan gjenopprette den etterpå.</p>
+    <form method="post" asp-page-handler="SlettMinKonto"
+          data-captcha-sporsmal="@Model.CaptchaSporsmal"
+          onsubmit="return bekreftSletting(this, 'din egen administratorkonto')">
+        <input type="hidden" asp-for="CaptchaSignertFasit" />
+        <input type="hidden" name="CaptchaSvar" />
+        <button type="submit" class="btn-icon btn-icon--slett" style="width:auto;padding:0 1rem;">Slett min konto</button>
+    </form>
+}

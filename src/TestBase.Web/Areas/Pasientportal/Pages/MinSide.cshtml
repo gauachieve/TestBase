@@ -7,6 +7,11 @@
 
 <h1>Min side</h1>
 
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
 @if (!Model.Tildelinger.Any())
 {
     <p>Du har ingen tildelte tester ennå.</p>
@@ -51,3 +56,13 @@ else
         </tbody>
     </table>
 }
+
+<h2>Slett min konto</h2>
+<p>Dette arkiverer og skjuler kontoen din umiddelbart, og logger deg ut. Kun Superadmin kan gjenopprette den etterpå.</p>
+<form method="post" asp-page-handler="SlettMinKonto"
+      data-captcha-sporsmal="@Model.CaptchaSporsmal"
+      onsubmit="return bekreftSletting(this, 'din egen pasientkonto')">
+    <input type="hidden" asp-for="CaptchaSignertFasit" />
+    <input type="hidden" name="CaptchaSvar" />
+    <button type="submit" class="btn-icon btn-icon--slett" style="width:auto;padding:0 1rem;">Slett min konto</button>
+</form>

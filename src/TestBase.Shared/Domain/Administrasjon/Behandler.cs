@@ -47,6 +47,10 @@ public sealed class Behandler
     public DateTimeOffset OpprettetUtc { get; set; }
     public DateTimeOffset? ArkivertUtc { get; set; }
 
+    /// <summary>Andre steg etter arkivering (Status == Arkivert) — se Administrator.ErSlettet for full begrunnelse.</summary>
+    public bool ErSlettet { get; set; }
+    public DateTimeOffset? SlettetUtc { get; set; }
+
     /// <summary>
     /// Null = uavhengig behandler (dagens oppførsel for alle, uendret). Satt
     /// = tilknyttet en Partner — se docs/beslutningslogg.md "Partner System +
