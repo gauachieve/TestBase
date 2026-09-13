@@ -77,6 +77,18 @@ public sealed class LoggInnModel : PageModel
 
     private void NyCaptcha()
     {
+        // ModelState.Clear() er nødvendig FØR vi setter nye verdier under: asp-for
+        // rendrer den POSTEDE ModelState-verdien fremfor den ferske C#-verdien når
+        // samme side redirendres via Page() (ikke RedirectToPage) i samme forespørsel.
+        // Uten denne linjen viser skjulte CaptchaSignertFasit-feltet fortsatt forrige
+        // (nå utdaterte) svar mens CaptchaSporsmal-teksten på skjermen har oppdatert
+        // seg — ETHVERT svar på det nye, synlige spørsmålet blir da avvist som "feil
+        // sikkerhetskode", selv et matematisk korrekt et. Samme fallgruve som ble
+        // funnet og fikset i slette-bekreftelsesflytene (bugliste 2026-09-13 gruppe B),
+        // men den gangen ikke fanget opp i disse to innloggingssidene. Se
+        // docs/beslutningslogg.md.
+        ModelState.Clear();
+
         var utfordring = _captcha.LagUtfordring();
         CaptchaSporsmal = utfordring.SporsmalTekst;
         CaptchaSignertFasit = utfordring.SignertFasit;

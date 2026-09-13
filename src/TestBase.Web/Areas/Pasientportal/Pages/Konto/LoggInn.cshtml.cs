@@ -66,6 +66,12 @@ public sealed class LoggInnModel : PageModel
 
     private void NyCaptcha()
     {
+        // Se tilsvarende kommentar i Pages/Konto/LoggInn.cshtml.cs — samme
+        // asp-for/ModelState-fallgruve, samme fiks. Uten dette kallet ville et
+        // mislykket forsøk gjort ALLE senere forsøk på samme sidevisning avvist
+        // med "feil sikkerhetskode" uansett hva pasienten faktisk svarte.
+        ModelState.Clear();
+
         var utfordring = _captcha.LagUtfordring();
         CaptchaSporsmal = utfordring.SporsmalTekst;
         CaptchaSignertFasit = utfordring.SignertFasit;

@@ -793,6 +793,32 @@ main.page pre {
 
 /* ---------- Responsive ---------- */
 @media (max-width: 960px) {
+  /* Sticky header (.site-header, se over) blir et "ikke-skroll-område" som kan
+     fylle mesteparten av en mobilskjerm når funksjonsnavet har mange knapper
+     (vokser i antall etter hvert som roller får flere sider) og bryter om til
+     mange linjer — brukeren opplevde at innholdet under aldri ble tilgjengelig
+     ved vanlig scroll (ny runde av bugliste 2026-09-13, mobilrunde). Løst ved å
+     slå av sticky på mobil: headeren/funksjonsnavet ruller da bort som et helt
+     normalt element i stedet for å bli hengende fast øverst. */
+  .site-header { position: static; }
+  .funksjonsknapp {
+    padding: 0.5rem 0.85rem;
+    font-size: 0.82rem;
+  }
+  .funksjonsknapp svg { width: 15px; height: 15px; }
+  .funksjons-nav-inner { gap: 0.4rem; padding: 0.55rem 1rem; }
+
+  /* Radhandlingsknappene (Rediger/Frys/Arkiver/Slett m.m.) — samme "litt
+     mindre på mobil"-ønske som funksjonsnavet over, og gjør et 4-knappers
+     wrap (en behandler med både Frys/Arkiver OG en ventende HPR-handling)
+     mindre plasskrevende. */
+  main.page .btn-icon {
+    width: 26px;
+    height: 26px;
+    margin: 0 0.25rem 0.25rem 0;
+  }
+  main.page .btn-icon svg { width: 15px; height: 15px; }
+
   .header-inner { flex-wrap: wrap; }
   .nav-toggle-btn { display: flex; order: 2; }
   .brand { order: 1; }

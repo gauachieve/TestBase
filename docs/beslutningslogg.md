@@ -2313,6 +2313,54 @@ innhold kommer senere (bekreftet levende link, ikke en død anker).
 nettleser (inkl. den reelle stille-blokkering-bugen reprodusert BÅDE med og uten fiksen for å
 bekrefte årsakssammenhengen), ikke bare kodelest.
 
+### Bugliste 2026-09-13, mobilrunde — sticky funksjonsnav fylte hele mobilskjermen, BankID-innlogging avviste korrekt sikkerhetssvar (2026-09-13)
+
+Brukeren testet siden på faktisk mobil og fant to nye problemer, pluss et gjentatt ønske om
+mindre knapper.
+
+**Sticky funksjonsnav fylte hele mobilskjermen (kunne ikke skrolles forbi)**: `.site-header`
+(brand-rad + hele funksjonsnavet under) er `position: sticky; top: 0`. Dette var uproblematisk da
+funksjonsnavet var kort, men har vokst gjennom flere runder (Min side, Min konto, Partnere,
+Prising, Økonomi, Min partner, Partnerprising m.m.) — for en konto som ser flere seksjoner
+samtidig (Utvikler) blir det 13 knapper som med `flex-wrap` bryter om til mange linjer. På en smal
+mobilskjerm ble denne stick-ede, flerlinjede headeren nesten like høy som selve skjermen, og siden
+den er sticky "hang den fast" i toppen i stedet for å oppføre seg som et vanlig element man
+scroller forbi — brukerens ord: "gjort knappene på toppen til et ikke-skroll-område". Løst i en ny
+regel i det eksisterende `@media (max-width: 960px)`-bruddpunktet: `.site-header { position:
+static; }` — på mobil ruller nå hele headeren/funksjonsnavet bort som normalt innhold. Samtidig
+gjort knappene mindre på mobil (både `.funksjonsknapp` og radhandlings-`.btn-icon`, sistnevnte fra
+30px til 26px) med mindre skrift/ikonstørrelse, jf. brukerens eget forslag. Verifisert live i en
+390×844 (mobilstørrelse) Playwright-økt: headeren er nå borte fra skjermen etter et vanlig
+scroll ned, og tabellinnholdet under blir tilgjengelig — bekreftet både i utgangsposisjon og etter
+scroll.
+
+**Reell funnet bug: BankID-innlogging avviste et korrekt sikkerhetssvar ("feil sikkerhetskode")**:
+nøyaktig samme root cause som `ModelState`/`asp-for`-fallgruven funnet og fikset i slette-
+bekreftelsesflytene tidligere denne dagen (bugliste 2026-09-13 gruppe B) — men DENNE gangen i selve
+INNLOGGINGS-sidene, som aldri ble dekket av den rettingen siden de bruker `ICaptchaProvider`
+uavhengig av slette-flyten. `Pages/Konto/LoggInn.cshtml.cs` og
+`Areas/Pasientportal/Pages/Konto/LoggInn.cshtml.cs` sin `NyCaptcha()` genererer et FERSKT
+spørsmål+signert fasit og kaller `return Page()` (ikke `RedirectToPage`) ved ethvert mislykket
+forsøk — men `LoggInn.cshtml` sin `<input type="hidden" asp-for="CaptchaSignertFasit" />` rendrer
+fortsatt den GAMLE POSTEDE ModelState-verdien, ikke den nye. Konsekvens: EN gang man svarer feil
+på sikkerhetsspørsmålet (uansett årsak — tastefeil, chippet av på mobil, doble klikk), blir ALLE
+senere forsøk på samme sidevisning avvist som "feil sikkerhetskode" uansett hva man svarer,
+siden det skjulte feltet aldri oppdaterer seg — kun en full sideoppdatering (ny GET) løser det.
+Dette rammer administrator-, behandler- OG pasient-innlogging likt. Fikset med `ModelState.Clear()`
+som første linje i `NyCaptcha()` i begge filer (samme presedens som gruppe B, nå anvendt
+universelt inni selve NyCaptcha()-metoden i stedet for ved hvert enkelt kallsted — renere og
+umulig å glemme ved et fremtidig nytt kallsted). **Reprodusert og verifisert live**: sendte inn et
+bevisst FEIL svar først (fikk "Feil svar på sikkerhetsspørsmålet" som forventet, med et NYTT
+spørsmål vist) → leste det NYE spørsmålet og svarte korrekt → kom denne gangen forbi
+captcha-sjekken (endte på "Fant ingen administrator/behandlerkonto", som er korrekt og forventet
+siden BankID-mocken uansett bruker et fast testpersonnummer i dette lokale miljøet — det viktige
+er at feilmeldingen ikke lenger var "feil sikkerhetskode").
+
+**Verifisert**: 26/26 tester grønt, `dotnet build` rent. Begge funn reprodusert og bekreftet
+rettet live (ikke bare kodelest) — sticky-fjerningen i en ekte mobil viewport-størrelse (390×844),
+og captcha-fiksen med en ekte to-forsøks-sekvens (feil så riktig svar) som tidligere ville feilet
+på steg to.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt
