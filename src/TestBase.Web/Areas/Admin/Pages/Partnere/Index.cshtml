@@ -53,10 +53,10 @@
                 }
                 else
                 {
-                    <a class="btn-icon" href="/Admin/Partnere/Rediger/@p.Id" title="Rediger" aria-label="Rediger">
+                    <a class="btn-icon btn-icon--partner" href="/Admin/Partnere/Rediger/@p.Id" title="Rediger" aria-label="Rediger">
                         <partial name="_Ikon" model="@("rediger")" />
                     </a>
-                    <a class="btn-icon" href="/Admin/Partnere/Tester/@p.Id" title="Tester" aria-label="Tester">
+                    <a class="btn-icon btn-icon--partner" href="/Admin/Partnere/Tester/@p.Id" title="Tester" aria-label="Tester">
                         <partial name="_Ikon" model="@("tester")" />
                     </a>
                     <form method="post" asp-page-handler="Arkiver" style="display:inline;">

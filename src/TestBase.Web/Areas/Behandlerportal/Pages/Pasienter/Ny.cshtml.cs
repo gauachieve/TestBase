@@ -24,9 +24,6 @@ public sealed class NyModel : PageModel
     }
 
     [BindProperty]
-    public string Personnummer { get; set; } = string.Empty;
-
-    [BindProperty]
     public string MobilNr { get; set; } = string.Empty;
 
     [BindProperty]
@@ -45,9 +42,9 @@ public sealed class NyModel : PageModel
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(Personnummer) || string.IsNullOrWhiteSpace(MobilNr) || string.IsNullOrWhiteSpace(Epost))
+        if (string.IsNullOrWhiteSpace(MobilNr) || string.IsNullOrWhiteSpace(Epost))
         {
-            Feilmelding = "Personnummer, mobilnummer og e-post er alle obligatoriske.";
+            Feilmelding = "Mobilnummer og e-post er obligatoriske.";
             return Page();
         }
 
@@ -69,8 +66,11 @@ public sealed class NyModel : PageModel
         }
 
         var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        // Personnummer samles bevisst IKKE inn her (bugliste 2026-09-13 punkt 13) —
+        // pasienten oppgir det selv via invitasjonslenken (FullforRegistreringAsync),
+        // samme prinsipp som den offentlige selvregistreringen.
         var resultat = await _pasientService.LeggTilAsync(
-            Personnummer, MobilNr, Epost, behandlerId, Varslingskanal, baseUrl, cancellationToken: cancellationToken);
+            personnummer: null, MobilNr, Epost, behandlerId, Varslingskanal, baseUrl, cancellationToken: cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "LeggTilPasient",

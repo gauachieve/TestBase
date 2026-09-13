@@ -11,8 +11,14 @@ public sealed class Pasient
 {
     public long Id { get; set; }
 
-    /// <summary>Lagres kryptert i databasen via AppDbContext — se derfor aldri ubehandlet i logger.</summary>
-    public required string Personnummer { get; set; }
+    /// <summary>
+    /// Lagres kryptert i databasen via AppDbContext — se derfor aldri ubehandlet i logger.
+    /// Null inntil pasienten selv har fullført registreringen (se
+    /// PasientInvitasjonService.FullforRegistreringAsync) — en behandler-
+    /// opprettet pasient oppgir IKKE personnummer ved oppretting, se
+    /// docs/beslutningslogg.md "Bugliste 2026-09-13".
+    /// </summary>
+    public string? Personnummer { get; set; }
 
     public required string MobilNr { get; set; }
     public required string Email { get; set; }

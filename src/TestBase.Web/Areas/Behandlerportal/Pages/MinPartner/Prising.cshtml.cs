@@ -14,7 +14,9 @@ public sealed record TestMedPartnerAndel(Test Test, decimal EffektivAndelKr);
 /// på tester Superadmin faktisk har gitt partneren tilgang til
 /// (PartnerTestTilgang). Klemmes alltid til minst Test.MinstePartnerAndelKr
 /// på skrivetidspunktet, se docs/beslutningslogg.md "Partner System + Test
-/// Monetization".
+/// Monetization". Ett samlet skjema/én Lagre-knapp for alle rader — se
+/// Admin/Tester/Prising/Index.cshtml.cs sitt motstykke for full begrunnelse
+/// (bugliste 2026-09-13 punkt 12).
 /// </summary>
 public sealed class PrisingModel : PageModel
 {
@@ -43,7 +45,7 @@ public sealed class PrisingModel : PageModel
         return Page();
     }
 
-    public async Task<IActionResult> OnPostAsync(long testId, decimal andelKr, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
         if (_currentUser.PartnerId is null)
         {
@@ -51,39 +53,44 @@ public sealed class PrisingModel : PageModel
         }
 
         var partnerId = _currentUser.PartnerId.Value;
-        var harTilgang = await _db.PartnerTestTilganger.AnyAsync(t => t.PartnerId == partnerId && t.TestId == testId, cancellationToken);
-        var test = await _db.Tester.FirstOrDefaultAsync(t => t.Id == testId, cancellationToken);
-        if (!harTilgang || test is null)
-        {
-            return NotFound();
-        }
-
-        var klemtAndel = Math.Max(andelKr, test.MinstePartnerAndelKr);
-        var eksisterende = await _db.PartnerTestAndeler.FirstOrDefaultAsync(a => a.PartnerId == partnerId && a.TestId == testId, cancellationToken);
+        await LastTesterAsync(partnerId, cancellationToken);
         var behandlerId = long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var bid) ? bid : 0;
 
-        if (eksisterende is not null)
+        foreach (var rad in Tester)
         {
-            eksisterende.AndelKr = klemtAndel;
-            eksisterende.SistEndretAvBehandlerId = behandlerId;
-            eksisterende.SistEndretUtc = DateTimeOffset.UtcNow;
-        }
-        else
-        {
-            _db.PartnerTestAndeler.Add(new PartnerTestAndel
+            var raw = Request.Form[$"AndelKr[{rad.Test.Id}]"].ToString();
+            if (!decimal.TryParse(raw, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var andelKr))
             {
-                PartnerId = partnerId,
-                TestId = testId,
-                AndelKr = klemtAndel,
-                SistEndretAvBehandlerId = behandlerId,
-                SistEndretUtc = DateTimeOffset.UtcNow
-            });
+                continue;
+            }
+
+            var klemtAndel = Math.Max(andelKr, rad.Test.MinstePartnerAndelKr);
+            var eksisterende = await _db.PartnerTestAndeler.FirstOrDefaultAsync(a => a.PartnerId == partnerId && a.TestId == rad.Test.Id, cancellationToken);
+
+            if (eksisterende is not null)
+            {
+                eksisterende.AndelKr = klemtAndel;
+                eksisterende.SistEndretAvBehandlerId = behandlerId;
+                eksisterende.SistEndretUtc = DateTimeOffset.UtcNow;
+            }
+            else
+            {
+                _db.PartnerTestAndeler.Add(new PartnerTestAndel
+                {
+                    PartnerId = partnerId,
+                    TestId = rad.Test.Id,
+                    AndelKr = klemtAndel,
+                    SistEndretAvBehandlerId = behandlerId,
+                    SistEndretUtc = DateTimeOffset.UtcNow
+                });
+            }
         }
+
         await _db.SaveChangesAsync(cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "OppdaterPartnerTestAndel",
-            nameof(PartnerTestAndel), $"{partnerId}/{testId}", klemtAndel.ToString("0.00"), cancellationToken);
+            nameof(PartnerTestAndel), partnerId.ToString(), cancellationToken: cancellationToken);
 
         return RedirectToPage();
     }

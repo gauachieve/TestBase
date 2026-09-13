@@ -12,6 +12,14 @@ namespace TestBase.Web.Areas.Admin.Pages.Tester.Prising;
 /// /Tester nettopp for å kunne strengere-gate KUN denne siden) — definerer
 /// Min/Maks-pris, typisk behandler-honorar og minste partnerandel per test.
 /// Se docs/beslutningslogg.md "Partner System + Test Monetization".
+///
+/// Ett samlet skjema/én Lagre-knapp for ALLE rader (bugliste 2026-09-13 punkt
+/// 12) — tidligere var hver rad sitt eget skjema, som gjorde at et
+/// "Lagre"-klikk på én rad lastet siden på nytt og forkastet utfylte, men
+/// ulagrede tall i alle andre rader. Feltene leses manuelt fra Request.Form
+/// (samme "HonorarKr[...]"-mønster som Tildel/Tester.cshtml.cs bruker, se
+/// CLAUDE.md sin fallgruve om [BindProperty] på et Dictionary som kan komme
+/// tomt) i stedet for én binding-parameter per felt.
 /// </summary>
 public sealed class IndexModel : PageModel
 {
@@ -34,36 +42,53 @@ public sealed class IndexModel : PageModel
         Tester = await _db.Tester.OrderBy(t => t.Navn).ToListAsync(cancellationToken);
     }
 
-    public async Task<IActionResult> OnPostAsync(
-        long testId, decimal minstePrisKr, decimal storstePrisKr, decimal typiskBehandlerHonorarKr, decimal minstePartnerAndelKr,
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
-        var test = await _db.Tester.FirstOrDefaultAsync(t => t.Id == testId, cancellationToken);
-        if (test is null)
+        Tester = await _db.Tester.OrderBy(t => t.Navn).ToListAsync(cancellationToken);
+        var feilmeldinger = new List<string>();
+
+        foreach (var test in Tester)
         {
-            return NotFound();
+            var minstePrisKr = LesDecimal($"MinstePrisKr[{test.Id}]", test.MinstePrisKr);
+            var storstePrisKr = LesDecimal($"StorstePrisKr[{test.Id}]", test.StorstePrisKr);
+            var typiskBehandlerHonorarKr = LesDecimal($"TypiskBehandlerHonorarKr[{test.Id}]", test.TypiskBehandlerHonorarKr);
+            var minstePartnerAndelKr = LesDecimal($"MinstePartnerAndelKr[{test.Id}]", test.MinstePartnerAndelKr);
+
+            // Sikrer at prisformelen i TestPrisberegner aldri havner i en umulig
+            // tilstand — plattform- og partnerandelen er garanterte gulv, de må
+            // til sammen få plass under maks-grensen.
+            if (minstePrisKr + minstePartnerAndelKr > storstePrisKr)
+            {
+                feilmeldinger.Add($"«{test.Navn}»: minste pris ({minstePrisKr:0.00}) pluss minste partnerandel ({minstePartnerAndelKr:0.00}) kan ikke overstige største pris ({storstePrisKr:0.00}).");
+                continue;
+            }
+
+            test.MinstePrisKr = minstePrisKr;
+            test.StorstePrisKr = storstePrisKr;
+            test.TypiskBehandlerHonorarKr = typiskBehandlerHonorarKr;
+            test.MinstePartnerAndelKr = minstePartnerAndelKr;
         }
 
-        // Sikrer at prisformelen i TestPrisberegner aldri havner i en umulig
-        // tilstand — plattform- og partnerandelen er garanterte gulv, de må
-        // til sammen få plass under maks-grensen.
-        if (minstePrisKr + minstePartnerAndelKr > storstePrisKr)
+        if (feilmeldinger.Count > 0)
         {
-            Feilmelding = $"For «{test.Navn}»: minste pris ({minstePrisKr:0.00}) pluss minste partnerandel ({minstePartnerAndelKr:0.00}) kan ikke overstige største pris ({storstePrisKr:0.00}).";
-            Tester = await _db.Tester.OrderBy(t => t.Navn).ToListAsync(cancellationToken);
+            Feilmelding = string.Join(" ", feilmeldinger) + " Ingen endringer ble lagret.";
             return Page();
         }
 
-        test.MinstePrisKr = minstePrisKr;
-        test.StorstePrisKr = storstePrisKr;
-        test.TypiskBehandlerHonorarKr = typiskBehandlerHonorarKr;
-        test.MinstePartnerAndelKr = minstePartnerAndelKr;
         await _db.SaveChangesAsync(cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "OppdaterTestPrising",
-            nameof(Test), test.Id.ToString(), cancellationToken: cancellationToken);
+            nameof(Test), string.Join(",", Tester.Select(t => t.Id)), cancellationToken: cancellationToken);
 
         return RedirectToPage();
+    }
+
+    private decimal LesDecimal(string feltnavn, decimal fallback)
+    {
+        var raw = Request.Form[feltnavn].ToString();
+        return decimal.TryParse(raw, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var verdi)
+            ? verdi
+            : fallback;
     }
 }

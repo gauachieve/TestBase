@@ -12,28 +12,23 @@
     <p style="color: darkred;">@Model.Feilmelding</p>
 }
 
-<table border="1" cellpadding="6" cellspacing="0">
-    <thead>
-        <tr>
-            <th>Test</th>
-            <th>Vår andel (NOK)</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-    @foreach (var rad in Model.Tester)
-    {
-        var skjemaId = $"andel-{rad.Test.Id}";
-        <tr>
-            <td>@rad.Test.Navn</td>
-            <td><input form="@skjemaId" type="number" step="0.01" min="@rad.Test.MinstePartnerAndelKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" name="andelKr" value="@rad.EffektivAndelKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /> NOK</td>
-            <td>
-                <button type="submit" form="@skjemaId">Lagre</button>
-                <form id="@skjemaId" method="post" hidden>
-                    <input type="hidden" name="testId" value="@rad.Test.Id" />
-                </form>
-            </td>
-        </tr>
-    }
-    </tbody>
-</table>
+<form method="post">
+    <table border="1" cellpadding="6" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Test</th>
+                <th>Vår andel (NOK)</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var rad in Model.Tester)
+        {
+            <tr>
+                <td>@rad.Test.Navn</td>
+                <td><input type="number" step="0.01" min="@rad.Test.MinstePartnerAndelKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" name="AndelKr[@rad.Test.Id]" value="@rad.EffektivAndelKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /> NOK</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    <p><button type="submit" class="btn-accent">Lagre alle endringer</button></p>
+</form>

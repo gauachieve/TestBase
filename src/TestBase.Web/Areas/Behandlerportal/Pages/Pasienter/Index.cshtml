@@ -57,7 +57,7 @@
             <td>@(p.Gruppenavn ?? "-")</td>
             <td>@p.MobilNr</td>
             <td>@p.Email</td>
-            <td>@p.Personnummer</td>
+            <td>@(p.Personnummer ?? "(ikke registrert ennå)")</td>
             <td>@rad.Tildelt</td>
             <td>@rad.Besvart</td>
             <td>@p.Status</td>
@@ -87,4 +87,4 @@
     </tbody>
 </table>
 
-<script src="~/js/tabellfilter.js"></script>
+<script src="~/js/tabellfilter.js" asp-append-version="true"></script>

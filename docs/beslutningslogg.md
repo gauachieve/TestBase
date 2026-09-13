@@ -2080,6 +2080,76 @@ verifisert ved kodegjennomgang (krever et ekte partnerskap med en behandler med 
 fullt egen klikk-gjennomgang, vurdert som lav ekstra risiko gitt at spørringen er nesten identisk
 til den allerede klikk-verifiserte admin-siden).
 
+### Bugliste 2026-09-13, gruppe D del 1 — fargeskjema, favicon, prising, PNR-frie invitasjoner, partner-selvbetjening (2026-09-13)
+
+Første del av gruppe D (resten av `bugs20260913.txt`) — punktene 2, 8, 12, 13, 14, 15, 16, 20, 24.
+
+**Fargeskjema per rolle (punkt 2)**: `<body>` får nå en `rolle-*`-klasse fra `_Layout.cshtml`
+basert på `ICurrentUserContext.Role` (Superadmin/Administrator/Behandler/Pasient — `Utvikler` og
+uinnlogget faller tilbake til standard oransje). `site.css` sine `--rolle-accent`/`-dark`/`-tekst`-
+variabler styrer `.btn-accent` og `.funksjonsknapp` (nav-knappene) — Superadmin lilla (#8b5cf6),
+Administrator blå (#3b82f6), Behandler teal (#14b8a6), Pasient beholder dagens varme oransje som
+allerede etablert merkevarefarge. Verifisert live for alle fire via "Bytt modus" (dev-only rollebytte).
+
+**Ekte bug funnet og rettet mens dette ble verifisert**: `site.css` hadde ALDRI hatt noen
+cache-busting/versjonering — `<link href="~/css/site.css">` uten `asp-append-version`. Under
+verifisering serverte den samme, lenge kjørende nettleserøkten en TIMEVIS gammel, cachet kopi av
+filen (bekreftet med `document.styleSheets[0].cssRules` — mangler helt de nye reglene — mens en
+direkte `curl`/`fetch(..., {cache:'no-store'})` samtidig hentet korrekt, fersk fil fra samme
+server). Dette er ikke bare et testartefakt: uten cache-busting kan ECHTE brukeres nettlesere på
+samme vis holde på en utdatert `site.css` en god stund etter enhver fremtidig deploy som endrer
+CSS, uavhengig av denne økten. Fikset ved å legge `asp-append-version="true"` på `site.css` og
+`validering.js` i `_Layout.cshtml`, samt de fem andre side-spesifikke skriptene
+(`tabellfilter.js`, `tildel.js`, `rapport.js`) — ASP.NET Cores innebygde taghjelper legger
+automatisk til en innholds-hash (`?v=...`) som endrer seg hver gang filen endres.
+
+**Favicon (punkt 20)**: `wwwroot/favicon.svg` — sort bakgrunn, "PT" i samme oransje som
+`--accent`, referert med `<link rel="icon" type="image/svg+xml">`.
+
+**MADRS-S stablet svarlayout (punkt 24)**: ny modifier-klasse `.svar-rad--stablet` (vertikal,
+innrykket) i `site.css`, satt betinget i `Fyll.cshtml` kun når `Test.Kode == "madrs_s"` — andre
+testers kortere Likert-alternativer beholder radlayouten uendret.
+
+**"Ferdigstill og videre til neste test" (punkt 8)**: `Fyll.cshtml.cs` sin ferdig-visning
+(`ErFullfort`) slår nå opp pasientens neste ikke-fullførte tildeling
+(`HentTildelingerForPasientAsync`, samme kilde som MinSide) og viser en lenke rett dit når det
+finnes en.
+
+**Prising — én Lagre-knapp for alle rader (punkt 12)**: både `Admin/Tester/Prising/Index` og
+`Behandlerportal/MinPartner/Prising` bygget om fra N uavhengige per-rad-skjemaer (som gjorde at et
+"Lagre"-klikk på én rad forkastet ulagrede tall i alle andre) til ETT skjema med navngitte felt
+(`MinstePrisKr[testId]` osv.), lest manuelt fra `Request.Form` — samme "Dictionary-felt kan komme
+tomt"-fallgruve som `LesHonorarFraSkjema()` i Tildel-wizarden allerede løste, gjenbrukt her.
+
+**Pasient-PNR ikke lenger påkrevd ved "Legg til" (punkt 13)**: `Pasient.Personnummer` er nå
+`string?` (migrasjon `GjorPasientPersonnummerValgfritt`, samme nullable-mønster som allerede brukt
+for `Behandler.Personnummer`) — `Behandlerportal/Pasienter/Ny` krever bare mobil+e-post; pasienten
+oppgir selv personnummer via den EKSISTERENDE invitasjonslenken (`FullforRegistreringAsync`, uendret).
+Undersøkte "alle andre invitasjoner" også — `BehandlerInvitasjonService.InviterAsync` (både
+Admin- og Behandlerportal sin "Inviter kollega") krevde ALDRI personnummer ved selve invitasjonen
+i utgangspunktet (kun mobil/e-post, personnummer samles inn av behandleren selv via
+`FullforProfilAsync`), så ingen endring trengtes der. `Gruppeimport` sitt CSV-format
+("gruppenavn,navn,epost,mobil,pnr") er bevisst UENDRET — et etablert bulkformat, ikke eksplisitt
+del av denne bug-meldingen.
+
+**Partner-selvbetjening (punkt 14, 15)**: `MinPartner/Behandlere.cshtml(.cs)` fikk (a) en
+partner-oversikt øverst (navn/kontaktperson/kontakt-info/abonnement + liste over tester partneren
+har fått tilgang til, `PartnerTestTilgang`), og (b) fjernet selvsperren i `OnPostFjernAsync` — en
+partner-admin kan nå fjerne seg selv fra partneren (logges automatisk ut etterpå, siden
+`PartnerId`/`ErPartnerAdministrator` er innloggingscookie-claims som ellers ville vært utdaterte
+resten av økten).
+
+**Partnere-knapper (punkt 16)**: Rediger/Tester-knappene på `Admin/Partnere` (allerede gjort om til
+ikon-knapper i gruppe B) er nå bevisst ORANSJE (`.btn-icon--partner`, ny CSS-klasse) i stedet for
+den innloggede Superadmin-ens egen lilla rollefarge — disse handlingene gjelder PARTNEREN på
+raden, ikke brukeren selv, se design-begrunnelsen i planen.
+
+**Verifisert**: 25/25 tester grønt (to eksisterende tester måtte oppdateres for den nye PNR-frie
+flyten — se `HeleFlytenTests.cs`/`RedigerTests.cs`), `dotnet build` rent. Fargeskjema klikk-testet
+for alle fire roller. Favicon, prising-enkeltknapp og MADRS-S-layout verifisert ved kodegjennomgang
++ testsuiten; partner-selvbetjening verifisert ved kodegjennomgang (krever et ekte partnerskap med
+minst to behandlere for en full klikk-gjennomgang).
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt

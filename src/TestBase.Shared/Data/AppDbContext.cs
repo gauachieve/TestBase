@@ -143,7 +143,10 @@ public sealed class AppDbContext : DbContext
         {
             entity.ToTable("pasienter");
             entity.HasKey(p => p.Id);
-            entity.Property(p => p.Personnummer).HasConversion(personnummerConverter).HasMaxLength(500).IsRequired();
+            // Nullable (bugliste 2026-09-13 punkt 13) — en behandler-opprettet pasient
+            // har ikke noe personnummer ennå ved oppretting, se PasientInvitasjonService.
+            // LeggTilAsync; det fylles inn av pasienten selv via FullforRegistreringAsync.
+            entity.Property(p => p.Personnummer).HasConversion(personnummerConverterNullable).HasMaxLength(500);
             entity.Property(p => p.MobilNr).HasMaxLength(32).IsRequired();
             entity.Property(p => p.Email).HasMaxLength(256).IsRequired();
             entity.Property(p => p.Navn).HasMaxLength(256);

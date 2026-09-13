@@ -13,6 +13,10 @@ else if (Model.ErFullfort)
 {
     <h1>Ferdig!</h1>
     <p>@(Model.Innhold.Test.Belonningstekst ?? "Takk for at du fylte ut testen.")</p>
+    @if (Model.NesteIkkeFullforteTildelingId is not null)
+    {
+        <p><a class="btn-accent" href="/Pasientportal/Tester/Fyll/@Model.NesteIkkeFullforteTildelingId">Ferdigstill og videre til neste test</a></p>
+    }
     <p><a href="/Pasientportal/MinSide">Tilbake til min side</a></p>
 }
 else
@@ -52,7 +56,11 @@ else
 
                     @if (ledd.Svartype == TestSvartype.LikertSkala)
                     {
-                        <div class="svar-rad">
+                        // MADRS-S sine svaralternativer er lange nok til at radlayout blir
+                        // trangt — stables vertikalt og rykkes inn i stedet (bugliste
+                        // 2026-09-13 punkt 24), uten å røre andre testers kortere alternativer.
+                        var stablet = Model.Innhold.Test.Kode == "madrs_s";
+                        <div class="svar-rad @(stablet ? "svar-rad--stablet" : "")">
                         @foreach (var punkt in TestLeddSvaralternativer.Parse(ledd.Svaralternativer))
                         {
                             <label class="svar-knapp">

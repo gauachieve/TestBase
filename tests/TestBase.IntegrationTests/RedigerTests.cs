@@ -167,9 +167,11 @@ public sealed class RedigerTests
         Assert.NotEmpty(kode);
         await SkjemaHjelper.PostMedTokenAsync(client, "/Konto/BekreftKode", SkjemaHjelper.Felter(("Kode", kode)), kodeToken);
 
+        // Personnummer fylles bevisst IKKE inn ved oppretting lenger (bugliste 2026-09-13
+        // punkt 13) — settes her for FØRSTE gang via selve Rediger-skjemaet i stedet.
         var nyPasToken = await SkjemaHjelper.HentTokenAsync(client, "/Behandlerportal/Pasienter/Ny");
         await SkjemaHjelper.PostMedTokenAsync(client, "/Behandlerportal/Pasienter/Ny", SkjemaHjelper.Felter(
-            ("Personnummer", "01013333333"), ("MobilNr", "+4790060002"),
+            ("MobilNr", "+4790060002"),
             ("Epost", "rediger-pasient@integrationtest.local"), ("Varslingskanal", "Sms")), nyPasToken);
 
         long pasientId;
@@ -177,11 +179,11 @@ public sealed class RedigerTests
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             pasientId = (await db.Pasienter.SingleAsync(p => p.BehandlerId == behandlerId && p.MobilNr == "+4790060002")).Id;
+            Assert.Null(db.Pasienter.Single(p => p.Id == pasientId).Personnummer);
         }
 
         var redigerUrl = $"/Behandlerportal/Pasienter/Rediger/{pasientId}";
         var redigerHtml = await SkjemaHjelper.GetHtmlAsync(client, redigerUrl);
-        Assert.Contains("01013333333", redigerHtml);
 
         var redigerToken = SkjemaHjelper.HentToken(redigerHtml);
         var lagreResp = await SkjemaHjelper.PostMedTokenAsync(client, redigerUrl, SkjemaHjelper.Felter(

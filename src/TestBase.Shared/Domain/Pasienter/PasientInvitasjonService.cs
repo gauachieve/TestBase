@@ -39,7 +39,7 @@ public sealed class PasientInvitasjonService
     }
 
     public async Task<PasientInvitasjonResultat> LeggTilAsync(
-        string personnummer,
+        string? personnummer,
         string mobilNr,
         string epost,
         long behandlerId,

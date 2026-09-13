@@ -22,6 +22,20 @@
     var antallUbesvarteTester = erPasient
         ? (await TestService.HentTildelingerForPasientAsync(BrukerId())).Count(t => t.Status != TestTildelingStatus.Fullfort)
         : 0;
+
+    // Fargeskjema per rolle (bugliste 2026-09-13 punkt 2) — se site.css sine
+    // --rolle-*-variabler. Basert på CurrentUser.Role direkte (ikke de
+    // Utvikler-inkluderende erX-flaggene over, som kun styrer navigasjonens
+    // synlighet) slik at fargen matcher HVEM man faktisk er logget inn som.
+    var rolleKlasse = CurrentUser.Role switch
+    {
+        UserRole.Superadmin => "rolle-superadmin",
+        UserRole.Administrator => "rolle-admin",
+        UserRole.Behandler => "rolle-behandler",
+        UserRole.Pasient => "rolle-pasient",
+        _ => null
+    };
+    var bodyKlasser = string.Join(' ', new[] { ViewData["BodyClass"] as string, rolleKlasse }.Where(k => !string.IsNullOrEmpty(k)));
 }
 <!DOCTYPE html>
 <html lang="no">
@@ -29,9 +43,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - PsyTest</title>
-    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="icon" type="image/svg+xml" href="~/favicon.svg" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
-<body class="@ViewData["BodyClass"]">
+<body class="@bodyKlasser">
     @if (Env.IsDevelopment() && !CurrentUser.IsAuthenticated)
     {
         <div class="dev-bar">
@@ -180,6 +195,6 @@
     </footer>
 
     <partial name="_CookieSamtykke" />
-    <script src="~/js/validering.js"></script>
+    <script src="~/js/validering.js" asp-append-version="true"></script>
 </body>
 </html>

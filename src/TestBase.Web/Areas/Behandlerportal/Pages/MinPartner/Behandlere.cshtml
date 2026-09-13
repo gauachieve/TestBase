@@ -4,11 +4,37 @@
     ViewData["Title"] = "Min partner — behandlere";
 }
 
-<h1>Behandlere i min partner</h1>
+<h1>Min partner</h1>
 
 @if (Model.Feilmelding is not null)
 {
     <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+@if (Model.MinPartner is not null)
+{
+    <ul>
+        <li><strong>Navn:</strong> @Model.MinPartner.Navn</li>
+        <li><strong>Kontaktperson:</strong> @(Model.MinPartner.KontaktpersonNavn ?? "-")</li>
+        <li><strong>Kontakt e-post:</strong> @(Model.MinPartner.KontaktEpost ?? "-")</li>
+        <li><strong>Kontakt mobil:</strong> @(Model.MinPartner.KontaktMobilNr ?? "-")</li>
+        <li><strong>Abonnement:</strong> @(Model.MinPartner.HarAktivtAbonnement ? "Aktivt" : "Ingen")</li>
+    </ul>
+}
+
+<h2>Tester tilgjengelig for oss</h2>
+@if (!Model.TilgjengeligeTester.Any())
+{
+    <p>Ingen tester er gitt tilgang ennå — kontakt Superadmin.</p>
+}
+else
+{
+    <ul>
+    @foreach (var test in Model.TilgjengeligeTester)
+    {
+        <li>@test.Navn</li>
+    }
+    </ul>
 }
 
 @if (Model.InvitasjonsLenke is not null)
@@ -16,6 +42,7 @@
     <p>Invitasjon sendt. Lenke (mock-modus viser den her, sendes normalt kun på SMS/e-post): <a href="@Model.InvitasjonsLenke">@Model.InvitasjonsLenke</a></p>
 }
 
+<h2>Behandlere i min partner</h2>
 <table border="1" cellpadding="6" cellspacing="0">
     <thead>
         <tr>
@@ -28,14 +55,16 @@
     <tbody>
     @foreach (var b in Model.Kolleger)
     {
+        var erMegSelv = b.Id == Model.EgenBehandlerId;
         <tr>
-            <td>@(b.Visningsnavn ?? "(ikke fullført)")</td>
+            <td>@(b.Visningsnavn ?? "(ikke fullført)")@(erMegSelv ? " (deg)" : "")</td>
             <td>@b.Email</td>
             <td>@b.Status</td>
             <td>
-                <form method="post" asp-page-handler="Fjern" style="display:inline;">
+                <form method="post" asp-page-handler="Fjern" style="display:inline;"
+                      onsubmit="return confirm('@(erMegSelv ? "Fjerne deg selv fra partneren? Du blir logget ut." : "Fjerne denne kollegaen fra partneren?")');">
                     <input type="hidden" name="behandlerId" value="@b.Id" />
-                    <button type="submit">Fjern fra partner</button>
+                    <button type="submit">@(erMegSelv ? "Fjern meg selv" : "Fjern fra partner")</button>
                 </form>
             </td>
         </tr>

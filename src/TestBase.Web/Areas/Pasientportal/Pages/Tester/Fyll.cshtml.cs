@@ -33,6 +33,9 @@ public sealed class FyllModel : PageModel
     public bool ErFullfort { get; private set; }
     public string? Feilmelding { get; private set; }
 
+    /// <summary>Neste ikke-fullførte tildeling for samme pasient — se bugliste 2026-09-13 punkt 8 ("Ferdigstill og videre til neste test").</summary>
+    public long? NesteIkkeFullforteTildelingId { get; private set; }
+
     public TestSide? GjeldendeSide => Innhold is null ? null : Innhold.Sider.ElementAtOrDefault(GjeldendeSideNummer - 1);
 
     public IEnumerable<TestLedd> LeddPaaGjeldendeSide =>
@@ -59,11 +62,22 @@ public sealed class FyllModel : PageModel
         if (innhold.Tildeling.Status == TestTildelingStatus.Fullfort)
         {
             ErFullfort = true;
+            await LastNesteIkkeFullforteAsync(id, cancellationToken);
             return Page();
         }
 
         GjeldendeSideNummer = innhold.Sider.Count == 0 ? 1 : Math.Clamp(side ?? 1, 1, innhold.Sider.Count);
         return Page();
+    }
+
+    private async Task LastNesteIkkeFullforteAsync(long gjeldendeTildelingId, CancellationToken cancellationToken)
+    {
+        var alle = await _testService.HentTildelingerForPasientAsync(HentPasientId(), cancellationToken);
+        NesteIkkeFullforteTildelingId = alle
+            .Where(t => t.Id != gjeldendeTildelingId && t.Status != TestTildelingStatus.Fullfort)
+            .OrderBy(t => t.TildeltUtc)
+            .Select(t => (long?)t.Id)
+            .FirstOrDefault();
     }
 
     public async Task<IActionResult> OnPostAsync(long id, int? side, CancellationToken cancellationToken)

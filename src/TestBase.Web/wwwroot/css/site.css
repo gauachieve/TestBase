@@ -17,6 +17,35 @@
   --shadow: 0 20px 40px -20px rgba(20, 22, 31, 0.28);
   --container: 1180px;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Rollefarger (bugliste 2026-09-13 punkt 2) — --rolle-accent styrer .btn-accent/
+     .funksjonsknapp osv. gjennom hele appen, satt per side av <body class="rolle-...">
+     (se _Layout.cshtml). Uinnlogget/offentlige sider og Pasient beholder dagens varme
+     oransje (allerede etablert merkevarefarge), se rolle-pasient under. */
+  --rolle-accent: var(--accent);
+  --rolle-accent-dark: var(--accent-dark);
+  --rolle-accent-tekst: #1a1305;
+}
+
+body.rolle-superadmin {
+  --rolle-accent: #8b5cf6;
+  --rolle-accent-dark: #6d28d9;
+  --rolle-accent-tekst: #ffffff;
+}
+body.rolle-admin {
+  --rolle-accent: #3b82f6;
+  --rolle-accent-dark: #1d4ed8;
+  --rolle-accent-tekst: #ffffff;
+}
+body.rolle-behandler {
+  --rolle-accent: #14b8a6;
+  --rolle-accent-dark: #0d7d70;
+  --rolle-accent-tekst: #ffffff;
+}
+body.rolle-pasient {
+  --rolle-accent: var(--accent);
+  --rolle-accent-dark: var(--accent-dark);
+  --rolle-accent-tekst: #1a1305;
 }
 
 * { box-sizing: border-box; }
@@ -68,10 +97,10 @@ code {
   transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 .btn-accent {
-  background: var(--accent);
-  color: #1a1305;
+  background: var(--rolle-accent);
+  color: var(--rolle-accent-tekst);
 }
-.btn-accent:hover { background: var(--accent-dark); transform: translateY(-1px); }
+.btn-accent:hover { background: var(--rolle-accent-dark); transform: translateY(-1px); }
 .btn-outline {
   background: transparent;
   border-color: var(--ink);
@@ -276,8 +305,8 @@ code {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: var(--accent);
-  color: #1a1305;
+  background: var(--rolle-accent);
+  color: var(--rolle-accent-tekst);
   font-weight: 700;
   font-size: 0.92rem;
   padding: 0.65rem 1.15rem;
@@ -286,9 +315,9 @@ code {
   white-space: nowrap;
   transition: background-color 0.15s ease, transform 0.15s ease;
 }
-.funksjonsknapp:hover { background: var(--accent-dark); transform: translateY(-1px); }
+.funksjonsknapp:hover { background: var(--rolle-accent-dark); transform: translateY(-1px); }
 .funksjonsknapp svg { width: 18px; height: 18px; display: block; flex-shrink: 0; }
-.funksjonsknapp .varsel-badge { background: #1a1305; color: var(--accent); }
+.funksjonsknapp .varsel-badge { background: var(--rolle-accent-tekst); color: var(--rolle-accent); }
 
 .nav-toggle-checkbox { display: none; }
 .nav-toggle-btn {
@@ -597,6 +626,13 @@ main.page .btn-icon--slett:disabled {
   opacity: 0.7;
 }
 
+/* Partner-nivå-handlinger (bugliste 2026-09-13 punkt 16) — Rediger/Tester på
+   Admin/Partnere er bevisst oransje (samme merkevarefarge som resten av
+   partner-relaterte flater) i stedet for den innloggede Superadmin-ens egen
+   lilla rollefarge, siden disse knappene handler om PARTNEREN, ikke brukeren selv. */
+main.page .btn-icon--partner { background: var(--accent); }
+main.page .btn-icon--partner:hover { background: var(--accent-dark); }
+
 /* Primary forms (innlogging, opprett/inviter/fyll ut) -> card */
 main.page form:not([style*="display:inline"]) {
   background: #fff;
@@ -770,6 +806,18 @@ dialog#oppsummeringDialog::backdrop { background: rgba(22, 24, 31, 0.5); }
   flex-wrap: wrap;
   gap: 0.6rem;
   margin: 0.5rem 0 1rem;
+}
+/* Stablet variant (bugliste 2026-09-13 punkt 24, brukt kun for MADRS-S sine lengre
+   svaralternativer — se Fyll.cshtml) — en egen modifier-klasse i stedet for å endre
+   .svar-rad globalt, siden korte WHO-5-lignende alternativer fungerer fint i rad. */
+.svar-rad--stablet {
+  flex-direction: column;
+  margin-left: 1.25rem;
+}
+.svar-rad--stablet .svar-knapp {
+  justify-content: flex-start;
+  text-align: left;
+  width: 100%;
 }
 /* main.page form label(:has(...)) rules earlier in this file are more
    specific (more element selectors) than a bare .svar-knapp class and would

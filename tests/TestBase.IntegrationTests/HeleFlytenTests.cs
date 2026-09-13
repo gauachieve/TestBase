@@ -171,8 +171,10 @@ public sealed class HeleFlytenTests
         // === E: Behandler legger til pasient (enkeltvis) + gruppeimport ==========
         var pasMobil = "+4790030001";
         var nyPasToken = await SkjemaHjelper.HentTokenAsync(client, "/Behandlerportal/Pasienter/Ny");
+        // Personnummer fylles bevisst IKKE inn her lenger (bugliste 2026-09-13 punkt 13) —
+        // pasienten oppgir det selv via invitasjonslenken, se PasientRegistrering/Fullfor lenger ned.
         var nyPasResp = await SkjemaHjelper.PostMedTokenAsync(client, "/Behandlerportal/Pasienter/Ny", SkjemaHjelper.Felter(
-            ("Personnummer", MockPersonnummer), ("MobilNr", pasMobil),
+            ("MobilNr", pasMobil),
             ("Epost", "pasient@integrationtest.local"), ("Varslingskanal", "Sms")), nyPasToken);
         Assert.Contains("/Behandlerportal/Pasienter", nyPasResp.RequestMessage!.RequestUri!.PathAndQuery);
 
@@ -189,26 +191,22 @@ public sealed class HeleFlytenTests
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var opprettet = await db.Pasienter.SingleAsync(p => p.MobilNr == pasMobil);
             Assert.Equal(PasientStatus.Invitert, opprettet.Status);
-            Assert.Equal(MockPersonnummer, opprettet.Personnummer);
+            // Personnummer er null helt til pasienten selv fullfører registreringen
+            // (se punkt J lenger ned) — se AppDbContext/Pasient.cs.
+            Assert.Null(opprettet.Personnummer);
         }
 
-        await using (var scope = _factory.Services.CreateAsyncScope())
-        {
-            var pasientAuth = scope.ServiceProvider.GetRequiredService<TestBase.Shared.Security.PasientAuthenticationService>();
-            var funnet = await pasientAuth.FinnVedPersonnummerAsync(MockPersonnummer);
-            Assert.NotNull(funnet);
-            Assert.Equal(pasMobil, funnet!.MobilNr);
-        }
-
-        // Regresjonsvern: pasienten er lagt til (personnummeret er allerede i databasen),
-        // men har ikke fullført egenregistreringen (Status=Invitert) — BankID-innlogging skal
-        // avvises med en tydelig melding, ikke slippe gjennom eller krasje.
+        // Regresjonsvern: pasienten er lagt til, men har verken personnummer ELLER fullført
+        // egenregistreringen ennå — BankID-innlogging med det faste mock-personnummeret
+        // finner derfor ingen konto (ikke den mer spesifikke "ikke fullført"-meldingen, som
+        // forutsetter at personnummeret allerede er kjent) — skal avvises tydelig, ikke
+        // slippe gjennom eller krasje.
         await client.GetAsync("/Konto/LoggUt");
         var (forTidligHtml0, forTidligToken, forTidligCaptchaSvar, forTidligCaptchaFasit) =
             await SkjemaHjelper.LastInnloggingsskjemaAsync(client, "/Pasientportal/Konto/LoggInn");
         var forTidligResp = await SkjemaHjelper.PostMedTokenAsync(client, "/Pasientportal/Konto/LoggInn",
             SkjemaHjelper.Felter(("CaptchaSvar", forTidligCaptchaSvar), ("CaptchaSignertFasit", forTidligCaptchaFasit)), forTidligToken);
-        Assert.Contains("Du har ikke fullført registreringen", await SkjemaHjelper.LesHtmlAsync(forTidligResp));
+        Assert.Contains("Fant ingen pasientkonto", await SkjemaHjelper.LesHtmlAsync(forTidligResp));
 
         var (behLoginIgjenHtml0, behLoginIgjenToken, behIgjenCaptchaSvar, behIgjenCaptchaFasit) =
             await SkjemaHjelper.LastInnloggingsskjemaAsync(client, "/Konto/LoggInn");

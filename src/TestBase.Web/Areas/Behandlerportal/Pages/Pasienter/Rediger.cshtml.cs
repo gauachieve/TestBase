@@ -57,7 +57,7 @@ public sealed class RedigerModel : PageModel
         Id = pasient.Id;
         Navn = pasient.Navn;
         Gruppenavn = pasient.Gruppenavn;
-        Personnummer = pasient.Personnummer;
+        Personnummer = pasient.Personnummer ?? string.Empty;
         MobilNr = pasient.MobilNr;
         Epost = pasient.Email;
         EierBehandlerId = pasient.BehandlerId;
@@ -141,7 +141,7 @@ public sealed class RedigerModel : PageModel
             Id = pasient.Id;
             Navn = pasient.Navn;
             Gruppenavn = pasient.Gruppenavn;
-            Personnummer = pasient.Personnummer;
+            Personnummer = pasient.Personnummer ?? string.Empty;
             MobilNr = pasient.MobilNr;
             Epost = pasient.Email;
             EierBehandlerId = pasient.BehandlerId;
