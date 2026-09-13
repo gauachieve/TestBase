@@ -631,19 +631,33 @@ main.page table[border] tbody tr:hover { background: var(--bg-soft); }
 /* Handlingskolonnen (siste celle: Rediger/Arkiver/Frys m.m.) — la innholdet
    bryte linje internt (som ren tekst ville gjort) i stedet for å tvinge HELE
    tabellen bredere, og dermed en unødvendig horisontal scrollbar, bare fordi
-   den har flere knapper enn det er plass til på én linje. */
+   den har flere knapper enn det er plass til på én linje. `min-width` sikrer
+   likevel plass til opptil 5 ikon-knapper PÅ ÉN LINJE i det vanligste
+   tilfellet (auto-tabell-layout ville ellers satt kolonnebredden ut fra
+   FLERTALLET av rader, som gjerne har færre knapper enn den travleste raden
+   — Admin/Behandlere kan vise Rediger+Frys+Arkiver+GodkjennHpr+ForlengHpr
+   samtidig, se bugliste-runden "BIGBUTTONS"). 5×30px knapper + mellomrom +
+   cellens eget padding krever i praksis rundt 200px. */
 main.page table[border] td:last-child {
   white-space: normal;
+  min-width: 260px;
 }
 
-/* Row-action forms embedded in table cells (Arkiver/Frys/Godkjenn m.m.) —
-   reset til nøytralt, selve utseendet kommer fra .btn-icon på knappen/lenken. */
+/* Row-action forms embedded i tabellceller (Arkiver/Frys/Godkjenn m.m.) —
+   reset til nøytralt for VANLIGE knapper i slike former. :not(.btn-icon) er
+   nødvendig av samme grunn som button[type="submit"]:not(.btn-icon) lenger
+   ned: denne regelens spesifisitet (main.page + attributtselektor + button)
+   er høyere enn "main.page .btn-icon" alene, så uten unntaket vinner denne
+   over ALLE btn-icon-knappenes egen background/border/padding — knappen ble
+   usynlig (transparent bakgrunn) selv etter at button[type="submit"]-
+   kollisjonen ble fikset. Selve utseendet for btn-icon-knapper kommer
+   utelukkende fra .btn-icon selv. */
 main.page form[style*="display:inline"] {
   display: inline-flex;
   margin: 0 0.35rem 0.2rem 0;
   vertical-align: middle;
 }
-main.page form[style*="display:inline"] button {
+main.page form[style*="display:inline"] button:not(.btn-icon) {
   border: none;
   background: none;
   padding: 0;
@@ -752,7 +766,16 @@ main.page form input[type="range"] { width: 100%; accent-color: var(--accent); }
 main.page form input[type="checkbox"],
 main.page form input[type="radio"] { accent-color: var(--accent); width: auto; }
 
-main.page form button[type="submit"] {
+/* :not(.btn-icon) er nødvendig — uten den vinner denne regelen (høyere
+   spesifisitet enn "main.page .btn-icon") over knappens EGEN styling for
+   enhver egenskap begge setter, siden radhandlings-knappene (Frys/Arkiver/
+   Godkjenn/Slett m.m.) også har type="submit". Symptomet var knapper som ble
+   brede rektangler (padding 0.75rem 1.5rem i stedet for btn-icon sin faste
+   30×30px), med ikonet dyttet ned i hjørnet (display:inline-block i stedet
+   for btn-icon sin inline-flex-sentrering) og feil farge (var(--accent)
+   oransje i stedet for btn-icon sin egen bakgrunnsfarge) — se bugliste-runden
+   "BIGBUTTONS". */
+main.page form button[type="submit"]:not(.btn-icon) {
   display: inline-block;
   font-weight: 700;
   font-size: 0.85rem;
@@ -767,7 +790,7 @@ main.page form button[type="submit"] {
   margin-top: 0.25rem;
   margin-right: 0.5rem;
 }
-main.page form button[type="submit"]:hover { background: var(--accent-dark); }
+main.page form button[type="submit"]:not(.btn-icon):hover { background: var(--accent-dark); }
 
 /* Feilmeldinger (p style="color: darkred;") */
 main.page p[style*="color: darkred"] {

@@ -1,5 +1,6 @@
 @using Microsoft.AspNetCore.Hosting
 @using Microsoft.Extensions.Hosting
+@using TestBase.Shared
 @using TestBase.Shared.Domain.Administrasjon
 @using TestBase.Shared.Domain.Tester
 @using TestBase.Shared.Security
@@ -193,7 +194,7 @@
             </div>
         </div>
         <div class="container footer-bottom">
-            <span>&copy; @DateTime.Now.Year PsyTest</span>
+            <span>&copy; @DateTime.Now.Year PsyTest &mdash; v@(AppVersjon.Nummer)</span>
             <span>Ingen ekte pasientdata i dette miljøet</span>
         </div>
     </footer>

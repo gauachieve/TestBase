@@ -2361,6 +2361,62 @@ rettet live (ikke bare kodelest) — sticky-fjerningen i en ekte mobil viewport-
 og captcha-fiksen med en ekte to-forsøks-sekvens (feil så riktig svar) som tidligere ville feilet
 på steg to.
 
+### Bugliste 2026-09-13, "BIGBUTTONS"-runden — radhandlingsknapper med feil form/farge/senter, for smal handlingskolonne, bygg-versjonsnummer i footer (2026-09-13)
+
+Brukeren sendte et nærbilde (`BIGBUTTONS.png.jpg`) av radhandlingsknappene på Admin/Behandlere:
+den grønne Rediger-knappen var et rent kvadrat, mens de oransje Frys/Arkiver/Tilbakekall-knappene
+var brede rektangler med ikonet dyttet ned i hjørnet i stedet for sentrert — og med 4 knapper i
+raden brøt de om til to linjer.
+
+**Reell funnet bug: `.btn-icon`-knapper tapte en CSS-spesifisitetskonflikt mot to generiske
+knappe-regler**: `main.page form button[type="submit"]` (ment for VANLIGE innsendingsknapper som
+"Lagre alle endringer") har HØYERE CSS-spesifisitet enn `main.page .btn-icon` alene
+(klasse+type+attributt-selektor slår ren klasse-selektor) — og siden radhandlingsknappene
+(Frys/Arkiver/Godkjenn/Slett m.m.) OGSÅ har `type="submit"`, vant denne generiske regelen over
+`.btn-icon` sin egen `display`/`padding`/`background` for akkurat disse knappene. Dette forklarte
+alle tre symptomer samtidig: feil form (padding 0.75rem 1.5rem i stedet for fast 30×30px), feil
+farge (den generiske regelens `var(--accent)` oransje i stedet for `.btn-icon` sin egen
+bakgrunnsfarge — kun den grønne Rediger, en `<a>` og ikke en `<button>`, unngikk kollisjonen) og
+feil sentrering (`display:inline-block` i stedet for `.btn-icon` sin `inline-flex`-sentrering, som
+ga et synlig, men feilplassert ikon). Fikset ved å legge `:not(.btn-icon)` til akkurat DEN
+regelen. Da dette ble fikset, dukket en NESTE, identisk kollisjon opp: den eldre, "nøytrale"
+reset-regelen for radhandlings-skjemaer (`main.page form[style*="display:inline"] button`, fra
+lenge før denne bugliste-rundene) har OGSÅ høyere spesifisitet enn `.btn-icon` alene og satte
+`background: none` — knappene ble usynlige (transparent bakgrunn) helt til samme `:not(.btn-icon)`-
+unntak ble lagt til der også. Begge steder er nå kommentert med hvorfor unntaket er nødvendig, for
+å unngå at noen fjerner det ved en misforståelse senere.
+
+**Handlingskolonnen gjort bredere, ikke bare knappene riktige (brukerens eksplisitte ønske
+"make the button-area wider")**: `main.page table[border] td:last-child` sin `min-width` økt fra
+et første forsøk på 150px (viste seg utilstrekkelig — testet direkte mot Admin/Behandlere sin
+mest ekstreme rad, som kan vise HELE FEM knapper samtidig: Rediger+Frys+Arkiver+GodkjennHpr+
+ForlengHpr) til 260px, verifisert empirisk (ikke bare beregnet i hodet — knapper-i-skjema har
+DOBBEL marginering, både fra `.btn-icon` selv OG fra den omsluttende `<form style="display:inline">`,
+som gjør en ren "N×knappbredde + mellomrom"-utregning for lav). Dette gjør at handlingskolonnen nå
+kan tvinge selve TABELLEN bredere enn synlig skjermbredde i noen tilfeller — akseptert bevisst
+etter brukerens eksplisitte instruks, og tabellen har allerede en etablert, testet
+horisontal-scroll-mekanisme (`overflow-x: auto` på selve `<table>`, ikke hele siden) for nettopp
+dette tilfellet.
+
+**Bygg-versjonsnummer i footeren**: ny `TestBase.Shared.AppVersjon.Nummer`-konstant (starter på 1,
+økes manuelt med én for hver commit som skal deployes), vist som "v{nummer}" rett ved siden av
+copyright-linjen i `_Layout.cshtml` sin footer — slik at brukeren visuelt kan bekrefte at
+nettleseren faktisk viser nyeste deploy og ikke en cachet, gammel side. **Reell Razor-fallgruve
+oppdaget underveis**: den ferskt tilføyde `@AppVersjon.Nummer` (implisitt Razor-uttrykk, uten
+parentes) rendret bokstavelig som TEKSTEN "@AppVersjon.Nummer" i produsert HTML i stedet for å bli
+evaluert — bekreftet direkte fra server-responsen (`curl`), ikke bare i nettleseren, så det var
+ingen cache-effekt. Løst ved å bruke et eksplisitt Razor-uttrykk med parentes, `@(AppVersjon.Nummer)`,
+som fungerte umiddelbart. Årsaken til at nettopp DENNE implisitte `@`-plasseringen (rett etter en
+bokstav "v", uten mellomrom, rett etter en HTML-entitet `&mdash;`) feilet er ikke fullt forklart,
+men presedensen er klar: bruk ALLTID parentes-formen `@(uttrykk)` for nye interpolasjoner i denne
+kodebasen fremover — det er alltid entydig riktig, mens den implisitte formen har minst ett kjent
+tilfelle der den IKKE er det.
+
+**Verifisert**: 26/26 tester grønt, `dotnet build` rent. Alle tre funn er live-testet (radhandlings-
+knappenes eksakte pikselmål/farge/posisjon lest ut direkte fra DOM-en, ikke bare visuelt fra et
+skjermbilde; kolonnebredden verifisert empirisk mot den faktiske 5-knappersraden; versjonsnummeret
+bekreftet fra rå server-HTML via curl før og etter fiksen).
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt
