@@ -31,7 +31,13 @@ public sealed class Behandler
     public DateTimeOffset? HprGodkjentUtc { get; set; }
     public long? HprGodkjentAvAdministratorId { get; set; }
 
-    /// <summary>Når egenregistrering (skjema + avtale + verifisering) ble fullført — starter 7-dagers HPR-frist.</summary>
+    /// <summary>
+    /// Satt av admin via "Utvid fristen med 21 dager" (kan kun brukes ÉN gang —
+    /// se HprPolicy.BeregnFrist/OnPostForlengHprAsync), typisk brukt ved ferie.
+    /// </summary>
+    public DateTimeOffset? HprForlengetTilUtc { get; set; }
+
+    /// <summary>Når egenregistrering (skjema + avtale + verifisering) ble fullført — starter HprPolicy sin prøveperiode.</summary>
     public DateTimeOffset? RegistrertUtc { get; set; }
     public DateTimeOffset? EpostVerifisertUtc { get; set; }
     public DateTimeOffset? MobilVerifisertUtc { get; set; }

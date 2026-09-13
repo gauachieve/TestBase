@@ -10,8 +10,6 @@ namespace TestBase.Web.Areas.Behandlerportal.Pages.Pasienter;
 
 public sealed class NyModel : PageModel
 {
-    private static readonly TimeSpan HprPrøveperiode = TimeSpan.FromDays(7);
-
     private readonly AppDbContext _db;
     private readonly PasientInvitasjonService _pasientService;
     private readonly IAuditLogger _auditLogger;
@@ -62,11 +60,10 @@ public sealed class NyModel : PageModel
         }
 
         // HPR-gate: jf. kravdokumentet håndheves den KUN her (ikke ved innlogging) —
-        // 7 dagers prøveperiode fra fullført registrering, deretter kreves godkjenning.
-        if (!behandler.HprGodkjent && behandler.RegistrertUtc is not null &&
-            DateTimeOffset.UtcNow > behandler.RegistrertUtc.Value.Add(HprPrøveperiode))
+        // se HprPolicy for prøveperiodens lengde og evt. admin-innvilget forlengelse.
+        if (HprPolicy.ErUtlopt(behandler, DateTimeOffset.UtcNow))
         {
-            Feilmelding = "HPR-nummeret ditt er ikke godkjent ennå, og prøveperioden på 7 dager er utløpt. " +
+            Feilmelding = $"HPR-nummeret ditt er ikke godkjent ennå, og prøveperioden på {HprPolicy.ProveperiodeDager} dager er utløpt. " +
                           "Kontakt administrator for godkjenning.";
             return Page();
         }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
+using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Security;
 
@@ -9,8 +10,6 @@ namespace TestBase.Web.Areas.Behandlerportal.Pages.Pasienter;
 
 public sealed class GruppeimportModel : PageModel
 {
-    private static readonly TimeSpan HprPrøveperiode = TimeSpan.FromDays(7);
-
     private readonly AppDbContext _db;
     private readonly PasientInvitasjonService _pasientService;
     private readonly IAuditLogger _auditLogger;
@@ -52,10 +51,9 @@ public sealed class GruppeimportModel : PageModel
             return RedirectToPage("/Konto/LoggInn", new { area = "Behandlerportal" });
         }
 
-        if (!behandler.HprGodkjent && behandler.RegistrertUtc is not null &&
-            DateTimeOffset.UtcNow > behandler.RegistrertUtc.Value.Add(HprPrøveperiode))
+        if (HprPolicy.ErUtlopt(behandler, DateTimeOffset.UtcNow))
         {
-            Feilmelding = "HPR-nummeret ditt er ikke godkjent ennå, og prøveperioden på 7 dager er utløpt. " +
+            Feilmelding = $"HPR-nummeret ditt er ikke godkjent ennå, og prøveperioden på {HprPolicy.ProveperiodeDager} dager er utløpt. " +
                           "Kontakt administrator for godkjenning.";
             return Page();
         }

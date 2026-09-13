@@ -106,6 +106,28 @@ public sealed class IndexModel : PageModel
         return RedirectToPage();
     }
 
+    /// <summary>
+    /// Utvider HPR-prøveperioden med HprPolicy.ForlengelseDager dager — kun mulig ÉN
+    /// gang per behandler (typisk behov: ferie), se docs/beslutningslogg.md
+    /// "Bugliste 2026-09-13".
+    /// </summary>
+    public async Task<IActionResult> OnPostForlengHprAsync(long id, CancellationToken cancellationToken)
+    {
+        var behandler = await _db.Behandlere.FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+        if (behandler is not null && !behandler.HprGodkjent && behandler.HprForlengetTilUtc is null)
+        {
+            var gjeldendeFrist = HprPolicy.BeregnFrist(behandler) ?? DateTimeOffset.UtcNow;
+            behandler.HprForlengetTilUtc = gjeldendeFrist.AddDays(HprPolicy.ForlengelseDager);
+            await _db.SaveChangesAsync(cancellationToken);
+
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(), "ForlengHprFrist",
+                nameof(Behandler), behandler.Id.ToString(), behandler.HprForlengetTilUtc.ToString(), cancellationToken);
+        }
+
+        return RedirectToPage();
+    }
+
     /// <summary>Kun mulig når behandleren allerede er arkivert — håndhevet server-side.</summary>
     public async Task<IActionResult> OnPostSlettAsync(long id, CancellationToken cancellationToken)
     {

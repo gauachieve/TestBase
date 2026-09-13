@@ -6,6 +6,39 @@
 
 <h1>Oppgaver</h1>
 
+@if (Model.UtlopteHprFrister.Any())
+{
+    <h2>HPR-godkjenning utløpt for kolleger (@Model.UtlopteHprFrister.Count)</h2>
+    <table border="1" cellpadding="6" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Behandler</th>
+                <th>HPR-nr</th>
+                <th>E-post</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var b in Model.UtlopteHprFrister)
+        {
+            <tr>
+                <td>@(b.Visningsnavn ?? "(ikke fullført)")</td>
+                <td>@(b.HprNr ?? "-")</td>
+                <td>@b.Email</td>
+                <td>
+                    <form method="post" asp-page-handler="GodkjennHpr" style="display:inline;">
+                        <input type="hidden" name="id" value="@b.Id" />
+                        <button type="submit" class="btn-icon" title="Godkjenn HPR" aria-label="Godkjenn HPR">
+                            <partial name="_Ikon" model="@("godkjenn")" />
+                        </button>
+                    </form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
 <h2>Venter på godkjenning (@Model.VenterPaaGodkjenning.Count)</h2>
 @if (!Model.VenterPaaGodkjenning.Any())
 {

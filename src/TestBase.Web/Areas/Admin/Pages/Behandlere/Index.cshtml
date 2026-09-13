@@ -60,7 +60,11 @@
                 }
                 else
                 {
-                    <text>Venter — frist @b.RegistrertUtc.Value.AddDays(7).ToString("d")</text>
+                    <text>Venter — frist @HprPolicy.BeregnFrist(b)?.ToString("d")</text>
+                    @if (b.HprForlengetTilUtc is not null)
+                    {
+                        <text> (forlenget)</text>
+                    }
                 }
             </td>
             <td>@(b.ErSlettet ? "Slettet" : b.Status.ToString())</td>
@@ -103,6 +107,15 @@
                                     <partial name="_Ikon" model="@(b.HprGodkjent ? "tilbakekall" : "godkjenn")" />
                                 </button>
                             </form>
+                            @if (!b.HprGodkjent && b.HprForlengetTilUtc is null)
+                            {
+                                <form method="post" asp-page-handler="ForlengHpr" style="display:inline;">
+                                    <input type="hidden" name="id" value="@b.Id" />
+                                    <button type="submit" class="btn-icon" title="Utvid fristen med @HprPolicy.ForlengelseDager dager" aria-label="Utvid fristen med @HprPolicy.ForlengelseDager dager">
+                                        <partial name="_Ikon" model="@("gjenaapne")" />
+                                    </button>
+                                </form>
+                            }
                         }
                     }
                     else

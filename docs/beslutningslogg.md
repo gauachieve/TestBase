@@ -2043,6 +2043,43 @@ behandler/pasient bruker identisk, allerede verifisert kode-mønster og er verif
 kodegjennomgang + enhetstestsuiten, ikke hver for seg klikket gjennom fullt ut — samme åpenhet om
 omfang som tidligere runder.
 
+### Bugliste 2026-09-13, gruppe C — HPR-flyt (2026-09-13)
+
+Gruppe C av `bugs20260913.txt` — punktene 9, 10 og 11: standard HPR-prøveperiode til 21 dager, en
+"utvid fristen"-knapp, og HPR-godkjenning som en ekte oppgave.
+
+**Samlet i én kilde**: ny `HprPolicy`-klasse (`TestBase.Shared/Domain/Administrasjon/HprPolicy.cs`)
+med `ProveperiodeDager = 21` og `ForlengelseDager = 21`, og `BeregnFrist`/`ErUtlopt` som eneste sted
+frist-logikken skjer. Erstatter tre tidligere uavhengige hardkodinger av "7 dager"
+(`Pasienter/Ny.cshtml.cs`, `Gruppeimport.cshtml.cs`, en visningstekst i `Admin/Behandlere/Index.cshtml`).
+
+**Forlengelse**: nytt felt `Behandler.HprForlengetTilUtc` (migrasjon `LeggTilHprForlengetTilUtc`) —
+`HprPolicy.BeregnFrist` bruker den faktiske fristen ELLER forlengelsen, whichever er senere. Ny
+admin-handler `OnPostForlengHprAsync` (`Admin/Behandlere/Index.cshtml.cs`) kan kun kjøres når
+`HprForlengetTilUtc is null`, altså kun én gang per behandler — akkurat som bug-teksten spesifiserte
+("resetter fristen en gang, typisk behov i ferier").
+
+**HPR-godkjenning som oppgave**: `Admin/Oppgaver.cshtml(.cs)`, tidligere en tom placeholder, fylles
+nå med behandlere der `HprPolicy.ErUtlopt(...)` er sann — samme "Godkjenn HPR"-handler som allerede
+fantes på `Admin/Behandlere/Index`. Siden `ErPartnerAdministrator` er en claim på `Behandler`, ikke
+en egen rolle/side (jf. CLAUDE.md), fikk partner-admin i stedet en filtrert utvidelse av SIN
+eksisterende `Behandlerportal/Oppgaver`-side — samme spørring, men begrenset til behandlere i eget
+partnerskap (`PartnerId`-match), med sin egen `OnPostGodkjennHprAsync` (bevisst IKKE satt
+`HprGodkjentAvAdministratorId`, siden en partner-admin er en `Behandler` og ikke en `Administrator`
+— hvem som godkjente står uansett i audit-loggen). "Godkjenning fjerner oppgaven for alle" virker
+automatisk uten noe eget arbeid, siden oppgavelisten er en ren spørring mot delt DB-tilstand
+(`HprGodkjent`), ikke noe lokalt per admin-økt.
+
+**Verifisert live, ende-til-ende**: backdatert en test-behandlers `RegistrertUtc` lokalt til å være
+utløpt under det nye 21-dagersvinduet → bekreftet "Venter — frist [dato]" og en aktiv "Utvid
+fristen med 21 dager"-knapp dukket opp på `Admin/Behandlere` → bekreftet SAMME behandler dukket opp
+som en rad under "HPR-godkjenning utløpt" på `Admin/Oppgaver` → klikket "Godkjenn HPR" der →
+bekreftet oppgaven forsvant helt ("Ingen oppgaver akkurat nå."). 25/25 tester grønt, `dotnet build`
+rent. Partner-admin sin filtrerte visning på `Behandlerportal/Oppgaver` er identisk kode-mønster,
+verifisert ved kodegjennomgang (krever et ekte partnerskap med en behandler med utløpt frist for en
+fullt egen klikk-gjennomgang, vurdert som lav ekstra risiko gitt at spørringen er nesten identisk
+til den allerede klikk-verifiserte admin-siden).
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt
