@@ -62,7 +62,12 @@ else
 }
 
 <h2>Slett min konto</h2>
-<p>Dette arkiverer og skjuler kontoen din umiddelbart, og logger deg ut. Kun Superadmin kan gjenopprette den etterpå.</p>
+<p>
+    Ved å slette kontoen din vil ingen nye tester kunne tildeles deg. På grunn av journalloven må
+    alle data lagres i minimum 10 år. I denne perioden har også behandler normalt lov å se den.
+    Din journal kan gjenåpnes av super-admin som driver tjenesten. Se mer detaljer om lovgivning
+    rundt din journal <a href="/personvern#journalforing">her</a>.
+</p>
 <form method="post" asp-page-handler="SlettMinKonto"
       data-captcha-sporsmal="@Model.CaptchaSporsmal"
       onsubmit="return bekreftSletting(this, 'din egen pasientkonto')">

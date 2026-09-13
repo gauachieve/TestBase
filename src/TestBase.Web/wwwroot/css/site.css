@@ -138,8 +138,20 @@ code {
 .btn-muted:hover { background: var(--bg-soft); border-color: var(--muted); color: var(--ink-soft); }
 
 /* Tall-/beløpsfelt i prisings-tabeller — se Admin/Tester/Prising og
-   Behandlerportal/MinPartner/Prising. */
-.tall-input { width: 6rem; text-align: right; }
+   Behandlerportal/MinPartner/Prising. Holdt smal med hensikt (ny runde av
+   bugliste 2026-09-13, punkt 3) slik at Admin sin 4-kolonners prisingstabell
+   får plass uten horisontal scrollbar på en vanlig skjermbredde. */
+.tall-input { width: 4.5rem; text-align: right; }
+
+/* Prisingstabellen (Admin/Tester/Prising) har 4 tall-kolonner + testnavn — la
+   testnavn-kolonnen BRYTE linje (i stedet for tvunget nowrap som resten av
+   tabellene i appen) siden lange testnavn ellers alene tvinger frem en
+   horisontal scrollbar som tallkolonnene ikke trenger. */
+.prising-tabell td:first-child,
+.prising-tabell th:first-child {
+  white-space: normal;
+  max-width: 260px;
+}
 
 /* ---------- Pasientens betalingsside (Pasientportal/Tester/Betal) ---------- */
 .checkout-card {
@@ -340,6 +352,30 @@ code {
 .funksjonsknapp:hover { background: var(--rolle-accent-dark); transform: translateY(-1px); }
 .funksjonsknapp svg { width: 18px; height: 18px; display: block; flex-shrink: 0; }
 .funksjonsknapp .varsel-badge { background: var(--rolle-accent-tekst); color: var(--rolle-accent); }
+
+/* Funksjonsnav-knapper fargelegges etter EGEN seksjon (admin/behandler/pasient), ikke
+   etter den innloggede brukerens ENE rolle (bugliste 2026-09-13, ny runde punkt 1-2) —
+   en Utvikler-konto ser flere seksjoner SAMTIDIG (erAdmin/erBehandler/erPasient er OR'et
+   med Utvikler, se _Layout.cshtml), og fikk derfor alle knapper i samme (feilaktige)
+   fallback-oransje uansett hvilken seksjon de faktisk tilhørte. display:contents fjerner
+   wrapper-diven fra boks-treet (knappene flyter fortsatt fritt i .funksjons-nav-inner sin
+   flex-wrap), men CSS-variabler arves likevel via DOM-treet. */
+.funksjonsnav-seksjon { display: contents; }
+.funksjonsnav-seksjon--admin {
+  --rolle-accent: #3b82f6;
+  --rolle-accent-dark: #1d4ed8;
+  --rolle-accent-tekst: #ffffff;
+}
+.funksjonsnav-seksjon--behandler {
+  --rolle-accent: #14b8a6;
+  --rolle-accent-dark: #0d7d70;
+  --rolle-accent-tekst: #ffffff;
+}
+.funksjonsnav-seksjon--pasient {
+  --rolle-accent: var(--accent);
+  --rolle-accent-dark: var(--accent-dark);
+  --rolle-accent-tekst: #1a1305;
+}
 
 .nav-toggle-checkbox { display: none; }
 .nav-toggle-btn {
@@ -664,6 +700,14 @@ main.page form:not([style*="display:inline"]) {
   padding: 1.75rem;
   max-width: 640px;
   margin: 1.5rem 0;
+}
+/* Skjemaer som wrapper en BRED tabell (f.eks. prisingstabellen med 4
+   tallkolonner, se Admin/Tester/Prising) trenger mer enn 640px — den
+   generiske kort-bredden over tvang tabellens EGEN overflow-x:auto til å
+   scrolle mye tidligere enn nødvendig (ny runde av bugliste 2026-09-13,
+   punkt "prising"/horisontal scrollbar). */
+main.page form.skjema-bred {
+  max-width: 100%;
 }
 main.page form:not([style*="display:inline"]) > div,
 main.page form:not([style*="display:inline"]) > fieldset {

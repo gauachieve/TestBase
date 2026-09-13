@@ -75,14 +75,22 @@ public sealed class TesterModel : PageModel
         KategoriTre = await _testService.HentKategoriTreAsync(_currentUser.PartnerId, cancellationToken);
 
         var behandlerId = HentBehandlerId();
-        var alleTestIder = KategoriTre.SelectMany(k => k.Tester).Select(t => t.Id).Distinct().ToList();
+        var alleTester = KategoriTre.SelectMany(k => k.Tester).GroupBy(t => t.Id).Select(g => g.First()).ToList();
         var sisteHonorar = new Dictionary<long, decimal>();
-        foreach (var testId in alleTestIder)
+        foreach (var test in alleTester)
         {
-            sisteHonorar[testId] = await _testService.HentSisteHonorarAsync(behandlerId, testId, cancellationToken);
+            var sistBrukt = await _testService.HentSisteHonorarAsync(behandlerId, test.Id, cancellationToken);
+            // Klemmes til testens NÅVÆRENDE StorstePrisKr — uten dette kan et tidligere
+            // brukt honorar som senere ble for høyt etter en admin-prisjustering havne i
+            // <input max="..."> med en verdi over maks. HTML5 sin range-validering gjør da
+            // feltet stille "invalid" og BLOKKERER hele skjemainnsendingen uten synlig
+            // feilmelding (feltet ligger bak den åpne oppsummerings-dialogen) — sett
+            // fikk rapportert som "Bekreft og send-knappen gjør ingenting" (ny runde av
+            // bugliste 2026-09-13, punkt "sendout"). Se docs/beslutningslogg.md.
+            sisteHonorar[test.Id] = test.StorstePrisKr > 0 ? Math.Min(sistBrukt, test.StorstePrisKr) : sistBrukt;
         }
         SistBrukteHonorarPerTestId = sisteHonorar;
-        Prisingskontekst = await _tildelingsService.HentPrisingskontekstAsync(behandlerId, alleTestIder, cancellationToken);
+        Prisingskontekst = await _tildelingsService.HentPrisingskontekstAsync(behandlerId, alleTester.Select(t => t.Id).ToList(), cancellationToken);
     }
 
     public async Task<IActionResult> OnPostSendAsync(CancellationToken cancellationToken)

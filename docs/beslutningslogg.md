@@ -2230,6 +2230,89 @@ kun-kodeverifiserte punkter i denne gruppen.
 Med dette er alle 28 punktene i `bugs20260913.txt` gjennomført (gruppe A/B/C/D), committet, pushet
 og deployet til psytest.no.
 
+### Bugliste 2026-09-13, andre runde — fargekoding for Utvikler-dobbeltnav, prisingstabell-overflow, per-test-honorar, SMS-gebyr-transparens, stille skjema-blokkering, lovtekst ved pasient-selvsletting (2026-09-13)
+
+Brukeren oppdaterte `bugs20260913.txt` med seks nye punkter funnet under reell bruk på psytest.no
+(vedlagt skjermbilder `buttonrow.png`/`prising.png`/`treatmentprice.png`/`sendout.png`).
+
+**Funksjonsnav farget etter EGEN seksjon, ikke innlogget brukers ene rolle (punkt 1+2)**: en
+Utvikler-konto (som `dev-admin`) ser BÅDE admin- og behandler-seksjonen av funksjonsnavet samtidig
+(`erAdmin`/`erBehandler` er OR'et med Utvikler, se `_Layout.cshtml`), men `CurrentUser.Role` for en
+slik konto er `Utvikler` — som ikke matcher noen `rolle-*`-klasse og dermed falt tilbake til
+standard-oransje for ALLE 13 knapper uansett hvilken seksjon de tilhørte. Dette så ut som
+"samme knapp om og om igjen i feil farge" og et rotete, ujevnt linjeskift. Løst med en ny
+`.funksjonsnav-seksjon--{admin,behandler,pasient}`-klasse (CSS custom property-scoping via
+`display:contents`, se `site.css`) som farger HVER seksjon etter sin EGEN rolle uavhengig av
+hvem som er innlogget — pluss et betinget suffiks ("Min side (admin)"/"(behandler)"/"(pasient)")
+når mer enn én seksjon vises samtidig, slik at duplikatene også blir SKILT tekstlig. Verifisert
+live: admin-seksjonen blå, behandler-seksjonen teal, pasient-seksjonen oransje, alle tre distinkt
+merket, ingen endring for en normal ett-rolle-bruker (ingen suffiks, kun én farge).
+
+**Prisingstabellen tvang frem en unødvendig horisontal scrollbar (punkt 3)**: rotårsak var IKKE
+tabellen selv, men en generisk kort-styling-regel (`main.page form:not([style*="display:inline"])
+{ max-width: 640px; ... }`) ment for vanlige ett-kolonnes skjemaer (f.eks. "Ny administrator") som
+også trykket prisingsskjemaets BREDE 5-kolonners tabell ned i 640px — tabellens egen
+`overflow-x: auto` fikk dermed langt mindre plass enn nødvendig. Løst med en ny opt-in
+`.skjema-bred`-klasse (`max-width: 100%`) lagt på nettopp disse to skjemaene
+(`Admin/Tester/Prising`, `Behandlerportal/MinPartner/Prising`) — ingen andre skjemaer i appen
+endret. I tillegg: `.tall-input` smalnet fra 6rem til 4.5rem, redundant " NOK"-tekst fjernet fra
+hver celle (står allerede i kolonneoverskriften), og testnavn-kolonnen fikk lov til å BRYTE linje
+(`.prising-tabell td:first-child { white-space: normal }`) i stedet for tvunget on-linje som
+resten av appens tabeller. Verifisert live: alle 4 tallkolonner synlige uten scrollbar på en
+1280px bredde.
+
+**"Fikk bare sette honorar én gang per kategori" (punkt 4) — ikke en kodefeil**: kildekoden
+(`Tildel/Tester.cshtml`) rendrer allerede ETT eget honorarfelt PER TEST (`id="honorar-@test.Id"`),
+ikke ett per kategori — bekreftet ved kodelesning OG live (krysset av RAADS-R+WURS samtidig i
+samme kategori, fikk to uavhengige honorarfelt). Det brukeren faktisk observerte var at de 8 nye
+testene fra Helsebiblioteket (RAADS-R, WURS, IPDS, MADRS-S, PHQ-9, TRAPS I, Cambridge, søvn) alle
+sto med `StorstePrisKr = 0` i databasen (kun WHO-5 hadde reell prising) — koden viser bevisst
+INGEN honorarfelt når maksprisen er 0 (`@if (test.StorstePrisKr > 0)`, en gratis test kan ikke gi
+honorar). Med kun COIN test priset, så det ut som "bare én test i kategorien fikk et felt". Dette
+løser seg av seg selv når punkt 3 sin prisingsside faktisk brukes til å prise de resterende 7
+testene — ingen egen kodeendring for punkt 4 utover prisingsside-fiksen.
+
+**SMS-gebyr gjort transparent i tildelingsdialogen (punkt 5, tolket som usikkerhet snarere enn en
+konkret feil — "isnt it? ... is this too confusing?")**: `Priser:SmsGebyrKr` er ikke konfigurert i
+noe miljø ennå (faller til 0 via `TestTildelingsService.HentSmsGebyrKr()`), så total pris endret
+seg reelt IKKE ved bytte mellom SMS/E-post/Begge — koden regner riktig, men det var usynlig FOR
+HVORFOR ingenting skjedde. Løst uten å dikte opp en forretningspris: SMS/Begge-radioknappene i
+`Tildel/Tester.cshtml` viser nå det FAKTISK konfigurerte gebyret direkte i etiketten
+("SMS (+X NOK gebyr)") når `SmsGebyrKr > 0`, og hint-teksten under fieldsettet vises kun når det
+faktisk finnes et gebyr å forklare. Med dagens `SmsGebyrKr = 0` er oppførselen uendret (ingen
+gebyr å vise), men blir selvforklarende automatisk den dagen en reell SMS-pris konfigureres — det
+er en forretningsbeslutning utenfor denne rettingens scope, IKKE satt av meg.
+
+**Reell funnet bug: "Bekreft og send"-knappen gjorde ingenting (punkt "sendout") — stille HTML5-
+valideringsblokkering bak den åpne dialogen**: `TesterModel.OnGetAsync` (Behandlerportal) fylte
+honorarfeltet med behandlerens SIST BRUKTE honorar for denne testen
+(`TestService.HentSisteHonorarAsync`) UTEN å klemme det til testens NÅVÆRENDE `StorstePrisKr`. Når
+en admin senere SENKET maksprisen (f.eks. fra 5 til 2, se `treatmentprice.png`/`prising.png`), ble
+et gammelt, nå for høyt honorar forhåndsutfylt i et `<input max="2">`-felt — HTML5 sin innebygde
+range-validering gjør feltet stille "invalid" og BLOKKERER hele skjemainnsendingen uten synlig
+feilmelding, fordi feltet selv ligger bak den åpne, modale oppsummerings-dialogen (brukeren ser
+aldri hvorfor). Dette er nøyaktig symptomet i `sendout.png` (verdi "5" i et felt merket
+"maks 2.00"). Fikset i `Tester.cshtml.cs` sin `OnGetAsync`: `sisteHonorar[test.Id] =
+Math.Min(sistBrukt, test.StorstePrisKr)` når `StorstePrisKr > 0`. **Reprodusert og verifisert
+live, end-to-end**: tildelte WURS med honorar 140 (da maks var 150) → senket WURS sin maks til 50
+via Prising-siden → lastet tildelingssiden på nytt og bekreftet at det forhåndsutfylte
+honorarfeltet nå viste 50 (klemt) med `validity.rangeOverflow === false` (ville vært `true` med
+140 uten fiksen) → sendte inn skjemaet på nytt og fikk en vellykket "Tildeling fullført" i stedet
+for en stille, uforklarlig ikke-respons.
+
+**Ny lovpålagt tekst ved pasient-selvsletting (siste punkt)**: `Pasientportal/MinSide.cshtml` sin
+"Slett min konto"-seksjon bytter ut den generiske arkiverings-teksten fra gruppe B (2026-09-13,
+tidligere runde) med brukerens eksakte ordlyd om journalloven, 10-års oppbevaringsplikt,
+behandlers fortsatte tilgang og Superadmin sin gjenåpningsmulighet — kun for PASIENT-selvsletting
+(admin/behandler sine tilsvarende sider er urørt, siden "journal" kun gjelder pasientdata). Lagt
+til en ny `#journalforing`-seksjon på den offentlige `/personvern`-siden som "[link]"-plassholderen
+peker til, med en kort forklaring av regelverket og en eksplisitt merknad om at mer juridisk
+innhold kommer senere (bekreftet levende link, ikke en død anker).
+
+**Verifisert**: 26/26 tester grønt, `dotnet build` rent. Alle seks punkter er klikk-/live-testet i
+nettleser (inkl. den reelle stille-blokkering-bugen reprodusert BÅDE med og uten fiksen for å
+bekrefte årsakssammenhengen), ikke bare kodelest.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt

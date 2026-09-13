@@ -107,47 +107,53 @@
                 <div class="container funksjons-nav-inner">
                     @if (erAdmin)
                     {
-                        <a class="funksjonsknapp" href="/Admin/Administratorer"><partial name="_Ikon" model="@("administratorer")" />Administratorer</a>
-                        <a class="funksjonsknapp" href="/Admin/Behandlere"><partial name="_Ikon" model="@("behandlere")" />Behandlere</a>
-                        <a class="funksjonsknapp" href="/Admin/Pasienter"><partial name="_Ikon" model="@("pasienter")" />Pasienter</a>
-                        <a class="funksjonsknapp" href="/Admin/Tester"><partial name="_Ikon" model="@("tester")" />Tester</a>
-                        <a class="funksjonsknapp" href="/Admin/Tildel/Pasienter"><partial name="_Ikon" model="@("tildel")" />Tildel tester</a>
-                        <a class="funksjonsknapp" href="/Admin/MinSide"><partial name="_Ikon" model="@("hus")" />Min side</a>
-                        <a class="funksjonsknapp" href="/Admin/MinKonto"><partial name="_Ikon" model="@("administratorer")" />Min konto</a>
-                        @if (erSuperadmin)
-                        {
-                            <a class="funksjonsknapp" href="/Admin/Partnere"><partial name="_Ikon" model="@("administratorer")" />Partnere</a>
-                            <a class="funksjonsknapp" href="/Admin/Tester/Prising"><partial name="_Ikon" model="@("tester")" />Prising</a>
-                            <a class="funksjonsknapp" href="/Admin/Okonomi"><partial name="_Ikon" model="@("oppgaver")" />Økonomi</a>
-                        }
+                        <div class="funksjonsnav-seksjon funksjonsnav-seksjon--admin">
+                            <a class="funksjonsknapp" href="/Admin/Administratorer"><partial name="_Ikon" model="@("administratorer")" />Administratorer</a>
+                            <a class="funksjonsknapp" href="/Admin/Behandlere"><partial name="_Ikon" model="@("behandlere")" />Behandlere</a>
+                            <a class="funksjonsknapp" href="/Admin/Pasienter"><partial name="_Ikon" model="@("pasienter")" />Pasienter</a>
+                            <a class="funksjonsknapp" href="/Admin/Tester"><partial name="_Ikon" model="@("tester")" />Tester</a>
+                            <a class="funksjonsknapp" href="/Admin/Tildel/Pasienter"><partial name="_Ikon" model="@("tildel")" />Tildel tester</a>
+                            <a class="funksjonsknapp" href="/Admin/MinSide"><partial name="_Ikon" model="@("hus")" />Min side (admin)</a>
+                            <a class="funksjonsknapp" href="/Admin/MinKonto"><partial name="_Ikon" model="@("administratorer")" />Min konto</a>
+                            @if (erSuperadmin)
+                            {
+                                <a class="funksjonsknapp" href="/Admin/Partnere"><partial name="_Ikon" model="@("administratorer")" />Partnere</a>
+                                <a class="funksjonsknapp" href="/Admin/Tester/Prising"><partial name="_Ikon" model="@("tester")" />Prising</a>
+                                <a class="funksjonsknapp" href="/Admin/Okonomi"><partial name="_Ikon" model="@("oppgaver")" />Økonomi</a>
+                            }
+                        </div>
                     }
                     @if (erBehandler)
                     {
-                        <a class="funksjonsknapp" href="/Behandlerportal/MinSide">
-                            <partial name="_Ikon" model="@("hus")" />Min side
-                            @if (antallUlesteMeldinger > 0)
+                        <div class="funksjonsnav-seksjon funksjonsnav-seksjon--behandler">
+                            <a class="funksjonsknapp" href="/Behandlerportal/MinSide">
+                                <partial name="_Ikon" model="@("hus")" />Min side @(erAdmin ? "(behandler)" : "")
+                                @if (antallUlesteMeldinger > 0)
+                                {
+                                    <span class="varsel-badge">@antallUlesteMeldinger</span>
+                                }
+                            </a>
+                            <a class="funksjonsknapp" href="/Behandlerportal/Pasienter"><partial name="_Ikon" model="@("pasienter")" />Pasienter</a>
+                            <a class="funksjonsknapp" href="/Behandlerportal/Tildel/Pasienter"><partial name="_Ikon" model="@("tildel")" />Tildel tester</a>
+                            <a class="funksjonsknapp" href="/Behandlerportal/Behandlere/Inviter"><partial name="_Ikon" model="@("inviter")" />Inviter kollega</a>
+                            @if (CurrentUser.ErPartnerAdministrator)
                             {
-                                <span class="varsel-badge">@antallUlesteMeldinger</span>
+                                <a class="funksjonsknapp" href="/Behandlerportal/MinPartner/Behandlere"><partial name="_Ikon" model="@("behandlere")" />Min partner</a>
+                                <a class="funksjonsknapp" href="/Behandlerportal/MinPartner/Prising"><partial name="_Ikon" model="@("tester")" />Partnerprising</a>
                             }
-                        </a>
-                        <a class="funksjonsknapp" href="/Behandlerportal/Pasienter"><partial name="_Ikon" model="@("pasienter")" />Pasienter</a>
-                        <a class="funksjonsknapp" href="/Behandlerportal/Tildel/Pasienter"><partial name="_Ikon" model="@("tildel")" />Tildel tester</a>
-                        <a class="funksjonsknapp" href="/Behandlerportal/Behandlere/Inviter"><partial name="_Ikon" model="@("inviter")" />Inviter kollega</a>
-                        @if (CurrentUser.ErPartnerAdministrator)
-                        {
-                            <a class="funksjonsknapp" href="/Behandlerportal/MinPartner/Behandlere"><partial name="_Ikon" model="@("behandlere")" />Min partner</a>
-                            <a class="funksjonsknapp" href="/Behandlerportal/MinPartner/Prising"><partial name="_Ikon" model="@("tester")" />Partnerprising</a>
-                        }
+                        </div>
                     }
                     @if (erPasient)
                     {
-                        <a class="funksjonsknapp" href="/Pasientportal/MinSide">
-                            <partial name="_Ikon" model="@("hus")" />Min side
-                            @if (antallUbesvarteTester > 0)
-                            {
-                                <span class="varsel-badge">@antallUbesvarteTester</span>
-                            }
-                        </a>
+                        <div class="funksjonsnav-seksjon funksjonsnav-seksjon--pasient">
+                            <a class="funksjonsknapp" href="/Pasientportal/MinSide">
+                                <partial name="_Ikon" model="@("hus")" />Min side @(erAdmin || erBehandler ? "(pasient)" : "")
+                                @if (antallUbesvarteTester > 0)
+                                {
+                                    <span class="varsel-badge">@antallUbesvarteTester</span>
+                                }
+                            </a>
+                        </div>
                     }
                 </div>
             </div>

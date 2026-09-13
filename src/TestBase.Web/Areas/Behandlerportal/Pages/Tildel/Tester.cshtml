@@ -92,10 +92,14 @@ else if (Model.ValgtePasienter.Any())
 
             <fieldset>
                 <legend>Varslingsmetode for denne utsendingen</legend>
-                <label><input type="radio" name="Varslingsmetode" value="Sms" class="tildel-varslingsmetode" /> SMS</label>
+                <label><input type="radio" name="Varslingsmetode" value="Sms" class="tildel-varslingsmetode" /> SMS@(Model.Prisingskontekst.SmsGebyrKr > 0 ? $" (+{Model.Prisingskontekst.SmsGebyrKr.ToString("0.00")} NOK gebyr)" : "")</label>
                 <label><input type="radio" name="Varslingsmetode" value="Epost" class="tildel-varslingsmetode" /> E-post</label>
-                <label><input type="radio" name="Varslingsmetode" value="Begge" class="tildel-varslingsmetode" checked /> Begge</label>
+                <label><input type="radio" name="Varslingsmetode" value="Begge" class="tildel-varslingsmetode" checked /> Begge@(Model.Prisingskontekst.SmsGebyrKr > 0 ? $" (+{Model.Prisingskontekst.SmsGebyrKr.ToString("0.00")} NOK SMS-gebyr)" : "")</label>
             </fieldset>
+            @if (Model.Prisingskontekst.SmsGebyrKr > 0)
+            {
+                <p><em>Totalprisen under oppdateres automatisk når du bytter varslingsmetode — SMS legger til et eget gebyr, E-post gjør ikke det.</em></p>
+            }
 
             <p>Du sender følgende tester:</p>
             <ul id="oppsummeringTester"></ul>

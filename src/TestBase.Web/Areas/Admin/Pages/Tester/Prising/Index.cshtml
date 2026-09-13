@@ -16,14 +16,14 @@
     <p style="color: darkred;">@Model.Feilmelding</p>
 }
 
-<form method="post">
-    <table border="1" cellpadding="6" cellspacing="0">
+<form method="post" class="skjema-bred">
+    <table border="1" cellpadding="6" cellspacing="0" class="prising-tabell">
         <thead>
             <tr>
                 <th>Test</th>
                 <th>Minste pris (NOK)</th>
                 <th>Største pris (NOK)</th>
-                <th>Typisk behandler-honorar (NOK)</th>
+                <th>Typisk honorar (NOK)</th>
                 <th>Minste partnerandel (NOK)</th>
             </tr>
         </thead>
@@ -32,13 +32,13 @@
         {
             <tr>
                 <td>@test.Navn</td>
-                <td><input type="number" step="0.01" min="0" name="MinstePrisKr[@test.Id]" value="@test.MinstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /> NOK</td>
-                <td><input type="number" step="0.01" min="0" name="StorstePrisKr[@test.Id]" value="@test.StorstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /> NOK</td>
-                <td><input type="number" step="0.01" min="0" name="TypiskBehandlerHonorarKr[@test.Id]" value="@test.TypiskBehandlerHonorarKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /> NOK</td>
-                <td><input type="number" step="0.01" min="0" name="MinstePartnerAndelKr[@test.Id]" value="@test.MinstePartnerAndelKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /> NOK</td>
+                <td><input type="number" step="0.01" min="0" name="MinstePrisKr[@test.Id]" value="@test.MinstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /></td>
+                <td><input type="number" step="0.01" min="0" name="StorstePrisKr[@test.Id]" value="@test.StorstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /></td>
+                <td><input type="number" step="0.01" min="0" name="TypiskBehandlerHonorarKr[@test.Id]" value="@test.TypiskBehandlerHonorarKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /></td>
+                <td><input type="number" step="0.01" min="0" name="MinstePartnerAndelKr[@test.Id]" value="@test.MinstePartnerAndelKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /></td>
             </tr>
         }
         </tbody>
     </table>
-    <p><button type="submit" class="btn-accent">Lagre alle endringer</button></p>
+    <p><button type="submit" class="btn-accent" data-disable-on-submit="Lagrer …">Lagre alle endringer</button></p>
 </form>
