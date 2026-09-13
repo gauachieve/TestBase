@@ -41,9 +41,13 @@ else
     <section class="rapport-ark">
         <div class="rapport-hjornedekor"></div>
 
-        <div class="rapport-tittelblokk">
+        <div class="rapport-tittelblokk rapport-kategori-stripe @TestBase.Shared.Domain.Tester.TestKategoriFarge.CssKlasse(Model.KategoriNavn)">
             <span class="rapport-tittel-stor">Rapport</span>
             <span class="rapport-tittel-liten">@Model.Test?.Navn</span>
+            @if (Model.KategoriNavn is not null)
+            {
+                <div class="rapport-kategori-navn">@Model.KategoriNavn</div>
+            }
         </div>
 
         <div class="rapport-metarad">
@@ -143,7 +147,7 @@ else
 <div class="rapport-handlinger">
 @if (Model.Tildeling?.RapportForkastetUtc is null && Model.Tildeling?.RapportGodkjentUtc is null)
 {
-    <form method="post" asp-page-handler="Godkjenn">
+    <form method="post" asp-page-handler="Godkjenn" data-disable-on-submit="Godkjenner …">
         <input type="hidden" name="id" value="@Model.Tildeling?.Id" />
         <button type="submit" class="btn btn-accent btn-sm">Godkjenn</button>
     </form>
@@ -157,10 +161,14 @@ else if (Model.Tildeling?.RapportGodkjentUtc is not null)
     <button type="button" id="rapportKopierKnapp" class="btn btn-accent btn-sm">Kopier alt til utklippstavlen</button>
     <button type="button" id="rapportKopierResultatKnapp" class="btn btn-accent btn-sm">Kopier resultat til utklippstavlen</button>
     <button type="button" id="rapportSkrivUtKnapp" class="btn btn-accent btn-sm">Skriv ut</button>
-    <form method="post" asp-page-handler="SendKopi">
+    <form method="post" asp-page-handler="SendKopi" data-disable-on-submit="Sender …">
         <input type="hidden" name="id" value="@Model.Tildeling?.Id" />
         <button type="submit" class="btn btn-accent btn-sm">Send kopi til pasienten</button>
     </form>
+    @if (Model.NesteVentendeTildelingId is not null)
+    {
+        <a class="btn btn-accent btn-sm" href="/Behandlerportal/Pasienter/Rapport/@Model.NesteVentendeTildelingId">Neste oppgave</a>
+    }
 }
 </div>
 

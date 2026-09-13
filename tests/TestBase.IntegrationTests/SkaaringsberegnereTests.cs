@@ -38,6 +38,18 @@ public sealed class SkaaringsberegnereTests
     }
 
     [Fact]
+    public void Ipds_Grupperer_JaBesvarteLedd_PerPersonlighetsklynge()
+    {
+        // Ledd 1 og 7 er begge "Emosjonelt ustabil PF" (se IpdsSkaaringsberegner.KlyngePerLedd) —
+        // skal slås sammen til ÉN indikator med begge leddnumre, ikke to separate.
+        var svar = Svar("Ja", "Nei", "Nei", "Nei", "Nei", "Nei", "Ja", "Nei", "Nei", "Nei", "Nei");
+        var resultat = new IpdsSkaaringsberegner().BeregnSkaaring(svar);
+
+        var klyngeIndikator = Assert.Single(resultat.Indikatorer!, i => i.Navn == "Mulig personlighetsklynge (uverifisert)");
+        Assert.Equal("Indikerer: Emosjonelt ustabil PF (borderline type) – Ledd 1,7", klyngeIndikator.Verdi);
+    }
+
+    [Fact]
     public void MadrsS_SummererAlleNiLedd()
     {
         var svar = Svar("0", "2", "4", "6", "1", "3", "5", "0", "2");

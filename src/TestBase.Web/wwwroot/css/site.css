@@ -48,6 +48,28 @@ body.rolle-pasient {
   --rolle-accent-tekst: #1a1305;
 }
 
+/* Rapport-fargekoding per kategori (bugliste 2026-09-13 punkt 27) — 16 faste,
+   forhåndsdefinerte farger (ikke tilfeldig hashet ved kjøretid) satt som en
+   aksent-stripe på rapport-headeren, se TestKategoriFarge.cs og Rapport.cshtml. */
+.rapport-kategori-stripe { border-left: 6px solid var(--kategori-farge, var(--border)); padding-left: 0.85rem; }
+.rapport-kategori-navn { font-size: 0.8rem; color: var(--muted); margin-top: 0.15rem; }
+.kategori-kognisjon { --kategori-farge: #6366f1; }
+.kategori-adhd { --kategori-farge: #f59e0b; }
+.kategori-sovn { --kategori-farge: #0ea5e9; }
+.kategori-rus { --kategori-farge: #78716c; }
+.kategori-spiseforstyrrelser { --kategori-farge: #ec4899; }
+.kategori-traumer { --kategori-farge: #dc2626; }
+.kategori-angst { --kategori-farge: #eab308; }
+.kategori-depresjon { --kategori-farge: #3b82f6; }
+.kategori-psykose { --kategori-farge: #7c3aed; }
+.kategori-personlighet { --kategori-farge: #14b8a6; }
+.kategori-vold { --kategori-farge: #991b1b; }
+.kategori-seksuell { --kategori-farge: #db2777; }
+.kategori-barn { --kategori-farge: #22c55e; }
+.kategori-funksjon { --kategori-farge: #f2994a; }
+.kategori-somatisk { --kategori-farge: #84cc16; }
+.kategori-diagnostikk { --kategori-farge: #64748b; }
+
 * { box-sizing: border-box; }
 
 html, body {

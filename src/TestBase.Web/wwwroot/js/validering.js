@@ -27,6 +27,37 @@ document.addEventListener("input", function (e) {
     }
 });
 
+// Deaktiverer submit-knappen med det samme og viser en "…"-tekst, for skjemaer
+// som utløser en treg og/eller ikke-idempotent handling (sender SMS/e-post,
+// oppretter en konto) — hindrer gjentatte klikk fra å sende samme handling
+// flere ganger mens siden laster (bugliste 2026-09-13 punkt 25). Legges på med
+// attributtet data-disable-on-submit="<tekst vist mens den laster>".
+document.addEventListener("submit", function (e) {
+    var form = e.target;
+    if (!(form instanceof HTMLFormElement) || !form.dataset.disableOnSubmit) {
+        return;
+    }
+
+    if (!form.checkValidity()) {
+        return;
+    }
+
+    var knapp = form.querySelector("button[type='submit'], input[type='submit']");
+    if (!knapp || knapp.disabled) {
+        return;
+    }
+
+    knapp.disabled = true;
+    var lastetekst = form.dataset.disableOnSubmit;
+    if (knapp.tagName === "BUTTON") {
+        knapp.dataset.opprinneligTekst = knapp.textContent;
+        knapp.textContent = lastetekst;
+    } else {
+        knapp.dataset.opprinneligTekst = knapp.value;
+        knapp.value = lastetekst;
+    }
+}, true);
+
 // Bekreftelse + enkelt regnestykke før permanent sletting — samme
 // lav-kompleksitet-prinsipp som innloggingssidenes sikkerhetsspørsmål
 // (se ICaptchaProvider), IKKE et tredjeparts-captcha. Skjemaet må ha et

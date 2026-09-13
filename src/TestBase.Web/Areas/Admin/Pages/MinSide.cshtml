@@ -1,10 +1,12 @@
 @page
-@model TestBase.Web.Areas.Admin.Pages.OppgaverModel
+@model TestBase.Web.Areas.Admin.Pages.MinSideModel
 @{
-    ViewData["Title"] = "Oppgaver";
+    ViewData["Title"] = "Min side";
 }
 
-<h1>Oppgaver</h1>
+<h1>Min side @(Model.UtlopteHprFrister.Any() ? $"({Model.UtlopteHprFrister.Count})" : "")</h1>
+
+<p><a href="/Admin/MinKonto">Min konto</a></p>
 
 @if (!Model.UtlopteHprFrister.Any())
 {

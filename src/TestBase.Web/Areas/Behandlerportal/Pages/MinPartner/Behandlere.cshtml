@@ -73,7 +73,7 @@ else
 </table>
 
 <h2>Inviter ny kollega</h2>
-<form method="post" asp-page-handler="Inviter">
+<form method="post" asp-page-handler="Inviter" data-disable-on-submit="Sender invitasjon …">
     <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
     <div><label>E-post</label><br /><input asp-for="Epost" /></div>
     <button type="submit">Inviter</button>

@@ -55,6 +55,12 @@ public sealed class RapportModel : PageModel
     public IReadOnlyList<SkaaringHistorikkPunkt> Historikk { get; private set; } = Array.Empty<SkaaringHistorikkPunkt>();
     public string? Melding { get; private set; }
 
+    /// <summary>Neste ugodkjente, fullførte rapport i køen — se bugliste 2026-09-13 punkt 26 ("Neste oppgave").</summary>
+    public long? NesteVentendeTildelingId { get; private set; }
+
+    /// <summary>Testens kategori, til rapportens fargekoding — se bugliste 2026-09-13 punkt 27.</summary>
+    public string? KategoriNavn { get; private set; }
+
     /// <summary>
     /// Sammendraget (tittel/intro/skåring/utvikling over tid) er ALLTID ett
     /// ark, uansett testens størrelse. Råskårene (de faktiske svarene) ligger
@@ -163,6 +169,7 @@ public sealed class RapportModel : PageModel
 
         Tildeling = innhold.Tildeling;
         Test = innhold.Test;
+        KategoriNavn = await _testService.HentPrimaerKategoriNavnAsync(Test.Id, cancellationToken);
 
         Skaaring = await _testService.BeregnSkaaringAsync(id, cancellationToken);
         if (Skaaring is null)
@@ -190,6 +197,12 @@ public sealed class RapportModel : PageModel
         if (Test.Kode is not null)
         {
             Historikk = await _testService.HentSkaaringHistorikkAsync(Pasient.Id, Test.Kode, cancellationToken);
+        }
+
+        if (Tildeling.RapportGodkjentUtc is not null)
+        {
+            var venterPaaGodkjenning = await _testService.HentUgodkjenteFullforteForBehandlerAsync(behandlerId, cancellationToken);
+            NesteVentendeTildelingId = venterPaaGodkjenning.Select(t => (long?)t.Tildeling.Id).FirstOrDefault();
         }
 
         return true;

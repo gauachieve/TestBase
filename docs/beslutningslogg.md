@@ -2150,6 +2150,86 @@ for alle fire roller. Favicon, prising-enkeltknapp og MADRS-S-layout verifisert 
 + testsuiten; partner-selvbetjening verifisert ved kodegjennomgang (krever et ekte partnerskap med
 minst to behandlere for en full klikk-gjennomgang).
 
+### Bugliste 2026-09-13, gruppe D del 2 — dobbelklikk-vern, oppgave/min-side-sammenslåing, kategori-fargekoding, IPDS-klyngeindikatorer (2026-09-13)
+
+Siste del av bug-listen — punktene 22, 25, 26, 27, 28 (punkt 5 er en ren praksis-bekreftelse,
+ingen kodeendring, se planen).
+
+**Dobbeltklikk-vern (punkt 25)**: nytt `data-disable-on-submit="<tekst>"`-attributt + en
+capture-phase `submit`-lytter i `wwwroot/js/validering.js` (allerede lastet globalt) — disabler
+submit-knappen og bytter teksten til den oppgitte "…"-teksten straks et gyldig skjema sendes inn,
+for å hindre dobbel innsending av trege/ikke-idempotente handlinger (SMS/e-post-utsendelse,
+kontoopprettelse, godkjenning). Lagt på: Godkjenn/Send-kopi i `Rapport.cshtml`, "Legg til
+pasient", "Inviter kollega" (begge Areas), "Legg til partner", Tildel-wizardens "Bekreft og send".
+Bevisst IKKE lagt på "Forkast"-knappen i `Rapport.cshtml` — den har allerede en konkurrerende
+inline `onsubmit="return confirm(...)"`; de to ville kollidert (capture-phase-lytteren ville
+disablet knappen før `confirm()` i det hele tatt rakk å svare, og latt den forbli disablet for
+godt hvis brukeren trykket Avbryt). Verifisert LIVE: Godkjenn-knappen ble bekreftet `disabled`
+med teksten "Godkjenner …" umiddelbart ved klikk.
+
+**"Neste oppgave"-knapp (punkt 26)**: `Rapport.cshtml.cs` slår etter en vellykket godkjenning opp
+neste ugodkjente/fullførte rapport i behandlerens kø (`HentUgodkjenteFullforteForBehandlerAsync`)
+og viser en lenke direkte dit. Verifisert LIVE (korrekt fravær av knappen når køen var tom etter
+den ene godkjenningen som ble gjort i denne økten).
+
+**Rapport-fargekoding per kategori (punkt 27)**: ny `TestKategoriFarge`-klasse i
+`TestBase.Shared/Domain/Tester/` — en FAST, forhåndsvalgt (ikke kjøretids-hashet) tabell fra alle
+16 Helsebiblioteket-kategorinavn til en CSS-slug/farge (`kategori-depresjon` osv.), for å
+garantere stabile farger som ikke endrer seg ved en ombygging. `Rapport.cshtml.cs` slår opp
+testens primærkategori (`TestService.HentPrimaerKategoriNavnAsync`, ny metode) og
+`Rapport.cshtml`/`site.css` viser en farget stripe + kategorinavn på rapport-headeren. Verifisert
+LIVE på en ekte PHQ-9-rapport: `rapport-tittelblokk` fikk klassen `kategori-depresjon`, blå farge
+(`#3b82f6`) og teksten "Depresjon og bipolaritet".
+
+**IPDS personlighetsforstyrrelse-klynger per ledd (punkt 28)**: `IpdsSkaaringsberegner.cs`
+utvidet med en ledd→klynge-nøkkel og en indikator-generator som grupperer alle "Ja"-besvarte ledd
+per klynge og legger til `TestSkaaringIndikator("Mulig personlighetsklynge (uverifisert)",
+"Indikerer: <klynge> – Ledd <n,m>", Positiv: false)` for enhver klynge med minst ett Ja-svar.
+**Kilde, verifisert (samme rigor som EQ40/WURS-fotnotene tidligere denne uken)**: Pfohl/Langbehns
+originalvalideringsartikkel "A cross-sectional testing of The Iowa Personality Disorder Screen in
+a psychiatric outpatient setting" (PMC3151206) sin Tabell 1 gir original engelsk itemtekst +
+tilhørende DSM-IV-personlighetsforstyrrelse for alle 11 ledd. Hvert av de 11 norske leddene i
+`IpdsTestSeeder.cs` ble innholdssammenlignet mot denne tabellen i SAMME rekkefølge — perfekt 1:1-
+match, ikke en gjetning: ledd 1+7 (humørsvingninger/ustabilt selvbilde) → Emosjonelt ustabil PF
+(borderline), 2+3 (oppmerksomhet/impulsivitet) → Histrionisk PF, 4+9+10 (mistillit/mistenksomhet/
+nag) → Paranoid PF, 5+6 (sosial angst/unngåelse) → Unnvikende PF, 8+11 (grandiositet/mangel på
+empati) → Narsissistisk PF. Klart merket "uverifisert" i selve indikatorteksten siden koblingen er
+litteraturbasert sekundærkilde, ikke en offisiell skåringsnøkkel fra rettighetshaver. Verifisert
+LIVE ende-til-ende: fylte ut en ekte IPDS-besvarelse som pasient (Ja på ledd 1 og 7, Nei på resten)
+og bekreftet at rapporten som behandler viste nøyaktig "Indikerer: Emosjonelt ustabil PF
+(borderline type) – Ledd 1,7" — i tillegg til den eksisterende enhetstesten
+`Ipds_Grupperer_JaBesvarteLedd_PerPersonlighetsklynge`.
+
+**Oppgaver → Min side, én samlet personlig side per rolle (punkt 22)**: de tre separate
+`Oppgaver.cshtml`-sidene (Admin/Behandlerportal/Pasientportal) er SLETTET. Innholdet er flyttet inn
+i hver rolles "Min side":
+- **Pasientportal**: `MinSide.cshtml` fikk et oppgave-antall som overskrifts-badge + en
+  oppsummeringslinje ("Du har N test(er) som venter på svar") — praktisk talt en sammenslåing av
+  to sider som allerede overlappet nesten helt.
+- **Behandlerportal**: `MinSide.cshtml(.cs)` (tidligere kun meldingsinnboks) er utvidet med
+  seksjonene fra den gamle Oppgaver-siden — utløpte HPR-frister for kolleger (kun synlig for
+  partner-admin, filtrert til egne behandlere), "Venter på godkjenning", og "Ikke besvart ennå" —
+  i tillegg til den eksisterende meldingsinnboksen. Ny `AntallOppgaver`-egenskap driver
+  overskrifts-badgen.
+- **Admin**: fikk sin FØRSTE "Min side" (`Areas/Admin/Pages/MinSide.cshtml(.cs)`, ny fil, ikke å
+  forveksle med den allerede eksisterende selvsletting-siden `MinKonto.cshtml` fra gruppe B) — viser
+  utløpte HPR-godkjenningsoppgaver, samme innhold som den slettede `Admin/Oppgaver`.
+- `_Layout.cshtml` mistet alle tre separate "Oppgaver"-navigasjonslenker; varselbadgene
+  (uleste meldinger, ubesvarte tester) flyttet over til de respektive "Min side"-lenkene.
+- `PaaminnelseService`s daglige påminnelse-e-post/SMS til behandler peker nå til
+  `/Behandlerportal/MinSide` i stedet for den slettede `/Behandlerportal/Oppgaver`.
+- Verifisert LIVE: både `/Admin/MinSide` og `/Behandlerportal/MinSide` bekreftet å rendre riktig
+  sammenslått innhold og korrekt navigasjon via full tilgjengelighetstre-snapshot.
+
+**Verifisert**: 26/26 tester grønt (25 eksisterende + ny
+`Ipds_Grupperer_JaBesvarteLedd_PerPersonlighetsklynge`), `dotnet build` rent. Dobbeltklikk-vern,
+"Neste oppgave", kategori-fargekoding, IPDS-klyngeindikator og oppgave/min-side-sammenslåingen for
+alle tre roller er alle klikk-testet live i tillegg til automatiserte tester — ingen gjenstående
+kun-kodeverifiserte punkter i denne gruppen.
+
+Med dette er alle 28 punktene i `bugs20260913.txt` gjennomført (gruppe A/B/C/D), committet, pushet
+og deployet til psytest.no.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt

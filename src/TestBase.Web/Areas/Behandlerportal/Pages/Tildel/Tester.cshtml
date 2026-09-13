@@ -40,7 +40,8 @@ else if (Model.ValgtePasienter.Any())
     <form method="post" asp-page-handler="Send" id="tildelForm"
           data-dekket-av-abonnement="@Model.Prisingskontekst.DekketAvAbonnement.ToString().ToLowerInvariant()"
           data-sms-gebyr-kr="@Model.Prisingskontekst.SmsGebyrKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-          data-antall-pasienter="@Model.ValgtePasienter.Count">
+          data-antall-pasienter="@Model.ValgtePasienter.Count"
+          data-disable-on-submit="Sender …">
         <input type="hidden" asp-for="PasientIderCsv" />
 
         <div class="tildel-kategori-tre">

@@ -9,21 +9,21 @@ using TestBase.Shared.Security;
 namespace TestBase.Web.Areas.Admin.Pages;
 
 /// <summary>
-/// Admins oppgaveliste — bugliste 2026-09-13 punkt 11 fylte den med den
-/// første ekte oppgavetypen: behandlere med utløpt, ugodkjent HPR-frist.
-/// Delt datakilde med alle andre admin-kontoer (og partner-admin sin
-/// filtrerte visning på Behandlerportal/Oppgaver) — når én godkjenner,
-/// forsvinner den fra alles liste automatisk siden det er DB-tilstand, ikke
-/// noe lokalt per bruker.
+/// Admins "Min side" — tidligere en egen "Oppgaver"-side, slått sammen hit
+/// (bugliste 2026-09-13 punkt 22, samme prinsipp som Behandlerportal/MinSide)
+/// siden Admin ikke har noen annen personlig side (meldingsinnboks finnes
+/// kun for Behandler). Eneste oppgavetype foreløpig: behandlere med utløpt,
+/// ugodkjent HPR-frist (punkt 11) — delt datakilde med partner-admin sin
+/// filtrerte visning på Behandlerportal/MinSide.
 /// </summary>
 [Authorize(Policy = "AdminOmrade")]
-public sealed class OppgaverModel : PageModel
+public sealed class MinSideModel : PageModel
 {
     private readonly AppDbContext _db;
     private readonly IAuditLogger _auditLogger;
     private readonly ICurrentUserContext _currentUser;
 
-    public OppgaverModel(AppDbContext db, IAuditLogger auditLogger, ICurrentUserContext currentUser)
+    public MinSideModel(AppDbContext db, IAuditLogger auditLogger, ICurrentUserContext currentUser)
     {
         _db = db;
         _auditLogger = auditLogger;
@@ -63,8 +63,8 @@ public sealed class OppgaverModel : PageModel
             .ToListAsync(cancellationToken);
 
         UtlopteHprFrister = behandlere
-            .Where(b => TestBase.Shared.Domain.Administrasjon.HprPolicy.ErUtlopt(b, DateTimeOffset.UtcNow))
-            .OrderBy(b => TestBase.Shared.Domain.Administrasjon.HprPolicy.BeregnFrist(b))
+            .Where(b => HprPolicy.ErUtlopt(b, DateTimeOffset.UtcNow))
+            .OrderBy(b => HprPolicy.BeregnFrist(b))
             .ToList();
     }
 }

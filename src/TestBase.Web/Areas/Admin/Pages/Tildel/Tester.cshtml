@@ -37,7 +37,7 @@ else if (Model.ValgtePasienter.Any())
 {
     <p>Tildeler til: <strong>@string.Join(", ", Model.ValgtePasienter.Select(p => p.Pasient.Navn ?? "(ikke fullført)"))</strong></p>
 
-    <form method="post" asp-page-handler="Send" id="tildelForm">
+    <form method="post" asp-page-handler="Send" id="tildelForm" data-disable-on-submit="Sender …">
         <input type="hidden" asp-for="PasientIderCsv" />
 
         <div class="tildel-kategori-tre">

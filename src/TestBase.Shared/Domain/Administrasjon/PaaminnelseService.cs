@@ -84,7 +84,8 @@ public sealed class PaaminnelseService
             return false;
         }
 
-        var lenke = $"{baseUrl.TrimEnd('/')}/Behandlerportal/Oppgaver";
+        // Oppgavelisten ble slått sammen inn i Min side (bugliste 2026-09-13 punkt 22).
+        var lenke = $"{baseUrl.TrimEnd('/')}/Behandlerportal/MinSide";
         var linjer = ugodkjente.Select(u => $"- Pasient {u.PasientId}: {u.TestNavn}");
         var melding =
             $"Du har {ugodkjente.Count} fullført(e) test(er) som venter på godkjenning:\n" +

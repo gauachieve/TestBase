@@ -201,6 +201,18 @@ public sealed class TestService
         }
     }
 
+    /// <summary>
+    /// Testens (primære) kategorinavn, til rapportens fargekoding per kategori
+    /// (bugliste 2026-09-13 punkt 27) — en test er i praksis kun i ÉN kategori
+    /// i dag (hver IInnebygdTestSeeder kobler kun til én), så "første" er trygt
+    /// selv om modellen i prinsippet tillater flere.
+    /// </summary>
+    public async Task<string?> HentPrimaerKategoriNavnAsync(long testId, CancellationToken cancellationToken = default) =>
+        await _db.TestKategoriKoblinger
+            .Where(k => k.TestId == testId)
+            .Join(_db.TestKategorier, k => k.TestKategoriId, kat => kat.Id, (k, kat) => kat.Navn)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public sealed record KategoriMedTester(TestKategori Kategori, IReadOnlyList<Test> Tester);
 
     /// <summary>

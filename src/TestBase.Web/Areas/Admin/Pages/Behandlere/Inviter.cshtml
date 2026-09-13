@@ -21,7 +21,7 @@ else
         <p style="color: darkred;">@Model.Feilmelding</p>
     }
 
-    <form method="post">
+    <form method="post" data-disable-on-submit="Sender invitasjon …">
         <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
         <div><label>eller e-post</label><br /><input asp-for="Epost" /></div>
         <button type="submit">Send invitasjon</button>

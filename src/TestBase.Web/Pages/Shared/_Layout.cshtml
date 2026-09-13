@@ -112,7 +112,7 @@
                         <a class="funksjonsknapp" href="/Admin/Pasienter"><partial name="_Ikon" model="@("pasienter")" />Pasienter</a>
                         <a class="funksjonsknapp" href="/Admin/Tester"><partial name="_Ikon" model="@("tester")" />Tester</a>
                         <a class="funksjonsknapp" href="/Admin/Tildel/Pasienter"><partial name="_Ikon" model="@("tildel")" />Tildel tester</a>
-                        <a class="funksjonsknapp" href="/Admin/Oppgaver"><partial name="_Ikon" model="@("oppgaver")" />Oppgaver</a>
+                        <a class="funksjonsknapp" href="/Admin/MinSide"><partial name="_Ikon" model="@("hus")" />Min side</a>
                         <a class="funksjonsknapp" href="/Admin/MinKonto"><partial name="_Ikon" model="@("administratorer")" />Min konto</a>
                         @if (erSuperadmin)
                         {
@@ -123,7 +123,13 @@
                     }
                     @if (erBehandler)
                     {
-                        <a class="funksjonsknapp" href="/Behandlerportal/MinSide"><partial name="_Ikon" model="@("hus")" />Min side</a>
+                        <a class="funksjonsknapp" href="/Behandlerportal/MinSide">
+                            <partial name="_Ikon" model="@("hus")" />Min side
+                            @if (antallUlesteMeldinger > 0)
+                            {
+                                <span class="varsel-badge">@antallUlesteMeldinger</span>
+                            }
+                        </a>
                         <a class="funksjonsknapp" href="/Behandlerportal/Pasienter"><partial name="_Ikon" model="@("pasienter")" />Pasienter</a>
                         <a class="funksjonsknapp" href="/Behandlerportal/Tildel/Pasienter"><partial name="_Ikon" model="@("tildel")" />Tildel tester</a>
                         <a class="funksjonsknapp" href="/Behandlerportal/Behandlere/Inviter"><partial name="_Ikon" model="@("inviter")" />Inviter kollega</a>
@@ -132,19 +138,11 @@
                             <a class="funksjonsknapp" href="/Behandlerportal/MinPartner/Behandlere"><partial name="_Ikon" model="@("behandlere")" />Min partner</a>
                             <a class="funksjonsknapp" href="/Behandlerportal/MinPartner/Prising"><partial name="_Ikon" model="@("tester")" />Partnerprising</a>
                         }
-                        <a class="funksjonsknapp" href="/Behandlerportal/Oppgaver">
-                            <partial name="_Ikon" model="@("oppgaver")" />Oppgaver
-                            @if (antallUlesteMeldinger > 0)
-                            {
-                                <span class="varsel-badge">@antallUlesteMeldinger</span>
-                            }
-                        </a>
                     }
                     @if (erPasient)
                     {
-                        <a class="funksjonsknapp" href="/Pasientportal/MinSide"><partial name="_Ikon" model="@("hus")" />Min side</a>
-                        <a class="funksjonsknapp" href="/Pasientportal/Oppgaver">
-                            <partial name="_Ikon" model="@("oppgaver")" />Oppgaver
+                        <a class="funksjonsknapp" href="/Pasientportal/MinSide">
+                            <partial name="_Ikon" model="@("hus")" />Min side
                             @if (antallUbesvarteTester > 0)
                             {
                                 <span class="varsel-badge">@antallUbesvarteTester</span>
