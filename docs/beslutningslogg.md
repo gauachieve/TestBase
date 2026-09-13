@@ -1949,6 +1949,38 @@ ikke lenger fylle inn PNR ved oppretting av pasient, kun ved BankID-innlogging).
 med Playwright: `Personnummer=123` → "Personnummer må bestå av nøyaktig 11 siffer.", gyldig verdi
 → lagres som normalt.
 
+### Produksjonsutfall: krasj ved oppstart pga. arkivert seed-admin-konto (2026-09-13)
+
+Oppdaget ved rutinemessig `/health`-sjekk etter gruppe A-deployen over: `www.psytest.no` svarte
+503 etter to påfølgende `azd deploy web`-kjøringer (begge med den kjente "ingen App Service
+deployment status change"-advarselen, se CLAUDE.md — denne gangen var det IKKE bare kosmetisk).
+`az webapp log download` + gjennomsøk av `StartupLogs/*_failure.log` viste roten:
+`MySqlConnector.MySqlException: Duplicate entry 'gaute-godager' for key
+'administratorer.IX_administratorer_AdminId'` — et `Unhandled exception` ved HVER oppstart, altså
+en total, vedvarende nedetid, ikke en forbigående feil.
+
+**Rotårsak**: seed-av-brukerens-egen-admin-blokken i `Program.cs` (se "Seed av brukerens egen
+admin-konto") slo kun opp eksisterende konto via `AdminAuthenticationService.
+FinnVedPersonnummerAsync`, som eksplisitt EKSKLUDERER arkiverte administratorer
+(`Where(a => !a.ErArkivert)`). Kontoen "gaute-godager" var på et tidspunkt blitt arkivert (hvordan/
+når er ikke sporet — ingen kodeendring denne økten rørte administrator-arkivering) — oppslaget
+fant derfor ingenting, og seed-logikken prøvde å OPPRETTE en ny rad med samme utledede `AdminId`
+("gaute-godager", fra `Seed:AdminNavn`), som krasjet på den unike indeksen. Dette var en LATENT
+bug uavhengig av denne øktens bugliste-arbeid — den ville krasjet ved enhver fremtidig omstart
+fra det øyeblikket kontoen ble arkivert, og tilfeldigvis først synlig nå fordi App Service ikke
+hadde restartet siden den datoen.
+
+**Fiks**: seed-blokken faller nå tilbake til å slå opp kontoen via `AdminId` (uavhengig av
+arkiveringsstatus) hvis personnummer-oppslaget ikke finner noe, og selvhelbreder den (nullstiller
+`ErArkivert`/`ArkivertUtc`, retter opp `Personnummer` til konfigurert verdi) i stedet for å prøve å
+opprette en duplikat — samme "selvhelbredende"-prinsipp koden allerede brukte for
+`ErSuperadmin`-flagget rett under. Verifisert: 25/25 tester fortsatt grønt, `dotnet build` rent.
+**Lærdom for videre arbeid**: enhver fremtidig admin-arkiveringsfunksjon (bl.a. gruppe B/D i denne
+buglisten — ekte slett-knapp for administratorer) MÅ eksplisitt hindre at seed-admin-kontoen
+(identifisert ved `Seed:AdminPersonnummer`) noensinne kan arkiveres/slettes via UI, ikke bare stole
+på at oppstarts-seedingen henter den tilbake — en admin som arkiverer/sletter denne kontoen ved et
+uhell bør få en tydelig feilmelding, ikke en stille handling som først krasjer appen ved neste omstart.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt

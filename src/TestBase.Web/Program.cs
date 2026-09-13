@@ -393,14 +393,22 @@ if (app.Environment.IsDevelopment())
     if (!string.IsNullOrWhiteSpace(seedAdminPersonnummer))
     {
         var seedAuthService = scope.ServiceProvider.GetRequiredService<AdminAuthenticationService>();
-        var seedAdmin = await seedAuthService.FinnVedPersonnummerAsync(seedAdminPersonnummer);
+        var seedAdminNavn = app.Configuration["Seed:AdminNavn"] ?? "Administrator";
+        var seedAdminId = app.Configuration["Seed:AdminId"] ?? seedAdminNavn.ToLowerInvariant().Replace(' ', '-');
+
+        var seedAdmin = await seedAuthService.FinnVedPersonnummerAsync(seedAdminPersonnummer)
+            // FinnVedPersonnummerAsync ekskluderer arkiverte kontoer — hvis denne
+            // spesifikke kontoen av en eller annen grunn ble arkivert, ville en blind
+            // "opprett ny" her krasje hele oppstarten på AdminId sin unike indeks
+            // (skjedde reelt 2026-09-13). Fall tilbake til å finne den uansett
+            // arkiveringsstatus via AdminId, og selvhelbrede (gjenopprett + rett opp
+            // personnummer) fremfor å krasje eller stille feile.
+            ?? await db.Administratorer.FirstOrDefaultAsync(a => a.AdminId == seedAdminId);
         if (seedAdmin is null)
         {
-            var seedAdminNavn = app.Configuration["Seed:AdminNavn"] ?? "Administrator";
             seedAdmin = new Administrator
             {
-                AdminId = app.Configuration["Seed:AdminId"]
-                    ?? seedAdminNavn.ToLowerInvariant().Replace(' ', '-'),
+                AdminId = seedAdminId,
                 MobilNr = app.Configuration["Seed:AdminMobilNr"] ?? "+4700000000",
                 Email = app.Configuration["Seed:AdminEpost"] ?? "admin@example.test",
                 FulltNavn = seedAdminNavn,
@@ -409,6 +417,12 @@ if (app.Environment.IsDevelopment())
                 OpprettetUtc = DateTimeOffset.UtcNow
             };
             db.Administratorer.Add(seedAdmin);
+        }
+        else
+        {
+            seedAdmin.ErArkivert = false;
+            seedAdmin.ArkivertUtc = null;
+            seedAdmin.Personnummer = seedAdminPersonnummer;
         }
 
         // Denne kontoen er den eneste som noensinne skal ha Superadmin (se
