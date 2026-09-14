@@ -2563,6 +2563,16 @@ reversert etterpå. Neste steg når ekte Vipps-legitimasjon er klar: sett
 kildekoden — via `azd env set` → Key Vault, se `infra/resources.bicep`), så bytter appen automatisk
 til ekte `VippsPaymentClient` og `VippsErMock` blir `false` av seg selv.
 
+### Forsidebilde erstattet (2026-09-15)
+
+`hero-placeholder.svg` på forsidens hero-seksjon (`Pages/Index.cshtml`) — eksplisitt merket
+"byttes ut senere" i alt-teksten helt siden fase 6-designomgangen — er erstattet med et ekte bilde
+brukeren la i repo-roten (`intro_image.jpg`, penn på notatblokk). Originalen var 4592×3448/2,1 MB,
+langt større enn nødvendig for en hero-seksjon som vises i maks ~640px bredde på skjerm — skalert
+ned til 1600px bredde (~124 KB, kvalitet 82) og lagt inn som `wwwroot/img/hero-intro.jpg`.
+`hero-placeholder.svg` er BEVISST beholdt (fortsatt i bruk på `Pages/Pasienter.cshtml`, den
+separate pasient-landingssiden — kun forsiden for behandler/admin fikk nytt bilde denne runden).
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt
