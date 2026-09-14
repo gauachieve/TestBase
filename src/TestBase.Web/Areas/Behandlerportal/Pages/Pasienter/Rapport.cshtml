@@ -91,6 +91,10 @@ else
         {
             <div class="rapport-seksjon">
                 <span class="rapport-seksjon-tittel">Utvikling over tid</span>
+                @if (Model.UtviklingsGraf is not null)
+                {
+                    <partial name="_UtviklingsGraf" model="Model.UtviklingsGraf" />
+                }
                 <table class="rapport-svartabell">
                     <thead><tr><th>Dato</th><th>Prosentskår</th><th>Endring fra forrige</th></tr></thead>
                     <tbody>

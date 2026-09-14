@@ -2417,6 +2417,87 @@ knappenes eksakte pikselmål/farge/posisjon lest ut direkte fra DOM-en, ikke bar
 skjermbilde; kolonnebredden verifisert empirisk mot den faktiske 5-knappersraden; versjonsnummeret
 bekreftet fra rå server-HTML via curl før og etter fiksen).
 
+### WHO-5 VAS + generisk "utvikling over tid"-graf (2026-09-14)
+
+Brukerens oppdrag: en repeterbar variant av WHO-5 for gjentatt måling, og en visuell graf for
+utvikling over tid i rapporten — bygget som INFRASTRUKTUR for gjenbruk i flere fremtidige tester,
+ikke en engangsløsning for kun denne ene testen.
+
+**WHO-5 VAS (`who5_vas`)** — `Who5VasTestSeeder.cs`: samme fem utsagn og samme tidsramme ("de siste
+to ukene") som originalen (Who5TestSeeder), men `TestSvartype.VisuellAnalogSkala` (glidebryter)
+i stedet for den 6-punkts Likert-skalaen. Endepunktene på glidebryteren er ORDRETT Likert-skalaens
+ytterpunkter ("Aldri"/"Hele tiden"), lagret i samme "verdi:tekst"-format
+(`TestLeddSvaralternativer`) som allerede brukes for Likert, bare med kun to nøkler (0 og 100) —
+ingen ny lagringsmekanisme trengtes. **Hvorfor VAS gjør gjentatt måling bedre**: en Likert-basert
+WHO-5 kan kun endre prosentskår i sprang på 4 (0/4/8/…/100, siden råskår×4 med råskår 0–25), mens
+en kontinuerlig 0–100-glidebryter fanger opp reelle, mindre endringer mellom to målinger — verifisert
+konkret i en egen test
+(`Who5Vas_KontinuerligSkaarKanSkilleVelvaereOgDepresjonsgrenseneNoeLikertIkkeKan`) som viser et
+utfall (skår mellom de to grenseverdiene) som er umulig for Likert-versjonen.
+
+**Skåring (`Who5VasSkaaringsberegner.cs`)**: råskår = sum av de fem 0–100-svarene (0–500),
+prosentskår = råskår/5 (matematisk gjennomsnittet). Grenseverdiene er hentet DIREKTE fra
+normeringslitteraturen på selve prosentskalaen — Topp CW, Østergaard SD, Søndergaard S, Bech P
+(2015). "The WHO-5 Well-Being Index: A Systematic Review of the Literature." Psychotherapy and
+Psychosomatics, 84(3), 167–176: prosentskår ≤ 50 anbefales som terskel for å screene videre for
+depresjon (sensitivitet 79-88 %, spesifisitet 76-88 %), og ≤ 28 er en strengere, mye brukt terskel
+for uttalt lav velvære. Kilden ble slått opp og verifisert (WebSearch), ikke husket/gjettet — samme
+standard som EQ40/WURS/IPDS tidligere.
+
+**VAS-glidebryteren i utfyllingssiden** (`Fyll.cshtml`): forbedret fra den allerede eksisterende,
+men helt nakne `<input type="range">`-fallbacken (fantes i kodebasen fra før uten noen reell test
+å bruke den, kun en generisk smoke-test) — la til synlige endepunkt-etiketter og egen styling
+(`.vas-slider`/`.vas-endepunkter` i site.css, farget med `--rolle-accent`). Bevisst IKKE lagt til
+et live tallvisning ved siden av glidebryteren: research (WebSearch) viste at å vise tallverdien
+mens brukeren drar gjør den om til en numerisk skala (NRS) i stedet for en ekte VAS, som måler en
+POSISJON, ikke et VALGT TALL — se "Visual analogue scale", Wikipedia, og CASRAI sin VAS-guide.
+Bevisst IKKE løst: en glidebryter uten forhåndsutfylt verdi ville i teorien unngått at en helt
+uberørt glidebryter (fortsatt midt på) lagres som et ekte "50"-svar (samme forskning nevner at en
+forhåndsplassert glidebryter "ankrer" svar mot midtpunktet) — dette krever en egen
+"rørt/ikke rørt"-sporingsmekanisme i JS og ble bevisst utsatt som en for stor kompleksitetsøkning
+for denne runden; notert her som en kjent, akseptert forenkling.
+
+**Generisk "utvikling over tid"-graf (NY, gjenbrukbar infrastruktur)**:
+- `ITestSkaaringsberegner.Referanselinjer` — en NY, valgfri default-egenskap (tom liste som
+  standard, C# 8 default interface-medlem) som lar en skåringsberegner navngi normerte horisontale
+  grenselinjer (f.eks. WHO-5 VAS sine "Velvære"/"Depresjon"). Alle 9 eksisterende
+  skåringsberegnere (WHO-5, PHQ-9, IPDS, MADRS-S, TRAPS I, RAADS-R, WURS, EQ40, søvn) krevde
+  IKKE en eneste kodeendring for å få dette — bekreftet med en egen test
+  (`SkaaringsberegnereUtenReferanselinjer_ReturnererTomListeSomStandard`).
+- `UtviklingsGrafBeregner.cs` — ren, testbar C# (ingen ASP.NET Core-avhengighet) som regner om
+  en `SkaaringHistorikkPunkt`-liste (finnes fra før, generisk for ALLE tester) + valgfrie
+  referanselinjer til ferdige SVG-koordinater: Y-akse fast 0–100, X-akse datopunkter jevnt fordelt,
+  med dato-ETIKETTER (ikke selve punktene) tynnet ut til høyst 8 synlige når det er flere målinger
+  enn det — første og siste dato vises ALLTID. Dekket av 5 egne enhetstester
+  (`UtviklingsGrafBeregnerTests.cs`), inkl. eksplisitt verifisering av at alle datapunkter
+  fortsatt tegnes selv når etikettene tynnes ut.
+- `Pages/Shared/_UtviklingsGraf.cshtml` — delt Razor-partial som rendrer et rent SVG-linjediagram
+  fra denne ferdigberegnede geometrien: rutenett + Y-akse-tall, dato-etiketter på X-aksen,
+  stiplede referanselinjer med tekstetikett, selve trendlinjen og sirkler per målepunkt (med
+  `<title>`-hover-tekst). **Kjent Razor-fallgruve underveis**: `<text>` er et reservert Razor-
+  "råtekst"-hjelpeelement som IKKE tillater attributter — kolliderer direkte med SVGs eget
+  `<text>`-element (som trenger x/y/class). Løst ved å bygge disse elementene som rå
+  strenger + `Html.Raw()` i stedet for vanlige Razor-tagger — verdt å huske for enhver fremtidig
+  SVG-i-Razor-kode i denne kodebasen.
+- Lagt inn i `Behandlerportal/Pasienter/Rapport.cshtml` sin eksisterende "Utvikling over tid"-
+  seksjon (over den allerede eksisterende tabellen, ikke i stedet for den — tabellen viser fortsatt
+  eksakte tall og "signifikant endring"-merking). **Bevisst IKKE lagt til** i (a) den inline-
+  stylede "Kopier til utklippstavle"-versjonen av rapporten (SVG limes upålitelig inn i eksterne
+  journalsystemers rikteksteditorer, samme forbehold som allerede gjelder CSS-klasser der), eller
+  (b) pasientens egen rapportside (`Pasientportal/Tester/Rapport.cshtml`), som i dag ikke viser
+  noen historikk i det hele tatt (kun behandlersiden gjorde det fra før) — å utvide pasientens
+  rapport til også å vise historikk er en egen, ikke forespurt beslutning, ikke tatt her.
+
+**Verifisert LIVE, ende-til-ende**: seedet testen, tildelte den til en pasient tre ganger via den
+ekte tildelingswizarden, fylte ut glidebryteren med tre ulike skårsett (72, 42, 18 — bevisst valgt
+for å krysse BEGGE referanselinjene), tidsforskjøv fullføringstidspunktene i lokal dev-database
+(01.08/15.08/01.09.2026) for en realistisk datospredning, og bekreftet i behandlerens rapport at
+grafen viser riktig fallende kurve, korrekte 0/25/50/75/100-Y-akselinjer, korrekte datoer på
+X-aksen, og begge referanselinjene ("Velvære (50 %)"/"Depresjon (28 %)") plassert nøyaktig der de
+skal være relativt til datapunktene. Bekreftet i tillegg at grafen skalerer korrekt på en ekte
+mobil viewport-størrelse (390×844) uten overflow. 36/36 automatiserte tester grønt (10 nye:
+5 for Who5VasSkaaringsberegner, 5 for UtviklingsGrafBeregner), `dotnet build` rent.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt

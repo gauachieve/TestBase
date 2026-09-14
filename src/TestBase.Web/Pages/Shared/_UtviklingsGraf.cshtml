@@ -1,0 +1,47 @@
+@using TestBase.Shared.Domain.Tester.Skaaring
+@model UtviklingsGrafData
+@{
+    var invariant = System.Globalization.CultureInfo.InvariantCulture;
+    string F(double tall) => tall.ToString("0.##", invariant);
+
+    // Razor tolker <text>...</text> som sitt eget "råtekst"-hjelpeelement og
+    // tillater IKKE attributter på det — kolliderer med SVGs <text>-element,
+    // som trenger x/y/class. Bygges derfor som rå streng + Html.Raw i stedet
+    // for som et vanlig Razor-tag.
+    string TekstTag(double x, double y, string cssKlasse, string ankerJustering, string innhold) =>
+        $"<text x=\"{F(x)}\" y=\"{F(y)}\" class=\"{cssKlasse}\" text-anchor=\"{ankerJustering}\">{System.Net.WebUtility.HtmlEncode(innhold)}</text>";
+}
+<svg class="utvikling-graf" viewBox="0 0 @F(UtviklingsGrafBeregner.Bredde) @F(UtviklingsGrafBeregner.Hoyde)" role="img" aria-label="Utvikling over tid">
+    @* Y-akse rutenett/etiketter: fast 0/25/50/75/100 uansett antall punkter. *@
+    @foreach (var nivaa in new[] { 0, 25, 50, 75, 100 })
+    {
+        var y = Model.PlotTopp + (1 - nivaa / 100.0) * (Model.PlotBunn - Model.PlotTopp);
+        <line x1="@F(Model.PlotVenstre)" y1="@F(y)" x2="@F(Model.PlotHoyre)" y2="@F(y)" class="utvikling-graf-rutenett" />
+        @Html.Raw(TekstTag(Model.PlotVenstre - 6, y + 3, "utvikling-graf-akse-tekst", "end", nivaa.ToString()))
+    }
+
+    @* Normerte referanselinjer (f.eks. WHO-5 VAS sine velvære-/depresjonsgrenser) — valgfrie, se ITestSkaaringsberegner.Referanselinjer. *@
+    @foreach (var referanse in Model.Referanselinjer)
+    {
+        <line x1="@F(Model.PlotVenstre)" y1="@F(referanse.Y)" x2="@F(Model.PlotHoyre)" y2="@F(referanse.Y)" class="utvikling-graf-referanselinje" />
+        @Html.Raw(TekstTag(Model.PlotHoyre - 4, referanse.Y - 4, "utvikling-graf-referanse-tekst", "end", $"{referanse.Navn} ({referanse.ProsentVerdi} %)"))
+    }
+
+    @* X-akse dato-etiketter — kun for punkter markert VisDatoLabel (tynnet ut ved mange målinger). *@
+    @foreach (var punkt in Model.Punkter)
+    {
+        if (punkt.VisDatoLabel)
+        {
+            @Html.Raw(TekstTag(punkt.X, Model.PlotBunn + 16, "utvikling-graf-akse-tekst", "middle", punkt.DatoKort))
+        }
+    }
+
+    @* Selve utviklingskurven, tegnet OVER referanselinjene, og datapunktene som sirkler. *@
+    <polyline points="@Model.PolylinePunkter" class="utvikling-graf-linje" />
+    @foreach (var punkt in Model.Punkter)
+    {
+        <circle cx="@F(punkt.X)" cy="@F(punkt.Y)" r="4" class="utvikling-graf-punkt">
+            <title>@punkt.DatoKort: @punkt.ProsentSkaar %</title>
+        </circle>
+    }
+</svg>

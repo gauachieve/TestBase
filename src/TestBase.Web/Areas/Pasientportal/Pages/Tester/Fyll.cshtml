@@ -72,7 +72,16 @@ else
                     }
                     else if (ledd.Svartype == TestSvartype.VisuellAnalogSkala)
                     {
-                        <input type="range" min="0" max="100" name="Svar_@ledd.Id" value="@(eksisterende ?? "50")" />
+                        var endepunkter = TestLeddSvaralternativer.Parse(ledd.Svaralternativer);
+                        var lavEndepunkt = endepunkter.OrderBy(p => p.Verdi).FirstOrDefault();
+                        var hoyEndepunkt = endepunkter.OrderByDescending(p => p.Verdi).FirstOrDefault();
+                        <div class="vas-glidebryter">
+                            <input type="range" class="vas-slider" min="0" max="100" name="Svar_@ledd.Id" value="@(eksisterende ?? "50")" />
+                            <div class="vas-endepunkter">
+                                <span>@(lavEndepunkt?.Tekst ?? "0")</span>
+                                <span>@(hoyEndepunkt?.Tekst ?? "100")</span>
+                            </div>
+                        </div>
                     }
                     else if (ledd.Svartype == TestSvartype.JaNei)
                     {

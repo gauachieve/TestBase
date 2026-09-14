@@ -981,6 +981,50 @@ dialog#oppsummeringDialog::backdrop { background: rgba(22, 24, 31, 0.5); }
   .svar-knapp { flex: 1 1 40%; }
 }
 
+/* ---------- Visuell analog skala (glidebryter) — se TestSvartype.VisuellAnalogSkala
+   og Fyll.cshtml. Viser BEVISST ikke tallverdien mens pasienten drar i den —
+   det ville gjort den om til en numerisk skala (NRS) i stedet for en ekte VAS,
+   se kildehenvisning i docs/beslutningslogg.md. ---------- */
+.vas-glidebryter { max-width: 480px; }
+.vas-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+  cursor: pointer;
+}
+.vas-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--rolle-accent);
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+.vas-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--rolle-accent);
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+.vas-slider::-moz-range-track { background: var(--border); height: 6px; border-radius: 999px; }
+.vas-endepunkter {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 0.5rem;
+}
+
 /* ---------- Rapport: A4-"papir"-visning med sideflipping og handlingsrad ---------- */
 /* Malen brukeren ga (report.png): stor to-linjers tittel, et dekorativt
    avrundet fargeblokk-hjørne øverst til høyre, seksjoner som fylte
@@ -1128,6 +1172,17 @@ dialog#oppsummeringDialog::backdrop { background: rgba(22, 24, 31, 0.5); }
 }
 .rapport-svartabell td { padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--border); }
 .rapport-svartabell tr:nth-child(even) td { background: var(--bg-soft); }
+
+/* "Utvikling over tid"-grafen (se Pages/Shared/_UtviklingsGraf.cshtml og
+   UtviklingsGrafBeregner) — generisk for ALLE tester med ≥2 fullførte
+   besvarelser, ikke bare WHO-5 VAS. */
+.utvikling-graf { width: 100%; height: auto; margin: 0.75rem 0 0.25rem; }
+.utvikling-graf-rutenett { stroke: var(--border); stroke-width: 1; }
+.utvikling-graf-akse-tekst { font-size: 9px; fill: var(--muted); }
+.utvikling-graf-referanselinje { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; }
+.utvikling-graf-referanse-tekst { font-size: 9px; fill: var(--muted); font-weight: 700; }
+.utvikling-graf-linje { fill: none; stroke: var(--rolle-accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.utvikling-graf-punkt { fill: var(--rolle-accent); stroke: #fff; stroke-width: 1.5; }
 
 .rapport-sidefot {
   position: absolute;

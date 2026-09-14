@@ -53,6 +53,10 @@ builder.Services.AddHostedService<DagligPaaminnelseBakgrunnstjeneste>();
 builder.Services.AddScoped<ITestSkaaringsberegner, Who5Skaaringsberegner>();
 builder.Services.AddScoped<IInnebygdTestSeeder, Who5TestSeeder>();
 
+// VAS-variant av WHO-5 for gjentatt måling over tid (2026-09-14), se Who5VasTestSeeder.
+builder.Services.AddScoped<ITestSkaaringsberegner, Who5VasSkaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, Who5VasTestSeeder>();
+
 // Åtte tester fra Helsebiblioteket (2026-09), se docs/beslutningslogg.md.
 builder.Services.AddScoped<ITestSkaaringsberegner, Phq9Skaaringsberegner>();
 builder.Services.AddScoped<IInnebygdTestSeeder, Phq9TestSeeder>();

@@ -637,6 +637,10 @@ public sealed class TestService
 
     public bool HarSkaaringsberegner(string? testKode) => FinnBeregner(testKode) is not null;
 
+    /// <summary>Se ITestSkaaringsberegner.Referanselinjer — tom liste for tester uten normerte grenseverdier.</summary>
+    public IReadOnlyList<TestSkaaringReferanselinje> HentReferanselinjer(string? testKode) =>
+        FinnBeregner(testKode)?.Referanselinjer ?? Array.Empty<TestSkaaringReferanselinje>();
+
     private ITestSkaaringsberegner? FinnBeregner(string? testKode) =>
         testKode is null ? null : _skaaringsberegnere.FirstOrDefault(b => b.TestKode == testKode);
 }

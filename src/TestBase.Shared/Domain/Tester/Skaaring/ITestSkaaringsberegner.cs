@@ -12,4 +12,13 @@ public interface ITestSkaaringsberegner
 {
     string TestKode { get; }
     TestSkaaring BeregnSkaaring(IReadOnlyList<TestSvar> svar);
+
+    /// <summary>
+    /// Valgfrie, navngitte horisontale referanselinjer fra normeringslitteraturen
+    /// (f.eks. WHO-5 VAS sine grenseverdier for velvære/depresjon) — brukt av
+    /// "utvikling over tid"-grafen (se Pages/Shared/_UtviklingsGraf.cshtml).
+    /// Tom liste som standard slik at eksisterende skåringsberegnere ikke må
+    /// endres for å ta i bruk grafinfrastrukturen.
+    /// </summary>
+    IReadOnlyList<TestSkaaringReferanselinje> Referanselinjer => Array.Empty<TestSkaaringReferanselinje>();
 }

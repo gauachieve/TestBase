@@ -8,5 +8,5 @@ namespace TestBase.Shared;
 /// </summary>
 public static class AppVersjon
 {
-    public const int Nummer = 1;
+    public const int Nummer = 2;
 }

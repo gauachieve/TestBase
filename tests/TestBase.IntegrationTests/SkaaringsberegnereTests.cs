@@ -153,4 +153,61 @@ public sealed class SkaaringsberegnereTests
         var soevnapne = resultat.Indikatorer!.Single(i => i.Navn == "Mulig søvnapné-mistanke");
         Assert.False(soevnapne.Positiv);
     }
+
+    [Fact]
+    public void Who5Vas_ProsentskaarErGjennomsnittAvDeFemVasSvarene()
+    {
+        // 80,80,80,80,80 -> gjennomsnitt 80, over velvære-grensen (50) og depresjon-grensen (28).
+        var resultat = new Who5VasSkaaringsberegner().BeregnSkaaring(Svar("80", "80", "80", "80", "80"));
+
+        Assert.Equal(400, resultat.RaaSkaar);
+        Assert.Equal(500, resultat.RaaSkaarMaks);
+        Assert.Equal(80, resultat.ProsentSkaar);
+        Assert.True(resultat.Indikatorer!.Single(i => i.Navn == "Velvære").Positiv);
+        Assert.True(resultat.Indikatorer!.Single(i => i.Navn == "Depresjon").Positiv);
+    }
+
+    [Fact]
+    public void Who5Vas_KontinuerligSkaarKanSkilleVelvaereOgDepresjonsgrenseneNoeLikertIkkeKan()
+    {
+        // Gjennomsnitt 40: under velvære-grensen (50) men OVER depresjon-grensen (28) —
+        // et utfall som er umulig for den diskrete Likert-versjonen, se
+        // Who5VasSkaaringsberegner sin klassekommentar.
+        var resultat = new Who5VasSkaaringsberegner().BeregnSkaaring(Svar("40", "40", "40", "40", "40"));
+
+        Assert.Equal(40, resultat.ProsentSkaar);
+        Assert.False(resultat.Indikatorer!.Single(i => i.Navn == "Velvære").Positiv);
+        Assert.True(resultat.Indikatorer!.Single(i => i.Navn == "Depresjon").Positiv, "Skal IKKE indikere depresjon når skåren er over depresjonsgrensen på 28.");
+    }
+
+    [Fact]
+    public void Who5Vas_LavtEnkeltsvarUtloserUtredningSelvOmTotalenErHoy()
+    {
+        // Fire svar på 90 (snitt ville vært 76 uten det femte) men ett enkeltsvar på 10 —
+        // skal likevel flagges, samme prinsipp som Likert-versjonens "0 eller 1 av 5".
+        var resultat = new Who5VasSkaaringsberegner().BeregnSkaaring(Svar("90", "90", "90", "90", "10"));
+
+        Assert.Contains("nærmere undersøkelse", resultat.Fortolkning);
+    }
+
+    [Fact]
+    public void Who5Vas_HarToNavngitteReferanselinjerFraNormeringen()
+    {
+        var referanselinjer = new Who5VasSkaaringsberegner().Referanselinjer;
+
+        Assert.Equal(2, referanselinjer.Count);
+        Assert.Equal(50, referanselinjer.Single(r => r.Navn == "Velvære").ProsentVerdi);
+        Assert.Equal(28, referanselinjer.Single(r => r.Navn == "Depresjon").ProsentVerdi);
+    }
+
+    [Fact]
+    public void SkaaringsberegnereUtenReferanselinjer_ReturnererTomListeSomStandard()
+    {
+        // Bekrefter at default-implementasjonen i ITestSkaaringsberegner faktisk
+        // fungerer for en beregner som ALDRI har blitt endret for å ta i bruk grafen.
+        // Må hentes via grensesnitt-typen — C#s default interface-medlemmer er
+        // ikke synlige gjennom en konkret klassereferanse, kun via grensesnittet.
+        ITestSkaaringsberegner beregner = new Who5Skaaringsberegner();
+        Assert.Empty(beregner.Referanselinjer);
+    }
 }

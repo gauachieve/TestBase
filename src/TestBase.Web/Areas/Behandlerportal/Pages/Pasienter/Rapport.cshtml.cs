@@ -53,6 +53,10 @@ public sealed class RapportModel : PageModel
     public TestSkaaring? Skaaring { get; private set; }
     public List<SideMedSvar> Sider { get; private set; } = new();
     public IReadOnlyList<SkaaringHistorikkPunkt> Historikk { get; private set; } = Array.Empty<SkaaringHistorikkPunkt>();
+
+    /// <summary>Ferdigberegnet SVG-geometri for "utvikling over tid"-grafen — null når det er &lt;2 besvarelser å vise (se UtviklingsGrafBeregner).</summary>
+    public UtviklingsGrafData? UtviklingsGraf { get; private set; }
+
     public string? Melding { get; private set; }
 
     /// <summary>Neste ugodkjente, fullførte rapport i køen — se bugliste 2026-09-13 punkt 26 ("Neste oppgave").</summary>
@@ -197,6 +201,11 @@ public sealed class RapportModel : PageModel
         if (Test.Kode is not null)
         {
             Historikk = await _testService.HentSkaaringHistorikkAsync(Pasient.Id, Test.Kode, cancellationToken);
+            if (Historikk.Count > 1)
+            {
+                var referanselinjer = _testService.HentReferanselinjer(Test.Kode);
+                UtviklingsGraf = UtviklingsGrafBeregner.Beregn(Historikk, referanselinjer);
+            }
         }
 
         if (Tildeling.RapportGodkjentUtc is not null)
