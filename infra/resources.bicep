@@ -66,6 +66,9 @@ param vippsSubscriptionKey string = ''
 @description('Vipps Merchant Serial Number — se main.bicep')
 param vippsMerchantSerialNumber string = ''
 
+@description('Vipps-miljø (Test/Produksjon) — se main.bicep')
+param vippsMiljo string = 'Test'
+
 @description('Hemmelighet for Vipps-webhook-verifisering — se main.bicep')
 @secure()
 param vippsWebhookSecret string = ''
@@ -469,6 +472,10 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'Vipps__MerchantSerialNumber'
           value: vippsMerchantSerialNumber
+        }
+        {
+          name: 'Vipps__Miljo'
+          value: vippsMiljo
         }
         {
           name: 'Vipps__WebhookSecret'

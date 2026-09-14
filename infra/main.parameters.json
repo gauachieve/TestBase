@@ -53,6 +53,9 @@
     "vippsMerchantSerialNumber": {
       "value": "${VIPPS_MERCHANT_SERIAL_NUMBER}"
     },
+    "vippsMiljo": {
+      "value": "${VIPPS_MILJO}"
+    },
     "vippsWebhookSecret": {
       "value": "${VIPPS_WEBHOOK_SECRET}"
     },

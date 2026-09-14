@@ -68,6 +68,9 @@ param vippsSubscriptionKey string = ''
 @description('Vipps Merchant Serial Number (MSN) — ikke hemmelig, men settes via azd-miljøvariabel for konsistens.')
 param vippsMerchantSerialNumber string = ''
 
+@description('Vipps-miljø: "Test" (standard, mot apitest.vipps.no) eller "Produksjon" (mot api.vipps.no) — ikke hemmelig. Settes via azd-miljøvariabelen VIPPS_MILJO.')
+param vippsMiljo string = 'Test'
+
 @description('Hemmelighet for å verifisere Vipps sine webhook-forespørsler (fra webhook-registreringen, se Security/PaymentWebhooks.cs) — settes via azd-miljøvariabelen VIPPS_WEBHOOK_SECRET, ALDRI som literal her.')
 @secure()
 param vippsWebhookSecret string = ''
@@ -125,6 +128,7 @@ module resources 'resources.bicep' = {
     vippsClientSecret: vippsClientSecret
     vippsSubscriptionKey: vippsSubscriptionKey
     vippsMerchantSerialNumber: vippsMerchantSerialNumber
+    vippsMiljo: vippsMiljo
     vippsWebhookSecret: vippsWebhookSecret
     stripeSecretKey: stripeSecretKey
     stripePublishableKey: stripePublishableKey
