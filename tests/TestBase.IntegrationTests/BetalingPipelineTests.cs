@@ -67,7 +67,9 @@ public sealed class BetalingPipelineTests
         test.MinstePartnerAndelKr = 10m;
         await db.SaveChangesAsync();
 
-        db.PartnerTestTilganger.Add(new PartnerTestTilgang { PartnerId = partner.Id, TestId = test.Id, GittAvAdministratorId = 1, OpprettetUtc = DateTimeOffset.UtcNow });
+        // PartnerTestTilgang opprettes nå automatisk av OpprettTestAsync siden
+        // partneren allerede fantes (se TestService.GiAllePartnereTilgangTilTestAsync,
+        // 2026-09-15) — kun andelen må settes opp eksplisitt her.
         db.PartnerTestAndeler.Add(new PartnerTestAndel { PartnerId = partner.Id, TestId = test.Id, AndelKr = 15m, SistEndretAvBehandlerId = behandler.Id, SistEndretUtc = DateTimeOffset.UtcNow });
         await db.SaveChangesAsync();
 
@@ -151,13 +153,16 @@ public sealed class BetalingPipelineTests
         db.Behandlere.Add(behandler);
         await db.SaveChangesAsync();
 
-        // To tester — partneren får KUN tilgang til den ene.
+        // To tester — begge får automatisk tilgang ved opprettelse siden partneren
+        // allerede fantes (se TestService.GiAllePartnereTilgangTilTestAsync,
+        // 2026-09-15). Fjerner tilgangen til den ene eksplisitt her for å simulere
+        // en Superadmin som har kuratert allow-listen ned igjen — akkurat som å
+        // fjerne en avkrysning på Admin/Partnere/Tester.
         var tillattTest = await testService.OpprettTestAsync("Tillatt test", null, null, kode: null);
         var ikkeTillattTest = await testService.OpprettTestAsync("Ikke tillatt test", null, null, kode: null);
-        db.PartnerTestTilganger.Add(new PartnerTestTilgang
-        {
-            PartnerId = partner.Id, TestId = tillattTest.Id, GittAvAdministratorId = 1, OpprettetUtc = DateTimeOffset.UtcNow
-        });
+        var ikkeTillattTilgang = await db.PartnerTestTilganger
+            .SingleAsync(t => t.PartnerId == partner.Id && t.TestId == ikkeTillattTest.Id);
+        db.PartnerTestTilganger.Remove(ikkeTillattTilgang);
         await db.SaveChangesAsync();
 
         var pasient = new Pasient

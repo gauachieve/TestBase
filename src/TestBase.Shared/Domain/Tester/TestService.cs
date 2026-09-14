@@ -47,7 +47,63 @@ public sealed class TestService
         };
         _db.Tester.Add(test);
         await _db.SaveChangesAsync(cancellationToken);
+
+        await GiAllePartnereTilgangTilTestAsync(test.Id, cancellationToken);
+
         return test;
+    }
+
+    /// <summary>
+    /// I test perioden skal en test automatisk være tilgjengelig for ALLE
+    /// partneres behandlere fra den opprettes. Uten dette var
+    /// PartnerTestTilgang-allow-listen (se docs/beslutningslogg.md "Partner
+    /// System + Test Monetization") i praksis en blokkeringsliste: en ny test
+    /// var usynlig for enhver partner-tilknyttet behandler helt til Superadmin
+    /// husket å krysse den av manuelt per partner på Admin/Partnere/Tester —
+    /// oppdaget 2026-09-15. Uavhengige (ikke partnertilknyttede) behandlere
+    /// berøres ikke av denne allow-listen i det hele tatt, se
+    /// HentKategoriTreAsync — de ser alltid alle aktive tester uansett.
+    /// GittAvAdministratorId=0 markerer raden som systemgenerert (samme
+    /// sentinel-mønster som Areas/Admin/Pages/Partnere/Tester.cshtml.cs sin
+    /// fallback når avsender-ID ikke kan parses).
+    /// </summary>
+    private async Task GiAllePartnereTilgangTilTestAsync(long testId, CancellationToken cancellationToken)
+    {
+        var partnerIderUtenTilgang = await _db.Partnere
+            .Where(p => !p.ErArkivert && !p.ErSlettet)
+            .Where(p => !_db.PartnerTestTilganger.Any(t => t.PartnerId == p.Id && t.TestId == testId))
+            .Select(p => p.Id)
+            .ToListAsync(cancellationToken);
+
+        if (partnerIderUtenTilgang.Count == 0)
+        {
+            return;
+        }
+
+        var na = DateTimeOffset.UtcNow;
+        _db.PartnerTestTilganger.AddRange(partnerIderUtenTilgang.Select(partnerId => new PartnerTestTilgang
+        {
+            PartnerId = partnerId,
+            TestId = testId,
+            GittAvAdministratorId = 0,
+            OpprettetUtc = na
+        }));
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Retter opp eksisterende hull: sikrer at ALLE partnere har tilgang til
+    /// ALLE tester, ikke bare de som opprettes fra nå av (se
+    /// GiAllePartnereTilgangTilTestAsync). Kjøres idempotent ved hver
+    /// applikasjonsoppstart (Program.cs) — legger kun til manglende par.
+    /// </summary>
+    public async Task GiAllePartnereTilgangTilAlleTesterAsync(CancellationToken cancellationToken = default)
+    {
+        var testIder = await _db.Tester.Select(t => t.Id).ToListAsync(cancellationToken);
+        foreach (var testId in testIder)
+        {
+            await GiAllePartnereTilgangTilTestAsync(testId, cancellationToken);
+        }
     }
 
     public Task<bool> FinnesTestMedKodeAsync(string kode, CancellationToken cancellationToken = default) =>

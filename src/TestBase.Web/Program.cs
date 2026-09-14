@@ -448,6 +448,10 @@ if (app.Environment.IsDevelopment())
     {
         await seeder.SeedAsync(testService);
     }
+
+    // Retter opp eksisterende hull + dekker tester opprettet før denne
+    // regelen fantes — se TestService.GiAllePartnereTilgangTilAlleTesterAsync.
+    await testService.GiAllePartnereTilgangTilAlleTesterAsync();
 }
 
 app.Run();

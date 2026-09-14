@@ -20,6 +20,10 @@
         {
             <form method="post" asp-page-handler="Vipps">
                 <button type="submit" class="btn-vipps">Vipps</button>
+                @if (Model.VippsErMock)
+                {
+                    <p class="checkout-info">Testmodus: ingen ekte Vipps-avtale er koblet til ennå, så dette simulerer en vellykket betaling uten at penger flyttes.</p>
+                }
             </form>
         }
 
@@ -41,11 +45,6 @@
             </div>
         }
     </div>
-
-    @if (!Model.VippsTilgjengelig && !Model.StripeTilgjengelig)
-    {
-        <p>Ingen betalingsmetode er konfigurert. Kontakt administrator.</p>
-    }
 
     <p class="checkout-vilkar">
         Betalingen er en engangsbetaling for denne ene testen — ikke et abonnement.

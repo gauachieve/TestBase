@@ -44,6 +44,7 @@ public sealed class BetalModel : PageModel
     public string TestNavn { get; private set; } = string.Empty;
     public decimal TotalprisKr { get; private set; }
     public bool VippsTilgjengelig { get; private set; }
+    public bool VippsErMock { get; private set; }
     public bool StripeTilgjengelig { get; private set; }
     public string? StripeClientSecret { get; private set; }
     public string? StripePublishableKey { get; private set; }
@@ -58,7 +59,26 @@ public sealed class BetalModel : PageModel
         }
 
         StripePublishableKey = _configuration["Stripe:PublishableKey"];
-        VippsTilgjengelig = !string.IsNullOrWhiteSpace(_configuration["Vipps:ClientId"]);
+
+        // IVippsClient er ALLTID registrert (ekte VippsPaymentClient når alle fire
+        // Vipps-nøklene er satt, ellers MockVippsClient — se Program.cs) — knappen
+        // skal derfor alltid vises og fungerer uansett hvilken av de to som er
+        // aktiv. Sjekker samme fire nøkler som Program.cs sin registreringslogikk
+        // (ikke bare ClientId, som ga feil merking hvis kun én nøkkel manglet) rent
+        // for å MERKE knappen med "test" når det faktisk er MockVippsClient bak,
+        // slik at ingen forveksler en simulert betaling med en ekte. Se
+        // MockVippsClient sin klassekommentar for hvorfor dette er trygt: ingen
+        // penger flyttes noensinne, og statusoppslaget den simulerer er alltid
+        // "Fanget" — bugfiks 2026-09-15, tidligere blokkerte fraværet av en ekte
+        // Vipps-avtale hele betalingssteget (og dermed test-utfyllingen) i test perioden.
+        var ekteVippsKonfigurert =
+            !string.IsNullOrWhiteSpace(_configuration["Vipps:ClientId"]) &&
+            !string.IsNullOrWhiteSpace(_configuration["Vipps:ClientSecret"]) &&
+            !string.IsNullOrWhiteSpace(_configuration["Vipps:SubscriptionKey"]) &&
+            !string.IsNullOrWhiteSpace(_configuration["Vipps:MerchantSerialNumber"]);
+        VippsTilgjengelig = true;
+        VippsErMock = !ekteVippsKonfigurert;
+
         StripeTilgjengelig = !string.IsNullOrWhiteSpace(_configuration["Stripe:SecretKey"]) && !string.IsNullOrWhiteSpace(StripePublishableKey);
 
         if (StripeTilgjengelig)

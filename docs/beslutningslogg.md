@@ -2498,6 +2498,71 @@ skal være relativt til datapunktene. Bekreftet i tillegg at grafen skalerer kor
 mobil viewport-størrelse (390×844) uten overflow. 36/36 automatiserte tester grønt (10 nye:
 5 for Who5VasSkaaringsberegner, 5 for UtviklingsGrafBeregner), `dotnet build` rent.
 
+### Bugfiks: nye tester usynlige for partner-tilknyttede behandlere (2026-09-15)
+
+Brukeren meldte: "Det virker som om nye tester må tildeles minst en partner før de blir
+tilgjengelige for ikke partner behandlere." Stemmer delvis — koden viste at UAVHENGIGE (ikke
+partnertilknyttede) behandlere ALLTID har sett alle aktive tester (`TestService.HentKategoriTreAsync`
+filtrerer kun når en `partnerId` er gitt), men enhver partner-tilknyttet behandler var reelt
+avhengig av at Superadmin manuelt krysset av testen for partneren på `Admin/Partnere/Tester`
+(`PartnerTestTilgang`-allow-listen, se "Partner System + Test Monetization") — en ny test var i
+praksis usynlig for ALLE partneres behandlere helt til noen husket å gjøre dette N ganger (én gang
+per partner). Med kun én partner i systemet i forrige testrunde var dette usynlig.
+
+Løsning, eksplisitt begrunnet med at vi fortsatt er i TEST PERIODEN (kan strammes inn igjen den
+dagen partner-kurering faktisk skal brukes til å begrense hvilke tester en partner får):
+`TestService.OpprettTestAsync` gir nå automatisk ALLE ikke-arkiverte/ikke-slettede partnere tilgang
+til en ny test i det den opprettes (`GiAllePartnereTilgangTilTestAsync`, privat), og en ny
+`GiAllePartnereTilgangTilAlleTesterAsync` kjøres idempotent ved hver applikasjonsoppstart
+(`Program.cs`, rett etter `IInnebygdTestSeeder`-løkken) for å rette opp allerede eksisterende hull —
+begge er ren "legg til manglende par"-logikk, ingen duplikater, ingen fjerning av allerede satte
+rader (så en Superadmin som har fjernet en partners tilgang til en SPESIFIKK test manuelt beholder
+den fjerningen — kun helt NYE tester/partnere fylles inn). `GittAvAdministratorId=0` markerer disse
+radene som systemgenererte (samme sentinel-mønster som allerede brukt i
+`Areas/Admin/Pages/Partnere/Tester.cshtml.cs` sin fallback).
+
+To eksisterende `BetalingPipelineTests`-tester bygde bevisst en scenario der en partner KUN fikk
+tilgang til én av to tester — måtte oppdateres til å eksplisitt FJERNE tilgangen til den ene testen
+etter opprettelse (i stedet for å legge til tilgang til den andre), siden begge nå får tilgang
+automatisk. Selve allow-list-HÅNDHEVELSEN i `TestTildelingsService.TildelOgVarsleAsync` og
+tre-visningens filtrering er urørt og fortsatt reell — en Superadmin kan fortsatt kuratere ned
+igjen, det er bare startpunktet som endret seg fra "ingenting" til "alt". 36/36 tester grønt.
+
+### Bugfiks: betalingssteget blokkerte test-utfylling uten ekte Vipps/Stripe-avtale (2026-09-15)
+
+Brukeren meldte at hun ikke kom gjennom til å fylle ut tester hun hadde satt en pris på — siden
+viste "Ingen betalingsmetode er konfigurert", og spurte hva som trengs for å legge inn en
+"jukse-betaling" for testing (hun har nå selv blitt godkjent for Vipps web, men det er en egen,
+senere oppgave å koble til EKTE Vipps-legitimasjon).
+
+Rotårsak: `Pasientportal/Tester/Betal.cshtml.cs` viste kun Vipps-/Stripe-betalingsknappene når de
+FIRE ekte Vipps-nøklene (`Vipps:ClientId`/`ClientSecret`/`SubscriptionKey`/`MerchantSerialNumber`)
+eller Stripe-nøklene faktisk var satt i konfigurasjon — selv om `IVippsClient`/`IStripeClient`
+ALLTID er registrert i DI (ekte klient når nøklene finnes, ellers `MockVippsClient`/
+`MockStripeClient`, se `Program.cs`). `azd env get-values` bekreftet at INGEN av disse er satt for
+`testbase-test` ennå, så begge knappene var alltid skjult i det faktiske pasientflyten — selv om
+mock-implementasjonene allerede fungerer fullt ut ende-til-ende (bevist tidligere via de
+diagnostiske `Pages/BetalingTest`-sidene): `MockVippsClient.OpprettBetalingAsync` simulerer en
+vellykket Vipps-redirect uten noe klientsidejavaskript i det hele tatt, og
+`MockVippsClient.HentStatusAsync` rapporterer alltid "Fanget" — nøyaktig det
+`BetalResultat.cshtml.cs` sin (leverandør-uavhengige) statusoppslags-bekreftelse trenger.
+
+Løsning: `VippsTilgjengelig` er nå ALLTID `true` (en fungerende klient — ekte eller mock — finnes
+alltid), med en ny `VippsErMock`-flagg som viser en tydelig "Testmodus: ingen ekte Vipps-avtale er
+koblet til ennå, så dette simulerer en vellykket betaling uten at penger flyttes"-tekst under
+knappen når det faktisk er `MockVippsClient` bak. Stripe er BEVISST IKKE endret på samme måte —
+`MockStripeClient` returnerer aldri en ekte `ClientSecret`, så Stripe sitt front-end-JS
+(Stripe Elements) kan ikke monteres uten en ekte (om enn test-modus) Stripe-konto; Stripe-knappen
+vises fortsatt kun når ekte Stripe-nøkler er satt. Den nå alltid-usanne
+"ingen betalingsmetode er konfigurert"-meldingen er fjernet fra viewet. Verifisert LIVE lokalt: satt
+en midlertidig pris på WHO-5 VAS, tildelt til en testpasient, bekreftet at Vipps-knappen med
+testmodus-teksten vises, klikket den, og fulgte hele redirect-runden til `BetalResultat` som viste
+"Betaling bekreftet! Du kan nå fylle ut testen." — testdata og testpris i lokal dev-database
+reversert etterpå. Neste steg når ekte Vipps-legitimasjon er klar: sett
+`Vipps:ClientId`/`ClientSecret`/`SubscriptionKey`/`MerchantSerialNumber` (aldri som literal i
+kildekoden — via `azd env set` → Key Vault, se `infra/resources.bicep`), så bytter appen automatisk
+til ekte `VippsPaymentClient` og `VippsErMock` blir `false` av seg selv.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt
