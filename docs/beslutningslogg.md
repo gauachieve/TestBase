@@ -2573,6 +2573,29 @@ ned til 1600px bredde (~124 KB, kvalitet 82) og lagt inn som `wwwroot/img/hero-i
 `hero-placeholder.svg` er BEVISST beholdt (fortsatt i bruk på `Pages/Pasienter.cshtml`, den
 separate pasient-landingssiden — kun forsiden for behandler/admin fikk nytt bilde denne runden).
 
+### Ekte Vipps satt i produksjon + bugfiks: manglende Idempotency-Key (2026-09-15)
+
+Brukeren ble godkjent av Vipps og satte `VIPPS_CLIENT_ID`/`VIPPS_CLIENT_SECRET`/
+`VIPPS_SUBSCRIPTION_KEY`/`VIPPS_MERCHANT_SERIAL_NUMBER`/`VIPPS_MILJO=Produksjon` selv via
+`azd env set` (verdiene aldri sett/sett av meg — kun nøkkelnavn bekreftet via
+`azd env get-values`). Bekreftet eksplisitt med brukeren at dette betyr EKTE Vipps
+(api.vipps.no, ikke apitest.vipps.no) før `azd provision` + `azd deploy web` ble kjørt — se
+"Vipps + Stripe (Apple Pay/Google Pay)" og "Vipps:Miljo som konfigurerbar azd-innstilling".
+
+Første reelle betalingsforsøk feilet med `400 Bad Request` fra Vipps:
+`"idempotencyKey": "The idempotencyKey field is required."`. Rotårsak:
+`VippsPaymentClient.OpprettBetalingAsync` (`epayment/v1/payments`) satte aldri
+`Idempotency-Key`-headeren Vipps ePayment API krever på betalingsopprettelse — usynlig i tidligere
+testing siden `MockVippsClient` (brukt inntil nå) ikke kaller noe ekte API i det hele tatt. Fikset
+ved å sende betalingsreferansen selv (`referanse`, allerede en stabil, unik streng per tildeling —
+se `PaymentWebhookReferanse`) som `Idempotency-Key`: en eventuell retry med samme referanse
+dedupliseres da trygt av Vipps i stedet for å opprette en ny betaling, i tråd med Vipps sin egen
+anbefaling om å bruke en nøkkel knyttet til selve forretningstransaksjonen, ikke en tilfeldig GUID
+per HTTP-kall. 36/36 tester grønt (ingen dedikerte enhetstester for selve HTTP-klienten — samme
+bevisste unntak som for øvrige ekte leverandørintegrasjoner, se "Åpne punkter til senere faser").
+Ikke selv verifisert med en fullført ekte betaling (krever godkjenning fra en ekte Vipps-app på en
+telefon) — brukeren gjør selv første reelle ende-til-ende-test.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt

@@ -53,6 +53,10 @@ public sealed class VippsPaymentClient : IVippsClient
             var token = await HentTokenAsync(cancellationToken);
 
             using var request = NyForespørsel(HttpMethod.Post, "epayment/v1/payments", token);
+            // Påkrevd av Vipps ePayment API på POST /payments (400 uten den) — brukes også til å
+            // gjøre en evt. retry med SAMME referanse trygg (Vipps dedupliserer på denne
+            // nøkkelen), så vi gjenbruker selve betalingsreferansen fremfor en tilfeldig GUID.
+            request.Headers.Add("Idempotency-Key", referanse);
             request.Content = JsonContent.Create(new
             {
                 amount = new { currency = "NOK", value = (long)Math.Round(belopNok * 100m, MidpointRounding.AwayFromZero) },
