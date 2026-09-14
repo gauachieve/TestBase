@@ -49,21 +49,26 @@ public sealed class FyllModel : PageModel
             return NotFound();
         }
 
+        Innhold = innhold;
+
+        // En allerede fullført tildeling skal ALDRI sendes til betaling — sjekkes FØR
+        // betalingsgaten under, uansett hva betalingsraden måtte si (2026-09-15: en
+        // gammel lenke til en allerede besvart/betalt test kunne i teorien sende
+        // pasienten til Vipps på nytt hvis betalingsraden av en eller annen grunn ikke
+        // reflekterte fullføringen — denne rekkefølgen gjør det umulig uansett årsak).
+        if (innhold.Tildeling.Status == TestTildelingStatus.Fullfort)
+        {
+            ErFullfort = true;
+            await LastNesteIkkeFullforteAsync(id, cancellationToken);
+            return Page();
+        }
+
         // Betaling må være bekreftet (eller ikke påkrevd) før utfylling kan starte, jf.
         // kravdokumentet — se docs/beslutningslogg.md "Partner System + Test Monetization".
         var betaling = await _testService.HentBetalingAsync(id, cancellationToken);
         if (betaling is { Status: BetalingStatus.Venter })
         {
             return RedirectToPage("Betal", new { id });
-        }
-
-        Innhold = innhold;
-
-        if (innhold.Tildeling.Status == TestTildelingStatus.Fullfort)
-        {
-            ErFullfort = true;
-            await LastNesteIkkeFullforteAsync(id, cancellationToken);
-            return Page();
         }
 
         GjeldendeSideNummer = innhold.Sider.Count == 0 ? 1 : Math.Clamp(side ?? 1, 1, innhold.Sider.Count);
@@ -86,6 +91,13 @@ public sealed class FyllModel : PageModel
         if (innhold is null || innhold.Tildeling.PasientId != HentPasientId())
         {
             return NotFound();
+        }
+
+        // Samme rekkefølge som OnGetAsync: en allerede fullført tildeling skal aldri
+        // kunne sendes til betaling eller få flere svar lagret via en gjenbrukt/stale POST.
+        if (innhold.Tildeling.Status == TestTildelingStatus.Fullfort)
+        {
+            return RedirectToPage(new { id });
         }
 
         // Gates ved bruk, ikke bare på OnGetAsync — en rå POST kan ellers hoppe over

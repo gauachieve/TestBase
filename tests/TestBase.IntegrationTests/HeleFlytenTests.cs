@@ -422,6 +422,38 @@ public sealed class HeleFlytenTests
             Assert.Equal("Alt bra.", svar[leddIder[3]]);
         }
 
+        // === M2: En allerede fullført tildeling skal ALDRI sendes til betaling, selv
+        // om betalingsraden av en eller annen grunn fortsatt sier "Venter" (2026-09-15:
+        // en pasient meldte at et gammelt lenke-klikk på en allerede besvart test
+        // trigget en ekte Vipps-betaling — se Fyll.cshtml.cs/Betal.cshtml.cs sin nye
+        // "sjekk Fullfort FØR betaling, uansett betalingsradens tilstand"-rekkefølge).
+        // Tvinger betalingsraden tilbake til Venter direkte i databasen for å
+        // simulere akkurat den mistenkte, uforklarte tilstanden uavhengig av årsak.
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var betaling = await db.TestTildelingBetalinger.SingleOrDefaultAsync(b => b.TestTildelingId == tildelingId);
+            if (betaling is null)
+            {
+                betaling = new TestTildelingBetaling
+                {
+                    TestTildelingId = tildelingId,
+                    PasientTotalprisKr = 100m,
+                    BehandlerHonorarKr = 100m,
+                    PlattformAndelKr = 0m,
+                    OpprettetUtc = DateTimeOffset.UtcNow
+                };
+                db.TestTildelingBetalinger.Add(betaling);
+            }
+            betaling.Status = BetalingStatus.Venter;
+            await db.SaveChangesAsync();
+        }
+
+        var gjenbesoktFyllResp = await client.GetAsync($"/Pasientportal/Tester/Fyll/{tildelingId}");
+        var gjenbesoktFyllHtml = await SkjemaHjelper.LesHtmlAsync(gjenbesoktFyllResp);
+        Assert.DoesNotContain("/Betal/", gjenbesoktFyllResp.RequestMessage!.RequestUri!.PathAndQuery);
+        Assert.Contains("Ferdig!", gjenbesoktFyllHtml);
+
         // === M: Audit-loggen skal ha rader for de viktigste handlingene =============
         await using (var scope = _factory.Services.CreateAsyncScope())
         {

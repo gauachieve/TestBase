@@ -136,6 +136,14 @@ public sealed class BetalModel : PageModel
             return NotFound();
         }
 
+        // Siste forsvarslinje FØR et ekte Vipps/Stripe-kall opprettes her: en allerede
+        // fullført tildeling skal ALDRI kunne trigge en (ny) betaling, uansett hva
+        // betalingsraden måtte si — se samme sjekk (og begrunnelse) i Fyll.cshtml.cs.
+        if (innhold.Tildeling.Status == TestTildelingStatus.Fullfort)
+        {
+            return RedirectToPage("Fyll", new { id });
+        }
+
         var betaling = await _testService.HentBetalingAsync(id, cancellationToken);
         if (betaling is null || betaling.Status != BetalingStatus.Venter)
         {

@@ -2596,6 +2596,41 @@ bevisste unntak som for øvrige ekte leverandørintegrasjoner, se "Åpne punkter
 Ikke selv verifisert med en fullført ekte betaling (krever godkjenning fra en ekte Vipps-app på en
 telefon) — brukeren gjør selv første reelle ende-til-ende-test.
 
+### Kritisk bugfiks: fullført test kunne (i teorien) sendes til betaling på nytt (2026-09-15)
+
+Brukeren meldte, rett etter at ekte Vipps ble satt i produksjon: å klikke en GAMMEL e-post-/
+SMS-lenke til en test hun allerede hadde besvart og betalt for, sendte henne til Vipps-betaling PÅ
+NYTT — flagget eksplisitt som en potensiell forretningskatastrofe (dobbeltbelastning av pasienter).
+
+Kodegjennomgang av hele betalingskjeden (`TestTildelingsService`, `TestService`,
+`Fyll.cshtml.cs`, `Betal.cshtml.cs`) fant INGEN kodesti som eksplisitt SETTER en
+`TestTildelingBetaling.Status` tilbake til `Venter` etter at den er `Betalt` — kun
+`MarkerBetalingBetaltAsync` endrer status, og kun én vei (→ `Betalt`). Rotårsaken er derfor ikke
+100 % bekreftet fra kildekoden alene (kan være en annen, distinkt tildeling av samme test, en
+race/timing-detalj rundt Vipps-returflyten, eller noe utenfor det jeg klarte å reprodusere i
+denne økten) — men uansett faktisk årsak var selve KODEREKKEFØLGEN i `Fyll.cshtml.cs`
+(`OnGetAsync`/`OnPostAsync`) og `Betal.cshtml.cs` (`LastBetalingAsync`) usikker: betalings-gaten
+(`betaling.Status == Venter` → send til Vipps/Betal) ble sjekket FØR sjekken på om tildelingen
+allerede var `Fullfort` — så HVIS betalingsraden noensinne befinner seg i denne uventede
+tilstanden (uansett hvordan), ville koden aktivt sende pasienten til en ekte betaling i stedet for
+å vise "allerede besvart".
+
+Fikset som en RENDYRKET forsvars-i-dybden-endring, uavhengig av om rotårsaken noensinne fullt ut
+identifiseres: alle tre stedene sjekker nå `TestTildelingStatus.Fullfort` FØRST og returnerer
+umiddelbart (ingen betalingssjekk, ingen Vipps-/Stripe-kall i det hele tatt) hvis testen allerede
+er fullført — uansett hva betalingsraden måtte si. Spesielt `Betal.cshtml.cs` sin
+`LastBetalingAsync` er den siste linjen mot et EKTE eksternt betalingskall (Vipps/Stripe), og har
+nå denne sjekken rett før den henter betalingsraden i det hele tatt.
+
+Ny ende-til-ende-regresjonstest lagt til i `HeleFlytenTests.cs` (etter den eksisterende
+fullføringsflyten): tvinger betalingsraden for en ALLEREDE fullført tildeling tilbake til `Venter`
+direkte i databasen (simulerer den mistenkte tilstanden uavhengig av årsak), gjør et nytt GET mot
+`/Pasientportal/Tester/Fyll/{id}`, og bekrefter at responsen IKKE omdirigerer til `/Betal/` og
+fortsatt viser "Ferdig!"-siden. 36/36 tester grønt. Ikke selv bekreftet mot ekte produksjonsdata
+om noen faktisk dobbel Vipps-betaling ble gjennomført — brukeren bør sjekke Vipps-portalen sin
+transaksjonshistorikk for denne konkrete testen/pasienten og eventuelt refundere derfra, dette er
+UTENFOR hva applikasjonskoden kan rette opp i etterkant.
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt
