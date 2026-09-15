@@ -90,6 +90,39 @@ public sealed class VippsPaymentClient : IVippsClient
         }
     }
 
+    public async Task<VippsFangetResultat> FangBetalingAsync(string referanse, decimal belopNok, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var token = await HentTokenAsync(cancellationToken);
+            using var request = NyForespørsel(HttpMethod.Post, $"epayment/v1/payments/{Uri.EscapeDataString(referanse)}/capture", token);
+            // Egen Idempotency-Key enn selve betalingsopprettelsen (som bruker referansen
+            // alene) — dette er en annen operasjon på samme betaling, se Vipps sin
+            // dokumentasjon for capture-endepunktet.
+            request.Headers.Add("Idempotency-Key", $"{referanse}-capture");
+            request.Content = JsonContent.Create(new
+            {
+                modificationAmount = new { currency = "NOK", value = (long)Math.Round(belopNok * 100m, MidpointRounding.AwayFromZero) }
+            });
+
+            using var response = await _http.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var feilInnhold = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogError("Vipps FangBetaling feilet for {Referanse} ({Status}): {Innhold}", referanse, response.StatusCode, feilInnhold);
+                return new VippsFangetResultat(false, $"Vipps svarte {(int)response.StatusCode}: {feilInnhold}");
+            }
+
+            _logger.LogInformation("Vipps-betaling {Referanse} fanget (capture) for {Belop} kr.", referanse, belopNok);
+            return new VippsFangetResultat(true, null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Uventet feil ved fanging (capture) av Vipps-betaling {Referanse}.", referanse);
+            return new VippsFangetResultat(false, ex.Message);
+        }
+    }
+
     public async Task<VippsStatusResultat> HentStatusAsync(string referanse, CancellationToken cancellationToken = default)
     {
         try

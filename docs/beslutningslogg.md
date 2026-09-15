@@ -2631,6 +2631,55 @@ om noen faktisk dobbel Vipps-betaling ble gjennomført — brukeren bør sjekke 
 transaksjonshistorikk for denne konkrete testen/pasienten og eventuelt refundere derfra, dette er
 UTENFOR hva applikasjonskoden kan rette opp i etterkant.
 
+### Kritisk bugfiks: Vipps-betaling ble aldri fanget (capture) — pengene nådde aldri selger (2026-09-15)
+
+Rett etter at ekte Vipps ble satt i produksjon, gjennomførte brukeren selv en ekte betaling for å
+teste hele kjeden. Appen viste "Betaling bekreftet!", men ~20 timer senere sto beløpet fortsatt
+som "Reservert" i selgerens egen Vipps-app — ikke trukket, ikke oppgjort. Bekreftet mot Vipps sin
+offisielle dokumentasjon (developer.vippsmobilepay.com): ePayment API bruker "reserver så fang"
+(reserve-and-capture) som STANDARD — en betaling som brukeren har godkjent går til status
+`AUTHORIZED` (kun en RESERVASJON hos betaleren), og blir ALDRI trukket for godt eller utbetalt til
+selgeren før selgeren selv gjør et eksplisitt `POST /epayment/v1/payments/{reference}/capture`-kall
+(kan skje sekunder eller opptil ~180 dager senere, avhengig av betalingsmetode). Uten dette
+kanselleres reservasjonen til slutt automatisk, og betaleren får pengene sine tilbake — selgeren
+sitter da igjen med NULL kroner til tross for at appen viste "bekreftet".
+
+Rotårsak: `VippsPaymentClient`/`BetalResultat.cshtml.cs` kalte ALDRI capture-endepunktet —
+`HentStatusAsync` sitt svar `AUTHORIZED` ble behandlet som ferdig betalt (`erBetaltHosLeverandor`
+inkluderte `VippsBetalingsstatus.Autorisert` som suksess) og markerte umiddelbart
+`TestTildelingBetaling.Status = Betalt` i egen database — helt usynlig i all tidligere testing
+siden `MockVippsClient` simulerer en allerede "Fanget" (ikke bare autorisert) betaling og aldri
+snakker med noe ekte API.
+
+Fikset ved å legge til et nytt `IVippsClient.FangBetalingAsync`-medlem (ekte implementasjon:
+`POST .../capture` med `modificationAmount` + egen `Idempotency-Key` forskjellig fra selve
+betalingsopprettelsens; mock: simulerer alltid vellykket fanging umiddelbart) og en ny privat
+`ErVippsBetalingBekreftetOgFangetAsync`-hjelper i `BetalResultat.cshtml.cs`: når Vipps rapporterer
+`Autorisert` (ikke allerede `Fanget`), fanges FULLT beløp med det samme — riktig valg siden testen
+leveres digitalt og umiddelbart ved bekreftet betaling, ingen grunn til å utsette slik man ville
+gjort for fysiske varer som først skal sendes. Siden testen ALLEREDE hadde markert brukerens
+konkrete transaksjon som `Betalt` i databasen (fra FØR denne fiksen), la jeg samme fangst-sjekk inn
+i den eksisterende "allerede betalt"-early-return-grenen også — selvhelbredende, slik at et nytt
+besøk på `/Pasientportal/Tester/BetalResultat/{tildelingId}` for DENNE spesifikke, allerede
+"betalte"-men-ikke-fangede transaksjonen faktisk trigger den manglende fangingen, uten å måtte
+gjøre noen direkte databaseendring i produksjon. 36/36 tester grønt.
+
+Vipps-webhooken (`Security/PaymentWebhooks.cs`) fikk IKKE samme fangst-logikk denne runden —
+`Vipps:WebhookSecret` er ikke konfigurert ennå, så webhook-mottakeren avviser (401) alt uansett og
+er for øyeblikket død kode i praksis; den synkrone `BetalResultat`-siden er derfor den ENESTE reelle
+bekreftelsesveien akkurat nå. Må huskes som en oppfølging DEN DAGEN webhooken faktisk kobles til
+(se "Åpne punkter til senere faser") — den vil trenge samme reserver-så-fang-behandling.
+
+**Om oppgjørstid** (fra Vipps sin offisielle dokumentasjon, se kilder): etter et vellykket capture
+tar det normalt to virkedager før beløpet faktisk overføres til selgerens bankkonto — dag 1 er
+selve fangingen, dag 2 genereres utbetalingstransaksjonen på kvelden/natten, dag 3 er selve
+bankoverføringen fra Vipps sin konto til selgerens. Beregnes hver dag (også helg/helligdag), men
+selve overføringsfrekvensen (daglig/ukentlig/månedlig) avhenger av den enkelte selgeravtalen.
+
+Kilder: [Settlements](https://developer.vippsmobilepay.com/docs/knowledge-base/settlements/),
+[Capture](https://developer.vippsmobilepay.com/docs/knowledge-base/reserve-and-capture/),
+[Capture the payment with the ePayment API](https://developer.vippsmobilepay.com/docs/APIs/epayment-api/api-guide/operations/capture/).
+
 ## Åpne punkter til senere faser
 
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt

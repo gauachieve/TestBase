@@ -53,6 +53,17 @@ public sealed class BetalResultatModel : PageModel
 
         if (betaling.Status == BetalingStatus.Betalt)
         {
+            // Selvhelbredende: en tidligere versjon av denne siden markerte en
+            // Vipps-betaling som "Betalt" i VÅR database straks Vipps rapporterte
+            // AUTORISERT, UTEN noensinne å fange (capture) beløpet hos Vipps — se
+            // ErVippsBetalingBekreftetOgFangetAsync sin doc-kommentar. Et nytt
+            // besøk her etter fiksen fanger derfor opp og retter en tidligere
+            // ufanget reservasjon også, ikke bare nye betalinger.
+            if (betaling.Metode == BetalingMetode.Vipps && betaling.BetalingsleverandorReferanse is not null)
+            {
+                await ErVippsBetalingBekreftetOgFangetAsync(betaling.BetalingsleverandorReferanse, betaling.PasientTotalprisKr, cancellationToken);
+            }
+
             ErBetalt = true;
             return Page();
         }
@@ -65,8 +76,7 @@ public sealed class BetalResultatModel : PageModel
 
         var erBetaltHosLeverandor = betaling.Metode switch
         {
-            BetalingMetode.Vipps => (await _vipps.HentStatusAsync(betaling.BetalingsleverandorReferanse, cancellationToken)).Status
-                is VippsBetalingsstatus.Autorisert or VippsBetalingsstatus.Fanget,
+            BetalingMetode.Vipps => await ErVippsBetalingBekreftetOgFangetAsync(betaling.BetalingsleverandorReferanse, betaling.PasientTotalprisKr, cancellationToken),
             BetalingMetode.Stripe => (await _stripe.HentStatusAsync(betaling.BetalingsleverandorReferanse, cancellationToken)).ErBetalt,
             _ => false
         };
@@ -76,12 +86,41 @@ public sealed class BetalResultatModel : PageModel
             await _testService.MarkerBetalingBetaltAsync(id, betaling.Metode.Value, betaling.BetalingsleverandorReferanse, cancellationToken);
             ErBetalt = true;
         }
-        else
+        else if (Feilmelding is null)
         {
             Feilmelding = "Betalingen er ikke bekreftet ennå. Prøv igjen om et øyeblikk, eller gå tilbake og forsøk på nytt.";
         }
 
         return Page();
+    }
+
+    /// <summary>
+    /// Vipps sin "reserver så fang"-modell: AUTORISERT betyr kun at beløpet er
+    /// RESERVERT hos betaleren, ALDRI at selgeren har mottatt noe — uten et
+    /// eksplisitt fangst-kall her hadde reservasjonen til slutt blitt kansellert
+    /// og betaleren fått pengene tilbake, uten at PsyTest noensinne mottok noe
+    /// (oppdaget 2026-09-15: en ekte betaling viste fortsatt "Reservert" i Vipps-
+    /// appen et helt døgn senere). Fanger FULLT beløp med det samme siden testen
+    /// leveres digitalt og umiddelbart ved bekreftet betaling.
+    /// </summary>
+    private async Task<bool> ErVippsBetalingBekreftetOgFangetAsync(string referanse, decimal belopNok, CancellationToken cancellationToken)
+    {
+        var status = await _vipps.HentStatusAsync(referanse, cancellationToken);
+        if (status.Status == VippsBetalingsstatus.Fanget)
+        {
+            return true;
+        }
+        if (status.Status != VippsBetalingsstatus.Autorisert)
+        {
+            return false;
+        }
+
+        var fanget = await _vipps.FangBetalingAsync(referanse, belopNok, cancellationToken);
+        if (!fanget.Success)
+        {
+            Feilmelding = $"Betalingen ble reservert hos Vipps, men kunne ikke fanges: {fanget.ErrorMessage}. Kontakt administrator — pengene er IKKE tapt, kun fortsatt reservert.";
+        }
+        return fanget.Success;
     }
 
     private long HentPasientId() =>

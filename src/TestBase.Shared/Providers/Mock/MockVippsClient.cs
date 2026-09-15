@@ -37,4 +37,10 @@ public sealed class MockVippsClient : IVippsClient
         _logger.LogInformation("[MOCK Vipps] Simulerer statusoppslag for {Referanse}: Fanget.", referanse);
         return Task.FromResult(new VippsStatusResultat(Success: true, VippsBetalingsstatus.Fanget, ErrorMessage: null));
     }
+
+    public Task<VippsFangetResultat> FangBetalingAsync(string referanse, decimal belopNok, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("[MOCK Vipps] Simulerer fanging (capture) av {Referanse} på {Belop} kr.", referanse, belopNok);
+        return Task.FromResult(new VippsFangetResultat(true, null));
+    }
 }

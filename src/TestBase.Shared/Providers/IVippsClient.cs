@@ -14,6 +14,8 @@ public sealed record VippsOpprettetBetaling(bool Success, string Referanse, stri
 
 public sealed record VippsStatusResultat(bool Success, VippsBetalingsstatus? Status, string? ErrorMessage);
 
+public sealed record VippsFangetResultat(bool Success, string? ErrorMessage);
+
 /// <summary>
 /// Grensesnitt mot Vipps ePayment API. Selve korttall/betalingsdetaljer skal
 /// ALDRI lagres i egen database — kun Vipps sin transaksjonsreferanse (se
@@ -31,4 +33,16 @@ public interface IVippsClient
         string referanse, decimal belopNok, string beskrivelse, string returUrl, CancellationToken cancellationToken = default);
 
     Task<VippsStatusResultat> HentStatusAsync(string referanse, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Vipps ePayment API bruker "reserver så fang" (reserve-and-capture) — en
+    /// AUTORISERT betaling er kun en RESERVASJON på betalerens konto, ALDRI
+    /// automatisk fanget/oppgjort. Uten et eksplisitt kall hit blir pengene aldri
+    /// trukket for godt og aldri utbetalt til selgerens konto — reservasjonen
+    /// kanselleres til slutt og betaleren får pengene tilbake. Se
+    /// docs/beslutningslogg.md "Kritisk bugfiks: Vipps-betaling ble aldri fanget"
+    /// (oppdaget 2026-09-15 fordi den ekte Vipps-appen viste "Reservert", ikke
+    /// trukket, et helt døgn etter en "vellykket" betaling i appen).
+    /// </summary>
+    Task<VippsFangetResultat> FangBetalingAsync(string referanse, decimal belopNok, CancellationToken cancellationToken = default);
 }
