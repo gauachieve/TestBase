@@ -2682,6 +2682,23 @@ Kilder: [Settlements](https://developer.vippsmobilepay.com/docs/knowledge-base/s
 
 ## Åpne punkter til senere faser
 
+- **[HANDLING PÅKREVD AV BRUKER]** Bekreft at 2026-09-14-transaksjonen (den første ekte
+  Vipps-betalingen, oppdaget "Reservert" i Vipps-appen ~20 timer etter godkjenning — se "Kritisk
+  bugfiks: Vipps-betaling ble aldri fanget") faktisk ble FANGET (capture) etter fiksen: besøk
+  `https://www.psytest.no/Pasientportal/Tester/BetalResultat/{tildelingId}` (id fra den opprinnelige
+  SMS-/e-post-lenken, `/Fyll/{id}`) innlogget som den pasienten — siden er selvhelbredende og
+  fanger reservasjonen ved besøk. Fjern denne linjen når bekreftet fanget OG at Vipps-appen viser
+  trukket (ikke lenger "Reservert") og etter hvert oppgjort til bankkontoen (se samme seksjon for
+  ~2 virkedagers oppgjørstid etter fanging).
+- **[HANDLING PÅKREVD AV BRUKER, LAVERE PRIORITET]** Vipps-webhooken (`Security/PaymentWebhooks.cs`)
+  er reell dødkode akkurat nå — `Vipps:WebhookSecret` er ikke konfigurert, så den avviser (401) alt
+  den mottar. Den synkrone `BetalResultat`-siden er eneste reelle bekreftelsesvei inntil videre
+  (fungerer helt fint alene), men BØR kobles til etter hvert for redundans (pasienten som aldri
+  kommer tilbake til returUrl, f.eks. ved nettverksfeil midt i Vipps-appen). Krever: registrere et
+  webhook-endepunkt hos Vipps (`https://www.psytest.no/webhooks/vipps`) og sette
+  `VIPPS_WEBHOOK_SECRET` via `azd env set` (samme mønster som de fire andre Vipps-nøklene). Husk òg
+  å legge til SAMME "fang før merk betalt"-logikk i webhook-handleren når den kobles til — den
+  mangler denne behandlingen ennå, se samme seksjon.
 - Stripe Connect-basert automatisk utbetaling til partnere/behandlere — helt
   utsatt i denne fasen, se "Partner System + Test Monetization". Databasen
   (Pengebevegelse) er bevisst formet slik at dette er tilføybart senere uten
