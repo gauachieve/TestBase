@@ -26,7 +26,13 @@ public sealed class Pasient
     /// <summary>Kun satt ved gruppeimport — ellers fylles navnet inn av pasienten selv ved egenregistrering.</summary>
     public string? Navn { get; set; }
 
-    public string? Gruppenavn { get; set; }
+    /// <summary>
+    /// Erstattet den tidligere fritekst-strengen "Gruppenavn" 2026-09-20 — se
+    /// Gruppe. Navigasjonsegenskapen brukes for visning (Include(p => p.Gruppe)),
+    /// aldri for skriving direkte (sett GruppeId).
+    /// </summary>
+    public long? GruppeId { get; set; }
+    public Gruppe? Gruppe { get; set; }
 
     public BiologiskKjonn? BiologiskKjonnVedFodsel { get; set; }
     public Kjonnsidentitet? Kjonnsidentitet { get; set; }
@@ -40,6 +46,15 @@ public sealed class Pasient
 
     /// <summary>Når egenregistreringen ble fullført.</summary>
     public DateTimeOffset? RegistrertUtc { get; set; }
+
+    /// <summary>
+    /// Satt for en pasient registrert via QR-selvregistrering (se
+    /// PasientInvitasjonService.RegistrerViaQrAsync) — lar dem fullføre
+    /// profilen sin (navn, kontaktinfo, personnummer) senere via en lenke
+    /// sendt på SMS/e-post, uten innlogging (se Pages/PasientRegistrering/
+    /// FullforProfil). Ikke et engangstoken — kan brukes gjentatte ganger.
+    /// </summary>
+    public string? ProfilFullforingToken { get; set; }
 
     /// <summary>Hvilke kanaler pasienten vil ha varsel om nye testtildelinger på — valgt ved egenregistrering, standard Begge.</summary>
     public Varslingspreferanse Varslingspreferanse { get; set; } = Varslingspreferanse.Begge;

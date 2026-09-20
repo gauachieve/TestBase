@@ -17,22 +17,34 @@ public sealed record TestMedPartnerAndel(Test Test, decimal EffektivAndelKr);
 /// Monetization". Ett samlet skjema/én Lagre-knapp for alle rader — se
 /// Admin/Tester/Prising/Index.cshtml.cs sitt motstykke for full begrunnelse
 /// (bugliste 2026-09-13 punkt 12).
+///
+/// Utvidet 2026-09-15 (bugliste punkt 3/4/5): partner-admin kan nå be om å
+/// legge til/fjerne tester fra denne listen selv, i stedet for å måtte be
+/// Superadmin gjøre det direkte på Admin/Partnere/Tester — forespørselen trer
+/// ikke i kraft før en administrator godkjenner den på Admin/MinSide, se
+/// TestTilgangForespoersel.
 /// </summary>
 public sealed class PrisingModel : PageModel
 {
     private readonly AppDbContext _db;
+    private readonly TestService _testService;
     private readonly IAuditLogger _auditLogger;
     private readonly ICurrentUserContext _currentUser;
 
-    public PrisingModel(AppDbContext db, IAuditLogger auditLogger, ICurrentUserContext currentUser)
+    public PrisingModel(AppDbContext db, TestService testService, IAuditLogger auditLogger, ICurrentUserContext currentUser)
     {
         _db = db;
+        _testService = testService;
         _auditLogger = auditLogger;
         _currentUser = currentUser;
     }
 
     public List<TestMedPartnerAndel> Tester { get; private set; } = new();
+    public List<Test> TesterUtenTilgang { get; private set; } = new();
+    public List<TestTilgangForespoersel> VentendeForesporsler { get; private set; } = new();
+    public Dictionary<long, string> TestNavnById { get; private set; } = new();
     public string? Feilmelding { get; private set; }
+    public string? Melding { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
@@ -41,7 +53,7 @@ public sealed class PrisingModel : PageModel
             return Forbid();
         }
 
-        await LastTesterAsync(_currentUser.PartnerId.Value, cancellationToken);
+        await LastAltAsync(_currentUser.PartnerId.Value, cancellationToken);
         return Page();
     }
 
@@ -53,8 +65,8 @@ public sealed class PrisingModel : PageModel
         }
 
         var partnerId = _currentUser.PartnerId.Value;
-        await LastTesterAsync(partnerId, cancellationToken);
-        var behandlerId = long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var bid) ? bid : 0;
+        await LastAltAsync(partnerId, cancellationToken);
+        var behandlerId = HentBehandlerId();
 
         foreach (var rad in Tester)
         {
@@ -95,7 +107,32 @@ public sealed class PrisingModel : PageModel
         return RedirectToPage();
     }
 
-    private async Task LastTesterAsync(long partnerId, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostForesporTilgangAsync(long testId, TestTilgangHandling handling, CancellationToken cancellationToken)
+    {
+        if (_currentUser.PartnerId is null)
+        {
+            return Forbid();
+        }
+
+        var partnerId = _currentUser.PartnerId.Value;
+        var resultat = await _testService.OpprettTestTilgangForespoerselAsync(partnerId, testId, handling, HentBehandlerId(), cancellationToken);
+        if (resultat.Opprettet)
+        {
+            Melding = "Forespørsel sendt til administrator for godkjenning.";
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(), "OpprettTestTilgangForespoersel",
+                nameof(TestTilgangForespoersel), $"{partnerId}/{testId}/{handling}", cancellationToken: cancellationToken);
+        }
+        else
+        {
+            Feilmelding = resultat.Feilmelding;
+        }
+
+        await LastAltAsync(partnerId, cancellationToken);
+        return Page();
+    }
+
+    private async Task LastAltAsync(long partnerId, CancellationToken cancellationToken)
     {
         var testIder = await _db.PartnerTestTilganger.Where(t => t.PartnerId == partnerId).Select(t => t.TestId).ToListAsync(cancellationToken);
         var tester = await _db.Tester.Where(t => testIder.Contains(t.Id)).OrderBy(t => t.Navn).ToListAsync(cancellationToken);
@@ -103,5 +140,17 @@ public sealed class PrisingModel : PageModel
 
         Tester = tester.Select(t => new TestMedPartnerAndel(
             t, andeler.TryGetValue(t.Id, out var a) ? a.AndelKr : t.MinstePartnerAndelKr)).ToList();
+
+        TesterUtenTilgang = await _db.Tester
+            .Where(t => t.ErAktiv && !testIder.Contains(t.Id))
+            .OrderBy(t => t.Navn)
+            .ToListAsync(cancellationToken);
+
+        VentendeForesporsler = await _testService.HentVentendeTestTilgangForesporslerForPartnerAsync(partnerId, cancellationToken);
+        var alleTestIder = VentendeForesporsler.Select(f => f.TestId).ToList();
+        TestNavnById = await _db.Tester.Where(t => alleTestIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Navn, cancellationToken);
     }
+
+    private long HentBehandlerId() =>
+        long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var id) ? id : 0;
 }

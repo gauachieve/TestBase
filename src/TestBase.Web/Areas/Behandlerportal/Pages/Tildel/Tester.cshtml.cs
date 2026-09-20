@@ -17,16 +17,44 @@ public sealed class TesterModel : PageModel
 {
     private readonly TestService _testService;
     private readonly TestTildelingsService _tildelingsService;
+    private readonly PlanlagtTildelingService _planlagtTildelingService;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuditLogger _auditLogger;
 
-    public TesterModel(TestService testService, TestTildelingsService tildelingsService, ICurrentUserContext currentUser, IAuditLogger auditLogger)
+    public TesterModel(
+        TestService testService, TestTildelingsService tildelingsService, PlanlagtTildelingService planlagtTildelingService,
+        ICurrentUserContext currentUser, IAuditLogger auditLogger)
     {
         _testService = testService;
         _tildelingsService = tildelingsService;
+        _planlagtTildelingService = planlagtTildelingService;
         _currentUser = currentUser;
         _auditLogger = auditLogger;
     }
+
+    /// <summary>"Na"/"ImorgenArbeidstid"/"Egendefinert" — valgt i planleggingsdialogen, se wwwroot/js/tildel.js.</summary>
+    [BindProperty]
+    public string PlanTidspunktValg { get; set; } = "Na";
+
+    /// <summary>Rå verdi fra et &lt;input type="datetime-local"&gt; ("Egendefinert") — tolkes som norsk lokaltid server-side.</summary>
+    [BindProperty]
+    public string? PlanEgendefinertLokal { get; set; }
+
+    [BindProperty]
+    public bool PlanGjentaAktiv { get; set; }
+
+    [BindProperty]
+    public DayOfWeek? PlanGjentaUkedag { get; set; }
+
+    /// <summary>Rå "HH:mm" fra et &lt;input type="time"&gt; — parses server-side, ikke bundet direkte til TimeSpan.</summary>
+    [BindProperty]
+    public string? PlanGjentaKlokkeslett { get; set; }
+
+    [BindProperty]
+    public int? PlanGjentaAntall { get; set; }
+
+    public bool PlanlagtOpprettet { get; private set; }
+    public DateTimeOffset? PlanlagtTidspunktVisning { get; private set; }
 
     [BindProperty]
     public string PasientIderCsv { get; set; } = string.Empty;
@@ -55,6 +83,7 @@ public sealed class TesterModel : PageModel
 
     public IReadOnlyList<TestService.KategoriMedTester> KategoriTre { get; private set; } = Array.Empty<TestService.KategoriMedTester>();
     public IReadOnlyDictionary<long, decimal> SistBrukteHonorarPerTestId { get; private set; } = new Dictionary<long, decimal>();
+    public IReadOnlyDictionary<long, int> EstimertMinutterPerTestId { get; private set; } = new Dictionary<long, int>();
     public IReadOnlyList<PasientMedBehandlernavn> ValgtePasienter { get; private set; } = Array.Empty<PasientMedBehandlernavn>();
     public string? Feilmelding { get; private set; }
     public TildelingsBatchResultat? Resultat { get; private set; }
@@ -91,6 +120,9 @@ public sealed class TesterModel : PageModel
         }
         SistBrukteHonorarPerTestId = sisteHonorar;
         Prisingskontekst = await _tildelingsService.HentPrisingskontekstAsync(behandlerId, alleTester.Select(t => t.Id).ToList(), cancellationToken);
+
+        var antallLedd = await _testService.HentAntallLeddPerTestAsync(alleTester.Select(t => t.Id).ToList(), cancellationToken);
+        EstimertMinutterPerTestId = antallLedd.ToDictionary(kv => kv.Key, kv => Math.Max(1, (int)Math.Ceiling(kv.Value * 15.0 / 60)));
     }
 
     public async Task<IActionResult> OnPostSendAsync(CancellationToken cancellationToken)
@@ -123,6 +155,82 @@ public sealed class TesterModel : PageModel
             _currentUser.UserId, _currentUser.Role.ToString(), "TildelTesterBatch",
             nameof(TestTildeling), string.Join(",", testIder), $"PasientIder {string.Join(",", pasientIder)}", cancellationToken);
 
+        return Page();
+    }
+
+    /// <summary>
+    /// Utsatt/gjentagende variant av OnPostSendAsync — brukes IKKE når bruker
+    /// velger "Nå" uten gjentagelse (da poster oppsummerings-dialogen til Send
+    /// som før, se tildel.js). Lagrer en PlanlagtTildeling i stedet for å
+    /// sende synkront, se PlanlagtTildelingBakgrunnstjeneste.
+    /// </summary>
+    public async Task<IActionResult> OnPostPlanleggAsync(CancellationToken cancellationToken)
+    {
+        HonorarKr = LesHonorarFraSkjema();
+        await LastValgtePasienterAsync(PasientIderCsv, cancellationToken);
+        KategoriTre = await _testService.HentKategoriTreAsync(_currentUser.PartnerId, cancellationToken);
+
+        if (!ValgtePasienter.Any())
+        {
+            Feilmelding = "Ingen gyldige pasienter valgt. Gå tilbake til steg 1.";
+            return Page();
+        }
+
+        var testIder = TestIder.Distinct().ToList();
+        if (testIder.Count == 0)
+        {
+            Feilmelding = "Velg minst én test.";
+            return Page();
+        }
+
+        DateTimeOffset planlagtUtc;
+        if (PlanTidspunktValg == "ImorgenArbeidstid")
+        {
+            planlagtUtc = PlanlagtTildelingService.BeregnImorgenArbeidstidUtc(DateTimeOffset.UtcNow);
+        }
+        else if (PlanTidspunktValg == "Egendefinert")
+        {
+            if (!DateTime.TryParse(PlanEgendefinertLokal, out var lokalDt))
+            {
+                Feilmelding = "Ugyldig tidspunkt valgt.";
+                return Page();
+            }
+            var osloTid = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+            planlagtUtc = new DateTimeOffset(DateTime.SpecifyKind(lokalDt, DateTimeKind.Unspecified), osloTid.GetUtcOffset(lokalDt));
+        }
+        else
+        {
+            planlagtUtc = DateTimeOffset.UtcNow;
+        }
+
+        DayOfWeek? gjentaUkedag = null;
+        TimeSpan? gjentaKlokkeslett = null;
+        int? gjentaAntall = null;
+        if (PlanGjentaAktiv && PlanGjentaUkedag is not null && PlanGjentaAntall is > 0
+            && TimeSpan.TryParse(PlanGjentaKlokkeslett, out var parsetKlokkeslett))
+        {
+            gjentaUkedag = PlanGjentaUkedag;
+            gjentaKlokkeslett = parsetKlokkeslett;
+            gjentaAntall = PlanGjentaAntall;
+            // Juster FØRSTE forekomst til faktisk å falle på valgt ukedag+klokkeslett,
+            // uansett hva PlanTidspunktValg alene ga oss over.
+            planlagtUtc = PlanlagtTildelingService.BeregnNesteForekomstUtc(planlagtUtc.AddSeconds(-1), gjentaUkedag.Value, gjentaKlokkeslett.Value);
+        }
+
+        var pasientIder = ValgtePasienter.Select(p => p.Pasient.Id).ToList();
+        var onsketHonorarKrPerTestId = testIder.ToDictionary(id => id, id => HonorarKr.GetValueOrDefault(id));
+        var behandlerId = HentBehandlerId();
+        await _planlagtTildelingService.OpprettAsync(
+            pasientIder, testIder, behandlerId: behandlerId, administratorId: null,
+            onsketHonorarKrPerTestId, Varslingsmetode, planlagtUtc,
+            gjentaUkedag, gjentaKlokkeslett, gjentaAntall, opprettetAvUserId: behandlerId, cancellationToken);
+
+        await _auditLogger.LogAsync(
+            _currentUser.UserId, _currentUser.Role.ToString(), "PlanleggTildelingBatch",
+            nameof(TestTildeling), string.Join(",", testIder), $"PasientIder {string.Join(",", pasientIder)}, planlagt {planlagtUtc:O}", cancellationToken);
+
+        PlanlagtOpprettet = true;
+        PlanlagtTidspunktVisning = planlagtUtc;
         return Page();
     }
 

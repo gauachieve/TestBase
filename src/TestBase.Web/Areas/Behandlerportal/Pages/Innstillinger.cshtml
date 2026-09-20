@@ -12,7 +12,7 @@
     <p>@Model.Melding</p>
 }
 
-<form method="post" asp-page-handler="Lagre">
+<form method="post" asp-page-handler="Lagre" data-disable-on-submit="Lagrer …">
     <div>
         <label><input asp-for="OnskerDagligPaaminnelse" type="checkbox" /> Send meg en daglig påminnelse om fullførte tester som venter på godkjenning</label>
     </div>
@@ -36,7 +36,7 @@
     }
 </p>
 
-<form method="post" asp-page-handler="SendNaa">
+<form method="post" asp-page-handler="SendNaa" data-disable-on-submit="Sender …">
     <button type="submit">Send test-påminnelse nå</button>
 </form>
 

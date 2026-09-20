@@ -87,4 +87,13 @@ public sealed class Behandler
     public DateTimeOffset? SistPaaminnetUtc { get; set; }
 
     public string? Visningsnavn => Fornavn is null && Etternavn is null ? null : $"{Fornavn} {Etternavn}".Trim();
+
+    /// <summary>
+    /// Token bak behandlerens generelle (ikke gruppespesifikke) QR-invitasjon
+    /// — se GruppeService/PasientInvitasjonService og
+    /// docs/beslutningslogg.md "Invitasjons- og gruppesystem, fase 2". Null
+    /// inntil behandler første gang åpner "Min side" og en genereres
+    /// automatisk. Kan regenereres (invaliderer forrige QR-kode/lenke).
+    /// </summary>
+    public string? PasientInviteQrToken { get; set; }
 }

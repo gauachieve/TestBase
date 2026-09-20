@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using TestBase.Shared.Providers;
+using TestBase.Web.Security;
 
 namespace TestBase.Web.Pages.BetalingTest;
 
@@ -12,12 +12,12 @@ namespace TestBase.Web.Pages.BetalingTest;
 /// </summary>
 public sealed class StripeResultatModel : PageModel
 {
-    private readonly IWebHostEnvironment _env;
+    private readonly IConfiguration _configuration;
     private readonly IStripeClient _stripe;
 
-    public StripeResultatModel(IWebHostEnvironment env, IStripeClient stripe)
+    public StripeResultatModel(IConfiguration configuration, IStripeClient stripe)
     {
-        _env = env;
+        _configuration = configuration;
         _stripe = stripe;
     }
 
@@ -26,7 +26,7 @@ public sealed class StripeResultatModel : PageModel
 
     public async Task<IActionResult> OnGetAsync([FromQuery(Name = "payment_intent")] string? paymentIntent, CancellationToken cancellationToken)
     {
-        if (!_env.IsDevelopment())
+        if (!Miljo.TillatUtviklingsSnarveier(_configuration))
         {
             return NotFound();
         }

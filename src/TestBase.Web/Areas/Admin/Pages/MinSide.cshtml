@@ -1,18 +1,90 @@
 @page
 @model TestBase.Web.Areas.Admin.Pages.MinSideModel
+@using TestBase.Shared.Domain.Administrasjon
 @{
     ViewData["Title"] = "Min side";
+    var antallOppgaver = Model.UtlopteHprFrister.Count + Model.VentendeTestTilgangForesporsler.Count;
 }
 
-<h1>Min side @(Model.UtlopteHprFrister.Any() ? $"({Model.UtlopteHprFrister.Count})" : "")</h1>
+<h1>Min side @(antallOppgaver > 0 ? $"({antallOppgaver})" : "")</h1>
 
 <p><a href="/Admin/MinKonto">Min konto</a></p>
 
-@if (!Model.UtlopteHprFrister.Any())
+@if (Model.VisBetalingsmodusBryter)
+{
+    <h2>Betalingsmodus (beta)</h2>
+    <p style="color: darkred;">
+        <strong>OBS:</strong> "Produksjon" for Vipps bruker den EKTE produksjonskontoen (samme som live) — en
+        betaling utført i den modusen trekker ekte penger. "Test" for både Vipps og Stripe er trygt (ingen ekte
+        penger), "Mock" gjør ingen nettverkskall i det hele tatt.
+    </p>
+    <form method="post" asp-page-handler="SettBetalingsmodus" data-disable-on-submit="Lagrer …">
+        <fieldset>
+            <legend>Vipps</legend>
+            <label><input type="radio" name="vippsModus" value="Mock" checked="@(Model.VippsModus == VippsDriftsmodus.Mock)" /> Mock</label>
+            <label>
+                <input type="radio" name="vippsModus" value="Test" checked="@(Model.VippsModus == VippsDriftsmodus.Test)" disabled="@(!Model.VippsTestKonfigurert)" />
+                Test @(!Model.VippsTestKonfigurert ? "(ingen Vipps-testnøkler satt ennå)" : "")
+            </label>
+            <label>
+                <input type="radio" name="vippsModus" value="Produksjon" checked="@(Model.VippsModus == VippsDriftsmodus.Produksjon)" disabled="@(!Model.VippsProduksjonKonfigurert)" />
+                Produksjon — EKTE PENGER @(!Model.VippsProduksjonKonfigurert ? "(ingen produksjonsnøkler satt på beta ennå)" : "")
+            </label>
+        </fieldset>
+        <fieldset>
+            <legend>Stripe</legend>
+            <label><input type="radio" name="stripeModus" value="Mock" checked="@(Model.StripeModus == StripeDriftsmodus.Mock)" /> Mock</label>
+            <label>
+                <input type="radio" name="stripeModus" value="Test" checked="@(Model.StripeModus == StripeDriftsmodus.Test)" disabled="@(!Model.StripeTestKonfigurert)" />
+                Test (ekte Stripe testmodus, ingen ekte penger) @(!Model.StripeTestKonfigurert ? "(ingen Stripe-nøkler satt ennå)" : "")
+            </label>
+        </fieldset>
+        <p><button type="submit" class="btn-accent">Lagre betalingsmodus</button></p>
+    </form>
+}
+
+@if (antallOppgaver == 0)
 {
     <p>Ingen oppgaver akkurat nå.</p>
 }
-else
+
+@if (Model.VentendeTestTilgangForesporsler.Any())
+{
+    <h2>Ventende test-tilgangsforespørsler (@Model.VentendeTestTilgangForesporsler.Count)</h2>
+    <form method="post">
+        <table border="1" cellpadding="6" cellspacing="0">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Partner</th>
+                    <th>Test</th>
+                    <th>Handling</th>
+                    <th>Forespurt av</th>
+                    <th>Dato</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var rad in Model.VentendeTestTilgangForesporsler)
+            {
+                <tr>
+                    <td><input type="checkbox" name="foresporselId" value="@rad.Forespoersel.Id" /></td>
+                    <td>@rad.PartnerNavn</td>
+                    <td>@rad.TestNavn</td>
+                    <td>@(rad.Forespoersel.Handling == TestBase.Shared.Domain.Tester.TestTilgangHandling.LeggTil ? "Legg til" : "Fjern")</td>
+                    <td>@(rad.ForespurtAvNavn ?? "-")</td>
+                    <td>@rad.Forespoersel.ForespurtUtc.ToString("g")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+        <p>
+            <button type="submit" asp-page-handler="GodkjennValgteTestTilgang" class="btn-accent" data-disable-on-submit="Godkjenner …">Godkjenn valgte</button>
+            <button type="submit" asp-page-handler="AvvisValgteTestTilgang" class="btn-icon--slett" data-disable-on-submit="Avviser …">Avvis valgte</button>
+        </p>
+    </form>
+}
+
+@if (Model.UtlopteHprFrister.Any())
 {
     <h2>HPR-godkjenning utløpt</h2>
     <table border="1" cellpadding="6" cellspacing="0">
@@ -32,7 +104,7 @@ else
                 <td>@(b.HprNr ?? "-")</td>
                 <td>@b.Email</td>
                 <td>
-                    <form method="post" asp-page-handler="GodkjennHpr" style="display:inline;">
+                    <form method="post" asp-page-handler="GodkjennHpr" style="display:inline;" data-disable-on-submit="Godkjenner …">
                         <input type="hidden" name="id" value="@b.Id" />
                         <button type="submit" class="btn-icon" title="Godkjenn HPR" aria-label="Godkjenn HPR">
                             <partial name="_Ikon" model="@("godkjenn")" />

@@ -53,7 +53,7 @@
             <td>
                 @if (a.ErSlettet)
                 {
-                    <form method="post" asp-page-handler="GjenopprettFraSlettet" style="display:inline;">
+                    <form method="post" asp-page-handler="GjenopprettFraSlettet" style="display:inline;" data-disable-on-submit="Gjenoppretter …">
                         <input type="hidden" name="id" value="@a.Id" />
                         <button type="submit" class="btn-icon" title="Gjenopprett" aria-label="Gjenopprett">
                             <partial name="_Ikon" model="@("gjenopprett")" />
@@ -65,7 +65,7 @@
                     <a class="btn-icon" href="/Admin/Administratorer/Rediger/@a.Id" title="Rediger" aria-label="Rediger">
                         <partial name="_Ikon" model="@("rediger")" />
                     </a>
-                    <form method="post" asp-page-handler="Arkiver" style="display:inline;">
+                    <form method="post" asp-page-handler="Arkiver" style="display:inline;" data-disable-on-submit="Lagrer …">
                         <input type="hidden" name="id" value="@a.Id" />
                         <button type="submit" class="btn-icon" title="@(a.ErArkivert ? "Gjenopprett" : "Arkiver")" aria-label="@(a.ErArkivert ? "Gjenopprett" : "Arkiver")">
                             <partial name="_Ikon" model="@(a.ErArkivert ? "gjenopprett" : "arkiver")" />

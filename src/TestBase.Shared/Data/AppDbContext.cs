@@ -34,6 +34,8 @@ public sealed class AppDbContext : DbContext
     public DbSet<ToFaktorKode> ToFaktorKoder => Set<ToFaktorKode>();
     public DbSet<Pasient> Pasienter => Set<Pasient>();
     public DbSet<PasientInvitasjon> PasientInvitasjoner => Set<PasientInvitasjon>();
+    public DbSet<Gruppe> Grupper => Set<Gruppe>();
+    public DbSet<GruppeTestTilordning> GruppeTestTilordninger => Set<GruppeTestTilordning>();
     public DbSet<Test> Tester => Set<Test>();
     public DbSet<TestSide> TestSider => Set<TestSide>();
     public DbSet<TestLedd> TestLedd => Set<TestLedd>();
@@ -47,6 +49,9 @@ public sealed class AppDbContext : DbContext
     public DbSet<PartnerTestAndel> PartnerTestAndeler => Set<PartnerTestAndel>();
     public DbSet<TestTildelingBetaling> TestTildelingBetalinger => Set<TestTildelingBetaling>();
     public DbSet<Pengebevegelse> Pengebevegelser => Set<Pengebevegelse>();
+    public DbSet<TestTilgangForespoersel> TestTilgangForesporsler => Set<TestTilgangForespoersel>();
+    public DbSet<PlanlagtTildeling> PlanlagteTildelinger => Set<PlanlagtTildeling>();
+    public DbSet<BetaBetalingsinnstilling> BetaBetalingsinnstillinger => Set<BetaBetalingsinnstilling>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -107,7 +112,9 @@ public sealed class AppDbContext : DbContext
             entity.Property(b => b.Tittel).HasMaxLength(128);
             entity.Property(b => b.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
             entity.Property(b => b.PaaminnelseKanal).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.Property(b => b.PasientInviteQrToken).HasMaxLength(64);
             entity.HasIndex(b => b.PartnerId);
+            entity.HasIndex(b => b.PasientInviteQrToken).IsUnique();
             entity.Ignore(b => b.Visningsnavn);
         });
 
@@ -150,14 +157,33 @@ public sealed class AppDbContext : DbContext
             entity.Property(p => p.MobilNr).HasMaxLength(32).IsRequired();
             entity.Property(p => p.Email).HasMaxLength(256).IsRequired();
             entity.Property(p => p.Navn).HasMaxLength(256);
-            entity.Property(p => p.Gruppenavn).HasMaxLength(128);
             entity.Property(p => p.BiologiskKjonnVedFodsel).HasConversion<string>().HasMaxLength(16);
             entity.Property(p => p.Kjonnsidentitet).HasConversion<string>().HasMaxLength(16);
             entity.Property(p => p.KjonnsidentitetSpesifisert).HasMaxLength(128);
             entity.Property(p => p.Adresse).HasMaxLength(256);
             entity.Property(p => p.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
             entity.Property(p => p.Varslingspreferanse).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.Property(p => p.ProfilFullforingToken).HasMaxLength(64);
             entity.HasIndex(p => p.BehandlerId);
+            entity.HasIndex(p => p.GruppeId);
+            entity.HasIndex(p => p.ProfilFullforingToken).IsUnique();
+        });
+
+        modelBuilder.Entity<Gruppe>(entity =>
+        {
+            entity.ToTable("grupper");
+            entity.HasKey(g => g.Id);
+            entity.Property(g => g.Navn).HasMaxLength(128).IsRequired();
+            entity.Property(g => g.QrToken).HasMaxLength(64).IsRequired();
+            entity.HasIndex(g => g.QrToken).IsUnique();
+            entity.HasIndex(g => g.BehandlerId);
+        });
+
+        modelBuilder.Entity<GruppeTestTilordning>(entity =>
+        {
+            entity.ToTable("gruppe_test_tilordninger");
+            entity.HasKey(t => t.Id);
+            entity.HasIndex(t => new { t.GruppeId, t.TestId }).IsUnique();
         });
 
         modelBuilder.Entity<PasientInvitasjon>(entity =>
@@ -270,6 +296,36 @@ public sealed class AppDbContext : DbContext
             entity.HasKey(a => a.Id);
             entity.HasIndex(a => new { a.PartnerId, a.TestId }).IsUnique();
             entity.Property(a => a.AndelKr).HasColumnType("decimal(10,2)");
+        });
+
+        modelBuilder.Entity<TestTilgangForespoersel>(entity =>
+        {
+            entity.ToTable("test_tilgang_foresporsler");
+            entity.HasKey(f => f.Id);
+            entity.Property(f => f.Handling).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.Property(f => f.Status).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.HasIndex(f => f.Status);
+        });
+
+        modelBuilder.Entity<BetaBetalingsinnstilling>(entity =>
+        {
+            entity.ToTable("beta_betalingsinnstillinger");
+            entity.HasKey(b => b.Id);
+            entity.Property(b => b.VippsModus).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.Property(b => b.StripeModus).HasConversion<string>().HasMaxLength(16).IsRequired();
+        });
+
+        modelBuilder.Entity<PlanlagtTildeling>(entity =>
+        {
+            entity.ToTable("planlagte_tildelinger");
+            entity.HasKey(p => p.Id);
+            entity.Property(p => p.PasientIderCsv).HasMaxLength(4000).IsRequired();
+            entity.Property(p => p.TestIderCsv).HasMaxLength(2000).IsRequired();
+            entity.Property(p => p.HonorarKrJson).HasMaxLength(4000);
+            entity.Property(p => p.Varslingsmetode).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.Property(p => p.Status).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.Property(p => p.GjentaUkedag).HasConversion<string>().HasMaxLength(16);
+            entity.HasIndex(p => new { p.Status, p.PlanlagtUtc });
         });
 
         modelBuilder.Entity<TestTildelingBetaling>(entity =>

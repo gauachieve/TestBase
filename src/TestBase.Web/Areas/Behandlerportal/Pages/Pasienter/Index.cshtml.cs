@@ -65,6 +65,7 @@ public sealed class IndexModel : PageModel
             var behandlerIder = behandlereIPartner.Select(b => b.Id).ToList();
 
             pasienter = await _db.Pasienter
+                .Include(p => p.Gruppe)
                 .Where(p => behandlerIder.Contains(p.BehandlerId) && !p.ErSlettet)
                 .OrderByDescending(p => p.OpprettetUtc)
                 .ToListAsync(cancellationToken);
@@ -75,6 +76,7 @@ public sealed class IndexModel : PageModel
         {
             var behandlerId = HentBehandlerId();
             pasienter = await _db.Pasienter
+                .Include(p => p.Gruppe)
                 .Where(p => p.BehandlerId == behandlerId && !p.ErSlettet)
                 .OrderByDescending(p => p.OpprettetUtc)
                 .ToListAsync(cancellationToken);

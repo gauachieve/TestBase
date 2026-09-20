@@ -45,4 +45,33 @@ public static class TestLeddSvaralternativer
 
         return punkter;
     }
+
+    /// <summary>
+    /// Samme parsing som <see cref="Parse"/>, men returnerer punktene i en
+    /// STOKKET visningsrekkefølge — brukt for PDS-ICD-11s ledd 1-10 (se
+    /// Fyll.cshtml), der den "sunne" midtre teksten alltid ligger i midten
+    /// KUN som en konvensjon fra papirversjonen av skjemaet, ikke fordi
+    /// rekkefølgen er klinisk meningsbærende (i motsetning til ledd 11-14,
+    /// som beholder sin faste, økende alvorlighetsrekkefølge via <see
+    /// cref="Parse"/>). Selve poengverdien (<see cref="Punkt.Verdi"/>) følger
+    /// alltid MED teksten den hørte til — kun visningsrekkefølgen endres, så
+    /// skåringen (som leser den innsendte verdien, ikke posisjonen) er
+    /// upåvirket. Deterministisk per <paramref name="seed"/> (f.eks. avledet
+    /// fra TestTildeling-id + ledd-id) slik at rekkefølgen er STABIL for én
+    /// og samme pasients besvarelse på tvers av Lagre/Neste-navigasjon, men
+    /// varierer mellom ulike pasienter/tildelinger.
+    /// </summary>
+    public static IReadOnlyList<Punkt> ParseStokket(string? svaralternativer, int seed)
+    {
+        var punkter = Parse(svaralternativer).ToList();
+        var tilfeldig = new Random(seed);
+
+        for (var i = punkter.Count - 1; i > 0; i--)
+        {
+            var j = tilfeldig.Next(i + 1);
+            (punkter[i], punkter[j]) = (punkter[j], punkter[i]);
+        }
+
+        return punkter;
+    }
 }

@@ -1,20 +1,18 @@
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using TestBase.Shared.Providers;
+using TestBase.Web.Security;
 
 namespace TestBase.Web.Pages.BetalingTest;
 
 /// <summary>Diagnostisk trigger for en ekte Vipps-testbetaling — se DevDemo.cshtml.</summary>
 public sealed class VippsModel : PageModel
 {
-    private readonly IWebHostEnvironment _env;
     private readonly IVippsClient _vipps;
     private readonly IConfiguration _configuration;
 
-    public VippsModel(IWebHostEnvironment env, IVippsClient vipps, IConfiguration configuration)
+    public VippsModel(IVippsClient vipps, IConfiguration configuration)
     {
-        _env = env;
         _vipps = vipps;
         _configuration = configuration;
     }
@@ -23,7 +21,7 @@ public sealed class VippsModel : PageModel
     {
         // Gates ved bruk, ikke bare via lenkens synlighet i DevDemo.cshtml — se
         // CLAUDE.md sine kjente fallgruver om dev-only-felt som kun er gatet i viewet.
-        if (!_env.IsDevelopment() || string.IsNullOrWhiteSpace(_configuration["Vipps:ClientId"]))
+        if (!Miljo.TillatUtviklingsSnarveier(_configuration) || string.IsNullOrWhiteSpace(_configuration["Vipps:ClientId"]))
         {
             return NotFound();
         }

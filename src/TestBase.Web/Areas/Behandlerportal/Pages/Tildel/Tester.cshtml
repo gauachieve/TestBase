@@ -33,6 +33,12 @@
     </ul>
     <p><a href="/Behandlerportal/Tildel/Pasienter">Tildel flere tester</a></p>
 }
+else if (Model.PlanlagtOpprettet)
+{
+    <h2>Utsending planlagt</h2>
+    <p>Sendes @Model.PlanlagtTidspunktVisning?.ToString("g").</p>
+    <p><a href="/Behandlerportal/Tildel/Pasienter">Tildel flere tester</a></p>
+}
 else if (Model.ValgtePasienter.Any())
 {
     <p>Tildeler til: <strong>@string.Join(", ", Model.ValgtePasienter.Select(p => p.Pasient.Navn ?? "(ikke fullført)"))</strong></p>
@@ -44,6 +50,7 @@ else if (Model.ValgtePasienter.Any())
           data-disable-on-submit="Sender …">
         <input type="hidden" asp-for="PasientIderCsv" />
 
+        <div class="tildel-med-info">
         <div class="tildel-kategori-tre">
         @foreach (var kategori in Model.KategoriTre)
         {
@@ -58,15 +65,23 @@ else if (Model.ValgtePasienter.Any())
                     <ul>
                     @foreach (var test in kategori.Tester)
                     {
+                        var visningsnavn = test.Navn + (string.IsNullOrEmpty(test.OversettelseNotat) ? "" : $" ({test.OversettelseNotat})");
                         <li>
                             <label>
                                 <input type="checkbox" name="TestIder" value="@test.Id" class="tildel-test-checkbox" data-test-id="@test.Id"
-                                       data-test-navn="@test.Navn"
+                                       data-test-navn="@visningsnavn"
+                                       data-beskrivelse="@test.Beskrivelse"
+                                       data-rapport-introduksjon="@test.RapportIntroduksjon"
+                                       data-estimert-min="@Model.EstimertMinutterPerTestId.GetValueOrDefault(test.Id)"
                                        data-minste-pris="@test.MinstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                                        data-storste-pris="@test.StorstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                                        data-typisk-honorar="@test.TypiskBehandlerHonorarKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                                        data-partner-andel="@Model.Prisingskontekst.EffektivPartnerAndelPerTestId.GetValueOrDefault(test.Id).ToString(System.Globalization.CultureInfo.InvariantCulture)" />
                                 @test.Navn
+                                @if (!string.IsNullOrEmpty(test.OversettelseNotat))
+                                {
+                                    <em>(@test.OversettelseNotat)</em>
+                                }
                             </label>
                             @if (test.StorstePrisKr > 0)
                             {
@@ -84,8 +99,12 @@ else if (Model.ValgtePasienter.Any())
             </details>
         }
         </div>
+        <aside class="test-infoboks skjult"></aside>
+        </div>
 
         <button type="button" id="apneOppsummering" class="btn btn-accent">Gå til oppsummering</button>
+
+        <partial name="_PlanleggingDialog" />
 
         <dialog id="oppsummeringDialog">
             <h2>Bekreft utsending</h2>
@@ -104,6 +123,7 @@ else if (Model.ValgtePasienter.Any())
             <p>Du sender følgende tester:</p>
             <ul id="oppsummeringTester"></ul>
             <p id="oppsummeringTotal" style="font-weight: bold;"></p>
+            <p id="oppsummeringPlanlegging" style="font-weight: bold;"></p>
 
             <p>til følgende pasienter:</p>
             <ul>
@@ -113,11 +133,13 @@ else if (Model.ValgtePasienter.Any())
             }
             </ul>
             <button type="button" id="lukkOppsummering" class="btn btn-muted">Avbryt</button>
-            <button type="submit" class="btn btn-accent">Bekreft og send</button>
+            <button type="submit" asp-page-handler="Send" class="btn btn-accent" id="sendNaaKnapp">Bekreft og send</button>
+            <button type="submit" asp-page-handler="Planlegg" class="btn btn-accent" id="sendPlanlagtKnapp" hidden>Bekreft og planlegg</button>
         </dialog>
     </form>
 
     <script src="~/js/tildel.js" asp-append-version="true"></script>
+    <script src="~/js/testinfo.js" asp-append-version="true"></script>
 }
 else
 {

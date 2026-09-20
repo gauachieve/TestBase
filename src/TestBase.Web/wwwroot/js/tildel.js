@@ -27,6 +27,98 @@
     var testeListe = document.getElementById('oppsummeringTester');
     var totalLinje = document.getElementById('oppsummeringTotal');
 
+    // Planleggingssteg (bugliste 2026-09-15 punkt 8) — et NYTT steg mellom
+    // testvalg og oppsummerings-dialogen: "Gå til oppsummering" åpner nå
+    // planDialog FØRST, og planNeste tar deg videre til den eksisterende
+    // oppsummeringDialog. Se Pages/Shared/_PlanleggingDialog.cshtml.
+    var planDialog = document.getElementById('planleggingDialog');
+    var planNeste = document.getElementById('planNeste');
+    var planAvbryt = document.getElementById('planAvbryt');
+    var planEgendefinertFelt = document.getElementById('planEgendefinertFelt');
+    var planEgendefinertInput = document.getElementById('planEgendefinertLokal');
+    var planGjentaAvkrysning = document.getElementById('planGjentaAvkrysning');
+    var planGjentaFelt = document.getElementById('planGjentaFelt');
+    var planlagtSammendrag = document.getElementById('oppsummeringPlanlegging');
+    var sendNaaKnapp = document.getElementById('sendNaaKnapp');
+    var sendPlanlagtKnapp = document.getElementById('sendPlanlagtKnapp');
+
+    var UKEDAG_NAVN = {
+        Monday: 'mandag', Tuesday: 'tirsdag', Wednesday: 'onsdag', Thursday: 'torsdag',
+        Friday: 'fredag', Saturday: 'lørdag', Sunday: 'søndag'
+    };
+
+    function visSkjult(el, vis) {
+        if (el) {
+            el.hidden = !vis;
+        }
+    }
+
+    if (planDialog) {
+        document.querySelectorAll('.plan-tidspunkt-valg').forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                visSkjult(planEgendefinertFelt, document.querySelector('.plan-tidspunkt-valg:checked').value === 'Egendefinert');
+            });
+        });
+
+        if (planGjentaAvkrysning) {
+            planGjentaAvkrysning.addEventListener('change', function () {
+                visSkjult(planGjentaFelt, planGjentaAvkrysning.checked);
+            });
+        }
+
+        if (planAvbryt) {
+            planAvbryt.addEventListener('click', function () {
+                planDialog.close();
+            });
+        }
+
+        if (planNeste) {
+            planNeste.addEventListener('click', function () {
+                var valgtTidspunkt = document.querySelector('.plan-tidspunkt-valg:checked').value;
+                if (valgtTidspunkt === 'Egendefinert' && (!planEgendefinertInput || !planEgendefinertInput.value)) {
+                    alert('Velg et tidspunkt før du går videre.');
+                    return;
+                }
+
+                var gjentaAktiv = planGjentaAvkrysning && planGjentaAvkrysning.checked;
+                var erNaaUtenGjentak = valgtTidspunkt === 'Na' && !gjentaAktiv;
+
+                if (planlagtSammendrag) {
+                    if (erNaaUtenGjentak) {
+                        planlagtSammendrag.textContent = '';
+                    } else {
+                        var tekst;
+                        if (valgtTidspunkt === 'ImorgenArbeidstid') {
+                            tekst = 'Sendes i morgen kl. 09:00.';
+                        } else if (valgtTidspunkt === 'Egendefinert') {
+                            tekst = 'Sendes ' + planEgendefinertInput.value.replace('T', ' kl. ') + '.';
+                        } else {
+                            tekst = 'Sendes nå, ';
+                        }
+                        if (gjentaAktiv) {
+                            var ukedag = UKEDAG_NAVN[document.getElementById('planGjentaUkedag').value] || '';
+                            var klokkeslett = document.getElementById('planGjentaKlokkeslett').value;
+                            var antall = document.getElementById('planGjentaAntall').value;
+                            tekst += (valgtTidspunkt === 'Na' ? '' : ' ') + 'Gjentas deretter hver ' + ukedag + ' kl. ' + klokkeslett + ', ' + antall + ' gang(er) totalt.';
+                        }
+                        planlagtSammendrag.textContent = tekst;
+                    }
+                }
+
+                if (sendNaaKnapp && sendPlanlagtKnapp) {
+                    sendNaaKnapp.hidden = !erNaaUtenGjentak;
+                    sendNaaKnapp.disabled = !erNaaUtenGjentak;
+                    sendPlanlagtKnapp.hidden = erNaaUtenGjentak;
+                    sendPlanlagtKnapp.disabled = erNaaUtenGjentak;
+                }
+
+                planDialog.close();
+                oppdaterOppsummering();
+                dialog.showModal();
+            });
+        }
+    }
+
     function tall(streng, fallback) {
         var n = parseFloat(streng);
         return isNaN(n) ? (fallback || 0) : n;
@@ -139,6 +231,14 @@
             var noeValgt = document.querySelectorAll('.tildel-test-checkbox:checked').length > 0;
             if (!noeValgt) {
                 alert('Velg minst én test før du går videre.');
+                return;
+            }
+
+            // Planleggingssteget kommer FØR oppsummeringen når det finnes på siden
+            // (begge Tildel/Tester-sidene har det, se _PlanleggingDialog.cshtml) —
+            // planNeste-lytteren over tar seg av å åpne oppsummeringDialog etterpå.
+            if (planDialog) {
+                planDialog.showModal();
                 return;
             }
 

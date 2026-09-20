@@ -1,0 +1,57 @@
+@page "{type}/{token}"
+@model TestBase.Web.Pages.BliPasient.IndexModel
+@{
+    ViewData["Title"] = "Bli pasient";
+}
+
+<h1>Registrer deg som pasient</h1>
+
+@if (Model.Fullfort)
+{
+    <p>Takk! Registreringen er fullført@(Model.GruppeNavn is not null ? $" — du er nå meldt inn i gruppen «{Model.GruppeNavn}»" : "").</p>
+    <p>Du kan nå logge inn med BankID for å se og fylle ut tildelte tester.</p>
+    <p><a href="/Pasientportal/Konto/LoggInn">Logg inn</a></p>
+}
+else if (!Model.GyldigLenke)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+else
+{
+    <p>
+        Du blir registrert som pasient hos <strong>@(Model.BehandlerNavn ?? "din behandler")</strong>
+        @if (Model.GruppeNavn is not null)
+        {
+            <text> i gruppen «<strong>@Model.GruppeNavn</strong>»</text>
+        }.
+    </p>
+    <p><em>Rask registrering — du kan legge inn navn og resten senere. Oppgi mobilnummer eller e-post (minst én av dem).</em></p>
+
+    @if (Model.Feilmelding is not null)
+    {
+        <p style="color: darkred;">@Model.Feilmelding</p>
+    }
+
+    <form method="post" data-disable-on-submit="Registrerer …">
+        <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
+        <div><label>E-post</label><br /><input asp-for="Epost" type="email" /></div>
+        <div>
+            <label>Personnummer (valgfritt — la stå tomt for å prøve systemet først)</label><br />
+            <input asp-for="Personnummer" />
+        </div>
+
+        <h2>Samtykke</h2>
+        <pre style="white-space: pre-wrap; border: 1px solid #ccc; padding: 1rem; max-height: 300px; overflow-y: auto;">@Model.AvtaleTekst</pre>
+        <div><label><input asp-for="GodtarLagringAvData" type="checkbox" required /> Jeg samtykker til lagring av opplysningene mine</label></div>
+
+        <!-- Bot-vern: skjult for mennesker, men botter fyller ofte ut alt -->
+        <div style="position: absolute; left: -9999px;" aria-hidden="true">
+            <label>Nettside</label>
+            <input asp-for="Nettside" tabindex="-1" autocomplete="off" />
+        </div>
+        <input type="hidden" asp-for="Vist" />
+
+        <br />
+        <button type="submit">Registrer meg</button>
+    </form>
+}

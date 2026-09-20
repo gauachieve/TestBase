@@ -42,20 +42,46 @@ document.addEventListener("submit", function (e) {
         return;
     }
 
-    var knapp = form.querySelector("button[type='submit'], input[type='submit']");
-    if (!knapp || knapp.disabled) {
+    var alleKnapper = form.querySelectorAll("button[type='submit'], input[type='submit']");
+    if (alleKnapper.length === 0) {
         return;
     }
 
-    knapp.disabled = true;
-    var lastetekst = form.dataset.disableOnSubmit;
-    if (knapp.tagName === "BUTTON") {
-        knapp.dataset.opprinneligTekst = knapp.textContent;
-        knapp.textContent = lastetekst;
-    } else {
-        knapp.dataset.opprinneligTekst = knapp.value;
-        knapp.value = lastetekst;
+    // Skjemaer med FLERE innsendingsknapper (f.eks. Forrige/Lagre/Neste på
+    // Pasientportal/Tester/Fyll) skal vise lastetekst KUN på knappen som
+    // faktisk ble klikket (e.submitter), men likevel deaktivere ALLE — ellers
+    // kan brukeren dobbelklikke en ANNEN knapp enn den som ble deaktivert.
+    var klikketKnapp = e.submitter && alleKnapper.length && Array.prototype.includes.call(alleKnapper, e.submitter)
+        ? e.submitter
+        : alleKnapper[0];
+    if (klikketKnapp.disabled) {
+        return;
     }
+
+    // Viser lastetekst på den klikkede knappen UMIDDELBART (visuell tilbakemelding),
+    // men UTSETTER selve disabled=true til etter denne tasken — å deaktivere
+    // knappen synkront her fjerner STILLE dens eget name=value-par (f.eks.
+    // "Handling=Ferdig") fra selve innsendingen, fordi nettleseren bygger
+    // skjemaets entry-list ut fra knappenes tilstand PÅ INNSENDINGSTIDSPUNKTET,
+    // ikke før submit-eventet ble trigget. Så lenge den faktiske disabling skjer
+    // via setTimeout (neste task), rekker nettleseren å lese knappens
+    // navn/verdi FØRST — oppdaget 2026-09-20 da "Ferdig" på Pasientportal/
+    // Tester/Fyll aldri markerte testen fullført i en ekte nettleser (kun
+    // maskert i HeleFlytenTests.cs, som poster skjemadata direkte og aldri
+    // kjører denne JS-en).
+    var lastetekst = form.dataset.disableOnSubmit;
+    if (klikketKnapp.tagName === "BUTTON") {
+        klikketKnapp.dataset.opprinneligTekst = klikketKnapp.textContent;
+        klikketKnapp.textContent = lastetekst;
+    } else {
+        klikketKnapp.dataset.opprinneligTekst = klikketKnapp.value;
+        klikketKnapp.value = lastetekst;
+    }
+    setTimeout(function () {
+        alleKnapper.forEach(function (knapp) {
+            knapp.disabled = true;
+        });
+    }, 0);
 }, true);
 
 // Bekreftelse + enkelt regnestykke før permanent sletting — samme

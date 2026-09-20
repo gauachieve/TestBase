@@ -26,11 +26,32 @@ public static class StagingGate
 
     // OIDC-callbacken for BankID-testintegrasjonen (Program.cs, CallbackPath) svarer med en
     // cross-site POST fra Idura sitt domene (response_mode=form_post) — StagingGate-cookien er
-    // SameSite=Lax og blir da IKKE sendt av nettleseren, så denne ene, faste stien må unntas fra
-    // sperren. Trygt: stien er hardkodet (ingen wildcard), og selve OIDC-håndteringen validerer
-    // state/nonce/PKCE uansett — en vilkårlig POST hit uten en ekte Idura-autorisasjonskode gir
-    // ingenting.
-    private const string BankIdCallbackSti = "/signin-bankid-test";
+    // SameSite=Lax og blir da IKKE sendt av nettleseren, så disse to faste stiene må unntas fra
+    // sperren (den andre er "BankIdInnlogging"-schemaet, ekte admin/behandler-pålogging på beta —
+    // se Program.cs). Trygt: stiene er hardkodet (ingen wildcard), og selve OIDC-håndteringen
+    // validerer state/nonce/PKCE uansett — en vilkårlig POST hit uten en ekte
+    // Idura-autorisasjonskode gir ingenting.
+    private static readonly string[] BankIdCallbackStier = ["/signin-bankid-test", "/signin-bankid-innlogging"];
+
+    // QR-basert pasientselvregistrering (se Pages/BliPasient og
+    // docs/beslutningslogg.md "Invitasjons- og gruppesystem, fase 2") MÅ nås
+    // av en fullstendig ukjent besøker — hele poenget er at noen skanner en
+    // kode uten noen forhåndstilgang. Samme resonnement som BankID-callbacken:
+    // stien er hardkodet (ingen wildcard), og den reelle sikkerheten ligger i
+    // selve siden (gyldig behandler-/gruppe-QR-token kreves, bot-vern, og
+    // resultatet er uansett bare en ny, uverifisert pasientrad hos ÉN bestemt
+    // behandler).
+    //
+    // OPPDAGET SAMTIDIG (2026-09-20), IKKE unntatt her ennå — flagget til
+    // bruker i samtalen i stedet for stille utvidet: StagingGate sperrer i
+    // praksis HELE appen for enhver besøker uten cookien fra før, inkludert
+    // /PasientRegistrering/Fullfor, /Inviter/Fullfor, /Inviter/Verifiser og
+    // /Pasientportal/Konto/LoggInn — altså ville en ekte invitert pasient
+    // eller behandler på LIVE i dag møtt "skriv inn nøkkelen"-veggen FØR de
+    // noensinne når sin egen invitasjonslenke. Dette er ikke noe denne
+    // omgangen introduserer; det gjelder allerede eksisterende offentlige
+    // sider, og bør vurderes helhetlig, ikke side for side.
+    private static readonly string[] OffentligeSelvregistreringsStier = ["/BliPasient"];
 
     // Samme resonnement som BankIdCallbackSti, men for server-til-server-kall i
     // stedet for en nettleser-redirect: Vipps/Stripe sine servere har ingen
@@ -72,8 +93,9 @@ public static class StagingGate
 
         app.Use(async (context, next) =>
         {
-            if (context.Request.Path.StartsWithSegments(BankIdCallbackSti) ||
+            if (BankIdCallbackStier.Any(sti => context.Request.Path.StartsWithSegments(sti)) ||
                 BetalingsWebhookStier.Any(sti => context.Request.Path.StartsWithSegments(sti)) ||
+                OffentligeSelvregistreringsStier.Any(sti => context.Request.Path.StartsWithSegments(sti)) ||
                 HarGyldigCookie(context, beskytter) ||
                 (basicAuthAktiv && HarGyldigBasicAuth(context, basicAuthBrukernavn!, basicAuthPassord!)))
             {

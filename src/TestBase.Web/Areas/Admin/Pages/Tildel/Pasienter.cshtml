@@ -40,7 +40,7 @@ else
                     <td><input type="checkbox" name="PasientIder" value="@p.Id" disabled="@(!kanVelges)" /></td>
                     <td>@(p.Navn ?? "(ikke fullført)")</td>
                     <td>@(rad.BehandlerNavn ?? "-")</td>
-                    <td>@(p.Gruppenavn ?? "-")</td>
+                    <td>@(p.Gruppe?.Navn ?? "-")</td>
                     <td>
                         <span class="tildel-kanal-ikon @(harMobil ? "tilgjengelig" : "")" title="@(harMobil ? "Har mobilnummer" : "Mangler mobilnummer")">
                             <partial name="_Ikon" model="@("sms")" />

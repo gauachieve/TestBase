@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using TestBase.Shared.Domain.Pasienter;
@@ -13,15 +12,18 @@ public sealed class LoggInnModel : PageModel
     private readonly PasientAuthenticationService _authService;
     private readonly ICaptchaProvider _captcha;
     private readonly IAuditLogger _auditLogger;
-    private readonly IWebHostEnvironment _env;
+    private readonly IConfiguration _configuration;
 
-    public LoggInnModel(PasientAuthenticationService authService, ICaptchaProvider captcha, IAuditLogger auditLogger, IWebHostEnvironment env)
+    public LoggInnModel(PasientAuthenticationService authService, ICaptchaProvider captcha, IAuditLogger auditLogger, IConfiguration configuration)
     {
         _authService = authService;
         _captcha = captcha;
         _auditLogger = auditLogger;
-        _env = env;
+        _configuration = configuration;
     }
+
+    /// <summary>Se Security/Miljo.cs — snevrere flagg enn TillatUtviklingsSnarveier, bevisst sant på live også inntil ekte BankID er klart.</summary>
+    public bool VisPersonnummerOverride => Miljo.TillatPersonnummerOverride(_configuration);
 
     [BindProperty]
     public bool HuskMeg { get; set; }
@@ -56,7 +58,7 @@ public sealed class LoggInnModel : PageModel
 
     public void OnGet()
     {
-        if (_env.IsDevelopment() && !string.IsNullOrWhiteSpace(Personnummer))
+        if (VisPersonnummerOverride && !string.IsNullOrWhiteSpace(Personnummer))
         {
             PersonnummerOverride = Personnummer;
         }
@@ -89,7 +91,7 @@ public sealed class LoggInnModel : PageModel
 
         // Gates ved bruk, ikke bare i viewet — en rå POST kan sette denne uansett synlighet.
         var bankIdResultat = await _authService.StartBankIdAsync(
-            personnummerOverride: _env.IsDevelopment() ? PersonnummerOverride : null, cancellationToken: cancellationToken);
+            personnummerOverride: VisPersonnummerOverride ? PersonnummerOverride : null, cancellationToken: cancellationToken);
         if (!bankIdResultat.Success || bankIdResultat.PersonNummer is null)
         {
             Feilmelding = bankIdResultat.ErrorMessage ?? "BankID-innlogging feilet.";

@@ -30,7 +30,7 @@ public sealed class DetaljerModel : PageModel
 
     public async Task<IActionResult> OnGetAsync(long id, CancellationToken cancellationToken)
     {
-        Pasient = await _db.Pasienter.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+        Pasient = await _db.Pasienter.Include(p => p.Gruppe).FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
         if (Pasient is null || !await HarTilgangAsync(Pasient, cancellationToken))
         {
             return NotFound();

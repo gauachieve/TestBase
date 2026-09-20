@@ -18,7 +18,7 @@
     <div class="betalingsvalg">
         @if (Model.VippsTilgjengelig)
         {
-            <form method="post" asp-page-handler="Vipps">
+            <form method="post" asp-page-handler="Vipps" data-disable-on-submit="Starter betaling …">
                 <button type="submit" class="btn-vipps">Vipps</button>
                 @if (Model.VippsErMock)
                 {

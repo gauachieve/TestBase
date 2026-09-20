@@ -1,6 +1,5 @@
 @page
 @model TestBase.Web.Areas.Pasientportal.Pages.Konto.LoggInnModel
-@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
 @{
     ViewData["Title"] = "Logg inn som pasient";
     ViewData["Portal"] = "pasient";
@@ -13,13 +12,13 @@
     <p style="color: darkred;">@Model.Feilmelding</p>
 }
 
-<form method="post">
+<form method="post" data-disable-on-submit="Logger inn …">
     <input type="hidden" asp-for="ReturnUrl" />
     <div><label><input asp-for="HuskMeg" type="checkbox" /> Husk meg</label></div>
-    @if (Env.IsDevelopment())
+    @if (Model.VisPersonnummerOverride)
     {
         <div>
-            <label>Personnummer (kun utviklingsmiljø — overstyrer BankID-mock, bytt for å logge inn som en annen test-pasient)</label><br />
+            <label>Personnummer (overstyrer BankID-mock — skriv inn ditt eget for å logge inn, inntil ekte BankID er på plass)</label><br />
             <input asp-for="PersonnummerOverride" autocomplete="off" placeholder="La stå tomt for fast test-personnummer" />
         </div>
     }

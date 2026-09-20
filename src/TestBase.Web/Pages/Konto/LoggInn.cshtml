@@ -1,6 +1,5 @@
 @page
 @model TestBase.Web.Pages.Konto.LoggInnModel
-@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
 @{
     ViewData["Title"] = "Logg inn";
 }
@@ -13,13 +12,13 @@
     <p style="color: darkred;">@Model.Feilmelding</p>
 }
 
-<form method="post">
+<form method="post" data-disable-on-submit="Logger inn …">
     <input type="hidden" asp-for="ReturnUrl" />
     <div><label><input asp-for="HuskMeg" type="checkbox" /> Husk meg</label></div>
-    @if (Env.IsDevelopment())
+    @if (Model.VisPersonnummerOverride)
     {
         <div>
-            <label>Personnummer (kun utviklingsmiljø — overstyrer BankID-mock, bytt for å logge inn som en annen test-person)</label><br />
+            <label>Personnummer (overstyrer BankID-mock — skriv inn ditt eget for å logge inn, inntil ekte BankID er på plass)</label><br />
             <input asp-for="PersonnummerOverride" autocomplete="off" placeholder="La stå tomt for fast test-personnummer" />
         </div>
     }
@@ -37,11 +36,11 @@
     invitasjonslenken du mottok.
 </p>
 
-@if (Env.IsDevelopment())
+@if (Model.VisUtviklingsSnarveier)
 {
     <details>
         <summary>Logg inn med AdminId og passord (kun i utviklingsmiljø)</summary>
-        <form method="post" asp-page-handler="Passord">
+        <form method="post" asp-page-handler="Passord" data-disable-on-submit="Logger inn …">
             <input type="hidden" asp-for="ReturnUrl" />
             <div><label>AdminId</label><br /><input asp-for="AdminId" /></div>
             <div><label>Passord</label><br /><input asp-for="Passord" type="password" /></div>

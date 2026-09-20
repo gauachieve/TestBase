@@ -1,0 +1,100 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Grupper.IndexModel
+@{
+    ViewData["Title"] = "Grupper";
+}
+
+<h1>Grupper</h1>
+<p><em>Oversikt på tvers av alle behandlere — admin kan opprette/redigere/arkivere enhver gruppe.</em></p>
+<p><a class="btn btn-accent" href="/Admin/Grupper/Ny">+ Ny gruppe</a></p>
+
+<div data-fane-beholder>
+    <div class="fane-rad" role="tablist">
+        <button type="button" class="fane-knapp" data-fane="aktive">Aktive (@Model.Grupper.Count)</button>
+        <button type="button" class="fane-knapp" data-fane="arkivert">Arkivert (@Model.ArkiverteGrupper.Count)</button>
+    </div>
+
+    <div>
+        <label for="gruppeSok">Søk</label><br />
+        <input type="search" id="gruppeSok" data-fane-sok placeholder="Søk i gruppenavn, behandler …" />
+    </div>
+
+    @if (!Model.Grupper.Any() && !Model.ArkiverteGrupper.Any())
+    {
+        <p><em>Ingen grupper opprettet ennå.</em></p>
+    }
+    else
+    {
+        <table border="1" cellpadding="6" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>Navn</th>
+                    <th>Behandler</th>
+                    <th>Pasienter</th>
+                    <th>Tester</th>
+                    <th>Opprettet</th>
+                    <th>Start</th>
+                    <th>Slutt</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var rad in Model.Grupper)
+            {
+                var sok = $"{rad.Gruppe.Navn} {rad.BehandlerNavn}".ToLowerInvariant();
+                <tr data-fane-rad="aktive" data-sok="@sok">
+                    <td>@rad.Gruppe.Navn</td>
+                    <td>@(rad.BehandlerNavn ?? "-")</td>
+                    <td>@rad.AntallPasienter</td>
+                    <td>@rad.AntallTester</td>
+                    <td>@rad.Gruppe.OpprettetUtc.ToString("d")</td>
+                    <td>@(rad.Gruppe.StartDato?.ToString("d") ?? "-")</td>
+                    <td>@(rad.Gruppe.SluttDato?.ToString("d") ?? "-")</td>
+                    <td>
+                        <a class="btn-icon" href="/Admin/Grupper/Rediger/@rad.Gruppe.Id" title="Rediger" aria-label="Rediger">
+                            <partial name="_Ikon" model="@("rediger")" />
+                        </a>
+                        <form method="post" asp-page-handler="Arkiver" style="display:inline;" data-disable-on-submit="Lagrer …">
+                            <input type="hidden" name="id" value="@rad.Gruppe.Id" />
+                            <button type="submit" class="btn-icon" title="Arkiver" aria-label="Arkiver"
+                                    onclick="return confirm('Arkivere gruppen «@rad.Gruppe.Navn»? Pasienter beholder sin eksisterende tilknytning.');">
+                                <partial name="_Ikon" model="@("arkiver")" />
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            }
+            @foreach (var rad in Model.ArkiverteGrupper)
+            {
+                var sok = $"{rad.Gruppe.Navn} {rad.BehandlerNavn}".ToLowerInvariant();
+                <tr data-fane-rad="arkivert" data-sok="@sok" hidden>
+                    <td>@rad.Gruppe.Navn</td>
+                    <td>@(rad.BehandlerNavn ?? "-")</td>
+                    <td>@rad.AntallPasienter</td>
+                    <td>@rad.AntallTester</td>
+                    <td>@rad.Gruppe.OpprettetUtc.ToString("d")</td>
+                    <td>@(rad.Gruppe.StartDato?.ToString("d") ?? "-")</td>
+                    <td>@(rad.Gruppe.SluttDato?.ToString("d") ?? "-")</td>
+                    <td>
+                        <form method="post" asp-page-handler="Gjenopprett" style="display:inline;" data-disable-on-submit="Gjenoppretter …">
+                            <input type="hidden" name="id" value="@rad.Gruppe.Id" />
+                            <button type="submit" class="btn-icon" title="Gjenopprett" aria-label="Gjenopprett">
+                                <partial name="_Ikon" model="@("gjenopprett")" />
+                            </button>
+                        </form>
+                        <form method="post" asp-page-handler="Slett" style="display:inline;" data-disable-on-submit="Sletter …">
+                            <input type="hidden" name="id" value="@rad.Gruppe.Id" />
+                            <button type="submit" class="btn-icon btn-icon--slett" title="Slett" aria-label="Slett"
+                                    onclick="return confirm('Slette gruppen «@rad.Gruppe.Navn» permanent? Pasienter i gruppen mister KUN gruppetilknytningen, de slettes ikke. Kan ikke angres.');">
+                                <partial name="_Ikon" model="@("slett")" />
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</div>
+
+<script src="~/js/faner.js" asp-append-version="true"></script>

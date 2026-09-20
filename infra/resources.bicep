@@ -35,6 +35,16 @@ param bankIdIduraClientId string = ''
 @secure()
 param bankIdIduraClientSecret string = ''
 
+@description('EKTE Idura BankID-produksjonstenant sin OIDC Authority — se main.bicep')
+param bankIdIduraProduksjonAuthority string = ''
+
+@description('EKTE Idura BankID-produksjonstenant sin Client ID — se main.bicep')
+param bankIdIduraProduksjonClientId string = ''
+
+@description('EKTE Idura BankID-produksjonstenant sin Client Secret — se main.bicep')
+@secure()
+param bankIdIduraProduksjonClientSecret string = ''
+
 @description('Ekte personnummer for en seedet administrator-konto — se main.bicep')
 @secure()
 param seedAdminPersonnummer string = ''
@@ -91,6 +101,36 @@ param stagingGateBasicAuthUsername string = ''
 @description('Midlertidig HTTP Basic Auth-passord for StagingGate — se main.bicep')
 @secure()
 param stagingGateBasicAuthPassword string = ''
+
+@description('Offentlig base-URL for lenker generert av bakgrunnstjenester (SMS/e-post uten HttpContext) — se main.bicep. Tom verdi faller tilbake til appens EGEN *.azurewebsites.net-vertsnavn.')
+param varslingBaseUrl string = ''
+
+@description('Skrur på auth-relaterte utviklingssnarveier — se main.bicep. "true" på beta, "false" på live. Streng "true"/"false", ikke bool.')
+param tillatUtviklingsSnarveier string = 'false'
+
+@description('KUN PersonnummerOverride — se main.bicep. Streng "true"/"false", ikke bool.')
+param tillatPersonnummerOverride string = 'false'
+
+@description('KUN beta-miljøet — se main.bicep. Streng "true"/"false", ikke bool.')
+param erBeta string = 'false'
+
+@description('Ekte Idura BankID for admin/behandler sin innlogging — se main.bicep. Trygt på live, styrer ikke betalingsmodus. Streng "true"/"false", ikke bool.')
+param ektBankIdProfesjonell string = 'false'
+
+@description('KUN beta: Vipps test-merchant Client ID — se main.bicep.')
+@secure()
+param vippsBetaTestClientId string = ''
+
+@description('KUN beta: Vipps test-merchant Client Secret — se main.bicep.')
+@secure()
+param vippsBetaTestClientSecret string = ''
+
+@description('KUN beta: Vipps test-merchant Subscription Key — se main.bicep.')
+@secure()
+param vippsBetaTestSubscriptionKey string = ''
+
+@description('KUN beta: Vipps test-merchant Merchant Serial Number — se main.bicep.')
+param vippsBetaTestMerchantSerialNumber string = ''
 
 // Testmiljø uten ekte pasientdata — passordet genereres deterministisk og lagres kun i Key Vault.
 var mysqlAdministratorPassword = 'Tb${uniqueString(resourceGroup().id, resourceToken)}!26'
@@ -278,6 +318,16 @@ resource bankIdIduraClientSecretSecret 'Microsoft.KeyVault/vaults/secrets@2023-0
   }
 }
 
+// EKTE Idura BankID-produksjonstenant — KUN satt på live, se docs/beslutningslogg.md "Ekte BankID
+// for admin/behandler, del 4". Tom verdi ('  ') gir fortsatt test-tenanten i Program.cs.
+resource bankIdIduraProduksjonClientSecretSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'BankIdIduraProduksjonClientSecret'
+  properties: {
+    value: empty(bankIdIduraProduksjonClientSecret) ? ' ' : bankIdIduraProduksjonClientSecret
+  }
+}
+
 // Seed av brukerens egen administrator-konto (ekte personnummer, IKKE syntetisk
 // testdata) — se Program.cs og docs/beslutningslogg.md "Seed av brukerens egen
 // admin-konto". Tom verdi (' ') deaktiverer seedingen (Program.cs sin
@@ -330,6 +380,25 @@ resource vippsSubscriptionKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-0
   name: 'VippsSubscriptionKey'
   properties: {
     value: empty(vippsSubscriptionKey) ? ' ' : vippsSubscriptionKey
+  }
+}
+
+// KUN beta: Vipps sin EGEN test-/MT-merchant-avtale, adskilt fra det ekte
+// produksjonssettet over (som på beta gjenbrukes uendret som "Produksjon" —
+// se docs/beslutningslogg.md "Beta-miljø" og BetaSwitchingVippsClient).
+resource vippsBetaTestClientSecretSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'VippsBetaTestClientSecret'
+  properties: {
+    value: empty(vippsBetaTestClientSecret) ? ' ' : vippsBetaTestClientSecret
+  }
+}
+
+resource vippsBetaTestSubscriptionKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'VippsBetaTestSubscriptionKey'
+  properties: {
+    value: empty(vippsBetaTestSubscriptionKey) ? ' ' : vippsBetaTestSubscriptionKey
   }
 }
 
@@ -442,6 +511,18 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           value: '@Microsoft.KeyVault(SecretUri=${bankIdIduraClientSecretSecret.properties.secretUri})'
         }
         {
+          name: 'BankId__IduraProduksjon__Authority'
+          value: bankIdIduraProduksjonAuthority
+        }
+        {
+          name: 'BankId__IduraProduksjon__ClientId'
+          value: bankIdIduraProduksjonClientId
+        }
+        {
+          name: 'BankId__IduraProduksjon__ClientSecret'
+          value: '@Microsoft.KeyVault(SecretUri=${bankIdIduraProduksjonClientSecretSecret.properties.secretUri})'
+        }
+        {
           name: 'Seed__AdminPersonnummer'
           value: '@Microsoft.KeyVault(SecretUri=${seedAdminPersonnummerSecret.properties.secretUri})'
         }
@@ -478,6 +559,38 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           value: vippsMiljo
         }
         {
+          name: 'Miljo__TillatUtviklingsSnarveier'
+          value: tillatUtviklingsSnarveier
+        }
+        {
+          name: 'Miljo__TillatPersonnummerOverride'
+          value: tillatPersonnummerOverride
+        }
+        {
+          name: 'Miljo__ErBeta'
+          value: erBeta
+        }
+        {
+          name: 'Miljo__EktBankIdProfesjonell'
+          value: ektBankIdProfesjonell
+        }
+        {
+          name: 'Vipps__BetaTest__ClientId'
+          value: vippsBetaTestClientId
+        }
+        {
+          name: 'Vipps__BetaTest__ClientSecret'
+          value: '@Microsoft.KeyVault(SecretUri=${vippsBetaTestClientSecretSecret.properties.secretUri})'
+        }
+        {
+          name: 'Vipps__BetaTest__SubscriptionKey'
+          value: '@Microsoft.KeyVault(SecretUri=${vippsBetaTestSubscriptionKeySecret.properties.secretUri})'
+        }
+        {
+          name: 'Vipps__BetaTest__MerchantSerialNumber'
+          value: vippsBetaTestMerchantSerialNumber
+        }
+        {
           name: 'Vipps__WebhookSecret'
           value: '@Microsoft.KeyVault(SecretUri=${vippsWebhookSecretSecret.properties.secretUri})'
         }
@@ -504,11 +617,17 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         {
           // Brukes til å bygge lenker i SMS/e-post fra bakgrunnstjenester som ikke
           // har en HttpContext å lese vertsnavnet fra (se
-          // DagligPaaminnelseBakgrunnstjeneste.cs) — uten denne falt lenkene
-          // tilbake til den hardkodede lokale utviklings-URL-en, se
-          // docs/beslutningslogg.md.
+          // DagligPaaminnelseBakgrunnstjeneste.cs / PlanlagtTildelingBakgrunnstjeneste.cs)
+          // — uten denne falt lenkene tilbake til den hardkodede lokale
+          // utviklings-URL-en, se docs/beslutningslogg.md. Parameterisert (ikke
+          // hardkodet til www.psytest.no) siden DENNE malen deler seg mellom flere
+          // miljøer (test/"live" og beta) med ULIKE offentlige URL-er — se
+          // beslutningsloggen "Beta-miljø".
           name: 'Varsling__BaseUrl'
-          value: 'https://www.psytest.no'
+          // 'https://${appServiceName}.azurewebsites.net' er konstruert fra variabelen,
+          // IKKE appService.properties.defaultHostName — en selvreferanse til appens EGEN
+          // properties inni sin egen ressursdefinisjon er en sirkularitet ARM ikke tillater.
+          value: empty(varslingBaseUrl) ? 'https://${appServiceName}.azurewebsites.net' : varslingBaseUrl
         }
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'

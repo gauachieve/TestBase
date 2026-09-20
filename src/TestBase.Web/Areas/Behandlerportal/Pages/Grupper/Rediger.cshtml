@@ -1,0 +1,101 @@
+@page "{id:long}"
+@model TestBase.Web.Areas.Behandlerportal.Pages.Grupper.RedigerModel
+@{
+    ViewData["Title"] = "Rediger gruppe";
+}
+
+<h1>Rediger gruppe</h1>
+<p>Opprettet: @Model.Opprettet.ToString("d")</p>
+<p><a href="/Behandlerportal/Grupper/Aggregert/@Model.Id">Se aggregert rapport</a></p>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+@if (Model.Melding is not null)
+{
+    <p style="color: darkgreen;">@Model.Melding</p>
+}
+
+<h2>Invitasjon (QR-kode)</h2>
+<p>Enhver som skanner denne koden eller åpner lenken, blir registrert som pasient i DENNE gruppen — inkludert automatisk utsending av testene under.</p>
+<p><img src="/Behandlerportal/Grupper/Rediger/@Model.Id?handler=Qr" alt="QR-kode for gruppeinvitasjon" width="220" height="220" /></p>
+<p><code>@Model.InvitasjonsLenke</code></p>
+<form method="post" asp-page-handler="RegenererQr" asp-route-id="@Model.Id" style="display:inline;"
+      onsubmit="return confirm('Regenerere QR-koden? Den GAMLE koden/lenken slutter da å virke umiddelbart — trykt materiale med den gamle koden må byttes ut.');">
+    <button type="submit">Regenerer QR-kode</button>
+</form>
+
+<h2>Prøvedata (pasienter uten personnummer)</h2>
+<p>
+    @if (Model.AntallProvedata == 0)
+    {
+        <text>Ingen prøvepasienter i denne gruppen for øyeblikket.</text>
+    }
+    else
+    {
+        <text>@Model.AntallProvedata pasient(er) har prøvd systemet uten personnummer i denne gruppen.</text>
+    }
+</p>
+@if (Model.AntallProvedata > 0)
+{
+    <form method="post" asp-page-handler="SlettProvedata" asp-route-id="@Model.Id" style="display:inline;"
+          onsubmit="return confirm('Slette alle @Model.AntallProvedata prøvepasient(er) i denne gruppen permanent? Dette gjelder KUN pasienter uten personnummer og kan ikke angres.');">
+        <button type="submit">Slett prøvedata</button>
+    </form>
+}
+
+<h2>Gruppeinnstillinger</h2>
+<form method="post" data-disable-on-submit="Lagrer …">
+    <input type="hidden" asp-for="Id" />
+    <div><label>Gruppenavn</label><br /><input asp-for="Navn" required /></div>
+    <div><label>Startdato (valgfritt)</label><br /><input asp-for="StartDato" type="date" /></div>
+    <div><label>Sluttdato (valgfritt)</label><br /><input asp-for="SluttDato" type="date" /></div>
+
+    <h2>Tester som automatisk sendes ved gruppeinnmelding</h2>
+
+    <div class="tildel-med-info">
+    <div class="tildel-kategori-tre">
+    @foreach (var kategori in Model.KategoriTre)
+    {
+        <details open="@(kategori.Tester.Any(t => Model.TestIder.Contains(t.Id)))">
+            <summary>@kategori.Kategori.Navn</summary>
+            @if (!kategori.Tester.Any())
+            {
+                <p><em>Ingen tester i denne kategorien ennå.</em></p>
+            }
+            else
+            {
+                <ul>
+                @foreach (var test in kategori.Tester)
+                {
+                    <li>
+                        <label>
+                            <input type="checkbox" name="TestIder" value="@test.Id" checked="@Model.TestIder.Contains(test.Id)" class="tildel-test-checkbox"
+                                   data-test-navn="@test.Navn"
+                                   data-beskrivelse="@test.Beskrivelse"
+                                   data-rapport-introduksjon="@test.RapportIntroduksjon"
+                                   data-estimert-min="@Model.EstimertMinutterPerTestId.GetValueOrDefault(test.Id)"
+                                   data-minste-pris="@test.MinstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                   data-storste-pris="@test.StorstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                   data-typisk-honorar="@test.TypiskBehandlerHonorarKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                            @test.Navn
+                            @if (!string.IsNullOrEmpty(test.OversettelseNotat))
+                            {
+                                <em>(@test.OversettelseNotat)</em>
+                            }
+                        </label>
+                    </li>
+                }
+                </ul>
+            }
+        </details>
+    }
+    </div>
+    <aside class="test-infoboks skjult"></aside>
+    </div>
+
+    <button type="submit">Lagre</button>
+</form>
+
+<script src="~/js/testinfo.js" asp-append-version="true"></script>

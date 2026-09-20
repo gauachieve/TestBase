@@ -5,16 +5,42 @@
 }
 
 <h1>Rediger pasient</h1>
+<p>Opprettet: @Model.Opprettet.ToString("g")</p>
 
 @if (Model.Feilmelding is not null)
 {
     <p style="color: darkred;">@Model.Feilmelding</p>
 }
+@if (Model.Melding is not null)
+{
+    <p style="color: darkgreen;">@Model.Melding</p>
+}
 
-<form method="post">
+@if (Model.ManglerProfilinfo)
+{
+    <p style="border: 1px solid #ccc; padding: 1rem; background: var(--bg-soft);">
+        Pasienten har ikke fullført profilen sin ennå (mangler navn, mobil og/eller e-post).
+        <form method="post" asp-page-handler="PaaminnFullforing" style="display:inline;" data-disable-on-submit="Sender …">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button type="submit" class="btn btn-accent">Påminn fullføring</button>
+        </form>
+    </p>
+}
+
+<form method="post" data-disable-on-submit="Lagrer …">
     <input type="hidden" asp-for="Id" />
     <div><label>Navn (valgfritt)</label><br /><input asp-for="Navn" /></div>
-    <div><label>Gruppe (valgfritt)</label><br /><input asp-for="Gruppenavn" /></div>
+    <div>
+        <label>Gruppe (valgfritt)</label><br />
+        <select asp-for="GruppeId">
+            <option value="">(ingen gruppe)</option>
+            @foreach (var gruppe in Model.TilgjengeligeGrupper)
+            {
+                <option value="@gruppe.Id">@gruppe.Navn</option>
+            }
+        </select>
+        <a href="/Behandlerportal/Grupper">Administrer grupper</a>
+    </div>
     <div><label>Personnummer</label><br /><input asp-for="Personnummer" required /></div>
     <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" required /></div>
     <div><label>E-post</label><br /><input asp-for="Epost" type="email" required /></div>
@@ -28,7 +54,7 @@
     <dialog id="byttBehandlerDialog">
         <h2>Bytt behandler</h2>
         <p>Pasienten flyttes til en annen behandler i samme partnerskap.</p>
-        <form method="post" asp-page-handler="ByttBehandler">
+        <form method="post" asp-page-handler="ByttBehandler" data-disable-on-submit="Bytter behandler …">
             <input type="hidden" name="id" value="@Model.Id" />
             <select name="nyBehandlerId">
             @foreach (var b in Model.BehandlereIPartnerskapet)

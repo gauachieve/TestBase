@@ -23,7 +23,7 @@ else
         <p style="color: darkred;">@Model.Feilmelding</p>
     }
 
-    <form method="post">
+    <form method="post" data-disable-on-submit="Fullfører registrering …">
         <div><label>Navn</label><br /><input asp-for="Navn" required /></div>
         <div><label>Personnummer</label><br /><input asp-for="Personnummer" required /></div>
         <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" required /></div>

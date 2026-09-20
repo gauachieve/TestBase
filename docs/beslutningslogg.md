@@ -2819,3 +2819,1328 @@ Kilder: [Settlements](https://developer.vippsmobilepay.com/docs/knowledge-base/s
   beslutning (identitetsmodell, hvilket personnummer-claim som faktisk skal brukes, produksjons-
   avtale) som ikke er tatt ennå.
 - Polering av admin-/behandlerportal-/pasientportal-UI (dagens sider er funksjonelle, ikke visuelt ferdige).
+
+## Runde 2026-09-15: pasienttabell-bredde + "Lagrer …" over hele appen
+
+Fra `bugs_features.txt` — bruker rapporterte at pasientlisten (Admin/Behandlerportal) var for
+bred for `main.page`-kortet, med skjulte handlingsknapper bak en lite synlig horisontal
+scrollbar, og ba om at den "Lagrer …"-grånings-oppførselen som allerede fantes på
+tildelingsflyten (`data-disable-on-submit`, se `wwwroot/js/validering.js`) skulle brukes
+konsekvent på ALLE skjemaer som faktisk endrer databasen.
+
+**Pasienttabell-bredde:** ny `ViewData["BredSide"]` → `<main class="page page--bred">`
+(`Pages/Shared/_Layout.cshtml`), med `main.page.page--bred { max-width: min(1600px, 96vw); }`
+i `site.css`. Satt på `Areas/Admin/Pages/Pasienter/Index.cshtml` og
+`Areas/Behandlerportal/Pages/Pasienter/Index.cshtml`. I tillegg fikk `#pasientTabell
+td:last-child` en egen, lavere `min-width` (150px, ned fra den generiske 260px dimensjonert for
+Behandlere-tabellens opptil 5 knapper) siden denne tabellen kun har 2-3 handlingsknapper — de to
+endringene sammen fjerner behovet for tabellens egen `overflow-x:auto` helt på vanlige
+bærbar-bredder (verifisert på 1440px), med tabellens interne scroll fortsatt som fallback på
+mobil. **Fallgruve oppdaget underveis, IKKE en cache-/build-feil:** en CSS-kommentar som skrev
+stien `Areas/*/Pages/Pasienter/Index.cshtml` inneholdt bokstavelig `*/` midt i teksten, som
+avsluttet CSS-kommentaren for tidlig og korrumperte HELE den påfølgende regelen til en ugyldig
+selector (nedjektes stille av CSS-parseren — ingen synlig feil, bare "endringen virker ikke").
+Timevis av tilsynelatende "browser-cache"-symptomer (identisk `asp-append-version`-hash,
+identisk `ETag`, men CSSOM manglet regelen uansett cache-omgåelse) skyldtes utelukkende dette —
+ikke noen reell cache-lagdeling. Lærdom: skriv ALDRI en filsti med `*` (wildcard-notasjon) inni en
+CSS/JS-kommentar; bruk normal tekst i stedet.
+
+**"Lagrer …" over hele appen:** `data-disable-on-submit` (som deaktiverer submit-knappen og
+bytter teksten mens et skjema laster, se `validering.js`) lagt til på rundt 30 skjemaer på tvers
+av alle tre Areas + toppnivå `Pages/` som faktisk skriver til databasen (opprett/rediger/
+arkiver/gjenopprett/godkjenn/inviter/importer/betal/login m.m.) — se `git log` for full filliste,
+ikke gjentatt her siden det er ren mekanisk utbredelse av et allerede etablert mønster.
+**Bevisst utelatt:** alle skjemaer som bruker `onsubmit="return bekreftSletting(...)"` eller
+`onsubmit="return confirm(...)"` (slette-/forkast-bekreftelser). Årsak: `validering.js` sine to
+`document.addEventListener("submit", ..., true)`-lyttere kjører i CAPTURING-fasen (dokument →
+skjema), som ALLTID skjer FØR skjemaets EGEN `onsubmit`-attributt (som kjører i target-fasen) —
+disable-on-submit-lytteren ville dermed deaktivert og omdøpt knappen FØR brukeren i det hele tatt
+fikk se bekreftelsesdialogen, og knappen ville blitt værende deaktivert/omdøpt permanent hvis
+brukeren avbrøt dialogen (siden ingen sideomlasting skjer for å tilbakestille den). Reell
+rekkefølge-bug oppdaget og unngått under denne runden — ikke bare en stilistisk avgjørelse. Denne
+begrensningen gjelder ethvert FREMTIDIG skjema av samme type: kombiner ALDRI
+`data-disable-on-submit` med en `onsubmit`-basert bekreftelsesdialog uten samtidig å fikse
+rekkefølge-problemet (f.eks. ved å la bekreftelsen skje i EN FELLES capturing-lytter før
+disable-on-submit-logikken, ikke i skjemaets egen attributt).
+
+**Sekundær JS-fiks nødvendig for é ett skjema:** `Pasientportal/Tester/Fyll.cshtml` har FLERE
+innsendingsknapper i samme skjema (Forrige/Lagre/Neste/Ferdig, valgt via `name="Handling"
+value="..."`) — den opprinnelige disable-on-submit-logikken plukket alltid FØRSTE knapp i DOM-en
+uansett hvilken som ble klikket, som ville vist feil lastetekst og latt de ANDRE knappene forbli
+klikkbare (dobbel-innsending fortsatt mulig). Fikset i `validering.js` til å bruke
+`e.submitter` (standard `SubmitEvent`-egenskap) for å identifisere DEN FAKTISK KLIKKEDE knappen —
+den får lastetekst, ALLE knapper i skjemaet deaktiveres. Verifisert med et scriptet
+`form.requestSubmit(knapp)`-kall for begge knappene på WHO-5s utfyllingsside.
+
+## Stripe testnøkler aktivert på testbase-test (2026-09-15)
+
+Fra `bugs_features.txt` — bruker ba om å få testet "den andre betalingsløsningen" også
+(Stripe, ved siden av Vipps). `Betal.cshtml.cs` viser Stripe automatisk når
+`Stripe:SecretKey`/`Stripe:PublishableKey` er satt (se `OnGetAsync`) — allerede satt LOKALT via
+`dotnet user-secrets` (ekte Stripe TEST-nøkler, `sk_test_.../pk_test_...`), men aldri pushet til
+`testbase-test` sitt azd-miljø (kun de fire Vipps-nøklene var satt der, se `azd env get-values`).
+Satt `STRIPE_SECRET_KEY`/`STRIPE_PUBLISHABLE_KEY` via `azd env set` med de samme test-verdiene og
+kjørt `azd provision` — bekreftet at `Stripe__SecretKey`/`Stripe__PublishableKey`/
+`Stripe__WebhookSecret` nå ligger som App Service-innstillinger. `Betal`-siden på
+`testbase-test`/`psytest.no`-test bør nå vise BEGGE betalingsalternativene. Ingen kodeendring —
+kun konfigurasjon. `Stripe:WebhookSecret` var allerede tom lokalt (samme udekte hull som
+Vipps-webhooken, se "Åpne punkter til senere faser") — ikke satt her heller.
+
+## Godkjente rapporter som egen liste (2026-09-15, bugliste punkt 1)
+
+Fra `bugs_features.txt` — godkjente rapporter (`TestTildeling.RapportGodkjentUtc != null`) skulle
+vises på en EGEN liste, ikke bare som en lenke blant tildelte/pågående tester. Lagt til tre
+parallelle sidepar (samme mønster som Tildel-flyten):
+
+- `Pasientportal/Tester/GodkjenteRapporter` — pasientens EGNE godkjente OG delte rapporter
+  (`RapportGodkjentUtc != null && RapportSynligForPasient`), lenket fra en ny knapp øverst på
+  `MinSide.cshtml`. Lenker videre inn i den eksisterende `Pasientportal/Tester/Rapport/{id}`.
+- `Behandlerportal/Pasienter/GodkjenteRapporter/{pasientId}` — ALLE godkjente rapporter for én
+  pasient (uavhengig av delingsvalg), samme tilgangsregel som `Detaljer.cshtml.cs`
+  (`HarTilgangAsync`: egen pasient, eller partner-admin for en pasient hos en behandler i samme
+  partnerskap). Lenket fra en ny knapp på `Detaljer.cshtml`. Lenker videre inn i den eksisterende
+  `Behandlerportal/Pasienter/Rapport/{tildelingId}`.
+- `Admin/Pasienter/GodkjenteRapporter/{pasientId}` + en HELT NY `Admin/Pasienter/Rapport/{id}` —
+  admin (og superadmin/dev, siden `/Admin/Pasienter` allerede er `AdminOmrade`-gated, som dekker
+  begge, se Program.cs) hadde ingen egen rapportvisning fra før og kunne ikke gjenbruke
+  Behandlerportal sin (den krever at innlogget bruker sin EGEN BehandlerId eier pasienten — en
+  admin har ingen BehandlerId). Ny, ren lesetilgangs-side uten godkjenn/forkast/send-knapper
+  (det er behandlers ansvar), som viser rapporten uansett `RapportSynligForPasient`. Lenket fra en
+  ny kolonne på `Admin/Pasienter/Index.cshtml`.
+
+Ny delt spørring `TestService.HentGodkjenteForPasientAsync(pasientId, kunSynligForPasient, ct)`
+brukes av alle tre. **Kjent, IKKE ny, begrensning tatt med videre uendret:** en partner-admin som
+ser denne listen for en pasient hos en ANNEN behandler i samme partnerskap, vil fortsatt få en 404
+hvis de klikker "Se rapport" inn i `Behandlerportal/Pasienter/Rapport/{id}` — den siden sjekker
+`p.BehandlerId == innlogget behandlers EGEN id`, ikke `HarTilgangAsync`-regelen. Samme hull fantes
+allerede på `Detaljer.cshtml` sin tilsvarende lenke før denne runden — ikke introdusert her, bare
+arvet. Verifisert kun på rute-/autorisasjonsnivå (302 til innlogging på alle fire nye ruter, ingen
+404/500) — ikke fullt gjennomklikket med ekte innlogging/data i denne runden.
+
+## Test-tilgangsforespørsler (2026-09-15, bugliste punkt 3/4/5)
+
+Fra `bugs_features.txt` — partner-admin skal kunne be om å legge til/fjerne tester fra partnerens
+`PartnerTestTilgang`-allow-list selv (i dag kun en Superadmin-direkte `OnPostToggleAsync` på
+`Admin/Partnere/Tester`), med bulk-godkjenning/avvisning av en administrator. **Bevisst avgrenset
+til partnere:** unaffiliert (ikke partnertilknyttet) behandler har allerede UBEGRENSET testtilgang
+og ingen allow-list å be om endringer mot (se `HentKategoriTreAsync`) — bruker bekreftet at dette
+skal utelates helt, ikke løses med en ny restriksjonsmekanisme.
+
+**Ny entitet** `TestTilgangForespoersel` (`PartnerId`, `TestId`, `Handling` enum
+LeggTil/Fjern, `Status` enum Venter/Godkjent/Avvist, `ForespurtAvBehandlerId`+`ForespurtUtc`,
+`BehandletAvAdministratorId`+`BehandletUtc` — migrasjon `LeggTilTestTilgangForesporsler`), pluss
+`TestService.OpprettTestTilgangForespoerselAsync`/`HentVentendeTestTilgangForesporslerForPartnerAsync`/
+`HentVentendeTestTilgangForesporslerAsync`/`BehandleTestTilgangForesporslerAsync` (sistnevnte er
+selve bulk-godkjenningen — samme effekt på `PartnerTestTilgang` som `OnPostToggleAsync`, bare via
+denne omveien). `Behandlerportal/MinPartner/Prising.cshtml` fikk en "Vis alle tester"-seksjon
+(`<details>`, alle aktive tester partneren IKKE har) med en "Be om tilgang"-knapp per test, samt en
+"Be om fjerning"-knapp per rad i den eksisterende andel-tabellen, og en liste over egne ventende
+forespørsler.
+
+**Godkjenningskøen havnet IKKE på en ny `/Oppgaver`-side.** Under implementering ble det oppdaget
+at `Admin/Pages/MinSide.cshtml.cs` sin eksisterende klassekommentar sier eksplisitt: "tidligere en
+egen 'Oppgaver'-side, slått sammen hit" (bugliste 2026-09-13 punkt 22) — dvs. `/Oppgaver` fantes en
+gang, men ble en bevisst konsolidert bort til `MinSide` i alle tre Areas allerede i fase 6. Både
+`Behandlerportal/MinSide.cshtml` og `Pasientportal/MinSide.cshtml` viser i praksis allerede nøyaktig
+det en "oppgaveliste" ville vist (ugodkjente rapporter/meldinger/ikke-besvarte tester for behandler,
+tildelte-men-ikke-fullførte tester for pasient) — CLAUDE.md og deler av denne loggen beskrev
+fortsatt den GAMLE, konsoliderte `/Oppgaver`-siden som om den fantes separat. Rettet i CLAUDE.md
+(se "Hvordan jobbe videre" og prosjektstrukturen). Den nye test-tilgang-godkjenningsseksjonen ble
+derfor lagt til direkte på `Admin/Pages/MinSide.cshtml` (bulk-avkrysning + Godkjenn/Avvis valgte),
+ikke en ny separat side — å bygge en konkurrerende `/Oppgaver`-URL ved siden av en `MinSide` som
+allerede fyller akkurat den rollen, ville gitt to overlappende oppgavelister.
+
+**Reell EF Core-bug fanget under verifisering, IKKE sendt til produksjon:** første utkast av
+`HentVentendeTestTilgangForesporslerAsync` kalte `.ToDictionaryAsync(b => b.Id, b => b.Visningsnavn, ...)`
+DIREKTE på en `IQueryable<Behandler>` — `Visningsnavn` er en ikke-mappet, beregnet C#-egenskap
+(`$"{Fornavn} {Etternavn}".Trim()`), som EF Core ikke kan oversette til SQL. Ville kastet en reell
+`InvalidOperationException` i det øyeblikket en ekte forespørsel noensinne skulle vises. Fanget
+FØR commit ved en fullstendig ende-til-ende-verifisering (se under), IKKE bare ved å lese koden —
+fikset til samme trygge mønster som `Admin/Pasienter/Index.cshtml.cs` allerede bruker: hent
+`Behandler`-radene fullt ut via `ToListAsync()` FØRST, bygg ordboken i minnet ETTERPÅ.
+
+**Verifisert reelt ende-til-ende**, ikke bare rute-/kompileringsnivå: logget inn som `dev-admin`
+(AdminId+passord+captcha, kun utviklingsmiljø) via curl, satt inn en ekte ventende
+`Fjern`-forespørsel direkte i dev-databasen (partner "Testpartner AS", WHO-5), lastet
+`Admin/MinSide` og bekreftet at raden faktisk rendres, postet bulk-godkjenning
+(`?handler=GodkjennValgteTestTilgang`), og bekreftet i databasen at forespørselen fikk
+`Status=Godkjent`+`BehandletAvAdministratorId`/`BehandletUtc`, OG at den tilsvarende
+`PartnerTestTilganger`-raden faktisk ble fjernet. **Kjent, ufarlig lokalt dev-kvirk:**
+`TestService.GiAllePartnereTilgangTilAlleTesterAsync()` (idempotent hull-tetting, kjøres ved HVER
+oppstart — men KUN inni `if (app.Environment.IsDevelopment())` i `Program.cs`, ikke i
+prod/test-miljøet på Azure) vil ved neste lokale `dotnet watch run`-restart automatisk gi
+partneren tilgang til testen igjen, siden den bare fyller ethvert manglende partner×test-par uten
+å vite at fjerningen nettopp var en bevisst godkjent handling. Påvirker ikke `testbase-test`/prod.
+
+## Planlagt/gjentagende utsending av tester (2026-09-15, bugliste punkt 8)
+
+Fra `bugs_features.txt` — tildelingsflytens steg 2 (`Tildel/Tester.cshtml`, begge Areas) fikk et
+NYTT steg mellom testvalg og den eksisterende oppsummerings-dialogen: en tidsvalg-dialog
+(`Pages/Shared/_PlanleggingDialog.cshtml`, delt mellom Admin og Behandlerportal) med Nå/
+I morgen i arbeidstiden (kl. 09:00 norsk tid)/egendefinert dato+klokkeslett, pluss en valgfri
+ukentlig gjentagelse (ukedag+klokkeslett+antall ganger).
+
+**Ny entitet** `PlanlagtTildeling` (migrasjon `LeggTilPlanlagteTildelinger`) lagrer nøyaktig de
+samme inputene `TestTildelingsService.TildelOgVarsleAsync` allerede tar (pasient-/test-id-er som
+CSV, honorar som JSON, varslingsmetode, behandler/admin-id), pluss `PlanlagtUtc`, en valgfri
+`GjentaUkedag`/`GjentaKlokkeslett`/`GjentaAntallGjenstaende`, og `Status`
+(Venter/Sendt/Feilet). Ny `PlanlagtTildelingService` (samme mappe som TestTildelingsService)
+gjenbruker `TildelOgVarsleAsync` 100 % uendret — planlegging endrer KUN når sendingen skjer,
+ikke hvordan. Ny `PlanlagtTildelingBakgrunnstjeneste` (samme selvhelbredende
+"sjekk-om-det-trengs"-mønster som `DagligPaaminnelseBakgrunnstjeneste`, men hvert 2. minutt i
+stedet for hvert 15. — brukervalgte klokkeslett forventes truffet noenlunde presist) plukker opp
+forfalte rader, kjører dem, og enten avslutter raden (`Sendt`/`Feilet`) eller reskjedulerer den til
+neste forekomst og dekrementerer telleren, uansett om selve sendingen lyktes (en varig feilet
+pasient/test-kombinasjon skal ikke blokkere resten av en gjentagende serie for alltid — feilen
+lagres på raden i `Feilmelding`, men serien fortsetter).
+
+**Norsk lokaltid, ikke UTC, for "kl. 10":** `Europe/Oslo` (via `TimeZoneInfo.FindSystemTimeZoneById`,
+som .NET 6+ slår opp via ICU på både Windows og Linux uten noe eget OS-avhengig navn) brukes til å
+tolke både "i morgen i arbeidstiden" og gjentagelsens ukedag+klokkeslett — resten av appen er
+bevisst ren UTC internt (ingen annen tidssone-håndtering fantes fra før), men et menneske som
+skriver "kl. 10" mener norsk klokke, ikke UTC.
+
+**To separate submit-knapper, ikke én dynamisk:** oppsummerings-dialogen fikk en skjult
+"Bekreft og planlegg"-knapp (`asp-page-handler="Planlegg"`) ved siden av den eksisterende
+"Bekreft og send" (`asp-page-handler="Send"`, UENDRET oppførsel) — `wwwroot/js/tildel.js` bytter
+hvilken som er synlig/aktiv basert på om "Nå" uten gjentagelse er valgt (da forblir alt som før) or
+noe annet (Send-knappen skjules OG deaktiveres, ikke bare skjules, for å unngå at den likevel
+trigges av Enter-tasten). To Razor `asp-page-handler`-baserte `formaction`-knapper i samme skjema
+i stedet for å mutere skjemaets `action` fra JS — tryggere og lettere å lese.
+
+**Verifisert reelt ende-til-ende**, ikke bare kompilering: logget inn som `dev-admin` via curl,
+kjørte hele tildelingsflyten (steg 1 → steg 2 → `?handler=Planlegg` med Egendefinert+Gjenta),
+bekreftet i databasen at raden fikk riktig `PlanlagtUtc` (norsk kl. 10 → riktig UTC-forskyvning) og
+riktig `GjentaUkedag`. Satte deretter raden sitt `PlanlagtUtc` til fortiden direkte i databasen og
+restartet serveren (bakgrunnstjenesten kjører sin første sjekk UMIDDELBART ved oppstart, ikke etter
+første intervall) — bekreftet at den faktisk opprettet en ekte `TestTildeling`
+(`TildelOgVarsleAsync` kjørte reelt), dekrementerte `GjentaAntallGjenstaende` fra 4 til 3, regnet ut
+korrekt NESTE fredag, og lot `Status` forbli `Venter`. Kjørte til slutt en ren regresjonssjekk av
+den UENDREDE `?handler=Send`-veien (ingen planlegging) — fortsatt identisk oppførsel.
+
+**Bevisst utsatt:** ingen UI for å SE/avlyse en ventende planlagt utsending (kun opprettelse) —
+`planlagte_tildelinger` har ingen liste-/administrasjonsside ennå. Ingen varsling til
+behandler/admin hvis en planlagt sending faktisk `Feilet`. Begge er naturlige, avgrensede
+utvidelser av samme mønster som Admin/MinSide sin oppgaveliste, ikke gjort her for å holde denne
+runden fokusert på selve sende-mekanismen bruker ba om.
+
+## Beta-miljø (2026-09-16)
+
+Fra `bugs_features.txt` — et nytt tredje trinn ("beta") mellom lokal dev og "live"
+(`testbase-test`/`www.psytest.no`, som til tross for navnet er den faktiske produksjonssiden nå):
+en full klone av produksjonsstørrelsen for å reprodusere data-avhengige feil uten å røre live.
+
+**Nytt azd-miljø `testbase-beta`** (`rg-testbase-beta`, `Sweden Central`, SAMME App
+Service-/MySQL-SKU-er som live) provisjonert og deployet via de eksisterende Bicep-malene —
+ingen egne maler trengtes for selve infrastrukturen. Låst med SAMME `StagingGate:AccessKey` som
+live, jf. brukerens krav. DNS (`beta.psytest.no` → `app-testbase-uonprpnwr4eum.azurewebsites.net`
++ `asuid.beta`-TXT-verifisering) er brukerens ansvar (cPanel Zone Editor, samme som for
+`www.psytest.no`) — IKKE gjort ennå i denne runden, se åpne punkter.
+
+**Reell bug fanget og fikset FØR den kunne påvirke noe miljø:** `Varsling__BaseUrl` (brukes av
+bakgrunnstjenester uten HttpContext, f.eks. `DagligPaaminnelseBakgrunnstjeneste` og den nye
+`PlanlagtTildelingBakgrunnstjeneste`) var HARDKODET til `https://www.psytest.no` direkte i den
+DELTE `resources.bicep`-malen. Uendret ville dette gitt beta sine egne bakgrunnsjobber
+(påminnelser, planlagte utsendinger) lenker som pekte til LIVE-siden. Parameterisert til
+`varslingBaseUrl` (tom → faller tilbake til appens egen `*.azurewebsites.net`-vertsnavn), og
+`VARSLING_BASE_URL` satt eksplisitt til `https://www.psytest.no` på `testbase-test` FØR noen
+reprovisjonering kunne miste det (samme fallgruve-mønster som `StagingGate__AccessKey` tidligere,
+se "Sky-deploy til Azure (azd)").
+
+**Full runtime-bryter for betalingsleverandører — Mock/Test/Produksjon, ikke bare av/på.**
+Etter diskusjon endte kravet på: beta skal kunne teste BÅDE en trygg sandkasse OG (bevisst, med
+brukerens eksplisitte samtykke etter å ha fått risikoen forklart) den EKTE produksjonskontoen for
+Vipps, siden "testing utenfor et live-miljø" per bruker krever å kunne komme så nære det ekte som
+mulig. Ny singleton-rad `BetaBetalingsinnstilling` (`VippsModus`: Mock/Test/Produksjon,
+`StripeModus`: Mock/Test — Stripe har ingen tilsvarende produksjonsfare, testnøklene ER trygge
+ekte API-kall) styrer `BetaSwitchingVippsClient`/`BetaSwitchingStripeClient`
+(`TestBase.Shared/Providers/`), som leser innstillingen PER KALL (ikke cachet ved oppstart) og
+delegerer til riktig underliggende klient — en superadmin/dev-admin endrer den uten omstart via en
+ny seksjon på `Admin/MinSide` (`VisBetalingsmodusBryter`, gated på `Miljo:ErBeta` OG
+Superadmin/Utvikler-rolle, usynlig for vanlig Administrator og usynlig/inaktiv på live). Live/lokal
+dev bruker fortsatt EKSAKT den samme direkte, faste DI-registreringen som før — `Miljo:ErBeta`
+(ny konfigurasjonsnøkkel, streng "true"/"false" — se under) gater HELE den nye grenen i
+`Program.cs`, ikke bare UI-en.
+
+To separate credential-sett for Vipps kreves samtidig i appen for at bryteren skal ha noe å bytte
+MELLOM: det eksisterende `Vipps:ClientId`-settet gjenbrukes UENDRET som "Produksjon" (satt til
+SAMME ekte verdier som live), og et helt nytt `Vipps:BetaTest:*`-sett (egne Bicep-parametre
+`vippsBetaTestClientId/ClientSecret/SubscriptionKey/MerchantSerialNumber`, egne Key
+Vault-hemmeligheter) holder Vipps sin egen test-/MT-merchant-avtale. Brukeren fant og satte selv
+disse verdiene via `azd env set` — de endte først (naturlig nok, siden det var de eneste
+variabel-navnene som fantes før denne runden) i de GAMLE `VIPPS_CLIENT_ID`-variablene; disse ble
+flyttet til de nye `VIPPS_BETATEST_*`-variablene, og de gamle ble deretter overskrevet med
+ekte produksjonsverdier kopiert fra `testbase-test` sitt azd-miljø.
+
+**`erBeta`-parameteren er bevisst en STRENG ("true"/"false"), ikke `bool`, i Bicep** — `azd` sin
+parameter-substitusjon (`main.parameters.json`) skjer INNI en JSON-strengverdi (`"value":
+"${MILJO_ER_BETA}"`), så en ekte `bool`-typet Bicep-parameter ville fått en JSON-STRENG tildelt
+uansett, med usikker ARM-typekonvertering. Alle andre parametre i denne malen (inkl. `vippsMiljo`,
+som er konseptuelt akkurat like binært) er av samme grunn strenger, ikke bool — fulgte samme
+mønster her i stedet for å innføre en ny, mulig skjør presedens.
+
+**Reell DI-bug fanget under verifisering, ikke sendt til produksjon:** `IVippsClient` er
+registrert som **Singleton** (uendret prinsipp — `VippsPaymentClient` cacher Vipps sitt
+tilgangstoken i minnet på tvers av forespørsler). `BetaSwitchingVippsClient` sitt første utkast
+injiserte `BetaInnstillingService` (Scoped, bruker `AppDbContext`) DIREKTE i konstruktøren — kastet
+`InvalidOperationException: Cannot resolve scoped service ... from root provider` i det øyeblikket
+et ekte kall skjedde (ikke ved oppstart — en singleton-registrering via factory-delegat med
+`sp.GetRequiredService<T>()` INNI lambdaen unngår `ValidateOnBuild` sin statiske sjekk helt, siden
+containeren ikke kan analysere kallet i forkant). Fikset ved å injisere `IServiceScopeFactory` og
+opprette en kortlevd scope PER kall kun for å lese databaseraden — bevarer singleton-levetiden
+(og dermed tokens-cachen) på selve Vipps-klient-instansene.
+
+**Verifisert reelt ende-til-ende, både lokalt og på selve beta-appen i Azure:**
+- Lokalt (simulert `Miljo__ErBeta=true` + falske nøkler): alle tre Vipps-moduser byttet korrekt
+  mellom `MockVippsClient` (umiddelbar suksess) og ekte HTTP-kall til hhv. `apitest.vipps.no` og
+  `api.vipps.no` (begge feilet forventet med et ekte 400 fra Vipps sin server, siden nøklene var
+  falske) — bekrefter switching-logikken uavhengig av ekte legitimasjon.
+- På selve beta-appen (`app-testbase-uonprpnwr4eum.azurewebsites.no`), med de EKTE Vipps
+  test-nøklene brukeren fant: byttet til Test-modus og trigget `/BetalingTest/Vipps` — fikk en
+  ekte, gyldig signert Vipps-redirect-URL (`pay-mt.vipps.no` med riktig `merchantSerialNumber` i
+  token) tilbake. Beviser at legitimasjonene faktisk fungerer, ikke bare at koden kompilerer.
+  Stripe Test-modus verifisert tilsvarende (ekte `pi_..._secret_...` PaymentIntent fra Stripes
+  testmodus-API). Satt tilbake til Mock/Mock (trygg standard) etter verifisering.
+- Fanget en ekte `azd deploy`-staleness (kjent fallgruve i CLAUDE.md — "SUCCESS" uten at koden
+  faktisk endret seg): første deploy til beta viste IKKE den nye Betalingsmodus-seksjonen i det
+  hele tatt. Løst med et andre `azd deploy`, som CLAUDE.md-fallgruven forutsier.
+- Full regresjonskjøring (`dotnet test`, 36/36 grønne) etter alle endringene — live/lokal dev sin
+  kodesti er bevist uendret.
+
+**Docker Desktop-fallgruve oppdaget:** hele Docker-daemonen (ikke bare containeren) hadde stoppet
+et sted i denne økten uten noe eksplisitt signal utover at `dotnet ef migrations add` feilet med
+"Unable to connect to any of the specified MySQL hosts" — `docker compose ps` i seg selv feilet med
+en npipe-tilkoblingsfeil (`Docker Desktop.exe` fantes under
+`%LOCALAPPDATA%\Programs\DockerDesktop`, ikke `C:\Program Files`). Løst ved å starte
+`Docker Desktop.exe` på nytt og vente på at daemonen ble klar før containeren kunne startes.
+
+**Bevisst utsatt/åpent etter denne runden:**
+- DNS for `beta.psytest.no` (CNAME + `asuid.beta`-TXT) — brukerens handling, se over.
+- Nattlig database-synk produksjon→beta (bevart UID, tilfeldig syntetisk personnummer generert
+  MED BETAS EGEN DataProtection-nøkkel — ALDRI kopiert/delt fra live) — designet og avtalt i
+  samtale, IKKE implementert ennå.
+- Ekte BankID for admin/behandler sin FELLES innloggingsside på beta (pasient forblir Mock alltid)
+  — avtalt, men IKKE startet: `IBankIdProvider` sitt synkrone ett-kalls-grensesnitt passer ikke en
+  ekte OIDC-redirect-flyt, krever en egen påloggingsvei parallelt med (ikke gjennom) det
+  eksisterende grensesnittet. Trenger også: hvilken Idura-claim som faktisk er personnummeret
+  (ikke undersøkt ennå), og TO ekte personnummer (ett for admin-testkontoen, ett for
+  behandler-testkontoen — samme "høyeste rolle vinner"-kollisjon som gjelder mock-BankID i dag
+  gjelder identisk for ekte BankID).
+- Selve deploy-arbeidsflyt-endringen ("push til beta FØR live, live kun når bruker eksplisitt ber
+  om det, referert til som 'push til azd'/'live'") — ingen kodeendring nødvendig for dette, kun en
+  avtalt rutine for FREMTIDIGE `azd deploy`-kommandoer i denne samtalen: `azd env select
+  testbase-beta` er nå default (aktivt miljø), MÅ eksplisitt `azd env select testbase-test` for å
+  treffe live.
+
+## Ekte BankID for admin/behandler (beta) (2026-09-18)
+
+Fra `bugs_features.txt`/samtale — bruker presiserte kravet til: fake BankID for pasienter (uendret,
+alltid), EKTE BankID for admin/behandler sin FELLES innloggingsside (`Pages/Konto/LoggInn`), KUN
+på beta, "nok til å bevise at BankID-proof-of-concept fungerer."
+
+**Ny, parallell påloggingsvei — IKKE en endring av `IBankIdProvider`.** Som varslet i forrige
+runde: `IBankIdProvider.AuthenticateAsync()` er ett synkront kall, uforenlig med en ekte
+OIDC-redirect (spenner over to separate HTTP-forespørsler). Løsning: `OnPostAsync` på
+`Pages/Konto/LoggInn.cshtml.cs` sjekker nå `HarEktBankIdAsync()` (er `"BankIdInnlogging"`-schemaet
+registrert? — kun sant på beta, se under) FØR den kaller `IBankIdProvider` i det hele tatt. Sann →
+`Challenge(...)` til Idura i stedet for mock-kallet. Alt ETTER selve identitetsbekreftelsen
+(oppslag admin-før-behandler, betrodd enhet, 2FA-start) er nå trukket ut til en ny delt
+`ProfesjonellInnloggingService` (`TestBase.Web/Security/`) — brukt av BEGGE veiene, slik at de
+garantert oppfører seg identisk i alt annet enn selve identitetskilden.
+
+**Nytt OIDC-schema `"BankIdInnlogging"`** (Program.cs), registrert KUN når `Miljo:ErBeta == "true"`
+OG Idura-nøklene er satt — egen `CallbackPath` (`/signin-bankid-innlogging`, egen
+StagingGate-unntak i `BankIdCallbackStier`) atskilt fra det eksisterende diagnostiske
+`"BankIdTest"`-schemaet (som fortsatt bare dumper claims, uendret). `OnTokenValidated` prøver
+`ssn`-claimen først (samme navn som scopet), faller ellers tilbake til en "11 siffer"-heuristikk
+blant ALLE claims som kom tilbake — **den faktiske claim-typen er IKKE bekreftet ennå**, siden det
+krever en ekte interaktiv Idura-innlogging i nettleser, noe verken forrige eller denne runden
+kunne gjøre (se "Bevisst utsatt" i forrige seksjon). `HuskMeg`/`ReturnUrl` rundtures via
+`AuthenticationProperties.Items` (kryptert inni `state`-parameteren, ikke TempData) siden de må
+overleve HELE redirect-til-Idura-og-tilbake-runden; selve personnummeret (kjent først i
+callbacken) mellomlagres i TempData og hentes av en ny side, `Pages/Konto/BankIdFullfor.cshtml`,
+som fullfører innloggingen via samme `ProfesjonellInnloggingService`.
+
+**Reell bug fanget av regresjonstestene, IKKE sendt til produksjon:** `ProfesjonellInnloggingService`
+sin "tilbake til der brukeren kom fra"-fallback brukte `new RedirectToPageResult(fallbackPage,
+fallbackArea, null)` — men `RedirectToPageResult` sin tredje POSISJONELLE konstruktørparameter er
+`pageHandler` (en sidehandler som "OnPostFoo"), IKKE et MVC-område. Den opprinnelige koden brukte
+`RedirectToPage(fallbackPage, new { area = fallbackArea })`-HJELPEMETODEN, som legger `area` i
+`routeValues`, et helt annet sted. Ga en 500 ("No page named '/Pasienter/Index' matches the
+supplied values") for enhver ALLEREDE BETRODD behandler sin ANDRE innlogging (2FA hoppet over,
+rett til denne fallbacken) — fanget av `HeleFlytenTests.cs` sin ende-til-ende-test, IKKE oppdaget
+ved kompilering (begge er gyldige overlands, bare feil betydning). Fikset til å bruke
+`routeValues: new { area = ... }` eksplisitt. Full regresjon (36/36) grønn etterpå.
+
+**Verifisert så langt som mulig UTEN en ekte interaktiv BankID-innlogging i nettleser** (noe kun et
+menneske kan fullføre — Idura krever ekte brukerinteraksjon, ikke noe curl kan late som):
+- Lokalt, med `Miljo:ErBeta=true` (simulert) og Idura-nøklene i `dotnet user-secrets` (ALDRI på
+  kommandolinjen — auto-mode-klassifisereren blokkerte nettopp det første forsøket som en reell
+  legitimasjonslekkasje, korrekt): BankID-knappen ga en fullstendig, korrekt utformet
+  OIDC-autorisasjonsforespørsel til `psytest.test.idura.broker` (riktig `redirect_uri`, `scope`,
+  `acr_values`, PKCE, nonce, state). Uten `Miljo:ErBeta`: samme knapp forble på mock-veien
+  (200, ikke 302) — bekrefter at live/lokal dev er upåvirket.
+- På selve beta-appen i Azure: samme sjekk, med RIKTIG HTTPS-`redirect_uri` mot den faktiske
+  beta-vertsnavnet. Krevde en `azd provision` (ikke bare `azd deploy`) for at de allerede
+  `azd env set`-satte BankID-/Seed-verdiene faktisk skulle nå App Service-innstillingene — satt
+  også over `Seed:AdminPersonnummer` m.fl. (SAMME ekte identitet som allerede brukes på live for
+  nøyaktig dette formålet) slik at beta nå har en administrator-konto klar for et ekte
+  BankID-forsøk.
+
+**Bevisst utsatt/åpent — krever brukerens EGEN interaktive handling, ikke noe som kan skriptes:**
+- Selve den første ekte Idura-innloggingen i nettleser (via `/Konto/LoggInn` sin BankID-knapp,
+  eller `/BankIdTest/Start` for kun en claims-dump uten å faktisk logge inn noen) — nødvendig for å
+  bekrefte at `ssn`-claim-gjetningen faktisk stemmer. Hvis den IKKE stemmer henter fallback-
+  heuristikken (11 sifre) trolig riktig verdi likevel, men dette er ubekreftet.
+  `BankIdFullfor.cshtml.cs` sin feilmelding viser en full claims-dump hvis personnummer ikke finnes
+  i det hele tatt, til feilsøking.
+- Behandler-kontoen for å bevise DEN andre rollen: samme "høyeste rolle vinner"-oppslag som gjelder
+  mock-BankID gjelder identisk her — admin-kontoen (brukerens eget personnummer) vil ALLTID vinne
+  over en behandler med SAMME personnummer. Trenger en ANDEN reell person/personnummer registrert
+  som behandler på beta for å faktisk bevise behandler-veien separat — kan gjøres med EKSISTERENDE
+  verktøy (behandler-invitasjon + selvregistrering, med det dev-only `PersonnummerOverride`-feltet
+  satt til det andre personnummeret under selve registreringen), ingen ny kode nødvendig for dette.
+
+## Google Safe Browsing flagget beta-appen (2026-09-19) — samme mønster som før, samme fiks
+
+Bruker fikk Chrome sin røde "Dangerous site"-advarsel på beta rett etter at ekte BankID-innlogging
+(forrige seksjon) var live der. NØYAKTIG samme årsak som først dokumentert 2026-09-02 for
+`testbase-test` (se "Google Chrome/Safe Browsing flagget test-appen"): en ekte "Logg inn med
+BankID"-knapp på en generisk, ubrandet `azurewebsites.net`-adresse uten nettverksrestriksjon
+matcher phishing-mønstergjenkjenning. `StagingGate` alene hindrer ikke dette — sperren beskytter
+INNHOLDET bak innlogging, ikke det faktum at siden i seg selv ser ut som et BankID-phishing-forsøk
+ved skanning.
+
+**Samme fiks som sist, brukt direkte uten omvei:** IP-baserte access restrictions lagt til på
+`app-testbase-uonprpnwr4eum` (beta), BÅDE hovedsiden og `--scm-site` (Kudu/deploy-endepunktet) —
+kun brukerens IP (`51.175.216.201/32`, priser 100, "AllowGaute") tillatt, alt annet nektet
+("Deny all" default). IP-en var UENDRET fra 2026-09-02-hendelsen (bekreftet via `api.ipify.org`
+FRA SAMME MASKIN/NETTVERK denne økten kjører på — pålitelig FORDI Claude Code-økten faktisk kjører
+lokalt på brukerens egen maskin, ikke i en sky-sandkasse atskilt fra brukerens nettverk). Verifisert
+at siden fortsatt svarer korrekt (401 fra StagingGate, ikke en nettverksblokkering) etter
+restriksjonen ble lagt til.
+
+**Samme kjente, ikke-kodifiserte begrensning som for live gjelder nå identisk for beta**: satt via
+CLI (`az webapp config access-restriction add`), IKKE i `infra/resources.bicep` — overlever en
+`azd provision` (ikke del av `appSettings`-fullerstatnings-fallgruven), men er heller ikke
+automatisk gjenskapt ved en fersk `azd provision` et helt NYTT sted, og må oppdateres manuelt
+dersom brukerens IP noensinne endrer seg (samme åpne punkt som for live, se "Åpne punkter til
+senere faser" — bør parameteriseres i Bicep via en azd-miljøvariabel for BEGGE miljøene samtidig
+når dette tas tak i).
+
+**Rettelse samme dag — IP-restriksjonen er trolig IKKE (lenger) det som faktisk beskytter live.**
+Bruker påpekte (korrekt) at hen når live UTEN noen IP-restriksjon og uten å bli flagget. Sjekket
+`az webapp config access-restriction show` for `app-testbase-tk46vyxboocho`: hovedsiden står nå på
+**"Allow all access"** — IP-restriksjonen fra 2026-09-02 er borte derfra (kun `--scm-site`
+sin restriksjon overlevde), mest sannsynlig ryddet vekk av nettopp den manglende
+Bicep-kodifiseringen punktet over advarer om. Live er altså i praksis åpent for hele internett nå,
+beskyttet kun av `StagingGate`, OG er likevel ikke flagget på nytt.
+
+Dette peker mot en annen, mer sannsynlig forklaring enn IP-restriksjon: **live har nå et ekte,
+kjøpt domene** (`www.psytest.no`), ikke lenger en rå `azurewebsites.net`-adresse — nøyaktig det
+opprinnelige phishing-varselet (2026-09-02) pekte ut som triggeren ("...driftet på en generisk,
+ubrandet azurewebsites.net-adresse..."). Beta mangler fortsatt sitt eget domene
+(`beta.psytest.no`, DNS-oppsett pågår) og sitter derfor fortsatt på nøyaktig det mønsteret som
+opprinnelig ble flagget. **Konklusjon: IP-restriksjonen lagt til på beta i dag er fornuftig
+dybdeforsvar, men er trolig IKKE det som faktisk fjerner/hindrer flagget — å fullføre
+`beta.psytest.no`-DNS-en er sannsynligvis den faktiske fiksen.** Ikke fjernet noe basert på denne
+usikkerheten (billig å beholde begge), men bør ikke stole blindt på IP-restriksjon alene for
+fremtidige nye miljøer av samme type.
+
+## Ekte BankID for admin/behandler, del 2: eget flagg + pushet til LIVE (2026-09-19)
+
+Bruker ba om å teste ekte BankID på LIVE i stedet for å vente på beta sin DNS (StagingGate-varselet
+over gjorde beta ubehagelig å teste på akkurat nå). To avgjørelser tatt FØR noe ble pushet til live:
+
+**Skilte "ekte BankID" fra "ErBeta" i et eget flagg (`Miljo:EktBankIdProfesjonell`).** Opprinnelig
+gjenbrukte BankID-schemaet `Miljo:ErBeta` — men å skru PÅ det flagget på live for å få BankID ville
+SAMTIDIG aktivert betalings-bryteren der, som DEFAULTER TIL MOCK. Live sine EKTE Vipps/Stripe-
+betalinger ville stille sluttet å fungere (falt tilbake til Mock) helt til noen manuelt satte dem
+til riktig modus på Admin/MinSide — oppdaget FØR noe ble satt på live, ikke i etterkant. Nytt,
+uavhengig Bicep-flagg (`ektBankIdProfesjonell`, samme "streng ikke bool"-mønster som `erBeta`, se
+begrunnelsen i forrige seksjon) styrer NÅ kun hvilken IdP admin/behandler-innlogging bruker — helt
+urelatert til betalingsmodus. Satt `MILJO_EKT_BANKID_PROFESJONELL=true` på BEGGE miljøer (live OG
+beta, siden beta sin BankID ellers ville sluttet å virke stille ved neste deploy dit — den brukte
+inntil nå `Miljo:ErBeta`, som fortsatt er `true` der, men koden sjekker ikke lenger den variabelen
+for dette formålet).
+
+**Bevisst IKKE fjernet StagingGate fra live**, til tross for at bruker foreslo det. Live kjører
+fortsatt med `ASPNETCORE_ENVIRONMENT=Development` (kjent, ikke løst åpent punkt) — det betyr at
+`PersonnummerOverride`-auth-bypasset (se kjente fallgruver i CLAUDE.md) og `AdminId+passord`-
+utvikler-innloggingen er AKTIVE på live akkurat nå, beskyttet UTELUKKENDE av StagingGate. Å fjerne
+gaten nå ville gjort admin-kontoovertakelse mulig for hvem som helst som fant innloggingssiden, en
+vesentlig annen (og alvorligere) risiko enn "ingen ekte pasientdata ennå" alene dekker. Bruker
+trenger uansett ikke gaten fjernet for å teste — StagingGate sin cookie varer 90 dager og
+BankID-callback-stiene er allerede eksplisitt unntatt sperren. Fikset til: fjerning av StagingGate
+avventer at live faktisk flyttes vekk fra `Development`-modus — et større, eget arbeid siden
+migrasjoner i dag kjører AUTOMATISK ved oppstart NETTOPP FORDI `IsDevelopment()` er sann der (se
+Program.cs sitt dev-seed-block) — å bare bytte miljønavn uten en egen migrasjonsplan ville stoppet
+alle fremtidige skjemaendringer fra noensinne å nå live.
+
+**Pushet ALT denne øktens arbeid til live** (`azd provision` + `azd deploy`, `testbase-test`):
+tabellbredde-fiksen, "Lagrer …" over hele appen, Godkjente rapporter-sidene, test-tilgangs-
+forespørsler + bulk-godkjenning, planlagt/gjentagende utsending + bakgrunnstjenesten, hele
+beta-betalingsbryter-infrastrukturen (inaktiv på live, se over), og nå ekte BankID for
+admin/behandler. Full regresjon (36/36, etter en Docker Desktop-omstart — daemonen hadde stoppet
+igjen midt i økten, samme som tidligere denne uken) FØR push. Verifisert PÅ selve
+`www.psytest.no` etterpå: (1) BankID-knappen gir nå en ekte, korrekt Idura-autorisasjonsforespørsel
+med riktig `redirect_uri=https://www.psytest.no/signin-bankid-innlogging`, (2) `Admin/MinSide` sin
+betalingsmodus-seksjon er HELT FRAVÆRENDE (bekrefter at Vipps/Stripe forblir i sin opprinnelige,
+alltid-ekte kodesti, ingen risiko for at et ekte betalingsforsøk ble trigget for å bevise dette).
+
+## Ekte BankID for admin/behandler, del 3: interaktiv verifisering avsluttet uferdig (2026-09-19)
+
+Bruker forsøkte å fullføre en ekte, interaktiv Idura BankID-innlogging for å bekrefte
+`ssn`-claim-gjetningen (se del 1). Kom lenger enn ventet før den stoppet:
+
+- Redirect-URI-registreringen (del 1 sitt åpne punkt) ble løst av bruker selv hos Idura — bekreftet
+  ved at feilen `invalid_request: redirect_uri ... is not registered` forsvant, og at flyten
+  siden nådde et EKTE BankID-testinnloggingsskjermbilde (`current.aletheia-test.idtech.no`) både
+  lokalt og på `www.psytest.no`.
+- Test-personnummer opprettes via BankID sitt offisielle `ra-preprod.bankidnorge.no`
+  (Test Number Generator + End User-søk) — bekreftet ved websøk (se kilder i samtalen), IKKE noe
+  vi bygde. Iduras dokumenterte testflyt bruker et fast engangspassord `otp` + passord `qwer1234`
+  for ALLE BankID-er utstedt av `ra-preprod` — dette er den TILTENKTE, støttede testmetoden, ikke
+  en begrensning å omgå.
+- Bruker genererte en SYNTETISK test-SSN og prøvde `otp`/`qwer1234`, men fikk likevel krevd
+  kodebrikke ("keyfab") uansett, til tross for å ha "unlocked BankID på mobil" for identiteten.
+  Websøk antydet at en "Synthetic"-avkrysningsboks i Test Number Generator må stå UKRYSSET for å
+  støtte biometri/mobil-BankID i stedet for kodebrikke — ubekreftet om dette faktisk løser det,
+  bruker valgte å ikke forfølge videre.
+- Det finnes en egen "BankID preprod"-mobilapp (adskilt fra den ekte produksjons-BankID-appen),
+  men den distribueres IKKE selvbetjent — krever en support-henvendelse til BankID med
+  Apple-ID-/Google Play-kontoens e-post for å få tilgang via TestFlight/Play Store. Ikke forfulgt.
+
+**Beslutning: avsluttet uferdig, bevisst.** Bruker valgte å ikke bruke mer tid på synthetic-
+identitet-friksjonen. Idura-integrasjonen (schema, redirect, claim-uthenting) anses som FERDIG
+BYGGET og deployet til både live og beta (se del 1/2) — det eneste som IKKE er bekreftet er
+hvorvidt `ssn`-claimen faktisk er riktig navn (11-sifre-heuristikken er fallback), siden ingen
+`OnTokenValidated`-kall noensinne fullførte i praksis. Dette er et reelt, stående åpent punkt:
+den ekte BankID-knappen på live/beta vil IKKE fungere for en faktisk bruker før dette er bekreftet
+— finner IKKE `ssn` eller et 11-sifret claim, ender brukeren på en feilmelding med full claims-dump
+(se `BankIdFullfor.cshtml.cs`) i stedet for å logges inn. IKKE noe å fikse blindt uten data — vent
+til en reell person (evt. en fremtidig ekte BankID-produksjonsavtale, eller en løst
+synthetic/mobil-friksjon) faktisk fullfører en innlogging, les feilmeldingens claims-dump da, og
+juster claim-navnet i `Program.cs` sin `OnTokenValidated` deretter.
+
+## Ekte BankID for admin/behandler, del 4: ekte produksjonssøknad hos Idura, midlertidig reversert (2026-09-20)
+
+Bruker startet den reelle BankID-produksjonssøknaden hos Idura (selvbetjent, ikke `orders@idura.eu`-
+e-postveien — Idura sin dashboard har en direkte "signup for production"-side siden de nå eier
+Criipto/er en del av BankID BankAxept). Ny produksjonstenant `psytest-no.idura.broker`
+(bevisst IKKE et eget custom-domene som `auth.psytest.no` ennå — bruker utsatte det, se
+begrunnelsen for hvorfor Idura selv ANBEFALER custom domene for produksjon i samtalen: unngår at
+brukeren forlater eget domene under BankID-innlogging), egen produksjons-klient
+(`urn:my:application:identifier:8821`). Lagt til som et HELT NYTT, eget konfigurasjonssett
+(`BankId:IduraProduksjon:*`, egne Bicep-parametre+Key Vault-hemmelighet), som `Program.cs` NÅ
+FORETREKKER for `BankIdInnlogging`-schemaet når satt — ingen ny flagg-avhengighet, ren
+konfigurasjons-fallback (satt → produksjon, tomt → fortsatt test-tenanten). ACR-nivå defaultet til
+`substantial` for produksjon (ikke `high` som test-tenanten bruker) — "substantial" feilet TIDLIGERE
+nettopp fordi test-miljøet manglet en aktivert BankID-app, som en ekte produksjonsbruker vil ha;
+IKKE bekreftet ende-til-ende ennå.
+
+**Godkjenningsprosessen tar 10–13 virkedager** (avtalen må gjennom brukerens bank etter at Idura har
+signert, se websøk i samtalen) — inntil da fungerer IKKE den nye produksjonstenanten i det hele
+tatt. Application-skjemaet krevde bl.a. en begrunnelse for fødselsnummer-tilgang med henvisning til
+norsk lov — endte på personopplysningsloven § 12 (bruksgrunnlag) + helsepersonelloven §§ 39–40
+(journalføringsplikt) + pasientjournalforskriften § 5 (administrative opplysninger, krever
+fødselsnummer) + GDPR art. 9(2)(h) (selve helseopplysningsbehandlingen). Verifisert via websøk,
+IKKE en jurist — samme forbehold som resten av compliance-arbeidet i dette prosjektet, se
+`docs/compliance-dpia-utkast.md`.
+
+**Midlertidig reversert til Mock BankID på live** mens søknaden er til behandling — bruker påpekte
+korrekt at admin/behandler-innlogging på live ville vært BRUTT i mellomtiden (forsøker å nå en
+produksjonstenant som ennå ikke er godkjent/aktiv). Løsning: satt `MILJO_EKT_BANKID_PROFESJONELL`
+tilbake til `"false"` og kjørt `azd provision` — INGEN kodeendring/redeploy nødvendig, siden dette
+alltid var designet som en ren konfigurasjonsbryter (se del 2). `BankId:IduraProduksjon:*`-verdiene
+ble stående urørt (helt ufarlig — schemaet blir uansett ikke registrert når hovedflagget er av).
+
+**Reell fallgruve oppdaget: en App Service-innstilling lest i `Program.cs` sin TOPPNIVÅ-kode
+(ved oppstart, ikke per forespørsel) tar IKKE effekt bare ved `azd provision`** — appen må faktisk
+RESTARTES for å lese inn den nye verdien og re-evaluere `if`-blokken som avgjør om
+`BankIdInnlogging`-schemaet registreres. Første verifisering rett etter `azd provision` viste
+FORTSATT den gamle (produksjons-)oppførselen; løst med et eksplisitt `az webapp restart`, deretter
+bekreftet på nytt (200 OK uten redirect, i stedet for 302 til Idura). Gjelder ETHVER fremtidig
+flagg av samme type (lest via `builder.Configuration[...]` i `Program.cs` sin toppnivå-kode, ikke
+inni en per-request-lest tjeneste) — husk en eksplisitt restart etter `azd provision` når man
+tester en endring av en slik innstilling, ikke bare stol på at provisjonering alene er nok.
+
+**Plan for reaktivering:** når banken har godkjent avtalen (10–13 dager), sett
+`MILJO_EKT_BANKID_PROFESJONELL` tilbake til `"true"`, `azd provision` + eksplisitt restart (se
+fallgruven over), og verifiser at redirecten går til `psytest-no.idura.broker` med
+`acr_values=...substantial`. INGEN kodeendring nødvendig da heller.
+
+## ICD-11-tester: 7 nye innebygde tester (2026-09-20)
+
+Bruker ba om at plattformen blir "ICD-11 Ready" ved å legge til 7 navngitte instrumenter: ITQ,
+PDS-ICD-11 (kun selvrapporteringsversjonen), PiCD, PAQ-11(R), IDQ, IAQ og GADIT. Eksplisitt
+instruks: bruk offisiell norsk oversettelse der den finnes, oversett selv der den ikke finnes, og
+merk enhver EGEN (ikke-offisiell) oversettelse i selve testnavnet med
+"(ikke offisielt oversatt – kun til uttesting)" — bevisst norsk frase, ikke den engelske, for å
+unngå (c)-problemer. Lokalisering til engelsk er fortsatt bevisst utsatt (kun relevant hvis en
+engelsktalende partner dukker opp senere) — se hovedstatusseksjonen.
+
+**Research-fase (før noe kode ble skrevet):** brukte Playwright MCP-nettleserverktøy til å hente
+kildemateriale direkte fra rettighetshavernes egne distribusjonssider (ikke gjetning/hallusinert
+klinisk innhold) — `integrertbehandling.no` (Tore Willy Lie sin norske ICD-11-kartleggingshub),
+`personality.today` (Bo Bach/Martin Sellbom/Youl-Ri Kim/Peter Tyrer sin distribusjonsside for
+PDS-ICD-11/PiCD/PAQ-11R), NKVTS (offisiell norsk ITQ), og et fagfellevurdert PMC-fulltekstsøk for
+IDQ/IAQ sin eksakte ordlyd (Shevlin et al. 2023, Journal of Clinical Psychology).
+
+**Funn per test — offisiell norsk oversettelse funnet, INGEN "ikke offisielt oversatt"-merking:**
+- **ITQ**: full, gratis, åpent tilgjengelig norsk oversettelse (Bækkelund, Sele & Berg 2019, Modum
+  Bad), distribuert av NKVTS. Ingen lisensbegrensning.
+- **PDS-ICD-11 (selvrapportering)**: offisiell norsk oversettelse (Tore Willy Lie og Lars Lien,
+  2022), godkjent av rettighetshaverne (Bo Bach, Martin Sellbom), psykometrisk validert i en 2024-
+  studie. Lisens: "til fri bruk etter avtale med forfatterne" — ikke en betingelse for bruk, men en
+  høflighets-e-post til dem før bredere bruk er ønskelig (ikke sendt ennå).
+- **GADIT**: offisiell norsk oversettelse (2025, Tore Willy Lie m.fl.), distribuert under CC BY-NC
+  (ikke-kommersiell bruk i klinikk/forskning). **Bruker har eksplisitt akseptert denne
+  lisensrisikoen** og valgt å inkludere testen uendret, med begrunnelsen at platformens
+  betalingsmodell er for den kliniske TJENESTEN, ikke videresalg av selve instrumentet. Kommersiell
+  distribusjonsforespørsel går ellers til Gary Chung Kai Chan (c.chan4@uq.edu.au).
+
+**Funn per test — INGEN offisiell norsk oversettelse, egen oversettelse laget og merket i navnet:**
+- **PiCD**: kun dansk offisiell oversettelse finnes (Bo Bach, Mickey Kongerslev, Erik Simonsen).
+  Norsk tekst i denne testen er oversatt av OSS fra dansk, ikke validert.
+- **PAQ-11(R)**: brukeren ble bedt om å velge mellom original 17-ledds PAQ-11 (ingen norsk
+  forankring i det hele tatt) og PAQ-11R (revidert, norsk forskningsforankring i samme 2024-studie
+  som PDS-ICD-11, men ingen ferdig norsk oversettelse) — **valgte PAQ-11R**. Norsk tekst oversatt av
+  OSS fra den engelske originalen (© 2022 Youl-Ri Kim og Peter Tyrer), ikke validert.
+- **IDQ og IAQ**: ingen norsk oversettelse finnes. Rettighetshaver Philip Hyland ber eksplisitt om å
+  bli kontaktet før noen lager en oversettelse. **Bruker valgte**: oversett nå, merk som ikke-
+  offisiell, men send en høflighets-e-post til Hyland parallelt (ikke avvent svar) — ikke sendt
+  ennå, se "Åpne punkter" nedenfor.
+
+**Implementasjon** (samme mønster som de 8 Helsebiblioteket-testene, `Test.Kode` +
+`IInnebygdTestSeeder` + `ITestSkaaringsberegner`):
+- Nytt felt `Test.IcdElleveKlar` (bool, migrasjon `LeggTilIcdElleveKlarPaaTest`) + egen
+  `TestService.SettIcdElleveKlarAsync` (samme mønster som `SettRapportIntroduksjonAsync` — ingen
+  admin-UI ennå, kun satt av seederne). Vises som en enkel "✓ Klar"-kolonne i
+  `Admin/Tester/Index.cshtml`.
+- **ITQ**: skåring er en ekte diagnostisk algoritme (IKKE en terskelsum) — PTSD krever alle tre
+  symptomklynger + funksjonstap, KPTSD krever i tillegg alle tre selvorganiseringsklynger +
+  funksjonstap. Fast leddindeksering dokumentert i `ItqSkaaringsberegner`-klassekommentaren.
+- **PDS-ICD-11**: hvert ledd har EGNE, unike (bipolare) svaralternativer, ikke en delt Likert-skala.
+  Lagrer VISNINGSINDEKS (0..4/0..3) i stedet for endelig poengverdi (2-1-0-1-2 for ledd 1-10) — en
+  bevisst avgjørelse for å unngå at to alternativer med samme reelle poengverdi (begge polene =2)
+  vises som "valgt" samtidig i utfyllingssiden, siden radioknappenes `checked`-sammenligning i
+  `Fyll.cshtml` er verdi-basert (`TestLeddSvaralternativer`). `PdsIcd11Skaaringsberegner` oversetter
+  indeks→poeng.
+- **IDQ/IAQ**: samme mønster som ITQ — ekte diagnostisk algoritme (antall endosserte ledd + minst
+  ett kjernesymptom + bekreftet funksjonstap), ikke en terskelsum.
+- **PiCD/PAQ-11R**: dimensjonale trekkprofiler. PiCD har ingen kliniske grenseverdier i kilden
+  (indikatorene er derfor nøytralt fremstilt, `Positiv=true` for alle). PAQ-11R har foreløpige
+  domenegrenseverdier sitert direkte fra kildedokumentet, inkl. reversert skåring for ledd 1,2,8,9.
+- 7 nye enhetstester lagt til `SkaaringsberegnereTests.cs` (spesielt for de mest feilutsatte
+  delene: ITQs diagnostiske forgrening, PDS-ICD-11s bipolare indeks→poeng-oversettelse, PAQ-11Rs
+  reverserte ledd). Full regresjonssuite: 48/48 grønn etter tillegget.
+
+**Verifisert i ekte nettleser (Playwright), ikke bare enhetstester:** tildelte alle 7 til en
+testpasient, fylte ut PDS-ICD-11 (alle 14 bipolare ledd — bekreftet at riktig, og KUN riktig,
+alternativ vises som valgt etter lagring, ingen krysstale mellom de to polene som deler poengverdi)
+og ITQ (alle 5 sider, inkl. et scenario der kun DSO-kriteriene var oppfylt — bekreftet at
+skåringsberegneren korrekt konkluderer "ingen diagnose" i dette tilfellet, ikke bare de to enkleste
+tilfellene som er dekket av enhetstestene) helt til "Ferdig".
+
+**Reell, fra før eksisterende site-wide bug oppdaget og fikset underveis:** "Ferdig"-knappen (og
+"Neste"/"Lagre") på `Pasientportal/Tester/Fyll` markerte ALDRI en test som fullført når klikket i en
+ekte nettleser — kun i `HeleFlytenTests.cs`, som poster skjemadata direkte og aldri kjører
+klientsidens JS. Årsak: `wwwroot/js/validering.js` sin "deaktiver alle innsendingsknapper for å
+hindre dobbel-klikk"-håndtering (bugliste 2026-09-13 punkt 25) satte `disabled = true` på DEN
+KLIKKEDE knappen SYNKRONT inni `submit`-eventet — nettleseren bygger skjemaets entry-list ut fra
+knappenes tilstand på innsendingstidspunktet, så den klikkede knappens eget navn/verdi-par (f.eks.
+`Handling=Ferdig`) ble stille utelatt fra selve POST-en. Rammet ETHVER flerknapps-skjema med dette
+attributtet site-wide (test-utfylling for alle pasienter, ikke bare de 7 nye) — ikke noe innført av
+dette arbeidet, men oppdaget FORDI de nye testene ble browser-testet i stedet for kun enhetstestet.
+Fikset ved å utsette selve `disabled = true` til `setTimeout(fn, 0)` (neste task), slik at
+nettleseren rekker å lese knappens navn/verdi FØRST — lastetekst-visningen skjer fortsatt
+umiddelbart. Bekreftet fikset: "Ferdig" markerer nå korrekt fullført i ekte nettleser for både
+PDS-ICD-11 og ITQ.
+
+**Deployet til live (2026-09-20):** `azd deploy` mot `testbase-test` (eksplisitt valgt env,
+`azd env select testbase-test`, siden `testbase-beta` var/kan være default — se fallgruven i
+hovedteksten). Ingen Bicep-endringer nødvendig (kun applikasjonskode + én EF-migrasjon). Migrasjonen
+kjører automatisk ved oppstart (`db.Database.MigrateAsync()` i `Program.cs`, som kjører i
+`IsDevelopment()`-blokken — live kjører bevisst som "Development", se arkitektur-seksjonen).
+Verifisert: `azd deploy` fullførte uten "no App Service deployment status change"-advarselen (kjent
+fallgruve), og `az webapp log tail` rett etter viste normal, feilfri drift (ekte DB-spørringer
+lykkes, ingen exceptions) — hadde migrasjonen feilet ville hele appen krasjet ved oppstart siden
+`MigrateAsync()` avventes før noe annet skjer. IKKE deployet til beta ennå (bevisst utsatt av
+bruker — e-postene til rettighetshaverne sendes av bruker selv, ikke AI, før bredere bruk).
+
+**Åpne punkter (fra 2026-09-20, del 1):**
+- Høflighets-e-poster ikke sendt ennå — bruker sender disse selv: Bo Bach/Martin Sellbom
+  (PDS-ICD-11, PiCD), Youl-Ri Kim/Peter Tyrer (PAQ-11R), Philip Hyland (IDQ/IAQ).
+
+## ICD-11-tester, del 2: pasientvendte navn, PDS-ICD-11-UX, PiCD-ordlyd (2026-09-20)
+
+Etter at bruker begynte å teste på live, kom fem konkrete tilbakemeldinger:
+
+1. **Testnavnene var for lange/tekniske for pasienten.** Alle 7 fikk et kort, pasientvennlig navn
+   med forkortelsen til slutt (for at behandler fortsatt kjenner testen igjen): ITQ →
+   "Traumescreening ICD-11 ITQ", PDS-ICD-11 → "Personlighetsfunksjon ICD-11 PDS", PiCD →
+   "Personlighetstrekk ICD-11 PiCD", PAQ-11R → "Personlighetsscreening ICD-11 PAQ-11R", IDQ →
+   "Depresjonsscreening ICD-11 IDQ", IAQ → "Angstscreening ICD-11 IAQ", GADIT →
+   "Spillavhengighet ICD-11 GADIT".
+2. **"(ikke offisielt oversatt – kun til uttesting)" skal IKKE vises til pasienten** — kun til
+   behandler/admin, som faktisk trenger å vite det før de sender testen. Løst med et nytt felt
+   `Test.OversettelseNotat` (migrasjon `LeggTilOversettelseNotatPaaTest`), satt for PiCD/PAQ-11R/
+   IDQ/IAQ, null for ITQ/PDS-ICD-11/GADIT (som HAR offisiell oversettelse). Vises nå kun i
+   `Admin/Tester/Index` (egen "Oversettelse"-kolonne) og i tildelingsflytens sjekkliste (Admin OG
+   Behandlerportal sin `Tildel/Tester.cshtml`, både synlig tekst og `data-test-navn` som feeder
+   bekreftelsesdialogen) — ALDRI i `Pasientportal/*`, som kun leser det nå forkortede `Test.Navn`.
+3. **PDS-ICD-11 sine svaralternativer skal vises som vertikale fullbredde-bokser**, ikke en
+   horisontal knapperad — de er for lange setninger til å stå på rekke. Gjenbrukte den eksisterende
+   `.svar-rad--stablet`-modifiereren fra MADRS-S (bugliste 2026-09-13 punkt 24) i stedet for å bygge
+   noe nytt: `Fyll.cshtml` sin `stablet`-sjekk utvidet til `Test.Kode is "madrs_s" or "pds_icd11"`.
+4. **PDS-ICD-11 ledd 1-10 skal ha TILFELDIG visningsrekkefølge på svaralternativene** — den "sunne"
+   midtre teksten som alltid ligger i midten er en konvensjon fra PAPIRVERSJONEN av skjemaet, ikke
+   klinisk meningsbærende, og et digitalt skjema med den alltid i midten kan gi et
+   svarmønster-bias. Ledd 11-14 har derimot en REELL, økende alvorlighetsrekkefølge og skal IKKE
+   stokkes. Løst uten skjemaendring: ny `TestLeddSvaralternativer.ParseStokket(svaralternativer, seed)`
+   (Fisher-Yates, ren visningsrekkefølge — selve poengverdien følger MED teksten, så skåringen er
+   upåvirket), brukt i `Fyll.cshtml` når `Test.Kode == "pds_icd11" && ledd.Rekkefolge <= 10` (alle 14
+   PDS-ledd ligger på samme TestSide, så Rekkefolge 1-10 er nettopp ledd 1-10). Frøet kombinerer
+   TestTildeling-id og ledd-id, slik at rekkefølgen er STABIL for én besvarelse (Lagre/Neste endrer
+   den ikke) men ULIK mellom pasienter.
+5. **PiCD: "Meget" → "Helt", "Nøytral" → "Nøytralt"** i skalateksten. Siden PiCD allerede var
+   seedet i alle tre miljøer, holdt det IKKE å bare endre kildekoden — ny
+   `TestService.OppdaterSvaralternativerForAlleLeddAsync(testId, svaralternativer)` kalt fra
+   seederens "allerede finnes"-gren propagerer ordlydsendringen til de 60 allerede lagrede leddene.
+6. **ITQ sin intro-tekst på side 1 ("tenk på hendelsen som gir deg mest plager …") gjøres større og
+   med mer luft rundt** — ny CSS-klasse `.test-intro` (site.css) på `Test.Beskrivelse`-avsnittet i
+   `Fyll.cshtml`: større skrift, bakgrunnsboks, venstre aksent-kant. Generell for ALLE testers
+   intro-tekst (samme kodesti), ikke ITQ-spesifikk — brukeren pekte spesifikt på ITQ fordi det var
+   testen de så på under live-testing.
+
+**Ny generell mekanisme:** `TestService.SettNavnAsync` (mirrors `SettRapportIntroduksjonAsync`) —
+seedernes "allerede finnes"-gren kaller nå denne slik at en navneforenkling faktisk propagerer til
+tester som allerede er seedet i beta/live, ikke bare til fremtidige miljøer. Samme prinsipp bak
+`SettOversettelseNotatAsync` og `OppdaterSvaralternativerForAlleLeddAsync`.
+
+**Verifisert:** 48/48 enhetstester grønt (uendret). Browser-verifisert i lokalt dev-miljø: alle 7
+nye navn vises korrekt både i `Admin/Tester/Index`, tildelingsflyten (med/uten oversettelsesnotat
+riktig skjult/vist) og pasientens "Min side"; PDS-ICD-11 fylt ut på nytt — bekreftet vertikale
+fullbredde-bokser OG at ledd 1-10s "sunne" midtalternativ IKKE lenger alltid havner i midten (varierer
+reelt fra ledd til ledd), mens ledd 11-14 beholder sin faste rekkefølge; PiCD fylt delvis ut —
+bekreftet "Helt uenig"/"Nøytralt" i faktisk rendret HTML, ingen "Meget"/"Nøytral" (uten t) igjen.
+
+**Deployet til live OG beta (2026-09-20)** — bruker ba eksplisitt om utsending til begge etter
+denne runden med rettelser, i motsetning til forrige runde der beta bevisst ble utsatt.
+
+**Åpne punkter:**
+- Høflighets-e-poster ikke sendt ennå — bruker sender disse selv: Bo Bach/Martin Sellbom
+  (PDS-ICD-11, PiCD), Youl-Ri Kim/Peter Tyrer (PAQ-11R), Philip Hyland (IDQ/IAQ).
+- GADIT, PiCD, PAQ-11R, IDQ, IAQ er verifisert i nettleser KUN opp til utfyllingssiden (rendres
+  korrekt, riktig kategori/navn i tildelingsflyten) — selve "fyll ut helt til Ferdig"-løpet er kun
+  browser-testet for PDS-ICD-11 og ITQ. Skåringslogikken for alle 7 er dekket av enhetstester.
+
+## Invitasjons- og gruppesystem, fase 1: Gruppe som egen entitet (2026-09-20)
+
+Bruker ba om et helt nytt, stort feature-sett: QR-basert selvregistrering for pasienter (knyttet
+til behandler ELLER en spesifikk gruppe), automatisk test-utsendelse ved gruppeinnmelding, en
+"prøv systemet"-modus uten BankID/ekte personnummer for konferanse-/markedsføringsbruk, og
+aggregert rapportering på tvers av en gruppes besvarelser. Dette er trolig det STØRSTE enkelt-
+feature-settet i prosjektet til nå — større enn Partner-systemet. Avklart FØR noe kode ble
+skrevet (se samtalen): (1) prøve-/testpasienter lagres i HELT SEPARATE, ikke-vedvarende tabeller,
+ALDRI i Pasienter/TestSvar — unngår at journallovens 10-års-lagringsplikt eller
+rapportgodkjenningsflyten ved et uhell gjelder syntetiske konferanse-data; (2) rådata for
+prøvepasienter beholdes til behandler EKSPLISITT rydder gruppen (ikke automatisk slettet rett
+etter utsending) — nødvendig for at den aggregerte rapporten skal fungere i etterkant av en
+konferanse; (3) aggregert rapport er ÉN generisk visning (N, snitt/median, skårefordeling, og
+kategori-/Indikator-andeler der testen har det) brukt for ALLE tester, ikke skreddersydde
+visualiseringer per test; (4) ekte pasienter som melder seg inn via en gruppe sin QR-kode går
+gjennom NØYAKTIG samme betalingsgate som en manuell tildeling — ingen spesialbehandling.
+Bygges i 5 faser, verifisert og deployet én om gangen (bruker sitt eksplisitte valg), ikke som
+én stor batch.
+
+**Fase 1 (denne omgangen): Gruppe som egen entitet.** Frem til nå var "gruppe" bare en fritekst-
+streng (`Pasient.Gruppenavn`) — helt uten struktur, ingen kobling til tester. Ny `Gruppe`-entitet
+(eier = BehandlerId, `QrToken` forberedt for fase 2, `ErArkivert` soft-delete) + ny
+`GruppeTestTilordning` (mange-til-mange gruppe↔test, satt ved opprettelse, redigerbar senere) +
+`GruppeService` (CRUD, `FinnEllerOpprettAsync` for CSV-gruppeimportens eksisterende
+"gruppenavn,navn,email,sms,pnr"-format — se under, `HentPasientAntallPerGruppeAsync`).
+Nye sider: `Behandlerportal/Grupper` (full CRUD — Index/Ny/Rediger/Arkiver, med samme
+kategori-tre-avkrysning for test-tilordning som `Tildel/Tester.cshtml` bruker) og `Admin/Grupper`
+(KUN oversikt på tvers av alle behandlere — samme arbeidsdeling som `Admin/Pasienter`, faktisk
+redigering skjer hos eiende behandler).
+
+**Migrasjon med ekte datamigrering** (ikke bare skjema): den autogenererte migrasjonen satte
+`DropColumn("Gruppenavn")` FØRST i rekkefølgen — måtte håndskrives om til: opprett `grupper`-
+tabellen → legg til `Pasient.GruppeId` → SQL-datamigrering (én ny `Gruppe`-rad per unike
+(Gruppenavn, BehandlerId)-par som faktisk var i bruk, med `QrToken` generert via MySQL sin
+`UUID()` siden dette skjer i ren SQL, ikke applikasjonskode) → koble `Pasient.GruppeId` til riktig
+gruppe → FØRST DA droppes `Gruppenavn`-kolonnen. Verifisert direkte mot lokal dev-database: den
+eksisterende "Gruppe A" (Kari/Ola Nordmann, eid av Per Behandlersen) ble korrekt til én ny
+`Gruppe`-rad med gyldig `QrToken`, og begge pasientene fikk riktig `GruppeId`.
+
+**Berørte visningssteder oppdatert** (alle brukte tidligere `p.Gruppenavn` direkte): Admin/
+Behandlerportal sine `Pasienter/Index.cshtml` (søk + kolonne), `Tildel/Pasienter.cshtml` (kolonne),
+`Pasienter/Detaljer.cshtml`, og `Pasienter/Rediger.cshtml` (fritekstfelt → nedtrekksliste av
+behandlerens egne grupper, med lenke til gruppeadministrasjon). Alle via `.Include(p => p.Gruppe)`
+— EF Core opprettet automatisk en ekte FK-constraint (`GruppeId` + navigasjonsegenskapen `Gruppe`
+matcher konvensjonen), i motsetning til `Pasient.BehandlerId` som bevisst ALDRI har hatt en
+tilsvarende formell FK i dette prosjektet.
+
+**Verifisert:** 48/48 enhetstester grønt (én oppdatert — `RedigerTests.cs` postet tidligere en rå
+"Gruppenavn"-tekststreng, oppretter nå en ekte `Gruppe` først og poster `GruppeId`). Browser-
+verifisert i lokalt dev-miljø (via "Bytt modus" → Behandler): opprettet en ny gruppe med ett
+tilordnet WHO-5, bekreftet kategori-treet på rediger-siden automatisk åpner kategorien med en
+allerede tilordnet test og viser avkrysningen korrekt forhåndsutfylt.
+
+**IKKE bygget ennå (fase 3-5):** "prøv systemet"-modus, aggregert rapportering,
+betalingsgate-verifisering for gruppe-tildelte tester. Se docs/prosjektbeskrivelse-original.md-
+tilsvarende avklaringer i samtalen for full spesifikasjon av gjenstående faser.
+
+## Invitasjons- og gruppesystem, fase 2: QR-basert selvregistrering (2026-09-20)
+
+**To selvstendige QR-typer, samme underliggende mekanisme:** (1) behandlerens EGEN, gruppeuavhengige
+invitasjon (`Behandler.PasientInviteQrToken`, ny kolonne+migrasjon) — plassert på
+`Behandlerportal/MinSide` (bruker sitt eksplisitte ønske), registrerer en ny pasient direkte hos
+behandleren, INGEN automatisk testutsending; (2) en gruppes invitasjon (`Gruppe.QrToken`, allerede
+lagt til i fase 1) — plassert på `Behandlerportal/Grupper/Rediger/{id}` (bruker sitt eksplisitte
+ønske: "under Grupper->gruppe, der du redigerer"), registrerer pasienten i DEN gruppen OG sender
+automatisk gruppens tilordnede tester med det samme (via eksisterende `TestTildelingsService`,
+SAMME betalingsgate som en manuell tildeling — ingen spesialbehandling, jf. avklaringen før
+byggingen startet).
+
+**Selve QR-bildet:** ny `QrBildeGenerator` (Security/) bruker BEVISST QRCoder sin rene,
+administrerte `PngByteQRCode` — IKKE `QRCode`-klassen (som krever System.Drawing.Common/GDI+ og
+IKKE fungerer pålitelig på Linux-baserte Azure App Service-containere, som denne appen kjører på).
+QR-bildet serveres via en named page handler (`?handler=Qr`) rett fra samme side som viser koden,
+ingen egen fil/lagring. Begge QR-typer har en "Regenerer"-knapp som umiddelbart invaliderer
+gammel kode/lenke (advarer først om at trykt materiale må byttes ut).
+
+**Ny offentlig side `Pages/BliPasient` (route `/BliPasient/{b|g}/{token}`):** i MOTSETNING til den
+eksisterende `PasientRegistrering/Fullfor` (som fullfører en FORHÅNDSOPPRETTET invitasjon/pasient-
+rad) oppretter denne siden en helt ny pasient i ÉTT steg — ingen forhåndskjent kontaktinfo, ingen
+egen behandler/admin-handling før besøket. Ny `PasientInvitasjonService.RegistrerViaQrAsync` +
+`HarAnnenPasientMedPersonnummerAsync` (samme personnummer-unikhetssjekk som
+Behandlerportal/Pasienter/Rediger — ekstra viktig her siden dette er en helt åpen, offentlig
+overflate). Samme bot-vern (honeypot + minimumstid) og samtykkeavtale som Fullfor-siden.
+
+**KRITISK OPPDAGELSE underveis, løst:** StagingGate sperrer i praksis HELE appen bak en delt
+hemmelighet for enhver besøker uten cookien fra før (kun BankID-callback og betalings-webhooks var
+unntatt fra før). Dette ville ha gjort QR-funksjonen totalt virkningsløs på live/beta — en
+fullstendig ukjent person som skanner en kode ville møtt "skriv inn nøkkelen"-veggen FØR de
+noensinne når registreringsskjemaet. Løst med samme mønster som BankID-callbacken: `/BliPasient`
+lagt til som et nytt, hardkodet (ingen wildcard) unntak i `StagingGate.cs`. Selve sikkerheten på
+denne overflaten ligger i siden selv (gyldig behandler-/gruppe-QR-token kreves, bot-vern, og
+resultatet er uansett bare én ny, uverifisert pasientrad hos ÉN bestemt behandler).
+
+**Relatert, IKKE rettet i denne omgangen — flagget i kildekodekommentar og her for senere
+vurdering:** samme oppdagelse avslørte at `/PasientRegistrering/Fullfor`, `/Inviter/Fullfor`,
+`/Inviter/Verifiser` og `/Pasientportal/Konto/LoggInn` sannsynligvis har NØYAKTIG samme problem på
+live i dag — en ekte invitert pasient eller behandler som klikker sin egen invitasjonslenke fra en
+enhet uten StagingGate-cookien fra før, ville også møtt tilgangssperren. Dette er IKKE noe denne
+omgangen introduserer; det gjelder allerede eksisterende offentlige sider, og bør vurderes helhetlig
+(enten en bredere unntaksliste, eller en fornyet vurdering av om StagingGate fortsatt trengs på
+live nå som ekte BankID er på vei) — IKKE gjort ennå, krever et bevisst valg fra bruker.
+
+**Verifisert lokalt, ende-til-ende:** begge QR-typer fulgt gjennom faktisk nettleser-flyt — behandler-
+QR ga en ny pasient korrekt koblet til behandleren (ingen gruppe); gruppe-QR ga en ny pasient korrekt
+koblet til BÅDE behandleren OG gruppen, MED WHO-5 automatisk tildelt (status "Tildelt", verifisert
+direkte i databasen) — akkurat som spesifisert. 48/48 enhetstester fortsatt grønt.
+
+**Oppfølging samme dag, etter tilbakemelding:** pasienten som melder seg inn i en gruppe MED
+tilordnede tester går nå RETT videre til selve utfyllingen (`Pasientportal/Tester/Fyll/{id}`) i
+stedet for å måtte vente på og klikke SMS-/e-post-lenken — pasienten sitter jo allerede midt i
+registreringen på egen enhet. Løst ved å logge pasienten inn direkte (`AuthSignIn.LoggInnAsync`,
+samme mekanisme som BankID-innlogging ville satt opp — personnummeret er uansett allerede
+egen-oppgitt i skjemaet) og redirecte til tildelingen for FØRSTE tilordnede test, hentet fra
+`TildelOgVarsleAsync` sitt returverdi (`TestLenke` fikk et nytt `TildelingId`-felt for dette).
+SMS/e-post sendes fortsatt som normalt (reserve for senere besøk fra annen enhet), bare selve
+denne økten hopper over den omveien. Gjelder KUN gruppe-QR-flyten med tilordnede tester —
+behandler-QR (ingen gruppe) og en gruppe uten tester viser fortsatt bare bekreftelsessiden, siden
+det da ikke finnes noen test å hoppe rett til. Betalingsgaten er UENDRET (samme som enhver annen
+tildeling) — denne endringen påvirker kun HVORDAN pasienten kommer seg til Fyll-siden, ikke hva
+som skjer der. Verifisert i ekte nettleser (Playwright): registrering → direkte til
+`/Pasientportal/Tester/Fyll/{id}` med testinnholdet synlig, innlogget som riktig pasient, ingen
+mellomsteg.
+
+## StagingGate fjernet fra live, nytt flagg for utviklingssnarveier (2026-09-20)
+
+**Beslutning fra bruker, ordrett:** "I have decided to remove the staging gate protection from
+live. That is the point of live." StagingGate er fjernet fra `www.psytest.no` og beholdt UENDRET
+på beta (`beta.psytest.no`) — samme delte nøkkel som før, ingen endring der.
+
+**Hvorfor dette IKKE var en trygg ren sletting:** live kjører fortsatt `ASPNETCORE_ENVIRONMENT=
+Development` (bevisst, kun for automatisk databasemigrering ved oppstart — se dev-seed-blokken i
+Program.cs og tidligere seksjoner i denne loggen). StagingGate var inntil nå det ENESTE som hindret
+en hvilken som helst besøker i å nå flere `IsDevelopment()`-gatede snarveier som ALLE ville blitt
+reelt, offentlig utnyttbare i det øyeblikket StagingGate falt bort. Full gjennomgang (`grep -rn
+"IsDevelopment()"`) fant:
+
+1. **`PersonnummerOverride`** på BÅDE admin/behandler- og pasient-innloggingssiden — et
+   ubetinget auth-bypass allerede kjent fra tidligere (se "Google Chrome/Safe Browsing flagget
+   test-appen" lenger opp i denne loggen), men fortsatt kun gatet på `IsDevelopment()`.
+2. **KRITISK, NYOPPDAGET under denne gjennomgangen:** `Pages/Konto/LoggInn.cshtml.cs` sin
+   `OnPostPassordAsync` (AdminId+passord, sekundær innloggingsvei) hadde INGEN
+   `IsDevelopment()`-sjekk i selve handleren i det hele tatt — skjemaet var kun skjult i viewet
+   (`@if (Env.IsDevelopment())`), nøyaktig samme fallgruvemønster som CLAUDE.md allerede advarer
+   mot for `PersonnummerOverride`, men denne gangen ikke fanget opp. Program.cs sin dev-seed-blokk
+   oppretter (idempotent, kun hvis `Administratorer`-tabellen er tom ved første oppstart) en konto
+   `AdminId="dev-admin"` med et HARDKODET passord `"utvikler123"` — synlig i klartekst i denne
+   samme, offentlige GitHub-repoen. Denne kontoen logger inn med `UserRole.Utvikler` (full
+   utvikler-/superadmin-tilgang). Siden live har kjørt med `ASPNETCORE_ENVIRONMENT=Development`
+   helt siden det første oppsettet, historisk FØR brukerens egen ekte admin-konto (`Seed:
+   AdminPersonnummer`) fantes, er det høyst sannsynlig at denne `dev-admin`-raden faktisk ble
+   opprettet i live sin ekte database på et tidspunkt og fortsatt ligger der. Uten StagingGate ville
+   ENHVER besøker på internett — uten å kjenne noe annet enn denne offentlige kildekoden — kunnet
+   logge inn som full utvikler på live. Dette var IKKE noe denne omgangen introduserte; det har
+   ligget latent siden live først fikk `ASPNETCORE_ENVIRONMENT=Development`, og ble først synlig som
+   et akutt problem i det StagingGate skulle fjernes. **Oppfølgingspunkt til bruker:** siden Claude
+   Code ikke har brannmuråpning til å spørre live sin MySQL Flexible Server direkte (se kjent
+   fallgruve om `AllowAzureServices`), BØR administrator-listen på `/Administratorer` sjekkes manuelt
+   for en gjenværende "dev-admin"-rad og denne arkiveres/slettes om den finnes — kodefiksen under
+   gjør den uansett ubrukelig fremover, men raden selv er ikke fjernet fra databasen av denne
+   omgangen.
+3. **2FA-koden vist rett i nettleseren** (`ProfesjonellInnloggingService.FullforAsync`, begge
+   grener — administrator og behandler) og i `Pages/Inviter/Fullfor.cshtml.cs`
+   (`TempData["DevMobilKode"]`) — siden `MockSmsSender`/`MockEmailSender` kun logger til konsollen
+   (se kjent fallgruve), var dette ment som en lokal utviklingssnarvei, men uten StagingGate ville
+   det gjort andre-faktoren VERDILØS for enhver på internett: koden ble bare vist tilbake i samme
+   respons, ingen SMS/e-post trengte noensinne å bli avlyttet.
+4. **Personnummer forhåndsutfylt i URL** (`Program.cs` sin `InnloggingsstiForAsync`, for
+   pasientportal-testlenker) — la et pasient-personnummer i en `?personnummer=`-spørrestreng.
+   Lavere alvorlighetsgrad (mottakeren har uansett allerede lenken), men fortsatt uheldig
+   logghygiene på et fullt offentlig miljø.
+5. **Diagnostiske sider** (`Pages/BankIdTest/*`, `Pages/BetalingTest/*`) — trigger ekte
+   Idura-BankID-testflyter og ekte Vipps/Stripe-betalingsforsøk. Ikke et "gratis penger"-hull (krever
+   uansett å gå gjennom Vipps/Stripe sin egen autentisering), men en utilsiktet offentlig
+   diagnoseoverflate mot ekte tredjepartskontoer.
+6. **`UseHsts`/`UseExceptionHandler` var aldri aktive på live** — begge lå bak
+   `if (!app.Environment.IsDevelopment())`, som siden live kjører "Development" alltid var usann
+   der. Ingen HSTS-header, fulle utviklerfeilsider ved unntak — usynlig bak StagingGate før, men
+   ville blitt direkte eksponert nå.
+
+**Løsning: nytt, EGET flagg `Miljo:TillatUtviklingsSnarveier`** (`TestBase.Web/Security/Miljo.cs`),
+bevisst frikoblet fra `ASPNETCORE_ENVIRONMENT`/`IsDevelopment()` — samme designprinsipp som
+`Miljo:ErBeta`/`Miljo:EktBankIdProfesjonell` fra tidligere (se de respektive seksjonene i denne
+loggen): live beholder `ASPNETCORE_ENVIRONMENT=Development` (kun for auto-migrering), men dette nye
+flagget er EKSPLISITT `"false"` der. Sant lokalt (`appsettings.Development.json`) og på beta
+(`Miljo__TillatUtviklingsSnarveier=true` i infra/resources.bicep, satt via azd-miljøvariabelen
+`MILJO_TILLAT_UTVIKLINGSSNARVEIER`), usant/fraværende på live. Alle 6 punktene over er nå gatet på
+dette flagget i stedet for `IsDevelopment()`:
+
+- `PersonnummerOverride` (begge innloggingssider, view OG handler).
+- `OnPostPassordAsync` avviser nå UNNTAKSLØST med samme feilmelding som "fant ingen konto" når
+  flagget er av — verken captcha-sjekk eller kontooppslag når kjøre i det hele tatt, og
+  skjemaet er fortsatt skjult i viewet. Samme feilmelding uansett årsak, for ikke å avsløre at
+  mekanismen finnes på et miljø der den er skrudd av.
+- 2FA-kode-passthrough i `ProfesjonellInnloggingService` og `Inviter/Fullfor.cshtml.cs`.
+- Personnummer-i-URL i `Program.cs`.
+- Alle seks diagnostiske sider (`BankIdTest/Start+Resultat`, `BetalingTest/Vipps+Stripe+
+  VippsResultat+StripeResultat`) returnerer nå `NotFound()` når flagget er av.
+- `UseHsts`/`UseExceptionHandler` er nå BETINGET AV DETTE FLAGGET (invertert), ikke
+  `IsDevelopment()` — live får nå faktisk `UseExceptionHandler`+`UseHsts` (ny, reell herding som
+  aldri var aktiv før), beta/lokal dev uendret (fortsatt fulle feilsider, ingen HSTS, som før).
+
+**StagingGate.cs selv er UENDRET** — mekanismen var allerede utformet til å bli et stille no-op når
+`StagingGate:AccessKey` er tom/fraværende (`string.IsNullOrEmpty`-sjekk), så selve "fjerningen" fra
+live er KUN en konfigurasjonsendring: `STAGING_GATE_ACCESS_KEY` satt til tom streng for
+`testbase-test`-miljøet via `azd env set`, uendret (fortsatt satt) for `testbase-beta`. Ingen
+kodeendring i selve gaten var nødvendig eller gjort.
+
+**Verifisert, både lokalt (flagget tvunget av via miljøvariabel) og direkte mot live etter deploy:**
+- `/health` uten cookie: `401` før, `200` etter på live; fortsatt `401` på beta (uendret).
+- Rå POST til `/Konto/LoggInn?handler=Passord` med `AdminId=dev-admin`/`Passord=utvikler123`:
+  avvist med "Fant ingen administrator..." — testet BÅDE lokalt med flagget tvunget av OG direkte
+  mot `www.psytest.no` selv.
+- AdminId+passord-skjemaet og PersonnummerOverride-feltet er fraværende i utsendt HTML på live.
+- Alle seks diagnostiske sider gir `404` på live.
+- Normal BankID-mock-innlogging (uten override) fortsatt uendret virkemåte.
+- 48/48 enhetstester fortsatt grønt.
+
+**IKKE gjort i denne omgangen, fortsatt åpent:** de tidligere flaggede offentlige sidene
+(`/PasientRegistrering/Fullfor`, `/Inviter/Fullfor`, `/Inviter/Verifiser`,
+`/Pasientportal/Konto/LoggInn`) som StagingGate tidligere (utilsiktet) også gated — nå som
+StagingGate er borte fra live, er dette poenget uansett foreldet FOR LIVE (de er nå nåbare som
+tiltenkt); gjelder fortsatt kun beta, der StagingGate fortsatt står. Ingen kodeendring nødvendig for
+live sin del av dette punktet.
+
+## PersonnummerOverride midlertidig gjeninnført på live (2026-09-20, samme dag)
+
+**Regresjon oppdaget rett etter forrige seksjon sin deploy:** brukeren rapporterte at admin/
+behandler-innlogging på live manglet personnummer-feltet, kun sikkerhetsspørsmålet var synlig.
+Årsak: `Miljo:TillatUtviklingsSnarveier=false` gatet `PersonnummerOverride` sammen med de fire andre,
+klart farligere snarveiene (AdminId+passord, 2FA-passthrough, personnummer-i-URL, diagnostiske
+sider) — men `PersonnummerOverride` er IKKE en ren "nice to have"-snarvei slik de andre er.
+`MockBankIdProvider` er den ENESTE `IBankIdProvider` som noensinne registreres i `Program.cs`
+(ingen "ekte" implementasjon finnes for selve pasient-/admin-/behandler-BankID-flyten, kun det helt
+separate `"BankIdInnlogging"` OIDC-schemaet for admin/behandler på beta) — uten override returnerer
+den ALLTID samme faste fiktive personnummer (`"01019012345"`). Siden `Miljo:EktBankIdProfesjonell`
+fortsatt er `"false"` på live (ekte BankID-avtale ikke klar, ca. 13 dager unna ifølge bruker),
+betydde gårsdagens fiks i praksis at INGEN ekte administrator, behandler ELLER pasient kunne logge
+inn på live i det hele tatt — pasient-portalen er dessuten alltid mock uansett miljø (`"pasient
+forblir alltid mock"`, se arkitekturseksjonen), så samme regresjon rammet trolig ekte pasienter også,
+ikke bare admin/behandler slik brukeren selv la merke til.
+
+**Løsning: nytt, SNEVRERE flagg `Miljo:TillatPersonnummerOverride`**
+(`Miljo.TillatPersonnummerOverride(configuration)`, `Security/Miljo.cs`) — styrer KUN
+PersonnummerOverride-feltet (begge innloggingssider: `Pages/Konto/LoggInn` og
+`Areas/Pasientportal/Pages/Konto/LoggInn`), atskilt fra `Miljo:TillatUtviklingsSnarveier` som
+fortsatt er `"false"` på live. Logikken er en OR: sann enten hvis
+`Miljo:TillatPersonnummerOverride` ELLER `Miljo:TillatUtviklingsSnarveier` er satt, så beta/lokal
+dev (som allerede har `TillatUtviklingsSnarveier=true`) er uendret, mens live nå KUN får denne ene,
+snevre unntaket via en egen ny app-innstilling (`MILJO_TILLAT_PERSONNUMMER_OVERRIDE=true`, satt via
+`azd env set` for `testbase-test` alene). `LoggInnModel` sine to ansvarsområder er splittet i to
+egne propertyer: `VisUtviklingsSnarveier` (AdminId+passord-skjemaet, fortsatt lukket på live) og
+`VisPersonnummerOverride` (personnummer-feltet, nå åpent på live).
+
+**Vurdert og bevisst valgt fremfor et bredere "skru alt på igjen":** å sette
+`Miljo:TillatUtviklingsSnarveier=true` på live igjen (det brukeren bokstavelig talt spurte om —
+"enable the fake bankid login") ville også gjenåpnet AdminId+passord-bypasset
+(`dev-admin`/`utvikler123`, se forrige seksjon), 2FA-kode-passthrough og de seks diagnostiske
+BankID-/betalingstestsidene — uten StagingGate som backstop denne gangen, i motsetning til før i
+dag. `PersonnummerOverride` alene bærer fortsatt en reell restrisiko (kjenner/gjetter noen et
+registrert menneskes ekte personnummer, kan de logge inn som dem — samme grunnleggende sårbarhet
+som fikk test-appen phishing-flagget av Google Safe Browsing tidligere, se
+`azure_bankid_phishing_flag`-minnet), men er UUNNGÅELIG uten ekte BankID — det er selve poenget med
+BankID å bekrefte identitet uten en slik overstyring. Denne restrisikoen aksepteres bevisst,
+midlertidig, av bruker, KUN for dette ene feltet — ikke de fire andre.
+
+**MIDLERTIDIG — MÅ FJERNES når ekte BankID er verifisert på live:** sett
+`MILJO_TILLAT_PERSONNUMMER_OVERRIDE=false` (eller fjern innstillingen) via `azd env set` for
+`testbase-test` og kjør `azd provision` på nytt, så snart `Miljo:EktBankIdProfesjonell` er skrudd på
+og en ekte interaktiv Idura-innlogging er bekreftet fungerende i nettleser (siste gjenstående steg,
+se "Ekte BankID for admin/behandler" i denne loggen).
+
+**Verifisert direkte mot live etter deploy:** personnummer-feltet er tilbake på BÅDE
+`/Konto/LoggInn` og `/Pasientportal/Konto/LoggInn`; AdminId+passord-skjemaet fortsatt fraværende;
+`/BankIdTest/Start` fortsatt `404`. Beta uendret (`401` på `/health`, uendret virkemåte for
+`Miljo:TillatUtviklingsSnarveier=true`-siden av ting siden det flagget aldri ble rørt). 48/48
+enhetstester fortsatt grønt.
+
+## Admin fikk full CRUD på Grupper + kritisk autorisasjonshull lukket (2026-09-20, samme dag)
+
+**Bruker rapporterte to ting samtidig:** (1) kunne ikke opprette grupper som admin, med beskjeden
+"Remember, all that which patients and treaters can do, should be available as an admin" — direkte
+sammenfallende med et allerede eksisterende, ordrett krav i `docs/prosjektbeskrivelse-original.md`
+linje 47 ("Administrator skal kunne ... gjøre det samme som behandlere kan ift pasienten"), som
+`Admin/Grupper` (kun-oversikt siden fase 1, bevisst men feilaktig kopiert fra samme mønster som
+`Admin/Pasienter`) aldri fulgte; (2) "no QR Code inside the group" ved test på live — samme
+rotårsak: den eneste Grupper-siden admin hadde tilgang til (Index) viser aldri QR-kode i det hele
+tatt, siden selve redigeringen (der QR-koden vises) kun fantes i Behandlerportal.
+
+**Løsning:** nye `Admin/Grupper/Ny` og `Admin/Grupper/Rediger` — funksjonelt identiske med
+Behandlerportal sine (navn, testtilordning, QR-kode+regenerering, arkivering), MEN uten
+eierskapssjekk mot innlogget bruker (admin kan redigere ENHVER behandlers gruppe) og med et
+behandler-nedtrekksfelt på Ny-siden (admin må velge HVILKEN behandler som skal eie den nye
+gruppen, siden `Gruppe.BehandlerId` er obligatorisk og ikke kan utledes fra en admin-bruker slik
+den kan for en innlogget behandler). `Admin/Grupper/Index` fikk "+ Ny gruppe"-lenke og
+Rediger/Arkiver-kolonne, samme mønster som Behandlerportal sin Index.
+
+**Reell feil underveis, fanget før deploy:** `NyModel.LastValgAsync` sitt første forsøk brukte
+`_db.Behandlere.Where(...).OrderBy(b => b.Visningsnavn).ToListAsync(...)` — `Visningsnavn` er en
+BEREGNET C#-property (`Fornavn + " " + Etternavn`), ikke en databasekolonne, og EF Core klarer ikke
+oversette en `OrderBy` på en slik property til SQL (`InvalidOperationException` ved
+spørringsoversettelse, 500-feil ved faktisk sidevisning — fanget lokalt via Playwright FØR deploy).
+Fiks: hent listen FØRST (`ToListAsync()`), sorter i minnet ETTERPÅ — samme mønster som allerede
+brukt riktig andre steder i samme fil (`Admin/Grupper/Index.cshtml.cs` sin
+`behandlerNavnById`-oppslag).
+
+**KRITISK, uavhengig funn under samme undersøkelse:** verken `Behandlerportal/Grupper` eller
+`Admin/Grupper` sto i `AuthorizeAreaFolder`-listen i `Program.cs` (i motsetning til ALLE andre
+mapper i begge Areas), og ingen av PageModel-klassene hadde et eget `[Authorize]`-attributt heller.
+Bekreftet med `curl` direkte mot live FØR fiks: `/Behandlerportal/Grupper`, `/Behandlerportal/
+Grupper/Ny` og `/Admin/Grupper` ga alle `200 OK` for en HELT uautentisert forespørsel — altså kunne
+enhver besøker på internett (særlig alvorlig nå som StagingGate er borte fra live) se
+`Admin/Grupper` sin oversikt over ALLE behandleres gruppenavn/pasientantall, OG opprette vilkårlige
+grupper via `Behandlerportal/Grupper/Ny` (ville fått `BehandlerId=0` siden `HentBehandlerId()`
+faller tilbake til 0 for en uautentisert bruker — spam/søppeldata, ikke tilgang til ekte data, siden
+eierskapssjekken på Rediger/QR tilfeldigvis ville blokkert dem fra alt annet enn sine egne
+`BehandlerId=0`-søppelgrupper). Fikset ved å legge `/Grupper` til i `AuthorizeAreaFolder`-listen for
+BEGGE Areas (`"BehandlerOmrade"` og `"AdminOmrade"`), samme mønster som resten av kodebasen — IKKE
+per-klasse `[Authorize]`-attributter, for konsistens. Verifisert direkte mot live etter deploy:
+samme tre stier gir nå `302` (redirect til innlogging) for en uautentisert forespørsel.
+
+**Verifisert lokalt (Playwright) og på live:** admin kan opprette en gruppe med valgt behandler som
+eier, redigere den, se QR-koden rendre korrekt på `Admin/Grupper/Rediger/{id}` (samme
+`QrBildeGenerator` som Behandlerportal). 48/48 enhetstester fortsatt grønt.
+
+**IKKE gjort i denne omgangen, samme mønster trolig igjen:** `Admin/Pasienter` har SAMME
+"kun-oversikt"-begrensning (ingen `Ny`/`Rediger`-sider) som `Admin/Grupper` hadde — samme
+opprinnelige krav (prosjektbeskrivelsen linje 47) tilsier at dette også bør rettes, men brukeren
+rapporterte ikke dette spesifikt denne gangen. Vurder samme type CRUD-utvidelse for `Admin/
+Pasienter` ved neste anledning.
+
+## Forenklet QR-registrering + "fullfør profilen senere" (2026-09-20, samme dag)
+
+**Bruker rapporterte, ordrett:** måtte oppgi personnummer ved QR-registrering selv om det skulle
+vært valgfritt (jf. den opprinnelige avklaringen om en "prøv systemet"-terskel), og skjemaet hadde
+for mange felt. Konkret ønske: KUN mobilnummer, e-post (bare én av dem påkrevd) og valgfritt
+personnummer, i den rekkefølgen (telefon → e-post → PNR); dropp navn/kjønn/adresse/Vipps-samtykke
+fra selve registreringen; send en "fullfør profilen din"-påminnelse til telefon/e-post etter
+registrering, med lenke til å ettergi det som ble hoppet over — pasienten har allerede fått sin
+første test innen den påminnelsen kommer. "Only if you enter PNR will the data be real patient
+data" — personnummer er skillet mellom "prøv systemet" og en fullverdig pasient.
+
+**`PasientInvitasjonService.RegistrerViaQrAsync` skrevet om:** signaturen kuttet fra 13 til 7
+parametre — kun `behandlerId, gruppeId, personnummer (nullable), mobilNr, epost,
+godtarLagringAvData, baseUrl`. `Varslingspreferanse` utledes nå internt fra hvilke(n) av
+mobilNr/epost som faktisk er fylt ut (ikke lenger et eget valg pasienten gjør). `GodtarMuligVippsBetaling`
+fjernet fra hele denne flyten — ingen kode leste den verdien uansett (bekreftet med `grep` på tvers
+av repoet), så "push away" betyr her rett og slett at feltet er borte fra skjemaet, ikke flyttet et
+annet sted (det finnes ingen betalings-gate-logikk som noensinne konsulterte det).
+
+**Nytt felt `Pasient.ProfilFullforingToken`** (nullable, unik indeks, IKKE kryptert — samme mønster
+som `Gruppe.QrToken`/`Behandler.PasientInviteQrToken`, siden det er et tilfeldig token, ikke
+personopplysninger) — generert for HVER QR-registrert pasient, uavhengig av om personnummer ble
+oppgitt. Migrasjon `LeggTilProfilFullforingToken`, ren additiv (ingen dataflytting nødvendig).
+
+**Ny offentlig side `Pages/PasientRegistrering/FullforProfil.cshtml`** (route
+`/PasientRegistrering/FullforProfil/{token}`) — IKKE et engangstoken, kan besøkes/brukes flere
+ganger. Lar pasienten ettergi navn/kjønn/adresse/personnummer/den andre kontaktkanalen, uten
+innlogging (samme tillitsmodell som `BliPasient` — token er selve autentiseringen). Personnummer
+valideres på nytt (format + unikhet) først når det faktisk endres. `PasientInvitasjonService` fikk
+`FinnVedProfilFullforingTokenAsync` og `OppdaterProfilAsync` for dette.
+
+**Reell bug funnet og fikset FØR deploy (Playwright + curl-repro):** `MobilNr`/`Epost` var
+opprinnelig deklarert som ikke-nullbar `string` med `= string.Empty` som default på BEGGE de nye
+sidene. ASP.NET Cores modellbinding konverterer et INNSENDT MEN TOMT skjemafelt til `null` for en
+streng-property — IKKE til `""`, uavhengig av C#-defaultverdien — noe som deretter traff en
+`NOT NULL`-kolonne (`Email`) i MySQL og ga `DbUpdateException`/500 så snart e-post-feltet faktisk
+ble stående tomt (nøyaktig scenarioet "bare telefon, ikke e-post" som hele poenget med denne
+omgangen var å støtte). Fanget ved å teste akkurat DEN kombinasjonen i nettleser først, ikke bare
+"alle felt utfylt". Fiks: begge feltene er nå `string?` i PageModel, med `?? string.Empty`
+eksplisitt ved kallet til service-laget (som fortsatt tar imot ikke-nullbare `string`-parametre, i
+tråd med de ikke-nullbare databasekolonnene). Se ny fallgruve i CLAUDE.md.
+
+**Verifisert lokalt (Playwright, ende-til-ende):**
+- Registrering med KUN mobilnummer (ingen e-post, ingen personnummer) → lykkes, pasient opprettet
+  med `Personnummer=NULL`, `Email=""`, riktig `ProfilFullforingToken` generert.
+- "Fullfør profilen din"-lenken faktisk sendt — bekreftet via ekte utgående Vonage SMS-kall i loggen
+  (dette lokale dev-miljøet har reelle Vonage-nøkler konfigurert, ikke bare MockSmsSender — verdt å
+  huske ved fremtidig SMS-relatert testing lokalt, siden man da faktisk sender ekte SMS-er).
+- `/PasientRegistrering/FullforProfil/{token}` viser riktig forhåndsutfylte verdier, og lagring av
+  navn+personnummer oppdaterer raden korrekt (`HarPersonnummer` går fra 0 til 1).
+- 48/48 enhetstester fortsatt grønt.
+
+**IKKE gjort i denne omgangen:** ingen egen visuell markering i behandler-/adminvisninger for
+"pasient uten personnummer" (prøve-status er kun synlig ved å sjekke om personnummer er satt) —
+brukeren ba ikke om dette, holdt bevisst utenfor for å unngå overimplementering. Samme kjente,
+upåvirkede StagingGate-begrensning som før gjelder fortsatt for den NYE siden på beta (ikke live,
+der StagingGate er fjernet): en helt fersk besøker uten StagingGate-cookien fra før ville i teorien
+møtt tilgangssperren på beta før de når `/PasientRegistrering/FullforProfil` — uendret fra det
+tidligere kjente, bevisst utsatte funnet.
+
+## Fase 3: automatisk rapportgodkjenning og "slett prøvedata" (2026-09-20, samme dag — KUN lokalt, IKKE deployet)
+
+**Bruker ba om å fortsette til neste fase og teste internt, men EKSPLISITT ikke deploye til beta
+eller live før brukeren selv har fått testet det som allerede står der** (personnummer-overstyring
++ forenklet QR-registrering fra forrige seksjon). Denne fasen er derfor kun bygget og verifisert
+lokalt — IKKE provisjonert/deployet noe sted ennå.
+
+**Fullførte de to gjenstående, opprinnelig spesifiserte delene av "prøv systemet"-modusen** (jf. det
+aller første, store avklaringssvaret: "kept until treater manually clears the group" og "generate
+the report... and send it to the patient at once... Do not send those reports to the treater for
+approval"):
+
+1. **`TestService.LagreSvarAsync`**: når en tildeling fullføres OG den eiende pasienten IKKE har
+   personnummer (prøvepasient), hopper koden nå over `BehandlerMeldingService.OpprettAsync`
+   (ingen godkjenningsforespørsel til behandler i det hele tatt) og setter i stedet
+   `RapportGodkjentUtc`/`RapportSynligForPasient` UMIDDELBART. En ekte pasient (med personnummer)
+   er helt uendret — samme godkjenningsflyt som før. `Pasientportal/Tester/Fyll.cshtml` fikk en
+   betinget "Se rapporten din"-lenke på ferdig-siden, synlig nettopp når dette har skjedd.
+2. **`GruppeService.TellProvedataAsync`/`SlettProvedataAsync`** — en "Slett prøvedata"-knapp på
+   BÅDE `Behandlerportal/Grupper/Rediger` og `Admin/Grupper/Rediger`, som viser antall
+   prøvepasienter (personnummer `NULL`) i gruppen og permanent sletter dem + deres
+   tildelinger/svar/betalinger/behandlermeldinger ved bekreftelse. Rammer ALDRI en pasient som har
+   fått personnummer, uansett hvordan de kom inn i gruppen — kun fravær av personnummer avgjør.
+   Ikke koblet til `PlanlagtTildeling` (lagrer pasient-IDer som CSV, ikke en direkte FK — urealistisk
+   scenario for en QR-prøvepasient, bevisst utelatt for å unngå unødig kompleksitet).
+
+**Verifisert lokalt, ende-til-ende (Playwright):**
+- Registrerte en prøvepasient (e-post, ingen PNR) via gruppe-QR → fylte ut hele GADIT-testen →
+  "Se rapporten din"-lenken dukket opp umiddelbart på ferdig-siden → rapporten var faktisk synlig
+  og korrekt skåret på `/Pasientportal/Tester/Rapport/{id}` uten noe behandler-steg.
+- Bekreftet i database: `RapportGodkjentUtc` satt, `RapportSynligForPasient=1`, OG
+  `behandler_meldinger` hadde ZERO rader for denne tildelingen (ingen godkjenningsforespørsel ble
+  opprettet).
+- "Slett prøvedata" på `Admin/Grupper/Rediger` viste riktig antall (2, fra to tidligere
+  testregistreringer denne dagen), slettet dem ved bekreftelse, og etterlot ZERO orfanerte rader i
+  `pasienter`/`test_tildelinger`/`test_svar`/`test_tildeling_betalinger`.
+- 48/48 enhetstester fortsatt grønt.
+
+**IKKE gjort i denne omgangen (bevisst, hørte ikke til denne fasens kjerne):** fase 4 (aggregert
+rapportering på tvers av en gruppes besvarelser, til konferanse-/markedsføringsbruk) og fase 5
+(eksplisitt verifisering av at betalingsgaten/partner-allow-listen oppfører seg identisk for
+gruppetildelte tester — allerede antatt riktig siden samme `TestTildelingsService`-kode brukes, men
+ikke eksplisitt re-testet i denne omgangen).
+
+**VIKTIG — IKKE DEPLOYET:** alle endringene i denne seksjonen er KUN på lokal maskin (bygget,
+migrert lokalt, testet lokalt). `azd deploy`/`azd provision` er bevisst IKKE kjørt mot
+`testbase-beta` eller `testbase-test` for dette — vent på eksplisitt bekreftelse fra bruker om at
+det som allerede ligger ute (forenklet QR-registrering + personnummer-overstyring) er ferdig
+testet først.
+
+**Oppdatering 2026-09-21: bekreftet av bruker ("Looks good"), deployet til BEGGE miljøer** (samme
+dag brukeren fikk logget på beta for første gang) — se eget avsnitt lenger ned for fase 4+5, som
+ble bygget/testet/deployet i SAMME økt etter denne bekreftelsen (brukeren ba eksplisitt om å gå
+videre til fase 4+5 uten å vente på ny bekreftelse denne gangen: "Deploy when testing seems good
+and test on live. Deploy to beta as well, i want to see the way we handle the various versions.").
+
+## Fase 4: aggregert rapportering + fase 5: betalingsgate-verifisering (2026-09-21)
+
+**Fase 4 — aggregert rapport på tvers av en gruppes besvarelser**, jf. det opprinnelige ønsket om
+en "vis meg aggregerte tall til konferanse-/presentasjonsbruk"-knapp, og avklaringen fra
+planleggingen: ÉN generisk visning for ALLE tester (ikke egne visualiseringer per test).
+
+- `GruppeService.HentAggregatAsync(gruppeId, provedata, fraUtc, tilUtc)` — ny, injiserer nå
+  `TestService` i `GruppeService` (ren én-veis avhengighet, ingen sirkularitet). For HVER test
+  tilordnet gruppen: henter fullførte tildelinger for de aktuelle pasientene (prøvedata = ALLE
+  pasienter UTEN personnummer, ingen tidsbegrensning i det hele tatt — poenget er én samlet
+  presentasjonsøkt; ekte pasienter = MED personnummer, avgrenset til en Fra/Til-periode),
+  gjenbruker `TestService.BeregnSkaaringAsync` per tildeling (samme skåringsmotor som
+  enkelt-rapporter), og aggregerer til N, gjennomsnitt/median prosentskår, og en kategorisk
+  fordeling. Den kategoriske fordelingen bygges av `TestSkaaringIndikator` (allerede en generisk,
+  testuavhengig struktur — se `Skaaring/TestSkaaringIndikator.cs`, brukt til "badges" i
+  enkelt-rapporter) i stedet for `TestSkaaring.Fortolkning` (fri tekst med råskår bakt inn, ubrukelig
+  som gruppering) — dette er akkurat det som gjør ÉN generisk visning mulig for enhver test med en
+  registrert `ITestSkaaringsberegner`, uten testspesifikk aggregeringskode.
+- Ny side `Behandlerportal/Grupper/Aggregert/{id}` + `Admin/Grupper/Aggregert/{id}` (lenket fra
+  hver sin Rediger-side) — to faner (Prøvedata/Ekte pasienter, GET-lenker), et enkelt Fra/Til-skjema
+  for "ekte pasienter"-fanen (default siste 30 dager), og ett kort per test med N/gjennomsnitt/
+  median/fordelingstabell. Beregnes HELT PÅ NYTT for hver sidevisning — ingen lagret rapport, jf.
+  "vises umiddelbart ved klikk".
+
+**Fase 5 — betalingsgate for gruppetildelte tester, EKTE FUNN under verifisering (ikke bare en
+bekreftelse):** den opprinnelige avklaringen sa "samme betalingsgate som enhver annen tildeling,
+ingen spesialbehandling" — men dette var formulert for EKTE pasienter. Verifisering avdekket at
+`TestTildelingsService.TildelOgVarsleAsync` (delt kode for QR-automatisk OG manuell admin/behandler-
+tildeling) IKKE skilte på personnummer i det hele tatt — en "prøv systemet"-pasient som ble meldt inn
+i en gruppe med en PRISET test, ville blitt sendt til Vipps/Stripe-betaling FØR de fikk prøve testen,
+i direkte motstrid med selve premisset for prøvemodusen ("sample the system before committing to any
+payment"). Fikset: i samme løkke der `TestTildelingBetaling` opprettes, tvinges prisen til 0/
+`BetalingStatus.IkkePakrevd` når pasienten mangler personnummer, UANSETT testens faktiske pris — en
+ekte pasient (har personnummer) er HELT uendret, samme betalingsgate som før. Gjelder alle veier inn
+(QR-registrering OG en behandler som senere manuelt tildeler en priset test til en eksisterende
+prøvepasient), siden fiksen sitter i den delte metoden, ikke QR-spesifikk kode.
+
+**Verifisert lokalt, ende-til-ende (Playwright + database), fase 4:** to prøvepasienter registrert
+via samme gruppe-QR, én med maks GADIT-skår (8/8, "Over grenseverdi") og én med lavest mulig (0/8,
+"Under grenseverdi") — aggregert rapport viste korrekt N=2, gjennomsnitt=50,0%, median=50,0%, og
+fordelingstabellen viste nøyaktig "Over grenseverdi: 1" / "Under grenseverdi: 1". "Ekte pasienter"-
+fanen viste riktig Fra/Til-skjema og N=0 (ingen ekte pasienter i gruppen).
+
+**Verifisert lokalt, ende-til-ende, fase 5:** satte midlertidig en pris (50 kr) på GADIT i den lokale
+databasen for testens skyld (reversert etterpå). En prøvepasient registrert via gruppe-QR gikk RETT
+til utfylling som før (`TestTildelingBetaling.Status = IkkePakrevd`, 0 kr) til tross for prisen; en
+ekte pasient (med personnummer) registrert via SAMME gruppe-QR ble korrekt sendt til
+`/Pasientportal/Tester/Betal` (`Status = Venter`, 50 kr) — bekreftet direkte i databasen for begge.
+48/48 enhetstester fortsatt grønt gjennom hele denne omgangen.
+
+**Deployet til BEGGE miljøer samme dag, etter lokal verifisering** (brukerens eksplisitte instruks:
+"Deploy when testing seems good... Deploy to beta as well, i want to see the way we handle the
+various versions") — ingen ny migrasjon i denne omgangen (kun nye sider/tjenestemetoder), så vanlig
+`azd deploy` (uten `azd provision`) var tilstrekkelig for begge.
+
+## Ni brukerfeilrettinger: profilfullføring, tester-faner, grupper-arkivering, test-infoboks (2026-09-21)
+
+Bruker meldte inn ni konkrete feil/ønsker i én omgang («Some fixes: ... Fix these, commit and
+deploy. Unless there is a security related challenge from you, go with your recommended choices.»)
+— eksplisitt fullmakt til å velge design/implementasjon selv uten å spørre, og eksplisitt instruks
+om å committe (FØRSTE git-commit i denne økten, etter en lang rekke ukommiterte faser) og deploye.
+Ingen av punktene reiste en reell sikkerhetsbekymring, så alt ble implementert uten avklaring.
+
+**1) Pasient kan ikke fullføre en delvis opprettet profil fra "Min side" — kun via lenke.**
+`Behandlerportal/Pasienter/Ny` oppretter en pasient med kun mobil/e-post (navn og personnummer
+kommer senere via `PasientRegistrering/FullforProfil/{token}`) — men når en slik pasient likevel
+klarer å logge inn (BankID-mock med korrekt personnummer, satt av behandler eller ved senere
+egen registrering), fantes ingen kobling FRA "Min side" TIL fullføringslenken; den var kun
+tilgjengelig i utsendt SMS/e-post. Løst: `PasientInvitasjonService.SikreProfilFullforingTokenAsync`
+(ny — genererer token lat, dvs. kun hvis det ikke finnes fra før, og lagrer, uten å sende noe) kalles
+fra `Pasientportal/MinSide.cshtml.cs` når `Navn`/`MobilNr`/`Email` er tomt, og resultatet vises som
+en "Fullfør profilen din"-knapp direkte på siden. Bevisst en EGEN metode fra den som faktisk SENDER
+en påminnelse (`PaaminnFullforingAsync`, se punkt 8) — å vise lenken skal aldri i seg selv trigge en
+SMS/e-post hver gang siden lastes.
+
+**2) Ubesvarte testtildelinger fra behandler hopet seg opp uten mulighet til å rydde.**
+`Behandlerportal/MinSide` hadde fra før to separate seksjoner ("Venter på godkjenning" og en
+duplisert "Ikke besvart" lenger ned) uten noen måte å fjerne en tildeling som aldri ble besvart.
+Løst i samme slag som punkt 3 (tre faner) under: en ny `TestService.SlettIkkeFullfortTildelingAsync`
+sletter `TestSvar`+`TestTildelingBetaling`+selve `TestTildeling`-raden, men KUN når tildelingen
+faktisk ikke er fullført og tilhører en av behandlerens egne pasienter (dobbelt vern mot å slette en
+allerede besvart test eller en annen behandlers pasient). Utløses av en søppelbøtte-knapp
+(`_Ikon` "slett") på hver "Ikke besvart"-rad, med `confirm()`-dialog.
+
+**3) Tre faner ("Venter på godkjenning" / "Ikke besvart" / "Godkjente") over ÉN tabell, med søk
+som filtrerer alle tre samtidig.** Ny generisk klientside-mekanisme, `wwwroot/js/faner.js` — leser
+`data-fane-beholder` (container), `data-fane` (fanevalg-knapper) og `data-fane-sok` (søkefelt), og
+skjuler/viser `data-fane-rad`-rader basert på BÅDE aktiv fane OG søketekst samtidig (ikke enten/
+eller) — dermed beholdes søketeksten når man bytter fane, og et søk kan i praksis vise "0 treff" på
+en fane selv om et annet fanevalg har treff, akkurat som forventet av "filtrer på alle 3 fanene".
+Lagt til en manglende tredje kategori, `TestService.HentGodkjenteFullforteForBehandlerAsync`
+(fantes fra før kun ugodkjent-varianten). Samme mønster (faner + søk, samme `faner.js`) gjenbrukt
+for Grupper-sidenes Aktive/Arkivert (se punkt 5) — ett skript, to helt ulike bruksområder.
+Verifisert i nettleser: bytte fane beholder søketeksten, og viser korrekt "0 treff" i en fane der
+søket ikke matcher noen rad der.
+
+**4) "Innstillinger" skal være en farget knapp, ikke en lenke.** Ren CSS-klasseendring
+(`<a class="btn btn-accent">` i stedet for en bar lenke) på `Behandlerportal/MinSide.cshtml` — ingen
+funksjonell endring, kun visuell konsistens med resten av knappe-språket i appen.
+
+**5) Grupper: Opprettet/Start/Slutt-datoer, "+Ny gruppe" som rolletilpasset knapp, Rediger/Arkiver
+som ikon-knapper, og en egen "Arkivert"-fane med Gjenopprette/Slett (med ja/nei-bekreftelse).**
+To nye rene informasjonsfelt på `Gruppe` — `StartDato`/`SluttDato` (`DateOnly?`, ingen automatikk
+knyttet til dem ennå, kun satt/redigert av behandler/admin) — via migrasjonen
+`LeggTilGruppeStartSluttDato`. `GruppeService` fikk `HentArkiverteForBehandlerAsync`/
+`HentAlleArkiverteAsync` (mirror av de aktive-variantene, filtrert på `ErArkivert`),
+`GjenopprettAsync` (nullstiller `ErArkivert`/`ArkivertUtc`), og `SlettGruppeAsync` — en HARD sletting
+som bevisst KUN tillates for allerede arkiverte grupper (ekstra vern mot utilsiktet datatap), og som
+løsner pasienters `GruppeId`-kobling (satt til null, pasientene selv slettes IKKE) før selve gruppen
+fjernes, siden `Pasient.GruppeId` er en ekte FK. Begge Grupper/Index-sider (`Behandlerportal` og
+`Admin`) fikk samme faner+søk-mønster som punkt 3, "+Ny gruppe" som `.btn.btn-accent`-knapp,
+Rediger/Arkiver som `.btn-icon`-par, og en Arkivert-fane med Gjenopprett/Slett — sistnevnte med
+`onclick="return confirm(...)"` (ren HTML, ikke avhengig av `faner.js`, siden dette er en
+destruktiv handling som MÅ fungere selv om JS av en eller annen grunn ikke har lastet). Verifisert
+hele livssyklusen i nettleser: arkiver → vises i Arkivert-fanen → gjenopprett → tilbake i Aktive →
+arkiver på nytt → slett (bekreftet at `confirm()`-dialogen faktisk trigges med riktig tekst, og at
+sletting fjerner raden permanent).
+
+**6) "Rediger pasient" (behandler) mangler opprettelsesdato og en måte å purre en ufullstendig
+registrering.** `Opprettet`-dato lagt til øverst på siden. Ny `PasientInvitasjonService.
+PaaminnFullforingAsync` (kaller `SikreProfilFullforingTokenAsync` fra punkt 1, deretter den
+eksisterende private utsendingsmetoden) koblet til en "Påminn fullføring"-knapp som KUN vises når
+`Navn`/`MobilNr`/`Email` mangler — verifisert ende-til-ende i nettleser (opprettet en ekte
+delvis-pasient via `Pasienter/Ny`, bekreftet at knappen dukket opp, trykket den, fikk
+"Påminnelse sendt." tilbake, ryddet testpasienten fra databasen etterpå).
+
+**7) Info-boks for valgt test (introduksjon, estimert tid, prising) ved siden av
+kategori-treet, for behandler OG admin, på alle steder en test kan velges.** Ny
+`TestService.HentAntallLeddPerTestAsync` teller faktiske `TestLedd` per test (via `TestSide`) og
+en enkel omregning (`Math.Ceiling(antallLedd * 15.0 / 60)` minutter, ca. 15 sek/spørsmål) gir et
+estimat som automatisk holder seg riktig når tester endres, i stedet for et manuelt vedlikeholdt
+tidsfelt. Ny `wwwroot/js/testinfo.js` leser `data-test-navn`/`data-beskrivelse`/
+`data-rapport-introduksjon`/`data-estimert-min`/`data-minste-pris`/`data-storste-pris`/
+`data-typisk-honorar` fra den valgte sjekkboksen og fyller en `<aside class="test-infoboks">` —
+gjenbrukt uendret på alle seks stedene en test velges (Behandlerportal+Admin sine
+`Tildel/Tester`, `Grupper/Ny`, `Grupper/Rediger`). Prisingsteksten forklarer eksplisitt hvorfor det
+ikke finnes noen måte å ta betalt utenom systemet (min/maks pris, typisk honorar) — samme
+begrunnelse som allerede fantes i selve prisingsmotoren, nå bare synlig i konteksten der en
+behandler faktisk velger testen.
+
+**Reell layout-bug funnet og rettet under verifisering (ikke bare en bekreftelse):** infoboksen
+skulle vises TIL HØYRE for treet på desktop, men CSS-en (`.tildel-kategori-tre { flex: 1 1 20rem }`
++ `.test-infoboks { flex: 1 1 16rem }`, pluss mellomrom) hadde et kombinert flex-basisbehov (20rem +
+16rem + 1.5rem gap ≈ 632px) som var STØRRE enn den faktiske bredden på flere av disse sidenes
+skjema-container (~582px i `Grupper/Ny`/`Grupper/Rediger`, som bruker en smalere kort-stil enn
+`Tildel/Tester`) — flexbox avgjør linjebryting ut fra flex-basis-summen, ikke den faktisk krympede
+bredden, så infoboksen brøt konsekvent til en egen linje UNDER treet på disse sidene, ikke ved
+siden av, selv på brede skjermer. Oppdaget ved å faktisk måle elementets `getBoundingClientRect()`
+i nettleseren (JS-en hadde fjernet `skjult`-klassen og fylt innholdet korrekt — bugen var ren CSS-
+layout, usynlig ved bare å lese kildekoden). Rettet ved å redusere flex-basis
+(`.tildel-kategori-tre` til `flex: 3 1 14rem`, `.test-infoboks` til `flex: 2 1 12rem` med
+`max-width: 18rem`) slik at kombinert basis (14rem + 12rem + 1.5rem ≈ 440px) komfortabelt passer
+selv i den smaleste av de seks containerne. Verifisert på nytt etter rettelsen (infoboksen sitter nå
+på samme rad som treet, til høyre) og på mobilbredde (375px — stables korrekt under, uendret av
+denne rettelsen siden `@media (max-width: 720px)`-regelen tvinger kolonne-layout uansett).
+
+**Verifisert lokalt i nettleser (Playwright) for alle ni punkter**, inkludert et par som krevde
+midlertidig database-manipulasjon for å fremtvinge riktig tilstand (nullet `Navn` på en eksisterende
+testpasient for å teste "mangler profilinfo"-boksen på `Pasientportal/MinSide`, gjenopprettet
+etterpå; opprettet og slettet en ekte delvis-pasient for punkt 1+6). 48/48 enhetstester fortsatt
+grønt. Én ny migrasjon (`LeggTilGruppeStartSluttDato`, kun addering av to nullable kolonner —
+verifisert trygg, ingen omdøping/datatap-risiko).

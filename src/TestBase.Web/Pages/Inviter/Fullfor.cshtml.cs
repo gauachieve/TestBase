@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -19,13 +18,13 @@ public sealed class FullforModel : PageModel
 {
     private readonly BehandlerInvitasjonService _invitasjonService;
     private readonly AppDbContext _db;
-    private readonly IWebHostEnvironment _env;
+    private readonly IConfiguration _configuration;
 
-    public FullforModel(BehandlerInvitasjonService invitasjonService, AppDbContext db, IWebHostEnvironment env)
+    public FullforModel(BehandlerInvitasjonService invitasjonService, AppDbContext db, IConfiguration configuration)
     {
         _invitasjonService = invitasjonService;
         _db = db;
-        _env = env;
+        _configuration = configuration;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -134,7 +133,7 @@ public sealed class FullforModel : PageModel
             invitasjon, Fornavn, Etternavn, Personnummer, MobilNr, Epost, HprNr, Kontonummer,
             Arbeidsadresse, Tittel, cancellationToken);
 
-        if (_env.IsDevelopment())
+        if (Miljo.TillatUtviklingsSnarveier(_configuration))
         {
             TempData["DevMobilKode"] = mobilKode;
         }

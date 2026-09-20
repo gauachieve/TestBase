@@ -182,12 +182,19 @@ public sealed class RedigerTests
             Assert.Null(db.Pasienter.Single(p => p.Id == pasientId).Personnummer);
         }
 
+        long gruppeId;
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var grupper = scope.ServiceProvider.GetRequiredService<GruppeService>();
+            gruppeId = (await grupper.OpprettAsync("Gruppe X", behandlerId, Array.Empty<long>())).Id;
+        }
+
         var redigerUrl = $"/Behandlerportal/Pasienter/Rediger/{pasientId}";
         var redigerHtml = await SkjemaHjelper.GetHtmlAsync(client, redigerUrl);
 
         var redigerToken = SkjemaHjelper.HentToken(redigerHtml);
         var lagreResp = await SkjemaHjelper.PostMedTokenAsync(client, redigerUrl, SkjemaHjelper.Felter(
-            ("Id", pasientId.ToString()), ("Navn", "Redigert Pasientnavn"), ("Gruppenavn", "Gruppe X"),
+            ("Id", pasientId.ToString()), ("Navn", "Redigert Pasientnavn"), ("GruppeId", gruppeId.ToString()),
             ("Personnummer", "01013333333"), ("MobilNr", "+4790060003"),
             ("Epost", "rediger-pasient@integrationtest.local")), redigerToken);
 
@@ -200,7 +207,7 @@ public sealed class RedigerTests
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var oppdatert = await db.Pasienter.SingleAsync(p => p.Id == pasientId);
             Assert.Equal("Redigert Pasientnavn", oppdatert.Navn);
-            Assert.Equal("Gruppe X", oppdatert.Gruppenavn);
+            Assert.Equal(gruppeId, oppdatert.GruppeId);
             Assert.Equal("+4790060003", oppdatert.MobilNr);
 
             // Arkiver behandleren vi opprettet her igjen — deler samme faste

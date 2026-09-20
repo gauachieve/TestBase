@@ -13,7 +13,7 @@ namespace TestBase.Shared.Domain.Tester;
 /// </summary>
 public sealed record PasientMedBehandlernavn(Pasient Pasient, string? BehandlerNavn);
 
-public sealed record TestLenke(string TestNavn, string Lenke);
+public sealed record TestLenke(long TildelingId, string TestNavn, string Lenke);
 
 /// <summary>Resultatet for én pasient etter en batch-tildeling — se <see cref="TestTildelingsService.TildelOgVarsleAsync"/>.</summary>
 public sealed record TildeltPasientResultat(
@@ -118,7 +118,7 @@ public sealed class TestTildelingsService
     public async Task<IReadOnlyList<PasientMedBehandlernavn>> HentTilgjengeligePasienterAsync(
         long? behandlerId, CancellationToken cancellationToken = default)
     {
-        var sporring = _db.Pasienter.Where(p => p.Status != PasientStatus.Arkivert);
+        var sporring = _db.Pasienter.Include(p => p.Gruppe).Where(p => p.Status != PasientStatus.Arkivert);
         if (behandlerId is not null)
         {
             sporring = sporring.Where(p => p.BehandlerId == behandlerId.Value);
@@ -188,7 +188,14 @@ public sealed class TestTildelingsService
                     testId, pasient.Id, behandlerId: behandlerId, administratorId: administratorId,
                     frist: null, varighetMinutter: null, cancellationToken: cancellationToken);
 
-                var pris = prisPerTestId.GetValueOrDefault(testId);
+                // "Prøv systemet"-pasient (intet personnummer, se PasientInvitasjonService.
+                // RegistrerViaQrAsync) skal ALDRI møte betalingsgaten, uansett testens pris —
+                // det er selve poenget med terskelen ("sample the system before committing to
+                // any payment"). En ekte pasient (har personnummer) følger SAMME betalingsgate
+                // som enhver annen tildeling, ingen spesialbehandling — se
+                // docs/beslutningslogg.md "Fase 5: betalingsgate for gruppetildelte tester".
+                var erProvepasient = string.IsNullOrWhiteSpace(pasient.Personnummer);
+                var pris = erProvepasient ? null : prisPerTestId.GetValueOrDefault(testId);
                 _db.TestTildelingBetalinger.Add(new TestTildelingBetaling
                 {
                     TestTildelingId = tildeling.Id,
@@ -203,6 +210,7 @@ public sealed class TestTildelingsService
                 });
 
                 lenker.Add(new TestLenke(
+                    tildeling.Id,
                     tester.GetValueOrDefault(testId)?.Navn ?? "(ukjent test)",
                     $"{baseUrl.TrimEnd('/')}/Pasientportal/Tester/Fyll/{tildeling.Id}"));
             }

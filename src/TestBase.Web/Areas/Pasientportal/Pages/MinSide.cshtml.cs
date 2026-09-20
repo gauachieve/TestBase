@@ -17,14 +17,18 @@ public sealed class MinSideModel : PageModel
 {
     private readonly AppDbContext _db;
     private readonly TestService _testService;
+    private readonly PasientInvitasjonService _pasientService;
     private readonly ICurrentUserContext _currentUser;
     private readonly ICaptchaProvider _captcha;
     private readonly IAuditLogger _auditLogger;
 
-    public MinSideModel(AppDbContext db, TestService testService, ICurrentUserContext currentUser, ICaptchaProvider captcha, IAuditLogger auditLogger)
+    public MinSideModel(
+        AppDbContext db, TestService testService, PasientInvitasjonService pasientService,
+        ICurrentUserContext currentUser, ICaptchaProvider captcha, IAuditLogger auditLogger)
     {
         _db = db;
         _testService = testService;
+        _pasientService = pasientService;
         _currentUser = currentUser;
         _captcha = captcha;
         _auditLogger = auditLogger;
@@ -35,6 +39,10 @@ public sealed class MinSideModel : PageModel
     public List<TildeltTestRad> Tildelinger { get; private set; } = new();
     public string CaptchaSporsmal { get; private set; } = string.Empty;
     public string? Feilmelding { get; private set; }
+
+    /// <summary>Vist kun når profilen mangler grunnleggende felt (navn, mobil eller e-post) — se "prøv systemet"-registrering.</summary>
+    public bool ManglerProfilinfo { get; private set; }
+    public string? FullforProfilLenke { get; private set; }
 
     [BindProperty]
     public string CaptchaSignertFasit { get; set; } = string.Empty;
@@ -51,6 +59,17 @@ public sealed class MinSideModel : PageModel
         var testNavn = await _db.Tester.Where(t => testIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Navn, cancellationToken);
 
         Tildelinger = tildelinger.Select(t => new TildeltTestRad(t, testNavn.GetValueOrDefault(t.TestId, "(ukjent test)"))).ToList();
+
+        var pasient = await _db.Pasienter.FirstOrDefaultAsync(p => p.Id == pasientId, cancellationToken);
+        if (pasient is not null)
+        {
+            ManglerProfilinfo = string.IsNullOrWhiteSpace(pasient.Navn) || string.IsNullOrWhiteSpace(pasient.MobilNr) || string.IsNullOrWhiteSpace(pasient.Email);
+            if (ManglerProfilinfo)
+            {
+                var token = await _pasientService.SikreProfilFullforingTokenAsync(pasient, cancellationToken);
+                FullforProfilLenke = $"/PasientRegistrering/FullforProfil/{token}";
+            }
+        }
 
         var utfordring = _captcha.LagUtfordring();
         CaptchaSporsmal = utfordring.SporsmalTekst;

@@ -13,6 +13,10 @@ else if (Model.ErFullfort)
 {
     <h1>Ferdig!</h1>
     <p>@(Model.Innhold.Test.Belonningstekst ?? "Takk for at du fylte ut testen.")</p>
+    @if (Model.Innhold.Tildeling.RapportGodkjentUtc is not null && Model.Innhold.Tildeling.RapportSynligForPasient)
+    {
+        <p><a class="btn-accent" href="/Pasientportal/Tester/Rapport/@Model.Innhold.Tildeling.Id">Se rapporten din</a></p>
+    }
     @if (Model.NesteIkkeFullforteTildelingId is not null)
     {
         <p><a class="btn-accent" href="/Pasientportal/Tester/Fyll/@Model.NesteIkkeFullforteTildelingId">Ferdigstill og videre til neste test</a></p>
@@ -32,7 +36,7 @@ else
 
     @if (Model.GjeldendeSideNummer == 1 && !string.IsNullOrWhiteSpace(Model.Innhold.Test.Beskrivelse))
     {
-        <p><em>@Model.Innhold.Test.Beskrivelse</em></p>
+        <p class="test-intro"><em>@Model.Innhold.Test.Beskrivelse</em></p>
     }
 
     @if (Model.GjeldendeSide is not null)
@@ -43,7 +47,7 @@ else
             <p><em>@Model.GjeldendeSide.Instruksjon</em></p>
         }
 
-        <form method="post">
+        <form method="post" data-disable-on-submit="Lagrer svar …">
             @foreach (var ledd in Model.LeddPaaGjeldendeSide)
             {
                 var eksisterende = Model.Innhold.EksisterendeSvar.GetValueOrDefault(ledd.Id);
@@ -56,12 +60,26 @@ else
 
                     @if (ledd.Svartype == TestSvartype.LikertSkala)
                     {
-                        // MADRS-S sine svaralternativer er lange nok til at radlayout blir
-                        // trangt — stables vertikalt og rykkes inn i stedet (bugliste
-                        // 2026-09-13 punkt 24), uten å røre andre testers kortere alternativer.
-                        var stablet = Model.Innhold.Test.Kode == "madrs_s";
+                        // MADRS-S og PDS-ICD-11 sine svaralternativer er lange nok til at
+                        // radlayout blir trangt — stables vertikalt som fullbredde-bokser i
+                        // stedet (bugliste 2026-09-13 punkt 24, utvidet 2026-09-20 til
+                        // PDS-ICD-11), uten å røre andre testers kortere alternativer.
+                        var stablet = Model.Innhold.Test.Kode is "madrs_s" or "pds_icd11";
+
+                        // PDS-ICD-11 ledd 1-10 er bipolare og stokkes i visningsrekkefølge —
+                        // den "sunne" midtre teksten som alltid ligger i midten er kun en
+                        // konvensjon fra papirversjonen, ikke klinisk meningsbærende (se
+                        // TestLeddSvaralternativer.ParseStokket). Ledd 11-14 (Rekkefolge >
+                        // 10, samme test) har en reell, økende alvorlighetsrekkefølge og
+                        // beholder derfor sin faste rekkefølge. Frøet kombinerer tildelings-
+                        // og ledd-id slik at rekkefølgen er stabil for ÉN besvarelse, men
+                        // varierer mellom ulike pasienter.
+                        var stokkes = Model.Innhold.Test.Kode == "pds_icd11" && ledd.Rekkefolge <= 10;
+                        var punkter = stokkes
+                            ? TestLeddSvaralternativer.ParseStokket(ledd.Svaralternativer, unchecked((int)(Model.Innhold.Tildeling.Id * 397 ^ ledd.Id)))
+                            : TestLeddSvaralternativer.Parse(ledd.Svaralternativer);
                         <div class="svar-rad @(stablet ? "svar-rad--stablet" : "")">
-                        @foreach (var punkt in TestLeddSvaralternativer.Parse(ledd.Svaralternativer))
+                        @foreach (var punkt in punkter)
                         {
                             <label class="svar-knapp">
                                 <input type="radio" name="Svar_@ledd.Id" value="@punkt.Verdi" checked="@(eksisterende == punkt.Verdi.ToString())" />

@@ -3,6 +3,7 @@
 @using TestBase.Shared.Domain.Pasienter
 @{
     ViewData["Title"] = "Pasienter";
+    ViewData["BredSide"] = true;
 }
 
 <h1>@(Model.ViserHelePartnerskapet ? $"Pasienter i {Model.PartnerNavn}" : "Mine pasienter")</h1>
@@ -47,14 +48,14 @@
     @foreach (var rad in Model.Rader)
     {
         var p = rad.Pasient;
-        var sok = $"{p.Navn} {rad.BehandlerNavn} {p.Gruppenavn} {p.MobilNr} {p.Email} {p.Personnummer} {p.Status}".ToLowerInvariant();
+        var sok = $"{p.Navn} {rad.BehandlerNavn} {p.Gruppe?.Navn} {p.MobilNr} {p.Email} {p.Personnummer} {p.Status}".ToLowerInvariant();
         <tr data-sok="@sok">
             <td><a href="/Behandlerportal/Pasienter/Detaljer/@p.Id">@(p.Navn ?? "(ikke fullført)")</a></td>
             @if (Model.ViserHelePartnerskapet)
             {
                 <td>@(rad.BehandlerNavn ?? "-")</td>
             }
-            <td>@(p.Gruppenavn ?? "-")</td>
+            <td>@(p.Gruppe?.Navn ?? "-")</td>
             <td>@p.MobilNr</td>
             <td>@p.Email</td>
             <td>@(p.Personnummer ?? "(ikke registrert ennå)")</td>
@@ -65,7 +66,7 @@
                 <a class="btn-icon" href="/Behandlerportal/Pasienter/Rediger/@p.Id" title="Rediger" aria-label="Rediger">
                     <partial name="_Ikon" model="@("rediger")" />
                 </a>
-                <form method="post" asp-page-handler="Arkiver" style="display:inline;">
+                <form method="post" asp-page-handler="Arkiver" style="display:inline;" data-disable-on-submit="Lagrer …">
                     <input type="hidden" name="id" value="@p.Id" />
                     <button type="submit" class="btn-icon" title="@(p.Status == PasientStatus.Arkivert ? "Gjenopprett" : "Arkiver")" aria-label="@(p.Status == PasientStatus.Arkivert ? "Gjenopprett" : "Arkiver")">
                         <partial name="_Ikon" model="@(p.Status == PasientStatus.Arkivert ? "gjenopprett" : "arkiver")" />

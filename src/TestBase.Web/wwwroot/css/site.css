@@ -137,6 +137,42 @@ code {
 }
 .btn-muted:hover { background: var(--bg-soft); border-color: var(--muted); color: var(--ink-soft); }
 
+/* Fane-knapper (se wwwroot/js/faner.js) — brukt på Min side og Grupper-oversikten. */
+.fane-knapp {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 0.6rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.fane-knapp:hover { color: var(--ink); }
+.fane-knapp.fane-aktiv { color: var(--rolle-accent, var(--accent)); border-bottom-color: var(--rolle-accent, var(--accent)); }
+.fane-rad { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem; flex-wrap: wrap; }
+
+/* Test-infoboks (se wwwroot/js/testinfo.js) — vises til høyre på desktop, under treet på mobil. */
+.tildel-med-info { display: flex; gap: 1.5rem; align-items: flex-start; flex-wrap: wrap; }
+.tildel-med-info .tildel-kategori-tre { flex: 3 1 14rem; min-width: 12rem; }
+.test-infoboks {
+  flex: 2 1 12rem;
+  min-width: 10rem;
+  max-width: 18rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background: var(--bg-soft);
+  position: sticky;
+  top: 1rem;
+  align-self: flex-start;
+}
+.test-infoboks.skjult { display: none; }
+@media (max-width: 720px) {
+  .tildel-med-info { flex-direction: column; }
+  .test-infoboks { position: static; max-width: none; width: 100%; }
+}
+
 /* Tall-/beløpsfelt i prisings-tabeller — se Admin/Tester/Prising og
    Behandlerportal/MinPartner/Prising. Holdt smal med hensikt (ny runde av
    bugliste 2026-09-13, punkt 3) slik at Admin sin 4-kolonners prisingstabell
@@ -595,6 +631,26 @@ main.page {
   padding: 2.5rem 1.5rem;
 }
 
+/* Sider med en bred oversiktstabell (f.eks. pasientlisten med 10 kolonner,
+   se Pasienter/Index.cshtml under Areas/Admin og Areas/Behandlerportal) — samme prinsipp som
+   form.skjema-bred over, bare på HELE siden: uten dette klipper tabellens
+   egen overflow-x:auto av handlingskolonnen usynlig (ingen synlig
+   scrollbar-hint i praksis), i stedet for at siden bare bruker mer av
+   skjermbredden på en vanlig desktop. Faller uansett tilbake til tabellens
+   egen scroll på smale/mobile skjermer siden 96vw fortsatt krymper der. */
+main.page.page--bred {
+  max-width: min(1600px, 96vw);
+}
+
+/* Pasientlistens handlingskolonne har kun 2-3 ikon-knapper (Rediger/Arkiver/
+   Slett), ikke de opptil 5 den generiske td:last-child-regelen over er
+   dimensjonert for (Admin/Behandlere) — den unødvendig store min-bredden var
+   akkurat det som presset denne tabellen over kanten på vanlige
+   bærbar-skjermbredder (1440px) selv etter page--bred over. */
+#pasientTabell td:last-child {
+  min-width: 150px;
+}
+
 main.page h1 { font-size: 1.7rem; }
 main.page h2 { font-size: 1.25rem; margin-top: 2.5rem; }
 main.page > h1:first-child, main.page > h2:first-child { margin-top: 0; }
@@ -979,6 +1035,21 @@ dialog#oppsummeringDialog::backdrop { background: rgba(22, 24, 31, 0.5); }
 }
 @media (max-width: 560px) {
   .svar-knapp { flex: 1 1 40%; }
+}
+
+/* ---------- Testutfylling: test-nivå intro-tekst (Fyll.cshtml sin
+   Test.Beskrivelse, vist øverst på side 1) — større og med mer luft rundt,
+   siden den ofte gir en instruksjon pasienten må lese nøye før de svarer
+   (f.eks. ITQ sin "tenk på hendelsen som gir deg mest plager") og lett
+   druknet i den vanlige avsnittsteksten. ---------- */
+.test-intro {
+  font-size: 1.15rem;
+  line-height: 1.6;
+  margin: 1.5rem 0 2rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-soft);
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
 }
 
 /* ---------- Visuell analog skala (glidebryter) — se TestSvartype.VisuellAnalogSkala

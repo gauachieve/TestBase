@@ -7,7 +7,7 @@
 <h1>Tester</h1>
 <p>
     <a href="/Admin/Tester/Ny">+ Ny test</a> |
-    <form method="post" asp-page-handler="Regenerer" style="display:inline;">
+    <form method="post" asp-page-handler="Regenerer" style="display:inline;" data-disable-on-submit="Regenererer …">
         <button type="submit">Regenerer innebygde tester</button>
     </form>
 </p>
@@ -19,6 +19,8 @@
             <th>Navn</th>
             <th>Kode</th>
             <th>Aktiv</th>
+            <th>ICD-11</th>
+            <th>Oversettelse</th>
             <th></th>
         </tr>
     </thead>
@@ -29,6 +31,8 @@
             <td>@t.Navn</td>
             <td>@(t.Kode ?? "-")</td>
             <td>@(t.ErAktiv ? "Ja" : "Nei")</td>
+            <td>@(t.IcdElleveKlar ? "✓ Klar" : "-")</td>
+            <td>@(string.IsNullOrEmpty(t.OversettelseNotat) ? "Offisiell" : $"⚠ {t.OversettelseNotat}")</td>
             <td>
                 <a class="btn-icon" href="/Admin/Tester/Rediger/@t.Id" title="Rediger" aria-label="Rediger">
                     <partial name="_Ikon" model="@("rediger")" />

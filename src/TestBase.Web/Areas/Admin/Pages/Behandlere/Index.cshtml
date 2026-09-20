@@ -71,7 +71,7 @@
             <td>
                 @if (b.ErSlettet)
                 {
-                    <form method="post" asp-page-handler="GjenopprettFraSlettet" style="display:inline;">
+                    <form method="post" asp-page-handler="GjenopprettFraSlettet" style="display:inline;" data-disable-on-submit="Gjenoppretter …">
                         <input type="hidden" name="id" value="@b.Id" />
                         <button type="submit" class="btn-icon" title="Gjenopprett" aria-label="Gjenopprett">
                             <partial name="_Ikon" model="@("gjenopprett")" />
@@ -86,13 +86,13 @@
                     @if (b.Status != BehandlerStatus.Arkivert)
                     {
                         var frysTittel = b.Status == BehandlerStatus.Fryst ? "Gjenåpne" : "Frys";
-                        <form method="post" asp-page-handler="Frys" style="display:inline;">
+                        <form method="post" asp-page-handler="Frys" style="display:inline;" data-disable-on-submit="Lagrer …">
                             <input type="hidden" name="id" value="@b.Id" />
                             <button type="submit" class="btn-icon" title="@frysTittel" aria-label="@frysTittel">
                                 <partial name="_Ikon" model="@(b.Status == BehandlerStatus.Fryst ? "gjenaapne" : "frys")" />
                             </button>
                         </form>
-                        <form method="post" asp-page-handler="Arkiver" style="display:inline;">
+                        <form method="post" asp-page-handler="Arkiver" style="display:inline;" data-disable-on-submit="Lagrer …">
                             <input type="hidden" name="id" value="@b.Id" />
                             <button type="submit" class="btn-icon" title="Arkiver" aria-label="Arkiver">
                                 <partial name="_Ikon" model="@("arkiver")" />
@@ -101,7 +101,7 @@
                         @if (b.RegistrertUtc is not null)
                         {
                             var godkjennTittel = b.HprGodkjent ? "Tilbakekall HPR-godkjenning" : "Godkjenn HPR";
-                            <form method="post" asp-page-handler="GodkjennHpr" style="display:inline;">
+                            <form method="post" asp-page-handler="GodkjennHpr" style="display:inline;" data-disable-on-submit="Godkjenner …">
                                 <input type="hidden" name="id" value="@b.Id" />
                                 <button type="submit" class="btn-icon" title="@godkjennTittel" aria-label="@godkjennTittel">
                                     <partial name="_Ikon" model="@(b.HprGodkjent ? "tilbakekall" : "godkjenn")" />
@@ -109,7 +109,7 @@
                             </form>
                             @if (!b.HprGodkjent && b.HprForlengetTilUtc is null)
                             {
-                                <form method="post" asp-page-handler="ForlengHpr" style="display:inline;">
+                                <form method="post" asp-page-handler="ForlengHpr" style="display:inline;" data-disable-on-submit="Lagrer …">
                                     <input type="hidden" name="id" value="@b.Id" />
                                     <button type="submit" class="btn-icon" title="Utvid fristen med @HprPolicy.ForlengelseDager dager" aria-label="Utvid fristen med @HprPolicy.ForlengelseDager dager">
                                         <partial name="_Ikon" model="@("gjenaapne")" />

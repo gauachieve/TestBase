@@ -184,6 +184,10 @@ namespace TestBase.Shared.Migrations
                     b.Property<long?>("PartnerId")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("PasientInviteQrToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
                     b.Property<string>("Personnummer")
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
@@ -209,6 +213,9 @@ namespace TestBase.Shared.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("PartnerId");
+
+                    b.HasIndex("PasientInviteQrToken")
+                        .IsUnique();
 
                     b.ToTable("behandlere", (string)null);
                 });
@@ -325,6 +332,35 @@ namespace TestBase.Shared.Migrations
                     b.ToTable("behandler_meldinger", (string)null);
                 });
 
+            modelBuilder.Entity("TestBase.Shared.Domain.Administrasjon.BetaBetalingsinnstilling", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long?>("SistEndretAvUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("SistEndretUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("StripeModus")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<string>("VippsModus")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("beta_betalingsinnstillinger", (string)null);
+                });
+
             modelBuilder.Entity("TestBase.Shared.Domain.Administrasjon.Partner", b =>
                 {
                     b.Property<long>("Id")
@@ -413,6 +449,77 @@ namespace TestBase.Shared.Migrations
                     b.ToTable("to_faktor_koder", (string)null);
                 });
 
+            modelBuilder.Entity("TestBase.Shared.Domain.Pasienter.Gruppe", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset?>("ArkivertUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("BehandlerId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("ErArkivert")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Navn")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTimeOffset>("OpprettetUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("QrToken")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateOnly?>("SluttDato")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("StartDato")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BehandlerId");
+
+                    b.HasIndex("QrToken")
+                        .IsUnique();
+
+                    b.ToTable("grupper", (string)null);
+                });
+
+            modelBuilder.Entity("TestBase.Shared.Domain.Pasienter.GruppeTestTilordning", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("GruppeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("OpprettetUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("TestId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GruppeId", "TestId")
+                        .IsUnique();
+
+                    b.ToTable("gruppe_test_tilordninger", (string)null);
+                });
+
             modelBuilder.Entity("TestBase.Shared.Domain.Pasienter.Pasient", b =>
                 {
                     b.Property<long>("Id")
@@ -455,9 +562,8 @@ namespace TestBase.Shared.Migrations
                     b.Property<bool>("GodtarMuligVippsBetaling")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<string>("Gruppenavn")
-                        .HasMaxLength(128)
-                        .HasColumnType("varchar(128)");
+                    b.Property<long?>("GruppeId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Kjonnsidentitet")
                         .HasMaxLength(16)
@@ -483,6 +589,10 @@ namespace TestBase.Shared.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
 
+                    b.Property<string>("ProfilFullforingToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
                     b.Property<DateTimeOffset?>("RegistrertUtc")
                         .HasColumnType("datetime(6)");
 
@@ -502,6 +612,11 @@ namespace TestBase.Shared.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BehandlerId");
+
+                    b.HasIndex("GruppeId");
+
+                    b.HasIndex("ProfilFullforingToken")
+                        .IsUnique();
 
                     b.ToTable("pasienter", (string)null);
                 });
@@ -651,6 +766,73 @@ namespace TestBase.Shared.Migrations
                     b.ToTable("pengebevegelser", (string)null);
                 });
 
+            modelBuilder.Entity("TestBase.Shared.Domain.Tester.PlanlagtTildeling", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long?>("AdministratorId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("BehandlerId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Feilmelding")
+                        .HasColumnType("longtext");
+
+                    b.Property<int?>("GjentaAntallGjenstaende")
+                        .HasColumnType("int");
+
+                    b.Property<TimeSpan?>("GjentaKlokkeslett")
+                        .HasColumnType("time(6)");
+
+                    b.Property<string>("GjentaUkedag")
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<string>("HonorarKrJson")
+                        .HasMaxLength(4000)
+                        .HasColumnType("varchar(4000)");
+
+                    b.Property<long>("OpprettetAvUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("OpprettetUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("PasientIderCsv")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("varchar(4000)");
+
+                    b.Property<DateTimeOffset>("PlanlagtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<string>("TestIderCsv")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<string>("Varslingsmetode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status", "PlanlagtUtc");
+
+                    b.ToTable("planlagte_tildelinger", (string)null);
+                });
+
             modelBuilder.Entity("TestBase.Shared.Domain.Tester.Test", b =>
                 {
                     b.Property<long>("Id")
@@ -670,6 +852,9 @@ namespace TestBase.Shared.Migrations
                     b.Property<bool>("ErAktiv")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("IcdElleveKlar")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("Kode")
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)");
@@ -687,6 +872,9 @@ namespace TestBase.Shared.Migrations
 
                     b.Property<DateTimeOffset>("OpprettetUtc")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("OversettelseNotat")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("RapportIntroduksjon")
                         .HasMaxLength(1000)
@@ -967,6 +1155,49 @@ namespace TestBase.Shared.Migrations
                     b.ToTable("test_tildeling_betalinger", (string)null);
                 });
 
+            modelBuilder.Entity("TestBase.Shared.Domain.Tester.TestTilgangForespoersel", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long?>("BehandletAvAdministratorId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("BehandletUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("ForespurtAvBehandlerId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("ForespurtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Handling")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<long>("PartnerId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<long>("TestId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("test_tilgang_foresporsler", (string)null);
+                });
+
             modelBuilder.Entity("TestBase.Shared.Security.AuditLogEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -1014,6 +1245,15 @@ namespace TestBase.Shared.Migrations
                     b.HasIndex("EntityType", "EntityId");
 
                     b.ToTable("audit_log_entries", (string)null);
+                });
+
+            modelBuilder.Entity("TestBase.Shared.Domain.Pasienter.Pasient", b =>
+                {
+                    b.HasOne("TestBase.Shared.Domain.Pasienter.Gruppe", "Gruppe")
+                        .WithMany()
+                        .HasForeignKey("GruppeId");
+
+                    b.Navigation("Gruppe");
                 });
 #pragma warning restore 612, 618
         }

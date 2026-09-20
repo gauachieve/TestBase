@@ -6,6 +6,7 @@
 @using TestBase.Shared.Security
 @inject ICurrentUserContext CurrentUser
 @inject IWebHostEnvironment Env
+@inject IConfiguration Configuration
 @inject BehandlerMeldingService MeldingService
 @inject TestService TestService
 @{
@@ -48,7 +49,7 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body class="@bodyKlasser">
-    @if (Env.IsDevelopment() && !CurrentUser.IsAuthenticated)
+    @if (TestBase.Web.Security.Miljo.TillatUtviklingsSnarveier(Configuration) && !CurrentUser.IsAuthenticated)
     {
         <div class="dev-bar">
             Utviklingsmiljø (@Env.EnvironmentName)
@@ -86,7 +87,7 @@
             <div class="header-actions">
                 @if (CurrentUser.IsAuthenticated)
                 {
-                    if (erAdmin && Env.IsDevelopment())
+                    if (erAdmin && TestBase.Web.Security.Miljo.TillatUtviklingsSnarveier(Configuration))
                     {
                         <a class="nav-link" href="/Admin/Konto/ByttModus">Bytt modus</a>
                     }
@@ -112,6 +113,7 @@
                             <a class="funksjonsknapp" href="/Admin/Administratorer"><partial name="_Ikon" model="@("administratorer")" />Administratorer</a>
                             <a class="funksjonsknapp" href="/Admin/Behandlere"><partial name="_Ikon" model="@("behandlere")" />Behandlere</a>
                             <a class="funksjonsknapp" href="/Admin/Pasienter"><partial name="_Ikon" model="@("pasienter")" />Pasienter</a>
+                            <a class="funksjonsknapp" href="/Admin/Grupper"><partial name="_Ikon" model="@("grupper")" />Grupper</a>
                             <a class="funksjonsknapp" href="/Admin/Tester"><partial name="_Ikon" model="@("tester")" />Tester</a>
                             <a class="funksjonsknapp" href="/Admin/Tildel/Pasienter"><partial name="_Ikon" model="@("tildel")" />Tildel tester</a>
                             <a class="funksjonsknapp" href="/Admin/MinSide"><partial name="_Ikon" model="@("hus")" />Min side (admin)</a>
@@ -135,6 +137,7 @@
                                 }
                             </a>
                             <a class="funksjonsknapp" href="/Behandlerportal/Pasienter"><partial name="_Ikon" model="@("pasienter")" />Pasienter</a>
+                            <a class="funksjonsknapp" href="/Behandlerportal/Grupper"><partial name="_Ikon" model="@("grupper")" />Grupper</a>
                             <a class="funksjonsknapp" href="/Behandlerportal/Tildel/Pasienter"><partial name="_Ikon" model="@("tildel")" />Tildel tester</a>
                             <a class="funksjonsknapp" href="/Behandlerportal/Behandlere/Inviter"><partial name="_Ikon" model="@("inviter")" />Inviter kollega</a>
                             @if (CurrentUser.ErPartnerAdministrator)
@@ -161,7 +164,7 @@
         }
     </header>
 
-    <main class="page">
+    <main class="page@(ViewData["BredSide"] is true ? " page--bred" : "")">
         @RenderBody()
     </main>
 

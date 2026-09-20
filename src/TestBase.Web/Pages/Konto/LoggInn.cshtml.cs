@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -23,23 +25,44 @@ public sealed class LoggInnModel : PageModel
 {
     private readonly AdminAuthenticationService _adminAuth;
     private readonly BehandlerAuthenticationService _behandlerAuth;
+    private readonly ProfesjonellInnloggingService _profesjonellInnlogging;
     private readonly ICaptchaProvider _captcha;
     private readonly IAuditLogger _auditLogger;
-    private readonly IWebHostEnvironment _env;
+    private readonly IConfiguration _configuration;
+    private readonly IAuthenticationSchemeProvider _schemes;
 
     public LoggInnModel(
         AdminAuthenticationService adminAuth,
         BehandlerAuthenticationService behandlerAuth,
+        ProfesjonellInnloggingService profesjonellInnlogging,
         ICaptchaProvider captcha,
         IAuditLogger auditLogger,
-        IWebHostEnvironment env)
+        IConfiguration configuration,
+        IAuthenticationSchemeProvider schemes)
     {
         _adminAuth = adminAuth;
         _behandlerAuth = behandlerAuth;
+        _profesjonellInnlogging = profesjonellInnlogging;
         _captcha = captcha;
         _auditLogger = auditLogger;
-        _env = env;
+        _configuration = configuration;
+        _schemes = schemes;
     }
+
+    /// <summary>Styrer AdminId+passord-skjemaet (view og handler) — se Security/Miljo.cs.</summary>
+    public bool VisUtviklingsSnarveier => Miljo.TillatUtviklingsSnarveier(_configuration);
+
+    /// <summary>Styrer PersonnummerOverride-feltet (view og handler) — snevrere enn VisUtviklingsSnarveier over, se Security/Miljo.cs.</summary>
+    public bool VisPersonnummerOverride => Miljo.TillatPersonnummerOverride(_configuration);
+
+    /// <summary>
+    /// KUN sant på beta (se Program.cs "BankIdInnlogging"-schema, registrert
+    /// bare når Miljo:ErBeta og Idura-nøklene begge er satt) — når sant,
+    /// bytter OnPostAsync sin BankID-knapp fra MockBankIdProvider til en ekte
+    /// Idura-redirect. Se docs/beslutningslogg.md "Ekte BankID for
+    /// admin/behandler (beta)".
+    /// </summary>
+    public async Task<bool> HarEktBankIdAsync() => await _schemes.GetSchemeAsync("BankIdInnlogging") is not null;
 
     [BindProperty]
     public string? AdminId { get; set; }
@@ -73,7 +96,15 @@ public sealed class LoggInnModel : PageModel
     public string CaptchaSporsmal { get; private set; } = string.Empty;
     public string? Feilmelding { get; private set; }
 
-    public void OnGet() => NyCaptcha();
+    /// <summary>Satt av BankIdFullfor.cshtml.cs når en ekte Idura-innlogging ikke fant noen matchende konto — se der.</summary>
+    public void OnGet()
+    {
+        NyCaptcha();
+        if (TempData["BankIdFeilmelding"] is string feil)
+        {
+            Feilmelding = feil;
+        }
+    }
 
     private void NyCaptcha()
     {
@@ -95,7 +126,13 @@ public sealed class LoggInnModel : PageModel
         CaptchaSvar = null;
     }
 
-    /// <summary>Primærflyt: BankID → høyeste rolle (administrator før behandler).</summary>
+    /// <summary>
+    /// Primærflyt: BankID → høyeste rolle (administrator før behandler). På
+    /// beta erstattes selve identitetsbekreftelsen med en ekte Idura-redirect
+    /// (se HarEktBankIdAsync) — resten av flyten (oppslag/betrodd enhet/2FA)
+    /// er FELLES uansett, se ProfesjonellInnloggingService og
+    /// Pages/Konto/BankIdFullfor.cshtml.cs.
+    /// </summary>
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
         if (!_captcha.Verifiser(CaptchaSignertFasit, CaptchaSvar))
@@ -105,9 +142,17 @@ public sealed class LoggInnModel : PageModel
             return Page();
         }
 
+        if (await HarEktBankIdAsync())
+        {
+            var props = new AuthenticationProperties { RedirectUri = "/Konto/BankIdFullfor" };
+            props.Items["huskMeg"] = HuskMeg.ToString();
+            props.Items["returnUrl"] = ReturnUrl;
+            return Challenge(props, "BankIdInnlogging");
+        }
+
         // Gates ved bruk, ikke bare i viewet — en rå POST kan sette denne uansett synlighet.
         var bankIdResultat = await _adminAuth.StartBankIdAsync(
-            personnummerOverride: _env.IsDevelopment() ? PersonnummerOverride : null, cancellationToken: cancellationToken);
+            personnummerOverride: VisPersonnummerOverride ? PersonnummerOverride : null, cancellationToken: cancellationToken);
         if (!bankIdResultat.Success || bankIdResultat.PersonNummer is null)
         {
             Feilmelding = bankIdResultat.ErrorMessage ?? "BankID-innlogging feilet.";
@@ -115,86 +160,52 @@ public sealed class LoggInnModel : PageModel
             return Page();
         }
 
-        var administrator = await _adminAuth.FinnVedPersonnummerAsync(bankIdResultat.PersonNummer, cancellationToken);
-        if (administrator is not null)
-        {
-            var administratorRolle = administrator.ErSuperadmin ? UserRole.Superadmin : UserRole.Administrator;
-            if (BetroddEnhet.ErBetrodd(HttpContext, ToFaktorPrincipalType.Administrator, administrator.Id))
-            {
-                await AuthSignIn.LoggInnAsync(HttpContext, "administrator", administrator.Id, administrator.FulltNavn, administratorRolle, HuskMeg);
-                await _auditLogger.LogAsync(
-                    administrator.AdminId, administratorRolle.ToString(), "InnloggingOk",
-                    nameof(Administrator), administrator.Id.ToString(), "BankID (betrodd enhet — 2FA hoppet over)", cancellationToken);
-                return TilMaalEtterInnlogging("Admin", "/Administratorer/Index");
-            }
+        return await FullforOgOversettAsync(bankIdResultat.PersonNummer, "BankID", cancellationToken);
+    }
 
-            var kode = await _adminAuth.StartToFaktorAsync(administrator, cancellationToken);
-            if (_env.IsDevelopment())
+    /// <summary>Felles oversettelse fra ProfesjonellInnloggingResultat til denne sidens IActionResult/TempData — brukt av både OnPostAsync og BankIdFullfor.cshtml.cs.</summary>
+    private async Task<IActionResult> FullforOgOversettAsync(string personnummer, string auditlogKilde, CancellationToken cancellationToken)
+    {
+        var resultat = await _profesjonellInnlogging.FullforAsync(personnummer, HuskMeg, ReturnUrl, auditlogKilde, HttpContext, cancellationToken);
+        if (resultat.ErFerdig)
+        {
+            return resultat.FerdigResultat!;
+        }
+
+        if (resultat.TrengerToFaktorFlagg)
+        {
+            if (resultat.DevToFaktorKode is not null)
             {
-                TempData["DevToFaktorKode"] = kode;
+                TempData["DevToFaktorKode"] = resultat.DevToFaktorKode;
             }
-            TempData["ToFaktorRolle"] = administratorRolle.ToString();
-            TempData["ToFaktorId"] = administrator.Id.ToString();
-            TempData["ToFaktorHuskMeg"] = HuskMeg;
-            TempData["ToFaktorReturnUrl"] = ReturnUrl;
+            TempData["ToFaktorRolle"] = resultat.ToFaktorRolle!.Value.ToString();
+            TempData["ToFaktorId"] = resultat.ToFaktorId!.Value.ToString();
+            TempData["ToFaktorHuskMeg"] = resultat.ToFaktorHuskMeg;
+            TempData["ToFaktorReturnUrl"] = resultat.ToFaktorReturnUrl;
             return RedirectToPage("BekreftKode");
         }
 
-        var behandler = await _behandlerAuth.FinnVedPersonnummerAsync(bankIdResultat.PersonNummer, cancellationToken);
-        if (behandler is not null)
-        {
-            switch (behandler.Status)
-            {
-                case BehandlerStatus.Invitert:
-                    Feilmelding = "Du har ikke fullført registreringen ennå. Bruk invitasjonslenken du mottok på SMS/e-post.";
-                    NyCaptcha();
-                    return Page();
-                case BehandlerStatus.Fryst:
-                    Feilmelding = "Kontoen din er fryst. Kontakt administrator.";
-                    NyCaptcha();
-                    return Page();
-                case BehandlerStatus.Arkivert:
-                    Feilmelding = "Kontoen din er arkivert.";
-                    NyCaptcha();
-                    return Page();
-            }
-
-            if (BetroddEnhet.ErBetrodd(HttpContext, ToFaktorPrincipalType.Behandler, behandler.Id))
-            {
-                await AuthSignIn.LoggInnAsync(
-                    HttpContext, "behandler", behandler.Id, behandler.Visningsnavn ?? "Behandler", UserRole.Behandler, HuskMeg,
-                    behandler.PartnerId, behandler.ErPartnerAdministrator);
-                await _auditLogger.LogAsync(
-                    $"behandler:{behandler.Id}", nameof(UserRole.Behandler), "InnloggingOk",
-                    nameof(Behandler), behandler.Id.ToString(), "BankID (betrodd enhet — 2FA hoppet over)", cancellationToken);
-
-                if (behandler.BrukeravtaleGodkjentVersjon != Brukeravtale.GjeldendeVersjon)
-                {
-                    return RedirectToPage("/Konto/GodkjennAvtale", new { area = "Behandlerportal" });
-                }
-                return TilMaalEtterInnlogging("Behandlerportal", "/Pasienter/Index");
-            }
-
-            var kode = await _behandlerAuth.StartToFaktorAsync(behandler, cancellationToken);
-            if (_env.IsDevelopment())
-            {
-                TempData["DevToFaktorKode"] = kode;
-            }
-            TempData["ToFaktorRolle"] = nameof(UserRole.Behandler);
-            TempData["ToFaktorId"] = behandler.Id.ToString();
-            TempData["ToFaktorHuskMeg"] = HuskMeg;
-            TempData["ToFaktorReturnUrl"] = ReturnUrl;
-            return RedirectToPage("BekreftKode");
-        }
-
-        Feilmelding = "Fant ingen administrator- eller behandlerkonto for denne BankID-personen.";
+        Feilmelding = resultat.Feilmelding;
         NyCaptcha();
         return Page();
     }
 
-    /// <summary>Sekundærflyt: AdminId + passord (kun utviklingsmiljø, jf. AdminAuthenticationService.HarPassordPalogging).</summary>
+    /// <summary>
+    /// Sekundærflyt: AdminId + passord (kun utviklingssnarveier, jf.
+    /// AdminAuthenticationService.HarPassordPalogging). Gates ved bruk, ikke bare
+    /// via skjemaets synlighet i viewet — se kjent fallgruve i CLAUDE.md. Samme
+    /// feilmelding som "fant ingen konto" ved avslag her, for å ikke avsløre om
+    /// mekanismen i det hele tatt finnes på et miljø der den er skrudd av.
+    /// </summary>
     public async Task<IActionResult> OnPostPassordAsync(CancellationToken cancellationToken)
     {
+        if (!VisUtviklingsSnarveier)
+        {
+            Feilmelding = "Fant ingen administrator med denne AdminId-en og passord.";
+            NyCaptcha();
+            return Page();
+        }
+
         if (!_captcha.Verifiser(CaptchaSignertFasit, CaptchaSvar))
         {
             Feilmelding = "Feil svar på sikkerhetsspørsmålet.";

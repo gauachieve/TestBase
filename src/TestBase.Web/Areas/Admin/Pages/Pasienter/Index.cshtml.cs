@@ -42,7 +42,7 @@ public sealed class IndexModel : PageModel
     {
         VisSlettede = visSlettede && ErSuperadmin;
 
-        var sporring = _db.Pasienter.AsQueryable();
+        var sporring = _db.Pasienter.Include(p => p.Gruppe).AsQueryable();
         if (!VisSlettede)
         {
             sporring = sporring.Where(p => !p.ErSlettet);

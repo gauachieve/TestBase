@@ -22,7 +22,7 @@
     <p style="color: darkgreen;">@Model.Infomelding</p>
 }
 
-<form method="post">
+<form method="post" data-disable-on-submit="Lagrer …">
     <div><label>Navn</label><br /><input asp-for="Navn" required /></div>
     <div><label>Kontaktperson</label><br /><input asp-for="KontaktpersonNavn" /></div>
     <div><label>Kontakt-e-post</label><br /><input asp-for="KontaktEpost" /></div>
@@ -49,12 +49,12 @@
             <td>@b.Email</td>
             <td>@(b.ErPartnerAdministrator ? "Ja" : "Nei")</td>
             <td>
-                <form method="post" asp-page-handler="TogglePartnerAdmin" style="display:inline;">
+                <form method="post" asp-page-handler="TogglePartnerAdmin" style="display:inline;" data-disable-on-submit="Lagrer …">
                     <input type="hidden" name="id" value="@Model.PartnerId" />
                     <input type="hidden" name="behandlerId" value="@b.Id" />
                     <button type="submit">@(b.ErPartnerAdministrator ? "Fjern partner-admin" : "Gjør til partner-admin")</button>
                 </form>
-                <form method="post" asp-page-handler="FjernBehandler" style="display:inline;">
+                <form method="post" asp-page-handler="FjernBehandler" style="display:inline;" data-disable-on-submit="Fjerner …">
                     <input type="hidden" name="id" value="@Model.PartnerId" />
                     <input type="hidden" name="behandlerId" value="@b.Id" />
                     <button type="submit">Fjern fra partner</button>
@@ -74,14 +74,14 @@
         Fant eksisterende behandler <strong>@(Model.MatchFunnet.Visningsnavn ?? Model.MatchFunnet.Email)</strong> (@Model.MatchFunnet.Email).
         Koble denne til partneren?
     </p>
-    <form method="post" asp-page-handler="LeggTilBehandler" style="display:inline;">
+    <form method="post" asp-page-handler="LeggTilBehandler" style="display:inline;" data-disable-on-submit="Legger til …">
         <input type="hidden" name="id" value="@Model.PartnerId" />
         <input type="hidden" name="behandlerId" value="@Model.MatchFunnet.Id" />
         <button type="submit">Ja, koble til</button>
     </form>
 }
 
-<form method="post" asp-page-handler="InviterEllerKoble">
+<form method="post" asp-page-handler="InviterEllerKoble" data-disable-on-submit="Sender …">
     <input type="hidden" name="id" value="@Model.PartnerId" />
     <input type="email" name="epost" placeholder="behandler@eksempel.no" required />
     <button type="submit">Legg til / inviter</button>
@@ -89,7 +89,7 @@
 
 <h3>Bulk-inviter flere behandlere</h3>
 <p>Én e-post per linje (eller komma-separert). Nye e-poster får en invitasjonslenke; e-poster som matcher en eksisterende uavhengig behandler kobles rett til partneren.</p>
-<form method="post" asp-page-handler="BulkInviter">
+<form method="post" asp-page-handler="BulkInviter" data-disable-on-submit="Sender invitasjoner …">
     <input type="hidden" name="id" value="@Model.PartnerId" />
     <textarea name="epostListe" rows="5" cols="40" placeholder="person1@eksempel.no&#10;person2@eksempel.no"></textarea>
     <br />

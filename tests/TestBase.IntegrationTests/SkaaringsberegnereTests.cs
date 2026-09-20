@@ -210,4 +210,148 @@ public sealed class SkaaringsberegnereTests
         ITestSkaaringsberegner beregner = new Who5Skaaringsberegner();
         Assert.Empty(beregner.Referanselinjer);
     }
+
+    // --- ICD-11-tester (2026-09-20) -----------------------------------------
+
+    [Fact]
+    public void Itq_PtsdKriterierOppfyltUtenDsoGirRentPtsd()
+    {
+        // Ledd-rekkefølge (se ItqTestSeeder): 0=fritekst, 1=hendelsestid, 2-7=P1-P6,
+        // 8-10=P7-P9, 11-16=C1-C6, 17-19=C7-C9. Alle tre PTSD-symptomgrupper +
+        // funksjonstap oppfylt (skår 2 i ett ledd per par), alle DSO-grupper på 0.
+        var svar = Svar("hendelse", "1", "2", "0", "2", "0", "2", "0", "2", "0", "0",
+                         "0", "0", "0", "0", "0", "0", "0", "0", "0");
+        var resultat = new ItqSkaaringsberegner().BeregnSkaaring(svar);
+
+        Assert.Equal(6, resultat.RaaSkaar); // PTSD-skåre 2+0+2+0+2+0, DSO-skåre 0
+        Assert.Equal(48, resultat.RaaSkaarMaks);
+        Assert.Equal("PTSD", resultat.Indikatorer!.Single(i => i.Navn == "Diagnostisk konklusjon").Verdi);
+    }
+
+    [Fact]
+    public void Itq_PtsdOgDsoKriterierBeggeOppfyltGirKompleksPtsd()
+    {
+        var svar = Svar("hendelse", "1", "2", "0", "2", "0", "2", "0", "2", "0", "0",
+                         "2", "0", "2", "0", "2", "0", "2", "0", "0");
+        var resultat = new ItqSkaaringsberegner().BeregnSkaaring(svar);
+
+        Assert.Equal("KPTSD", resultat.Indikatorer!.Single(i => i.Navn == "Diagnostisk konklusjon").Verdi);
+    }
+
+    [Fact]
+    public void Itq_IngenSymptomerGirIngenDiagnose()
+    {
+        var svar = Svar(Enumerable.Repeat("0", 20).ToArray());
+        // Ledd 0 og 1 parses aldri som tall av beregneren, men Svar() krever en verdi — "0" er ufarlig her.
+        var resultat = new ItqSkaaringsberegner().BeregnSkaaring(svar);
+
+        Assert.Equal("Ingen", resultat.Indikatorer!.Single(i => i.Navn == "Diagnostisk konklusjon").Verdi);
+        Assert.Equal(0, resultat.RaaSkaar);
+    }
+
+    [Fact]
+    public void PdsIcd11_BipolareLeddOversettesFraVisningsindeksTilRiktigPoeng()
+    {
+        // Ledd 1-10: indeks 2 (midterste, "sunt") = 0 poeng hver -> sum 0.
+        // Ledd 11-14: indeks lagres direkte som poeng (0..3) -> her 3 hver -> sum 12.
+        var svar = Svar(Enumerable.Repeat("2", 10).Concat(Enumerable.Repeat("3", 4)).ToArray());
+        var resultat = new PdsIcd11Skaaringsberegner().BeregnSkaaring(svar);
+
+        Assert.Equal(12, resultat.RaaSkaar);
+        Assert.Equal(32, resultat.RaaSkaarMaks);
+    }
+
+    [Fact]
+    public void PdsIcd11_YtterpunkterPaaBeggePolerGirSammePoengSomVerdi2()
+    {
+        // Indeks 0 og indeks 4 er de to motsatte ytterpunktene for et bipolart ledd 1-10 —
+        // begge skal gi 2 poeng (se PoengForBipolarIndeks), ikke indeks-verdien selv.
+        var venstrePol = Svar(Enumerable.Repeat("0", 10).Concat(Enumerable.Repeat("0", 4)).ToArray());
+        var hoyrePol = Svar(Enumerable.Repeat("4", 10).Concat(Enumerable.Repeat("0", 4)).ToArray());
+
+        var beregner = new PdsIcd11Skaaringsberegner();
+        Assert.Equal(20, beregner.BeregnSkaaring(venstrePol).RaaSkaar); // 10 ledd × 2 poeng
+        Assert.Equal(20, beregner.BeregnSkaaring(hoyrePol).RaaSkaar);
+    }
+
+    [Fact]
+    public void Paq11R_ReverserteLeddSnusOgTellerRiktigIRiktigDomene()
+    {
+        // Alle 17 ledd = 0 ("Aldri"). Reverserte ledd (1,2,8,9) blir da 4 i domenesummene.
+        var svar = Svar(Enumerable.Repeat("0", 17).ToArray());
+        var resultat = new Paq11RSkaaringsberegner().BeregnSkaaring(svar);
+
+        Assert.Equal(0, resultat.RaaSkaar); // rå totalsum upåvirket av reversering
+        Assert.Equal("12", resultat.Indikatorer!.Single(i => i.Navn.StartsWith("Tilbaketrekning")).Verdi); // 4+4+4+0
+        Assert.Equal("4", resultat.Indikatorer!.Single(i => i.Navn.StartsWith("Dyssosialitet")).Verdi); // 4+0+0
+    }
+
+    [Fact]
+    public void Gadit_HverDagOgDeFlesteDagerSkaarerEttPoengAndreSvarSkaarerNull()
+    {
+        // Ledd 0-5: verdi 4=Hver dag, 3=De fleste dager (begge 1 poeng), 2/1/0 = 0 poeng.
+        var svar = Svar("4", "3", "2", "1", "0", "0", "Ja", "Nei");
+        var resultat = new GaditSkaaringsberegner().BeregnSkaaring(svar);
+
+        Assert.Equal(3, resultat.RaaSkaar); // 1+1+0+0+0+0 + Ja(1) + Nei(0)
+        Assert.Equal(8, resultat.RaaSkaarMaks);
+        Assert.True(resultat.Indikatorer!.Single().Positiv); // under cutoff (5) -> positiv/grønn
+    }
+
+    [Fact]
+    public void Gadit_SkaarFemEllerMerUtloserGamingDisorderIndikator()
+    {
+        var svar = Svar("4", "4", "4", "4", "0", "0", "Ja", "Nei"); // 4×1 (frekvens) + 1 (Ja) = 5
+        var resultat = new GaditSkaaringsberegner().BeregnSkaaring(svar);
+
+        Assert.Equal(5, resultat.RaaSkaar);
+        Assert.False(resultat.Indikatorer!.Single().Positiv);
+    }
+
+    [Fact]
+    public void Idq_KriterierKreverBaadeNokEndosserteLeddOgBekreftetFunksjonstap()
+    {
+        // 5 ledd (inkl. ett kjerneledd) skåret "De fleste dager" (3), funksjon = "Nei" -> IKKE oppfylt.
+        var svarUtenFunksjonstap = Svar("3", "3", "3", "3", "3", "0", "0", "0", "0", "Nei");
+        var resultatUten = new IdqSkaaringsberegner().BeregnSkaaring(svarUtenFunksjonstap);
+        Assert.Contains("IKKE oppfylt", resultatUten.Fortolkning);
+
+        var svarMedFunksjonstap = Svar("3", "3", "3", "3", "3", "0", "0", "0", "0", "Ja");
+        var resultatMed = new IdqSkaaringsberegner().BeregnSkaaring(svarMedFunksjonstap);
+        Assert.Contains("er oppfylt", resultatMed.Fortolkning);
+        Assert.Equal(15, resultatMed.RaaSkaar);
+    }
+
+    [Fact]
+    public void Idq_KreverMinstEttAvDeToKjerneleddene()
+    {
+        // 5 ledd endossert, men INGEN av de to første (kjerne-)leddene -> skal IKKE oppfylle kriteriene.
+        var svar = Svar("0", "0", "3", "3", "3", "3", "3", "0", "0", "Ja");
+        var resultat = new IdqSkaaringsberegner().BeregnSkaaring(svar);
+
+        Assert.Contains("IKKE oppfylt", resultat.Fortolkning);
+    }
+
+    [Fact]
+    public void Iaq_KriterierKreverBaadeNokEndosserteLeddOgBekreftetFunksjonstap()
+    {
+        var svar = Svar("3", "3", "3", "3", "0", "0", "0", "0", "Ja");
+        var resultat = new IaqSkaaringsberegner().BeregnSkaaring(svar);
+
+        Assert.Contains("er oppfylt", resultat.Fortolkning);
+        Assert.Equal(12, resultat.RaaSkaar);
+    }
+
+    [Fact]
+    public void Picd_DomenesumOgSnittBeregnesForRiktigeLeddnumre()
+    {
+        // Sett ledd 5 (1-indeksert, del av Anankasme-domenet) til 5, alt annet til 1.
+        var verdier = Enumerable.Repeat("1", 60).ToArray();
+        verdier[4] = "5"; // ledd nr. 5 (0-indeksert posisjon 4)
+        var resultat = new PicdSkaaringsberegner().BeregnSkaaring(Svar(verdier));
+
+        // Anankasme = ledd 5,10,15,20,25,30,35,40,45,50,55,60 -> ett ledd er 5, resten (11 stk) er 1 -> sum 16.
+        var anankasme = resultat.Indikatorer!.Single(i => i.Navn == "Anankasme");
+        Assert.Contains("sum 16/60", anankasme.Verdi);
+    }
 }

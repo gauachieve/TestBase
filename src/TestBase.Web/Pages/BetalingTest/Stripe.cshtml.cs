@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using TestBase.Shared.Providers;
+using TestBase.Web.Security;
 
 namespace TestBase.Web.Pages.BetalingTest;
 
@@ -12,13 +12,11 @@ namespace TestBase.Web.Pages.BetalingTest;
 /// </summary>
 public sealed class StripeModel : PageModel
 {
-    private readonly IWebHostEnvironment _env;
     private readonly IStripeClient _stripe;
     private readonly IConfiguration _configuration;
 
-    public StripeModel(IWebHostEnvironment env, IStripeClient stripe, IConfiguration configuration)
+    public StripeModel(IStripeClient stripe, IConfiguration configuration)
     {
-        _env = env;
         _stripe = stripe;
         _configuration = configuration;
     }
@@ -31,7 +29,7 @@ public sealed class StripeModel : PageModel
     {
         // Gates ved bruk, ikke bare via lenkens synlighet i DevDemo.cshtml.
         PublishableKey = _configuration["Stripe:PublishableKey"];
-        if (!_env.IsDevelopment() || string.IsNullOrWhiteSpace(_configuration["Stripe:SecretKey"]) || string.IsNullOrWhiteSpace(PublishableKey))
+        if (!Miljo.TillatUtviklingsSnarveier(_configuration) || string.IsNullOrWhiteSpace(_configuration["Stripe:SecretKey"]) || string.IsNullOrWhiteSpace(PublishableKey))
         {
             return NotFound();
         }

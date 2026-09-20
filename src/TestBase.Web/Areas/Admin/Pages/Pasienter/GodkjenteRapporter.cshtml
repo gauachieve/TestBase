@@ -1,0 +1,40 @@
+@page "{id:long}"
+@model TestBase.Web.Areas.Admin.Pages.Pasienter.GodkjenteRapporterModel
+@{
+    ViewData["Title"] = "Godkjente rapporter";
+}
+
+<h1>Godkjente rapporter: @(Model.Pasient?.Navn ?? "(ikke fullført)")</h1>
+
+@if (!Model.Rapporter.Any())
+{
+    <p>Ingen godkjente rapporter for denne pasienten ennå.</p>
+}
+else
+{
+    <table border="1" cellpadding="6" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Test</th>
+                <th>Fullført</th>
+                <th>Godkjent</th>
+                <th>Delt med pasient</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var rad in Model.Rapporter)
+        {
+            <tr>
+                <td>@rad.TestNavn</td>
+                <td>@rad.Tildeling.FullfortUtc?.ToString("g")</td>
+                <td>@rad.Tildeling.RapportGodkjentUtc?.ToString("g")</td>
+                <td>@(rad.Tildeling.RapportSynligForPasient ? "Ja" : "Nei")</td>
+                <td><a href="/Admin/Pasienter/Rapport/@rad.Tildeling.Id">Se rapport</a></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+<p><a href="/Admin/Pasienter">Tilbake til pasienter</a></p>

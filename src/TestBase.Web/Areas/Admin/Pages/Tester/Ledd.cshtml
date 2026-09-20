@@ -34,7 +34,7 @@
     <p style="color: darkred;">@Model.Feilmelding</p>
 }
 
-<form method="post">
+<form method="post" data-disable-on-submit="Legger til ledd …">
     <div><label>Spørsmålstekst</label><br /><textarea asp-for="Sporsmalstekst" rows="2" cols="50"></textarea></div>
     <div><label>Instruksjon (valgfritt)</label><br /><textarea asp-for="Instruksjon" rows="2" cols="50"></textarea></div>
     <div>

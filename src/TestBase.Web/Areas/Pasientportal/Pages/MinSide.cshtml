@@ -10,6 +10,16 @@
 }
 <h1>Min side @(antallUbesvarte > 0 ? $"({antallUbesvarte})" : "")</h1>
 
+<p><a class="btn-accent" href="/Pasientportal/Tester/GodkjenteRapporter">Godkjente rapporter</a></p>
+
+@if (Model.ManglerProfilinfo && Model.FullforProfilLenke is not null)
+{
+    <p style="border: 1px solid #ccc; padding: 1rem; background: var(--bg-soft);">
+        Profilen din mangler navn og/eller kontaktinfo — dette er valgfritt, du kan allerede bruke systemet.
+        <a class="btn btn-accent" href="@Model.FullforProfilLenke">Fullfør profilen din</a>
+    </p>
+}
+
 @if (Model.Feilmelding is not null)
 {
     <p style="color: darkred;">@Model.Feilmelding</p>

@@ -1,0 +1,77 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Grupper.NyModel
+@{
+    ViewData["Title"] = "Ny gruppe";
+}
+
+<h1>Ny gruppe</h1>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<form method="post" data-disable-on-submit="Oppretter …">
+    <div><label>Gruppenavn</label><br /><input asp-for="Navn" required /></div>
+    <div><label>Startdato (valgfritt)</label><br /><input asp-for="StartDato" type="date" /></div>
+    <div><label>Sluttdato (valgfritt)</label><br /><input asp-for="SluttDato" type="date" /></div>
+
+    <div>
+        <label>Behandler (eier)</label><br />
+        <select asp-for="BehandlerId" required>
+            <option value="">Velg behandler …</option>
+            @foreach (var behandler in Model.Behandlere)
+            {
+                <option value="@behandler.Id">@behandler.Visningsnavn</option>
+            }
+        </select>
+    </div>
+
+    <h2>Tester som automatisk sendes ved gruppeinnmelding</h2>
+    <p><em>Valgfritt — kan endres senere. Disse testene sendes automatisk til enhver pasient som registrerer seg via gruppens invitasjon.</em></p>
+
+    <div class="tildel-med-info">
+    <div class="tildel-kategori-tre">
+    @foreach (var kategori in Model.KategoriTre)
+    {
+        <details>
+            <summary>@kategori.Kategori.Navn</summary>
+            @if (!kategori.Tester.Any())
+            {
+                <p><em>Ingen tester i denne kategorien ennå.</em></p>
+            }
+            else
+            {
+                <ul>
+                @foreach (var test in kategori.Tester)
+                {
+                    <li>
+                        <label>
+                            <input type="checkbox" name="TestIder" value="@test.Id" class="tildel-test-checkbox"
+                                   data-test-navn="@test.Navn"
+                                   data-beskrivelse="@test.Beskrivelse"
+                                   data-rapport-introduksjon="@test.RapportIntroduksjon"
+                                   data-estimert-min="@Model.EstimertMinutterPerTestId.GetValueOrDefault(test.Id)"
+                                   data-minste-pris="@test.MinstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                   data-storste-pris="@test.StorstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                   data-typisk-honorar="@test.TypiskBehandlerHonorarKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                            @test.Navn
+                            @if (!string.IsNullOrEmpty(test.OversettelseNotat))
+                            {
+                                <em>(@test.OversettelseNotat)</em>
+                            }
+                        </label>
+                    </li>
+                }
+                </ul>
+            }
+        </details>
+    }
+    </div>
+    <aside class="test-infoboks skjult"></aside>
+    </div>
+
+    <button type="submit">Opprett gruppe</button>
+</form>
+
+<script src="~/js/testinfo.js" asp-append-version="true"></script>

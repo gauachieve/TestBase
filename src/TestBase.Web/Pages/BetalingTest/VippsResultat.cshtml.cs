@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using TestBase.Shared.Providers;
+using TestBase.Web.Security;
 
 namespace TestBase.Web.Pages.BetalingTest;
 
@@ -13,12 +13,12 @@ namespace TestBase.Web.Pages.BetalingTest;
 /// </summary>
 public sealed class VippsResultatModel : PageModel
 {
-    private readonly IWebHostEnvironment _env;
+    private readonly IConfiguration _configuration;
     private readonly IVippsClient _vipps;
 
-    public VippsResultatModel(IWebHostEnvironment env, IVippsClient vipps)
+    public VippsResultatModel(IConfiguration configuration, IVippsClient vipps)
     {
-        _env = env;
+        _configuration = configuration;
         _vipps = vipps;
     }
 
@@ -28,7 +28,7 @@ public sealed class VippsResultatModel : PageModel
 
     public async Task<IActionResult> OnGetAsync(string? referanse, string? feil, CancellationToken cancellationToken)
     {
-        if (!_env.IsDevelopment())
+        if (!Miljo.TillatUtviklingsSnarveier(_configuration))
         {
             return NotFound();
         }

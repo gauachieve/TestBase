@@ -1,0 +1,63 @@
+@page "{token}"
+@model TestBase.Web.Pages.PasientRegistrering.FullforProfilModel
+@using TestBase.Shared.Domain.Pasienter
+@{
+    ViewData["Title"] = "Fullfør profilen din";
+}
+
+<h1>Fullfør profilen din</h1>
+
+@if (Model.Oppdatert)
+{
+    <p>Takk! Profilen din er oppdatert.</p>
+    <p><a href="/Pasientportal/Konto/LoggInn">Logg inn</a></p>
+}
+else if (!Model.GyldigLenke)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+else
+{
+    <p><em>Dette er valgfritt — du kan allerede bruke systemet. Fyll ut det du vil legge til nå.</em></p>
+
+    @if (Model.Feilmelding is not null)
+    {
+        <p style="color: darkred;">@Model.Feilmelding</p>
+    }
+
+    <form method="post" data-disable-on-submit="Lagrer …">
+        <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
+        <div><label>E-post</label><br /><input asp-for="Epost" type="email" /></div>
+        <div>
+            <label>Personnummer @(Model.HaddeAlleredePersonnummer ? "" : "(valgfritt — gjør deg til fullverdig pasient)")</label><br />
+            <input asp-for="Personnummer" />
+        </div>
+        <div><label>Navn</label><br /><input asp-for="Navn" /></div>
+
+        <div>
+            <label>Biologisk kjønn ved fødsel</label><br />
+            <label><input type="radio" asp-for="BiologiskKjonnVedFodsel" value="@BiologiskKjonn.Mann" /> Mann</label>
+            <label><input type="radio" asp-for="BiologiskKjonnVedFodsel" value="@BiologiskKjonn.Kvinne" /> Kvinne</label>
+        </div>
+
+        <div>
+            <label>Kjønn (valgfritt)</label><br />
+            <label><input type="radio" asp-for="Kjonnsidentitet" value="@Kjonnsidentitet.Mann" /> Mann</label>
+            <label><input type="radio" asp-for="Kjonnsidentitet" value="@Kjonnsidentitet.Kvinne" /> Kvinne</label>
+            <label><input type="radio" asp-for="Kjonnsidentitet" value="@Kjonnsidentitet.Annet" /> Annet</label>
+            <input asp-for="KjonnsidentitetSpesifisert" placeholder="Spesifiser (hvis Annet)" />
+        </div>
+
+        <div><label>Adresse (valgfritt)</label><br /><input asp-for="Adresse" /></div>
+
+        <!-- Bot-vern: skjult for mennesker, men botter fyller ofte ut alt -->
+        <div style="position: absolute; left: -9999px;" aria-hidden="true">
+            <label>Nettside</label>
+            <input asp-for="Nettside" tabindex="-1" autocomplete="off" />
+        </div>
+        <input type="hidden" asp-for="Vist" />
+
+        <br />
+        <button type="submit">Lagre</button>
+    </form>
+}

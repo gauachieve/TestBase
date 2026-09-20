@@ -38,6 +38,27 @@ public sealed class Test
     public bool ErAktiv { get; set; } = true;
     public DateTimeOffset OpprettetUtc { get; set; }
 
+    /// <summary>
+    /// Viser et "ICD-11 klar"-merke i test-oversikten — testen er forfattet/
+    /// verifisert mot ICD-11s diagnostiske kriterier (se
+    /// docs/beslutningslogg.md "ICD-11-tester"). Rent visningsfelt, påvirker
+    /// ingen logikk. Ingen admin-UI for dette feltet ennå, samme mønster som
+    /// RapportIntroduksjon — kun satt av innebygde testers seedere foreløpig.
+    /// </summary>
+    public bool IcdElleveKlar { get; set; }
+
+    /// <summary>
+    /// Behandler-/admin-synlig merknad om oversettelsesstatus (f.eks. "Ikke
+    /// offisielt oversatt – kun til uttesting") — VISES ALDRI til pasienten
+    /// (se Pasientportal/*, som kun leser <see cref="Navn"/>), kun i
+    /// Admin/Tester/Index og tildelingsflytens sjekkliste, slik at den som
+    /// SENDER testen kan gjøre et informert valg. Testnavnet (Navn) skal
+    /// derfor alltid være kort og pasientvennlig, uten en slik merknad
+    /// bakt inn — se docs/beslutningslogg.md "ICD-11-tester, del 2".
+    /// Null for offisielt oversatte/ferdig godkjente tester.
+    /// </summary>
+    public string? OversettelseNotat { get; set; }
+
     // --- Prising (Superadmin-only, se docs/beslutningslogg.md "Partner System +
     // Test Monetization") — default 0 for alle eksisterende/nye tester inntil en
     // Superadmin faktisk konfigurerer dem, slik at ingenting endrer oppførsel

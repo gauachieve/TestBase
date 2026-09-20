@@ -106,6 +106,135 @@ public sealed class TestService
         }
     }
 
+    public sealed record OpprettTestTilgangForespoerselResultat(bool Opprettet, string? Feilmelding);
+
+    /// <summary>
+    /// Partner-admins selvbetjente forespørsel om å legge til/fjerne en test
+    /// (bugliste 2026-09-15) — se TestTilgangForespoersel. Trer ikke i kraft
+    /// før BehandleTestTilgangForesporslerAsync godkjenner den.
+    /// </summary>
+    public async Task<OpprettTestTilgangForespoerselResultat> OpprettTestTilgangForespoerselAsync(
+        long partnerId, long testId, TestTilgangHandling handling, long forespurtAvBehandlerId,
+        CancellationToken cancellationToken = default)
+    {
+        var harAlleredeTilgang = await _db.PartnerTestTilganger.AnyAsync(t => t.PartnerId == partnerId && t.TestId == testId, cancellationToken);
+        if (handling == TestTilgangHandling.LeggTil && harAlleredeTilgang)
+        {
+            return new OpprettTestTilgangForespoerselResultat(false, "Partneren har allerede tilgang til denne testen.");
+        }
+        if (handling == TestTilgangHandling.Fjern && !harAlleredeTilgang)
+        {
+            return new OpprettTestTilgangForespoerselResultat(false, "Partneren har ikke tilgang til denne testen fra før.");
+        }
+
+        var harVentendeForesporsel = await _db.TestTilgangForesporsler.AnyAsync(
+            f => f.PartnerId == partnerId && f.TestId == testId && f.Status == TestTilgangForespoerselStatus.Venter,
+            cancellationToken);
+        if (harVentendeForesporsel)
+        {
+            return new OpprettTestTilgangForespoerselResultat(false, "Det finnes allerede en ventende forespørsel for denne testen.");
+        }
+
+        _db.TestTilgangForesporsler.Add(new TestTilgangForespoersel
+        {
+            PartnerId = partnerId,
+            TestId = testId,
+            Handling = handling,
+            ForespurtAvBehandlerId = forespurtAvBehandlerId,
+            ForespurtUtc = DateTimeOffset.UtcNow
+        });
+        await _db.SaveChangesAsync(cancellationToken);
+        return new OpprettTestTilgangForespoerselResultat(true, null);
+    }
+
+    public Task<List<TestTilgangForespoersel>> HentVentendeTestTilgangForesporslerForPartnerAsync(long partnerId, CancellationToken cancellationToken = default) =>
+        _db.TestTilgangForesporsler
+            .Where(f => f.PartnerId == partnerId && f.Status == TestTilgangForespoerselStatus.Venter)
+            .ToListAsync(cancellationToken);
+
+    public sealed record VentendeTestTilgangForespoerselRad(TestTilgangForespoersel Forespoersel, string PartnerNavn, string TestNavn, string? ForespurtAvNavn);
+
+    /// <summary>Alle ventende forespørsler på tvers av partnere, til Admin/MinSide sin bulk-godkjenningsliste.</summary>
+    public async Task<IReadOnlyList<VentendeTestTilgangForespoerselRad>> HentVentendeTestTilgangForesporslerAsync(CancellationToken cancellationToken = default)
+    {
+        var foresporsler = await _db.TestTilgangForesporsler
+            .Where(f => f.Status == TestTilgangForespoerselStatus.Venter)
+            .OrderBy(f => f.ForespurtUtc)
+            .ToListAsync(cancellationToken);
+        if (foresporsler.Count == 0)
+        {
+            return Array.Empty<VentendeTestTilgangForespoerselRad>();
+        }
+
+        var partnerNavnById = await _db.Partnere
+            .Where(p => foresporsler.Select(f => f.PartnerId).Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.Navn, cancellationToken);
+        var testNavnById = await _db.Tester
+            .Where(t => foresporsler.Select(f => f.TestId).Contains(t.Id))
+            .ToDictionaryAsync(t => t.Id, t => t.Navn, cancellationToken);
+        // Visningsnavn er en ikke-mappet, beregnet C#-egenskap — kan IKKE inngå i en
+        // EF-oversatt spørring (ToDictionaryAsync rett på IQueryable). Hent radene
+        // først, bygg ordboken i minnet etterpå, se Admin/Pasienter/Index.cshtml.cs
+        // sitt tilsvarende mønster.
+        var behandlerIder = foresporsler.Select(f => f.ForespurtAvBehandlerId).ToList();
+        var behandlerNavnById = (await _db.Behandlere
+            .Where(b => behandlerIder.Contains(b.Id))
+            .ToListAsync(cancellationToken))
+            .ToDictionary(b => b.Id, b => b.Visningsnavn);
+
+        return foresporsler.Select(f => new VentendeTestTilgangForespoerselRad(
+            f,
+            partnerNavnById.GetValueOrDefault(f.PartnerId, "(ukjent partner)"),
+            testNavnById.GetValueOrDefault(f.TestId, "(ukjent test)"),
+            behandlerNavnById.GetValueOrDefault(f.ForespurtAvBehandlerId))).ToList();
+    }
+
+    /// <summary>
+    /// Bulk-godkjenning/avvisning (bugliste 2026-09-15 punkt 6). Godkjenning av
+    /// en LeggTil-forespørsel oppretter PartnerTestTilgang, en Fjern-forespørsel
+    /// fjerner den — samme effekt som Admin/Partnere/Tester sin direkte
+    /// OnPostToggleAsync, bare med denne omveien om forespørsel+godkjenning.
+    /// Ukjente/allerede behandlede id-er ignoreres stille (kan skje ved
+    /// dobbel-innsending av bulk-skjemaet).
+    /// </summary>
+    public async Task BehandleTestTilgangForesporslerAsync(
+        IReadOnlyCollection<long> foresporselIder, bool godkjenn, long administratorId, CancellationToken cancellationToken = default)
+    {
+        var foresporsler = await _db.TestTilgangForesporsler
+            .Where(f => foresporselIder.Contains(f.Id) && f.Status == TestTilgangForespoerselStatus.Venter)
+            .ToListAsync(cancellationToken);
+
+        var na = DateTimeOffset.UtcNow;
+        foreach (var f in foresporsler)
+        {
+            if (godkjenn)
+            {
+                var eksisterende = await _db.PartnerTestTilganger.FirstOrDefaultAsync(
+                    t => t.PartnerId == f.PartnerId && t.TestId == f.TestId, cancellationToken);
+                if (f.Handling == TestTilgangHandling.LeggTil && eksisterende is null)
+                {
+                    _db.PartnerTestTilganger.Add(new PartnerTestTilgang
+                    {
+                        PartnerId = f.PartnerId,
+                        TestId = f.TestId,
+                        GittAvAdministratorId = administratorId,
+                        OpprettetUtc = na
+                    });
+                }
+                else if (f.Handling == TestTilgangHandling.Fjern && eksisterende is not null)
+                {
+                    _db.PartnerTestTilganger.Remove(eksisterende);
+                }
+            }
+
+            f.Status = godkjenn ? TestTilgangForespoerselStatus.Godkjent : TestTilgangForespoerselStatus.Avvist;
+            f.BehandletAvAdministratorId = administratorId;
+            f.BehandletUtc = na;
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
     public Task<bool> FinnesTestMedKodeAsync(string kode, CancellationToken cancellationToken = default) =>
         _db.Tester.AnyAsync(t => t.Kode == kode, cancellationToken);
 
@@ -149,6 +278,76 @@ public sealed class TestService
         test.RapportIntroduksjon = rapportIntroduksjon;
         await _db.SaveChangesAsync(cancellationToken);
         return true;
+    }
+
+    /// <summary>Samme mønster/begrunnelse som SettRapportIntroduksjonAsync — se Test.IcdElleveKlar.</summary>
+    public async Task<bool> SettIcdElleveKlarAsync(long testId, bool icdElleveKlar, CancellationToken cancellationToken = default)
+    {
+        var test = await _db.Tester.FirstOrDefaultAsync(t => t.Id == testId, cancellationToken);
+        if (test is null)
+        {
+            return false;
+        }
+
+        test.IcdElleveKlar = icdElleveKlar;
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    /// <summary>
+    /// Samme mønster/begrunnelse som SettRapportIntroduksjonAsync — lar en
+    /// seeders "allerede finnes"-gren oppdatere et testnavn (f.eks. en
+    /// forenkling gjort etter at testen først ble seedet) uten å opprette
+    /// testen på nytt eller røre eksisterende tildelinger/svar.
+    /// </summary>
+    public async Task<bool> SettNavnAsync(long testId, string navn, CancellationToken cancellationToken = default)
+    {
+        var test = await _db.Tester.FirstOrDefaultAsync(t => t.Id == testId, cancellationToken);
+        if (test is null)
+        {
+            return false;
+        }
+
+        test.Navn = navn;
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    /// <summary>Se Test.OversettelseNotat — samme mønster som SettRapportIntroduksjonAsync.</summary>
+    public async Task<bool> SettOversettelseNotatAsync(long testId, string? oversettelseNotat, CancellationToken cancellationToken = default)
+    {
+        var test = await _db.Tester.FirstOrDefaultAsync(t => t.Id == testId, cancellationToken);
+        if (test is null)
+        {
+            return false;
+        }
+
+        test.OversettelseNotat = oversettelseNotat;
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    /// <summary>
+    /// Overskriver Svaralternativer-strengen for ALLE ledd i en test —
+    /// brukt av seedere der samtlige ledd deler nøyaktig samme skala (f.eks.
+    /// PiCD sin 5-punkts enig/uenig-skala), slik at en ordlydsjustering i
+    /// kildekoden (se PicdTestSeeder) også slår igjennom for en test som
+    /// allerede er seedet i et miljø. IKKE egnet for tester der ledd har
+    /// individuelle svaralternativer (f.eks. PDS-ICD-11).
+    /// </summary>
+    public async Task<int> OppdaterSvaralternativerForAlleLeddAsync(long testId, string svaralternativer, CancellationToken cancellationToken = default)
+    {
+        var leddListe = await _db.TestLedd
+            .Where(l => _db.TestSider.Where(s => s.TestId == testId).Select(s => s.Id).Contains(l.TestSideId))
+            .ToListAsync(cancellationToken);
+
+        foreach (var ledd in leddListe)
+        {
+            ledd.Svaralternativer = svaralternativer;
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return leddListe.Count;
     }
 
     public async Task<TestSide> LeggTilSideAsync(long testId, string navn, string? instruksjon, CancellationToken cancellationToken = default)
@@ -270,6 +469,25 @@ public sealed class TestService
             .FirstOrDefaultAsync(cancellationToken);
 
     public sealed record KategoriMedTester(TestKategori Kategori, IReadOnlyList<Test> Tester);
+
+    /// <summary>
+    /// Antall ledd per test — brukt til å ANSLÅ utfyllingstid i test-infoboksen
+    /// (se wwwroot/js/testinfo.js), ca. 15 sekunder per spørsmål. Ingen eget
+    /// "estimert tid"-felt på Test — et anslag utledet direkte fra faktisk
+    /// spørsmålsantall holder seg automatisk korrekt når ledd endres, uten at
+    /// noen må huske å oppdatere et manuelt tall.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<long, int>> HentAntallLeddPerTestAsync(
+        IReadOnlyCollection<long> testIder, CancellationToken cancellationToken = default)
+    {
+        var sider = await _db.TestSider.Where(s => testIder.Contains(s.TestId)).Select(s => s.Id).ToListAsync(cancellationToken);
+        return await _db.TestLedd
+            .Where(l => sider.Contains(l.TestSideId))
+            .Join(_db.TestSider, l => l.TestSideId, s => s.Id, (l, s) => s.TestId)
+            .GroupBy(testId => testId)
+            .Select(g => new { TestId = g.Key, Antall = g.Count() })
+            .ToDictionaryAsync(x => x.TestId, x => x.Antall, cancellationToken);
+    }
 
     /// <summary>
     /// Alle standardkategorier (alfabetisk) med sine aktive tester, til
@@ -432,6 +650,23 @@ public sealed class TestService
     public Task<List<TestTildeling>> HentTildelingerForPasientAsync(long pasientId, CancellationToken cancellationToken = default) =>
         _db.TestTildelinger.Where(t => t.PasientId == pasientId).OrderByDescending(t => t.TildeltUtc).ToListAsync(cancellationToken);
 
+    /// <summary>
+    /// Godkjente rapporter for én pasient — til den samlede "Godkjente rapporter"-listen
+    /// (bugliste 2026-09-15). <paramref name="kunSynligForPasient"/> skiller pasientens
+    /// egen (kun det behandler aktivt har delt) fra behandler/admin sin (alt godkjent,
+    /// uavhengig av delingsvalg).
+    /// </summary>
+    public Task<List<TestTildeling>> HentGodkjenteForPasientAsync(long pasientId, bool kunSynligForPasient, CancellationToken cancellationToken = default)
+    {
+        var sporring = _db.TestTildelinger.Where(t => t.PasientId == pasientId && t.RapportGodkjentUtc != null);
+        if (kunSynligForPasient)
+        {
+            sporring = sporring.Where(t => t.RapportSynligForPasient);
+        }
+
+        return sporring.OrderByDescending(t => t.RapportGodkjentUtc).ToListAsync(cancellationToken);
+    }
+
     public sealed record TildelingTelling(int Tildelt, int Besvart);
 
     /// <summary>Antall tildelte og antall besvarte (Fullfort) tester per pasient — til pasientlistene (behandler/admin), ikke bare én pasient om gangen.</summary>
@@ -527,12 +762,28 @@ public sealed class TestService
 
         if (markerFullfort)
         {
-            // Varsler pasientens FAKTISKE behandler (ikke nødvendigvis den som
-            // tildelte testen — en admin kan ha tildelt den, se TildelAsync).
             var pasient = await _db.Pasienter.FirstOrDefaultAsync(p => p.Id == tildeling.PasientId, cancellationToken);
             if (pasient is not null)
             {
-                await _meldingService.OpprettAsync(pasient.BehandlerId, tildeling.Id, cancellationToken);
+                // "Prøv systemet"-pasient (intet personnummer ennå, se
+                // PasientInvitasjonService.RegistrerViaQrAsync) — rapporten skal
+                // ALDRI vente på behandlergodkjenning, jf. den opprinnelige
+                // spesifikasjonen: vis den til pasienten med det samme, og send
+                // ALDRI en godkjenningsforespørsel til behandler for denne. Kun
+                // personnummer avgjør dette skillet — se docs/beslutningslogg.md
+                // "Forenklet QR-registrering".
+                if (string.IsNullOrWhiteSpace(pasient.Personnummer))
+                {
+                    tildeling.RapportGodkjentUtc = DateTimeOffset.UtcNow;
+                    tildeling.RapportSynligForPasient = true;
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
+                else
+                {
+                    // Varsler pasientens FAKTISKE behandler (ikke nødvendigvis den som
+                    // tildelte testen — en admin kan ha tildelt den, se TildelAsync).
+                    await _meldingService.OpprettAsync(pasient.BehandlerId, tildeling.Id, cancellationToken);
+                }
             }
         }
     }
@@ -609,6 +860,47 @@ public sealed class TestService
             .OrderBy(t => t.TildeltUtc)
             .ToListAsync(cancellationToken);
         return await BerikMedTestOgPasientAsync(tildelinger, cancellationToken);
+    }
+
+    /// <summary>Godkjente rapporter for behandlers pasienter — "Min side" sin tredje fane, se docs/beslutningslogg.md.</summary>
+    public async Task<IReadOnlyList<TildelingMedTestOgPasient>> HentGodkjenteFullforteForBehandlerAsync(
+        long behandlerId, CancellationToken cancellationToken = default)
+    {
+        var pasientIder = await _db.Pasienter.Where(p => p.BehandlerId == behandlerId).Select(p => p.Id).ToListAsync(cancellationToken);
+        var tildelinger = await _db.TestTildelinger
+            .Where(t => pasientIder.Contains(t.PasientId) && t.RapportGodkjentUtc != null)
+            .OrderByDescending(t => t.RapportGodkjentUtc)
+            .ToListAsync(cancellationToken);
+        return await BerikMedTestOgPasientAsync(tildelinger, cancellationToken);
+    }
+
+    /// <summary>
+    /// Sletter permanent en IKKE-fullført tildeling ("Ikke besvart"-listen på Min
+    /// side, som ellers vokser uten grenser — se docs/beslutningslogg.md). Kan
+    /// ALDRI slette en fullført tildeling (bruk arkivering/rapportflyten for
+    /// den), og kun for behandlerens EGNE pasienter.
+    /// </summary>
+    public async Task<bool> SlettIkkeFullfortTildelingAsync(long tildelingId, long behandlerId, CancellationToken cancellationToken = default)
+    {
+        var tildeling = await _db.TestTildelinger.FirstOrDefaultAsync(t => t.Id == tildelingId, cancellationToken);
+        if (tildeling is null || tildeling.Status == TestTildelingStatus.Fullfort)
+        {
+            return false;
+        }
+
+        var eierBehandlerId = await _db.Pasienter.Where(p => p.Id == tildeling.PasientId).Select(p => p.BehandlerId).FirstOrDefaultAsync(cancellationToken);
+        if (eierBehandlerId != behandlerId)
+        {
+            return false;
+        }
+
+        _db.TestTildelingBetalinger.RemoveRange(_db.TestTildelingBetalinger.Where(b => b.TestTildelingId == tildelingId));
+        _db.TestSvar.RemoveRange(_db.TestSvar.Where(s => s.TestTildelingId == tildelingId));
+        await _db.SaveChangesAsync(cancellationToken);
+
+        _db.TestTildelinger.Remove(tildeling);
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     private async Task<IReadOnlyList<TildelingMedTestOgPasient>> BerikMedTestOgPasientAsync(

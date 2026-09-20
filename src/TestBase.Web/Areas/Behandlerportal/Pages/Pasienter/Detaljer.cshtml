@@ -10,7 +10,7 @@
 <ul>
     <li>Mobil: @Model.Pasient?.MobilNr</li>
     <li>E-post: @Model.Pasient?.Email</li>
-    <li>Gruppe: @(Model.Pasient?.Gruppenavn ?? "-")</li>
+    <li>Gruppe: @(Model.Pasient?.Gruppe?.Navn ?? "-")</li>
     <li>Status: @Model.Pasient?.Status</li>
     <li>Lagt til: @Model.Pasient?.OpprettetUtc</li>
 </ul>
@@ -56,6 +56,8 @@ else
 }
 
 <p><em>"Se rapport" vises kun for fullførte tester med en registrert skåringsmetodikk (foreløpig kun WHO-5) — andre tester mangler ennå skåring/rapportoppsett.</em></p>
+
+<p><a class="btn-accent" href="/Behandlerportal/Pasienter/GodkjenteRapporter/@Model.Pasient?.Id">Godkjente rapporter</a></p>
 
 <h2>Tildel ny test</h2>
 

@@ -29,6 +29,15 @@
     "bankIdIduraClientSecret": {
       "value": "${BANKID_IDURA_CLIENT_SECRET}"
     },
+    "bankIdIduraProduksjonAuthority": {
+      "value": "${BANKID_IDURA_PRODUKSJON_AUTHORITY}"
+    },
+    "bankIdIduraProduksjonClientId": {
+      "value": "${BANKID_IDURA_PRODUKSJON_CLIENT_ID}"
+    },
+    "bankIdIduraProduksjonClientSecret": {
+      "value": "${BANKID_IDURA_PRODUKSJON_CLIENT_SECRET}"
+    },
     "seedAdminPersonnummer": {
       "value": "${SEED_ADMIN_PERSONNUMMER}"
     },
@@ -73,6 +82,33 @@
     },
     "stagingGateBasicAuthPassword": {
       "value": "${STAGING_GATE_BASIC_AUTH_PASSWORD}"
+    },
+    "varslingBaseUrl": {
+      "value": "${VARSLING_BASE_URL}"
+    },
+    "tillatUtviklingsSnarveier": {
+      "value": "${MILJO_TILLAT_UTVIKLINGSSNARVEIER}"
+    },
+    "tillatPersonnummerOverride": {
+      "value": "${MILJO_TILLAT_PERSONNUMMER_OVERRIDE}"
+    },
+    "erBeta": {
+      "value": "${MILJO_ER_BETA}"
+    },
+    "ektBankIdProfesjonell": {
+      "value": "${MILJO_EKT_BANKID_PROFESJONELL}"
+    },
+    "vippsBetaTestClientId": {
+      "value": "${VIPPS_BETATEST_CLIENT_ID}"
+    },
+    "vippsBetaTestClientSecret": {
+      "value": "${VIPPS_BETATEST_CLIENT_SECRET}"
+    },
+    "vippsBetaTestSubscriptionKey": {
+      "value": "${VIPPS_BETATEST_SUBSCRIPTION_KEY}"
+    },
+    "vippsBetaTestMerchantSerialNumber": {
+      "value": "${VIPPS_BETATEST_MERCHANT_SERIAL_NUMBER}"
     }
   }
 }

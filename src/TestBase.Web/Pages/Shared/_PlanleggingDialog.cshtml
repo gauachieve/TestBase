@@ -1,0 +1,40 @@
+@* Delt mellom Admin/Tildel/Tester.cshtml og Behandlerportal/Tildel/Tester.cshtml (bugliste
+   2026-09-15 punkt 8) — feltnavnene under MÅ matche Plan*-egenskapene på begge sider sin
+   TesterModel eksakt, siden dette er ren markup uten @model/asp-for. Se wwwroot/js/tildel.js
+   for hvordan dette veksler inn FØR oppsummeringsdialogen (steg 2.5). *@
+<dialog id="planleggingDialog">
+    <h2>Tidspunkt for utsending</h2>
+
+    <fieldset>
+        <legend>Når skal dette sendes?</legend>
+        <label><input type="radio" name="PlanTidspunktValg" value="Na" class="plan-tidspunkt-valg" checked /> Nå</label>
+        <label><input type="radio" name="PlanTidspunktValg" value="ImorgenArbeidstid" class="plan-tidspunkt-valg" /> I morgen i arbeidstiden (kl. 09:00)</label>
+        <label><input type="radio" name="PlanTidspunktValg" value="Egendefinert" class="plan-tidspunkt-valg" /> Velg dato og klokkeslett</label>
+    </fieldset>
+
+    <div id="planEgendefinertFelt" hidden>
+        <label>Tidspunkt: <input type="datetime-local" name="PlanEgendefinertLokal" id="planEgendefinertLokal" /></label>
+    </div>
+
+    <fieldset>
+        <label><input type="checkbox" name="PlanGjentaAktiv" value="true" id="planGjentaAvkrysning" /> Gjenta</label>
+        <div id="planGjentaFelt" hidden>
+            <label>Ukedag:
+                <select name="PlanGjentaUkedag" id="planGjentaUkedag">
+                    <option value="Monday">Mandag</option>
+                    <option value="Tuesday">Tirsdag</option>
+                    <option value="Wednesday">Onsdag</option>
+                    <option value="Thursday">Torsdag</option>
+                    <option value="Friday" selected>Fredag</option>
+                    <option value="Saturday">Lørdag</option>
+                    <option value="Sunday">Søndag</option>
+                </select>
+            </label>
+            <label>Klokkeslett: <input type="time" name="PlanGjentaKlokkeslett" id="planGjentaKlokkeslett" value="10:00" /></label>
+            <label>Antall ganger: <input type="number" name="PlanGjentaAntall" id="planGjentaAntall" min="1" max="52" value="4" /></label>
+        </div>
+    </fieldset>
+
+    <button type="button" id="planAvbryt" class="btn btn-muted">Avbryt</button>
+    <button type="button" id="planNeste" class="btn btn-accent">Neste: Oppsummering</button>
+</dialog>

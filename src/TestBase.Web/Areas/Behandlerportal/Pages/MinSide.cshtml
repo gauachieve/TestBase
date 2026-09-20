@@ -6,7 +6,16 @@
 
 <h1>Min side @(Model.AntallOppgaver > 0 ? $"({Model.AntallOppgaver})" : "")</h1>
 
-<p><a href="/Behandlerportal/Innstillinger">Innstillinger</a></p>
+<p><a class="btn btn-accent" href="/Behandlerportal/Innstillinger">Innstillinger</a></p>
+
+<h2>Min pasientinvitasjon (QR-kode)</h2>
+<p>Enhver som skanner denne koden eller åpner lenken, blir registrert som DIN pasient direkte — ingen gruppe, ingen automatisk testutsending. For en gruppe med automatisk test-utsending, se <a href="/Behandlerportal/Grupper">Grupper</a>.</p>
+<p><img src="/Behandlerportal/MinSide?handler=Qr" alt="Min QR-kode for pasientinvitasjon" width="220" height="220" /></p>
+<p><code>@Model.InvitasjonsLenke</code></p>
+<form method="post" asp-page-handler="RegenererQr" style="display:inline;"
+      onsubmit="return confirm('Regenerere QR-koden? Den GAMLE koden/lenken slutter da å virke umiddelbart — trykt materiale med den gamle koden må byttes ut.');">
+    <button type="submit">Regenerer QR-kode</button>
+</form>
 
 @if (Model.UtlopteHprFrister.Any())
 {
@@ -28,7 +37,7 @@
                 <td>@(b.HprNr ?? "-")</td>
                 <td>@b.Email</td>
                 <td>
-                    <form method="post" asp-page-handler="GodkjennHpr" style="display:inline;">
+                    <form method="post" asp-page-handler="GodkjennHpr" style="display:inline;" data-disable-on-submit="Godkjenner …">
                         <input type="hidden" name="id" value="@b.Id" />
                         <button type="submit" class="btn-icon" title="Godkjenn HPR" aria-label="Godkjenn HPR">
                             <partial name="_Ikon" model="@("godkjenn")" />
@@ -41,35 +50,80 @@
     </table>
 }
 
-<h2>Venter på godkjenning (@Model.VenterPaaGodkjenning.Count)</h2>
-@if (!Model.VenterPaaGodkjenning.Any())
-{
-    <p>Ingen fullførte tester venter på godkjenning.</p>
-}
-else
-{
-    <table border="1" cellpadding="6" cellspacing="0">
-        <thead>
-            <tr>
-                <th>Pasient</th>
-                <th>Test</th>
-                <th>Fullført</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-        @foreach (var rad in Model.VenterPaaGodkjenning)
-        {
-            <tr>
-                <td>@(rad.PasientNavn ?? "(ikke fullført registrering)")</td>
-                <td>@rad.TestNavn</td>
-                <td>@rad.Tildeling.FullfortUtc?.ToString("g")</td>
-                <td><a href="/Behandlerportal/Pasienter/Rapport/@rad.Tildeling.Id">Se rapport og godkjenn</a></td>
-            </tr>
-        }
-        </tbody>
-    </table>
-}
+<h2>Tester</h2>
+<div data-fane-beholder>
+    <div class="fane-rad" role="tablist">
+        <button type="button" class="fane-knapp" data-fane="venter">Venter på godkjenning (@Model.VenterPaaGodkjenning.Count)</button>
+        <button type="button" class="fane-knapp" data-fane="ikke-besvart">Ikke besvart (@Model.IkkeFullfort.Count)</button>
+        <button type="button" class="fane-knapp" data-fane="godkjent">Godkjente (@Model.Godkjente.Count)</button>
+    </div>
+
+    <div>
+        <label for="testSok">Søk</label><br />
+        <input type="search" id="testSok" data-fane-sok placeholder="Søk i pasient, test …" />
+    </div>
+
+    @if (!Model.VenterPaaGodkjenning.Any() && !Model.IkkeFullfort.Any() && !Model.Godkjente.Any())
+    {
+        <p>Ingen tester å vise ennå.</p>
+    }
+    else
+    {
+        <table border="1" cellpadding="6" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>Pasient</th>
+                    <th>Test</th>
+                    <th>Dato</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var rad in Model.VenterPaaGodkjenning)
+            {
+                var sok = $"{rad.PasientNavn} {rad.TestNavn}".ToLowerInvariant();
+                <tr data-fane-rad="venter" data-sok="@sok">
+                    <td>@(rad.PasientNavn ?? "(ikke fullført registrering)")</td>
+                    <td>@rad.TestNavn</td>
+                    <td>@rad.Tildeling.FullfortUtc?.ToString("g")</td>
+                    <td><a href="/Behandlerportal/Pasienter/Rapport/@rad.Tildeling.Id">Se rapport og godkjenn</a></td>
+                </tr>
+            }
+            @foreach (var rad in Model.IkkeFullfort)
+            {
+                var sok = $"{rad.PasientNavn} {rad.TestNavn}".ToLowerInvariant();
+                <tr data-fane-rad="ikke-besvart" data-sok="@sok">
+                    <td>@(rad.PasientNavn ?? "(ikke fullført registrering)")</td>
+                    <td>@rad.TestNavn</td>
+                    <td>@rad.Tildeling.TildeltUtc.ToString("d") (@rad.Tildeling.Status)</td>
+                    <td>
+                        <a href="/Behandlerportal/Pasienter/Detaljer/@rad.PasientId">Se pasient</a>
+                        <form method="post" asp-page-handler="SlettIkkeBesvart" style="display:inline;"
+                              onsubmit="return confirm('Slette denne ubesvarte tildelingen permanent?');">
+                            <input type="hidden" name="id" value="@rad.Tildeling.Id" />
+                            <button type="submit" class="btn-icon btn-icon--slett" title="Slett" aria-label="Slett">
+                                <partial name="_Ikon" model="@("slett")" />
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            }
+            @foreach (var rad in Model.Godkjente)
+            {
+                var sok = $"{rad.PasientNavn} {rad.TestNavn}".ToLowerInvariant();
+                <tr data-fane-rad="godkjent" data-sok="@sok">
+                    <td>@(rad.PasientNavn ?? "(ikke fullført registrering)")</td>
+                    <td>@rad.TestNavn</td>
+                    <td>@rad.Tildeling.RapportGodkjentUtc?.ToString("g")</td>
+                    <td><a href="/Behandlerportal/Pasienter/Rapport/@rad.Tildeling.Id">Se rapport</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</div>
+
+<script src="~/js/faner.js" asp-append-version="true"></script>
 
 <h2>Meldinger (@Model.UlesteMeldinger.Count uleste)</h2>
 
@@ -89,36 +143,4 @@ else
         </li>
     }
     </ul>
-}
-
-<h2>Ikke besvart ennå (@Model.IkkeFullfort.Count)</h2>
-@if (!Model.IkkeFullfort.Any())
-{
-    <p>Alle tildelte tester er besvart.</p>
-}
-else
-{
-    <table border="1" cellpadding="6" cellspacing="0">
-        <thead>
-            <tr>
-                <th>Pasient</th>
-                <th>Test</th>
-                <th>Status</th>
-                <th>Tildelt</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-        @foreach (var rad in Model.IkkeFullfort)
-        {
-            <tr>
-                <td>@(rad.PasientNavn ?? "(ikke fullført registrering)")</td>
-                <td>@rad.TestNavn</td>
-                <td>@rad.Tildeling.Status</td>
-                <td>@rad.Tildeling.TildeltUtc.ToString("d")</td>
-                <td><a href="/Behandlerportal/Pasienter/Detaljer/@rad.PasientId">Se pasient</a></td>
-            </tr>
-        }
-        </tbody>
-    </table>
 }

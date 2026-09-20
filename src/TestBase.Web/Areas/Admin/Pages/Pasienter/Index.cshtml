@@ -2,6 +2,7 @@
 @model TestBase.Web.Areas.Admin.Pages.Pasienter.IndexModel
 @{
     ViewData["Title"] = "Pasienter";
+    ViewData["BredSide"] = true;
 }
 
 <h1>Pasienter</h1>
@@ -40,6 +41,7 @@
             <th>Tildelt</th>
             <th>Besvart</th>
             <th>Status</th>
+            <th></th>
             @if (Model.VisSlettede)
             {
                 <th></th>
@@ -50,24 +52,25 @@
     @foreach (var rad in Model.Rader)
     {
         var p = rad.Pasient;
-        var sok = $"{p.Navn} {rad.PartnerNavn} {rad.BehandlerNavn} {p.Gruppenavn} {p.MobilNr} {p.Email} {p.Personnummer} {p.Status}".ToLowerInvariant();
+        var sok = $"{p.Navn} {rad.PartnerNavn} {rad.BehandlerNavn} {p.Gruppe?.Navn} {p.MobilNr} {p.Email} {p.Personnummer} {p.Status}".ToLowerInvariant();
         <tr data-sok="@sok">
             <td>@(p.Navn ?? "(ikke fullført)")</td>
             <td>@(rad.PartnerNavn ?? "-")</td>
             <td>@(rad.BehandlerNavn ?? "-")</td>
-            <td>@(p.Gruppenavn ?? "-")</td>
+            <td>@(p.Gruppe?.Navn ?? "-")</td>
             <td>@p.MobilNr</td>
             <td>@p.Email</td>
             <td>@(p.Personnummer ?? "(ikke registrert ennå)")</td>
             <td>@rad.Tildelt</td>
             <td>@rad.Besvart</td>
             <td>@(p.ErSlettet ? "Slettet" : p.Status.ToString())</td>
+            <td><a href="/Admin/Pasienter/GodkjenteRapporter/@p.Id">Godkjente rapporter</a></td>
             @if (Model.VisSlettede)
             {
                 <td>
                     @if (p.ErSlettet)
                     {
-                        <form method="post" asp-page-handler="GjenopprettFraSlettet" style="display:inline;">
+                        <form method="post" asp-page-handler="GjenopprettFraSlettet" style="display:inline;" data-disable-on-submit="Gjenoppretter …">
                             <input type="hidden" name="id" value="@p.Id" />
                             <button type="submit" class="btn-icon" title="Gjenopprett" aria-label="Gjenopprett">
                                 <partial name="_Ikon" model="@("gjenopprett")" />

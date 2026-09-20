@@ -11,16 +11,42 @@ public sealed class TesterModel : PageModel
 {
     private readonly TestService _testService;
     private readonly TestTildelingsService _tildelingsService;
+    private readonly PlanlagtTildelingService _planlagtTildelingService;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuditLogger _auditLogger;
 
-    public TesterModel(TestService testService, TestTildelingsService tildelingsService, ICurrentUserContext currentUser, IAuditLogger auditLogger)
+    public TesterModel(
+        TestService testService, TestTildelingsService tildelingsService, PlanlagtTildelingService planlagtTildelingService,
+        ICurrentUserContext currentUser, IAuditLogger auditLogger)
     {
         _testService = testService;
         _tildelingsService = tildelingsService;
+        _planlagtTildelingService = planlagtTildelingService;
         _currentUser = currentUser;
         _auditLogger = auditLogger;
     }
+
+    /// <summary>Se Behandlerportal-motstykket for full begrunnelse av alle Plan*-feltene.</summary>
+    [BindProperty]
+    public string PlanTidspunktValg { get; set; } = "Na";
+
+    [BindProperty]
+    public string? PlanEgendefinertLokal { get; set; }
+
+    [BindProperty]
+    public bool PlanGjentaAktiv { get; set; }
+
+    [BindProperty]
+    public DayOfWeek? PlanGjentaUkedag { get; set; }
+
+    [BindProperty]
+    public string? PlanGjentaKlokkeslett { get; set; }
+
+    [BindProperty]
+    public int? PlanGjentaAntall { get; set; }
+
+    public bool PlanlagtOpprettet { get; private set; }
+    public DateTimeOffset? PlanlagtTidspunktVisning { get; private set; }
 
     [BindProperty]
     public string PasientIderCsv { get; set; } = string.Empty;
@@ -34,6 +60,7 @@ public sealed class TesterModel : PageModel
 
     public IReadOnlyList<TestService.KategoriMedTester> KategoriTre { get; private set; } = Array.Empty<TestService.KategoriMedTester>();
     public IReadOnlyList<PasientMedBehandlernavn> ValgtePasienter { get; private set; } = Array.Empty<PasientMedBehandlernavn>();
+    public IReadOnlyDictionary<long, int> EstimertMinutterPerTestId { get; private set; } = new Dictionary<long, int>();
     public string? Feilmelding { get; private set; }
     public TildelingsBatchResultat? Resultat { get; private set; }
 
@@ -48,6 +75,10 @@ public sealed class TesterModel : PageModel
         PasientIderCsv = csv;
         await LastValgtePasienterAsync(csv, cancellationToken);
         KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken: cancellationToken);
+
+        var alleTestIder = KategoriTre.SelectMany(k => k.Tester).Select(t => t.Id).Distinct().ToList();
+        var antallLedd = await _testService.HentAntallLeddPerTestAsync(alleTestIder, cancellationToken);
+        EstimertMinutterPerTestId = antallLedd.ToDictionary(kv => kv.Key, kv => Math.Max(1, (int)Math.Ceiling(kv.Value * 15.0 / 60)));
     }
 
     public async Task<IActionResult> OnPostSendAsync(CancellationToken cancellationToken)
@@ -79,6 +110,73 @@ public sealed class TesterModel : PageModel
             _currentUser.UserId, _currentUser.Role.ToString(), "TildelTesterBatch",
             nameof(TestTildeling), string.Join(",", testIder), $"PasientIder {string.Join(",", pasientIder)}", cancellationToken);
 
+        return Page();
+    }
+
+    /// <summary>Se Behandlerportal-motstykket for full begrunnelse.</summary>
+    public async Task<IActionResult> OnPostPlanleggAsync(CancellationToken cancellationToken)
+    {
+        await LastValgtePasienterAsync(PasientIderCsv, cancellationToken);
+        KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken: cancellationToken);
+
+        if (!ValgtePasienter.Any())
+        {
+            Feilmelding = "Ingen gyldige pasienter valgt. Gå tilbake til steg 1.";
+            return Page();
+        }
+
+        var testIder = TestIder.Distinct().ToList();
+        if (testIder.Count == 0)
+        {
+            Feilmelding = "Velg minst én test.";
+            return Page();
+        }
+
+        DateTimeOffset planlagtUtc;
+        if (PlanTidspunktValg == "ImorgenArbeidstid")
+        {
+            planlagtUtc = PlanlagtTildelingService.BeregnImorgenArbeidstidUtc(DateTimeOffset.UtcNow);
+        }
+        else if (PlanTidspunktValg == "Egendefinert")
+        {
+            if (!DateTime.TryParse(PlanEgendefinertLokal, out var lokalDt))
+            {
+                Feilmelding = "Ugyldig tidspunkt valgt.";
+                return Page();
+            }
+            var osloTid = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+            planlagtUtc = new DateTimeOffset(DateTime.SpecifyKind(lokalDt, DateTimeKind.Unspecified), osloTid.GetUtcOffset(lokalDt));
+        }
+        else
+        {
+            planlagtUtc = DateTimeOffset.UtcNow;
+        }
+
+        DayOfWeek? gjentaUkedag = null;
+        TimeSpan? gjentaKlokkeslett = null;
+        int? gjentaAntall = null;
+        if (PlanGjentaAktiv && PlanGjentaUkedag is not null && PlanGjentaAntall is > 0
+            && TimeSpan.TryParse(PlanGjentaKlokkeslett, out var parsetKlokkeslett))
+        {
+            gjentaUkedag = PlanGjentaUkedag;
+            gjentaKlokkeslett = parsetKlokkeslett;
+            gjentaAntall = PlanGjentaAntall;
+            planlagtUtc = PlanlagtTildelingService.BeregnNesteForekomstUtc(planlagtUtc.AddSeconds(-1), gjentaUkedag.Value, gjentaKlokkeslett.Value);
+        }
+
+        var pasientIder = ValgtePasienter.Select(p => p.Pasient.Id).ToList();
+        var administratorId = HentAdministratorId();
+        await _planlagtTildelingService.OpprettAsync(
+            pasientIder, testIder, behandlerId: null, administratorId: administratorId,
+            new Dictionary<long, decimal?>(), Varslingsmetode, planlagtUtc,
+            gjentaUkedag, gjentaKlokkeslett, gjentaAntall, opprettetAvUserId: administratorId, cancellationToken);
+
+        await _auditLogger.LogAsync(
+            _currentUser.UserId, _currentUser.Role.ToString(), "PlanleggTildelingBatch",
+            nameof(TestTildeling), string.Join(",", testIder), $"PasientIder {string.Join(",", pasientIder)}, planlagt {planlagtUtc:O}", cancellationToken);
+
+        PlanlagtOpprettet = true;
+        PlanlagtTidspunktVisning = planlagtUtc;
         return Page();
     }
 

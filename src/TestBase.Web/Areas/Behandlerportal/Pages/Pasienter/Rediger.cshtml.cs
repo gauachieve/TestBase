@@ -12,12 +12,16 @@ namespace TestBase.Web.Areas.Behandlerportal.Pages.Pasienter;
 public sealed class RedigerModel : PageModel
 {
     private readonly AppDbContext _db;
+    private readonly GruppeService _grupper;
+    private readonly PasientInvitasjonService _pasientService;
     private readonly IAuditLogger _auditLogger;
     private readonly ICurrentUserContext _currentUser;
 
-    public RedigerModel(AppDbContext db, IAuditLogger auditLogger, ICurrentUserContext currentUser)
+    public RedigerModel(AppDbContext db, GruppeService grupper, PasientInvitasjonService pasientService, IAuditLogger auditLogger, ICurrentUserContext currentUser)
     {
         _db = db;
+        _grupper = grupper;
+        _pasientService = pasientService;
         _auditLogger = auditLogger;
         _currentUser = currentUser;
     }
@@ -29,7 +33,9 @@ public sealed class RedigerModel : PageModel
     public string? Navn { get; set; }
 
     [BindProperty]
-    public string? Gruppenavn { get; set; }
+    public long? GruppeId { get; set; }
+
+    public IReadOnlyList<Gruppe> TilgjengeligeGrupper { get; private set; } = Array.Empty<Gruppe>();
 
     [BindProperty]
     public string Personnummer { get; set; } = string.Empty;
@@ -41,10 +47,15 @@ public sealed class RedigerModel : PageModel
     public string Epost { get; set; } = string.Empty;
 
     public string? Feilmelding { get; private set; }
+    public string? Melding { get; private set; }
 
     /// <summary>Kolleger i samme partnerskap som pasientens EIENDE behandler — tomt hvis den behandleren er uavhengig (ingen partnerskap å bytte innenfor), se OnPostByttBehandlerAsync.</summary>
     public IReadOnlyList<Behandler> BehandlereIPartnerskapet { get; private set; } = Array.Empty<Behandler>();
     public long EierBehandlerId { get; private set; }
+    public DateTimeOffset Opprettet { get; private set; }
+
+    /// <summary>Vist når grunnleggende profilfelt mangler (navn/mobil/e-post) — se "Påminn fullføring".</summary>
+    public bool ManglerProfilinfo { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(long id, CancellationToken cancellationToken)
     {
@@ -56,13 +67,35 @@ public sealed class RedigerModel : PageModel
 
         Id = pasient.Id;
         Navn = pasient.Navn;
-        Gruppenavn = pasient.Gruppenavn;
+        GruppeId = pasient.GruppeId;
         Personnummer = pasient.Personnummer ?? string.Empty;
         MobilNr = pasient.MobilNr;
         Epost = pasient.Email;
         EierBehandlerId = pasient.BehandlerId;
+        Opprettet = pasient.OpprettetUtc;
+        ManglerProfilinfo = string.IsNullOrWhiteSpace(pasient.Navn) || string.IsNullOrWhiteSpace(pasient.MobilNr) || string.IsNullOrWhiteSpace(pasient.Email);
         await LastBehandlereIPartnerskapetAsync(pasient.BehandlerId, cancellationToken);
+        TilgjengeligeGrupper = await _grupper.HentForBehandlerAsync(pasient.BehandlerId, cancellationToken);
         return Page();
+    }
+
+    /// <summary>Sender "fullfør profilen din"-lenken på nytt — se PasientInvitasjonService.PaaminnFullforingAsync.</summary>
+    public async Task<IActionResult> OnPostPaaminnFullforingAsync(long id, CancellationToken cancellationToken)
+    {
+        var pasient = await _db.Pasienter.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+        if (pasient is null || !await HarTilgangAsync(pasient, cancellationToken))
+        {
+            return RedirectToPage("Index");
+        }
+
+        await _pasientService.PaaminnFullforingAsync(pasient, $"{Request.Scheme}://{Request.Host}", cancellationToken);
+        await _auditLogger.LogAsync(
+            _currentUser.UserId, _currentUser.Role.ToString(), "PaaminnFullforingPasient",
+            nameof(Pasient), pasient.Id.ToString(), cancellationToken: cancellationToken);
+
+        var resultat = await OnGetAsync(id, cancellationToken);
+        Melding = "Påminnelse sendt.";
+        return resultat;
     }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
@@ -78,6 +111,7 @@ public sealed class RedigerModel : PageModel
             Feilmelding = "Personnummer, mobilnummer og e-post er alle obligatoriske.";
             EierBehandlerId = pasient.BehandlerId;
             await LastBehandlereIPartnerskapetAsync(pasient.BehandlerId, cancellationToken);
+            TilgjengeligeGrupper = await _grupper.HentForBehandlerAsync(pasient.BehandlerId, cancellationToken);
             return Page();
         }
 
@@ -86,6 +120,7 @@ public sealed class RedigerModel : PageModel
             Feilmelding = "Personnummer må bestå av nøyaktig 11 siffer.";
             EierBehandlerId = pasient.BehandlerId;
             await LastBehandlereIPartnerskapetAsync(pasient.BehandlerId, cancellationToken);
+            TilgjengeligeGrupper = await _grupper.HentForBehandlerAsync(pasient.BehandlerId, cancellationToken);
             return Page();
         }
 
@@ -99,11 +134,12 @@ public sealed class RedigerModel : PageModel
             Feilmelding = "Det finnes allerede en annen pasient med dette personnummeret.";
             EierBehandlerId = pasient.BehandlerId;
             await LastBehandlereIPartnerskapetAsync(pasient.BehandlerId, cancellationToken);
+            TilgjengeligeGrupper = await _grupper.HentForBehandlerAsync(pasient.BehandlerId, cancellationToken);
             return Page();
         }
 
         pasient.Navn = string.IsNullOrWhiteSpace(Navn) ? null : Navn;
-        pasient.Gruppenavn = string.IsNullOrWhiteSpace(Gruppenavn) ? null : Gruppenavn;
+        pasient.GruppeId = GruppeId;
         pasient.Personnummer = Personnummer;
         pasient.MobilNr = MobilNr;
         pasient.Email = Epost;
@@ -140,12 +176,13 @@ public sealed class RedigerModel : PageModel
             Feilmelding = "Ugyldig valg av ny behandler.";
             Id = pasient.Id;
             Navn = pasient.Navn;
-            Gruppenavn = pasient.Gruppenavn;
+            GruppeId = pasient.GruppeId;
             Personnummer = pasient.Personnummer ?? string.Empty;
             MobilNr = pasient.MobilNr;
             Epost = pasient.Email;
             EierBehandlerId = pasient.BehandlerId;
             await LastBehandlereIPartnerskapetAsync(pasient.BehandlerId, cancellationToken);
+            TilgjengeligeGrupper = await _grupper.HentForBehandlerAsync(pasient.BehandlerId, cancellationToken);
             return Page();
         }
 

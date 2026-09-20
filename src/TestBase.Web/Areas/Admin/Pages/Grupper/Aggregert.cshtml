@@ -1,0 +1,68 @@
+@page "{id:long}"
+@model TestBase.Web.Areas.Admin.Pages.Grupper.AggregertModel
+@{
+    ViewData["Title"] = "Aggregert rapport";
+}
+
+<h1>Aggregert rapport — @Model.GruppeNavn</h1>
+<p><a href="/Admin/Grupper/Rediger/@Model.Id">Tilbake til gruppen</a></p>
+
+<p>
+    <a href="/Admin/Grupper/Aggregert/@Model.Id?provedata=true"><strong>@(Model.Provedata ? "▸" : "")</strong> Prøvedata</a>
+    &nbsp;|&nbsp;
+    <a href="/Admin/Grupper/Aggregert/@Model.Id?provedata=false"><strong>@(!Model.Provedata ? "▸" : "")</strong> Ekte pasienter</a>
+</p>
+
+@if (!Model.Provedata)
+{
+    <form method="get">
+        <input type="hidden" name="provedata" value="false" />
+        <label>Fra <input type="date" name="fra" value="@Model.Fra.ToString("yyyy-MM-dd")" /></label>
+        <label>Til <input type="date" name="til" value="@Model.Til.ToString("yyyy-MM-dd")" /></label>
+        <button type="submit">Oppdater</button>
+    </form>
+}
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+else if (!Model.Rader.Any())
+{
+    <p><em>Ingen fullførte besvarelser å aggregere ennå@(Model.Provedata ? " (prøvedata)" : " i den valgte perioden").</em></p>
+}
+else
+{
+    @foreach (var rad in Model.Rader)
+    {
+        <div style="border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem;">
+            <h2>@rad.TestNavn</h2>
+            <p>Antall fullførte besvarelser: <strong>@rad.AntallFullfort</strong></p>
+            @if (rad.AntallFullfort > 0)
+            {
+                <p>
+                    Gjennomsnitt: <strong>@(rad.GjennomsnittProsent?.ToString("0.0"))%</strong>
+                    — Median: <strong>@(rad.MedianProsent?.ToString("0.0"))%</strong>
+                </p>
+                @if (rad.IndikatorFordeling.Any())
+                {
+                    <table border="1" cellpadding="6" cellspacing="0">
+                        <thead>
+                            <tr><th>Indikator</th><th>Verdi</th><th>Antall</th></tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var indikator in rad.IndikatorFordeling)
+                        {
+                            <tr>
+                                <td>@indikator.IndikatorNavn</td>
+                                <td>@indikator.Verdi</td>
+                                <td>@indikator.Antall</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                }
+            }
+        </div>
+    }
+}

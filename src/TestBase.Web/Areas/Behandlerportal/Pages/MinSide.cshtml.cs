@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
+using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Domain.Tester;
 using TestBase.Shared.Security;
+using TestBase.Web.Security;
 
 namespace TestBase.Web.Areas.Behandlerportal.Pages;
 
@@ -22,22 +24,29 @@ public sealed class MinSideModel : PageModel
 {
     private readonly BehandlerMeldingService _meldingService;
     private readonly TestService _testService;
+    private readonly GruppeService _grupper;
     private readonly AppDbContext _db;
     private readonly IAuditLogger _auditLogger;
     private readonly ICurrentUserContext _currentUser;
 
-    public MinSideModel(BehandlerMeldingService meldingService, TestService testService, AppDbContext db, IAuditLogger auditLogger, ICurrentUserContext currentUser)
+    public MinSideModel(
+        BehandlerMeldingService meldingService, TestService testService, GruppeService grupper,
+        AppDbContext db, IAuditLogger auditLogger, ICurrentUserContext currentUser)
     {
         _meldingService = meldingService;
         _testService = testService;
+        _grupper = grupper;
         _db = db;
         _auditLogger = auditLogger;
         _currentUser = currentUser;
     }
 
+    public string? InvitasjonsLenke { get; private set; }
+
     public IReadOnlyList<MeldingMedDetaljer> UlesteMeldinger { get; private set; } = Array.Empty<MeldingMedDetaljer>();
     public IReadOnlyList<TestService.TildelingMedTestOgPasient> VenterPaaGodkjenning { get; private set; } = Array.Empty<TestService.TildelingMedTestOgPasient>();
     public IReadOnlyList<TestService.TildelingMedTestOgPasient> IkkeFullfort { get; private set; } = Array.Empty<TestService.TildelingMedTestOgPasient>();
+    public IReadOnlyList<TestService.TildelingMedTestOgPasient> Godkjente { get; private set; } = Array.Empty<TestService.TildelingMedTestOgPasient>();
     public List<Behandler> UtlopteHprFrister { get; private set; } = new();
 
     public int AntallOppgaver => UlesteMeldinger.Count + VenterPaaGodkjenning.Count + UtlopteHprFrister.Count;
@@ -48,6 +57,10 @@ public sealed class MinSideModel : PageModel
         UlesteMeldinger = await _meldingService.HentUlesteAsync(behandlerId, cancellationToken);
         VenterPaaGodkjenning = await _testService.HentUgodkjenteFullforteForBehandlerAsync(behandlerId, cancellationToken);
         IkkeFullfort = await _testService.HentIkkeFullforteForBehandlerAsync(behandlerId, cancellationToken);
+        Godkjente = await _testService.HentGodkjenteFullforteForBehandlerAsync(behandlerId, cancellationToken);
+
+        var qrToken = await _grupper.SikreBehandlerQrTokenAsync(behandlerId, cancellationToken);
+        InvitasjonsLenke = $"{Request.Scheme}://{Request.Host}/BliPasient/b/{qrToken}";
 
         if (_currentUser.ErPartnerAdministrator && _currentUser.PartnerId is not null)
         {
@@ -85,6 +98,37 @@ public sealed class MinSideModel : PageModel
         }
 
         return RedirectToPage();
+    }
+
+    /// <summary>Sletter en ikke-besvart tildeling permanent — se TestService.SlettIkkeFullfortTildelingAsync (kan ikke slette en fullført tildeling).</summary>
+    public async Task<IActionResult> OnPostSlettIkkeBesvartAsync(long id, CancellationToken cancellationToken)
+    {
+        if (await _testService.SlettIkkeFullfortTildelingAsync(id, HentBehandlerId(), cancellationToken))
+        {
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(), "SlettIkkeBesvartTildeling",
+                nameof(TestTildeling), id.ToString(), cancellationToken: cancellationToken);
+        }
+
+        return RedirectToPage();
+    }
+
+    /// <summary>Invaliderer gjeldende QR-kode/lenke umiddelbart — se Behandler.PasientInviteQrToken.</summary>
+    public async Task<IActionResult> OnPostRegenererQrAsync(CancellationToken cancellationToken)
+    {
+        await _grupper.RegenererBehandlerQrTokenAsync(HentBehandlerId(), cancellationToken);
+        await _auditLogger.LogAsync(
+            _currentUser.UserId, _currentUser.Role.ToString(), "RegenererBehandlerQr",
+            nameof(Behandler), HentBehandlerId().ToString(), cancellationToken: cancellationToken);
+        return RedirectToPage();
+    }
+
+    /// <summary>Selve QR-bildet — se QrBildeGenerator.</summary>
+    public async Task<IActionResult> OnGetQrAsync(CancellationToken cancellationToken)
+    {
+        var qrToken = await _grupper.SikreBehandlerQrTokenAsync(HentBehandlerId(), cancellationToken);
+        var lenke = $"{Request.Scheme}://{Request.Host}/BliPasient/b/{qrToken}";
+        return File(QrBildeGenerator.GenererPng(lenke), "image/png");
     }
 
     private long HentBehandlerId() =>
