@@ -4220,3 +4220,54 @@ indikator-fordelingstabellen uendret. Verifisert også tom-tilstand (0 fullført
 tildelingsdato når en test har historikk, og faller tilbake til dagens dato når den ikke har det.
 Testpasientenes gruppetilhørighet tilbakestilt til `NULL` etter verifisering. 48/48 enhetstester
 fortsatt grønt, ingen ny migrasjon (rent lag oppå eksisterende skjema).
+
+## Feiltolerant varsling ved QR-registrering (kapasitetsgjennomgang) (2026-09-22)
+
+Bruker planlegger et foredrag der 50–100 deltakere skal registrere seg (prøvedata) og fylle ut en
+test i samme gruppe i løpet av ~10 minutter, og spurte om systemet tåler det. Gjennomgang av
+koden (ikke bare gjetting) avdekket at DETTE, ikke selve testutfyllingen, var det reelle
+risikopunktet:
+
+**Funn:** hver QR-registrering (`Pages/BliPasient/Index.cshtml.cs` →
+`PasientInvitasjonService.RegistrerViaQrAsync` → `TestTildelingsService.TildelOgVarsleAsync`)
+utløste OPPTIL FIRE sekvensielle, BLOKKERENDE eksterne API-kall (Vonage SMS + Azure Communication
+Services e-post, TO GANGER — én gang for "fullfør profilen din" i `RegistrerViaQrAsync`, én gang
+for "nye tester tildelt" i `TildelOgVarsleAsync`) FØR deltakeren ble sendt videre til selve
+testen — og INGEN av de fire var beskyttet med try/catch noe sted i kjeden.
+`VonageSmsSender.SendAsync` kaller `response.EnsureSuccessStatusCode()` ubetinget (kaster på
+enhver ikke-suksess-status, inkludert en 429 rate-limit-respons), og denne feilen forplantet seg
+helt opp og feilet HELE registreringsforespørselen — SELV OM pasienten og testtildelingen allerede
+var lagret i databasen på det tidspunktet (databaselagringen skjer FØR varslingsforsøket i begge
+metoder). Verste realistiske utfall under nøyaktig scenarioet i spørsmålet: en brå bølge av 50-100
+samtidige QR-registreringer (alle skanner "nå" på kommando) struper Vonage/Azure Communication
+Services sine sendekvoter, og en del av publikum ser en feilmelding midt i foredraget — mens
+dataene deres i realiteten er trygt lagret. Det er den verst tenkelige feilmåten: ser ut som et
+systemkrasj for tilskueren, uten å faktisk være et datatap.
+
+**Fiks:** begge utsendingsforsøkene (`PasientInvitasjonService.SendFullforProfilLenkeAsync` og
+`TestTildelingsService.VarsleAsync`) pakket inn i try/catch per kanal (SMS/e-post hver for seg,
+ikke én felles try rundt begge — en SMS-feil skal ikke hindre et forsøk på e-post) — en feilet
+utsending logges (`ILogger`, nytt injisert i begge tjenester, ren DI-oppløsning siden begge
+allerede var registrert som enkle `AddScoped<T>()` uten manuell factory) og svelges, ALDRI kastet
+videre. `TestTildelingsService.VarsleAsync` sitt returnerte `(SendtSms, SendtEpost)`-par oppdatert
+til å reflektere FAKTISK utfall (ikke bare forsøkt) — hvis SMS feiler, returneres `SendtSms=false`,
+selv om et forsøk ble gjort. Bevisst IKKE lagt inn noen retry-logikk (Polly e.l.) i denne runden —
+scope var å hindre at en varslingsfeil velter registreringen, ikke å garantere levering; en
+mislykket varsling er fortsatt en "reserve for senere besøk fra en annen enhet" (se
+`RegistrerViaQrAsync` sin kommentar), pasienten er uansett allerede inne i selve testen.
+
+**Verifisert:** 48/48 enhetstester fortsatt grønt (ingen eksisterende test konstruerer disse to
+tjenestene manuelt, så den nye konstruktørparameteren `ILogger<T>` er trygg). Kjørte en reell
+QR-registrering lokalt (mobilnummer + e-post begge utfylt, altså alle fire varslingsveier
+aktivert) og bekreftet at happy-path fortsatt fungerer uendret — deltakeren havner rett i
+testutfyllingen som før. Testet IKKE selve feilscenarioet direkte (krever å simulere en faktisk
+Vonage/Azure-feil, ikke gjort i denne runden) — trygghet her kommer fra kodegjennomgang
+(try/catch omslutter nøyaktig og bare nettverkskallet, databaselagringen skjer garantert før), ikke
+fra en observert feilende utsending.
+
+**Gjenstående, IKKE gjort i denne runden — bevisst utenfor scope, men relevant før foredraget:**
+se separat "Plan: automatisert lasttest fra et 'live'-perspektiv" (samme dato) for et konkret
+forslag til å faktisk verifisere kapasiteten før den brukes skarpt, samt en påminnelse om å
+sjekke Vonage/Azure Communication Services sine faktiske sendekvoter og vurdere midlertidig å
+skalere opp `testbase-test` sin App Service (i dag Basic B1, én instans, ingen autoskalering) og
+MySQL-server (i dag Burstable Standard_B1ms) for selve foredragsdagen.

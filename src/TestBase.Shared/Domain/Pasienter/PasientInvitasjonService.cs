@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Providers;
@@ -31,13 +32,15 @@ public sealed class PasientInvitasjonService
     private readonly ISmsSender _sms;
     private readonly IEmailSender _email;
     private readonly GruppeService _grupper;
+    private readonly ILogger<PasientInvitasjonService> _logger;
 
-    public PasientInvitasjonService(AppDbContext db, ISmsSender sms, IEmailSender email, GruppeService grupper)
+    public PasientInvitasjonService(AppDbContext db, ISmsSender sms, IEmailSender email, GruppeService grupper, ILogger<PasientInvitasjonService> logger)
     {
         _db = db;
         _sms = sms;
         _email = email;
         _grupper = grupper;
+        _logger = logger;
     }
 
     public async Task<PasientInvitasjonResultat> LeggTilAsync(
@@ -210,6 +213,13 @@ public sealed class PasientInvitasjonService
     /// Sender en "fullfør profilen din"-påminnelse til enhver kontaktkanal
     /// pasienten faktisk oppga ved QR-registrering — bevisst en myk oppfordring
     /// (de kan allerede bruke systemet/har fått sin første test), ikke et krav.
+    /// BEVISST feiltolerant (try/catch rundt hvert utsendingsforsøk, aldri
+    /// kastet videre) — denne påminnelsen er en "reserve for senere besøk fra
+    /// en annen enhet" (se RegistrerViaQrAsync), IKKE noe pasienten trenger for
+    /// å bruke systemet nå. En SMS/e-post-leverandør som strupes eller feiler
+    /// (f.eks. en brå bølge av samtidige QR-registreringer på et foredrag) skal
+    /// ALDRI kunne velte selve registreringen — se docs/beslutningslogg.md
+    /// "Feiltolerant varsling ved QR-registrering (kapasitetsgjennomgang)".
     /// </summary>
     private async Task SendFullforProfilLenkeAsync(Pasient pasient, string baseUrl, CancellationToken cancellationToken)
     {
@@ -218,12 +228,26 @@ public sealed class PasientInvitasjonService
 
         if (!string.IsNullOrWhiteSpace(pasient.MobilNr))
         {
-            await _sms.SendAsync(pasient.MobilNr, melding, cancellationToken);
+            try
+            {
+                await _sms.SendAsync(pasient.MobilNr, melding, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "Kunne ikke sende 'fullfør profilen'-SMS til pasient {PasientId} — fortsetter uansett.", pasient.Id);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(pasient.Email))
         {
-            await _email.SendAsync(pasient.Email, "Fullfør profilen din i PsyTest", melding, cancellationToken);
+            try
+            {
+                await _email.SendAsync(pasient.Email, "Fullfør profilen din i PsyTest", melding, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "Kunne ikke sende 'fullfør profilen'-e-post til pasient {PasientId} — fortsetter uansett.", pasient.Id);
+            }
         }
     }
 

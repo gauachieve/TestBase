@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Providers;
@@ -49,8 +50,11 @@ public sealed class TestTildelingsService
     private readonly ISmsSender _sms;
     private readonly IEmailSender _email;
     private readonly IConfiguration _configuration;
+    private readonly ILogger<TestTildelingsService> _logger;
 
-    public TestTildelingsService(AppDbContext db, TestService testService, TestPrisberegner prisberegner, ISmsSender sms, IEmailSender email, IConfiguration configuration)
+    public TestTildelingsService(
+        AppDbContext db, TestService testService, TestPrisberegner prisberegner, ISmsSender sms, IEmailSender email,
+        IConfiguration configuration, ILogger<TestTildelingsService> logger)
     {
         _db = db;
         _testService = testService;
@@ -58,6 +62,7 @@ public sealed class TestTildelingsService
         _sms = sms;
         _email = email;
         _configuration = configuration;
+        _logger = logger;
     }
 
     /// <summary>
@@ -320,17 +325,43 @@ public sealed class TestTildelingsService
         var sendSms = vilSms && harMobil;
         var sendEpost = vilEpost && harEpost;
 
+        // BEVISST feiltolerant (try/catch rundt hvert utsendingsforsøk) — se
+        // PasientInvitasjonService.SendFullforProfilLenkeAsync sin klassekommentar
+        // for full begrunnelse (samme prinsipp her): en SMS-/e-post-leverandør som
+        // strupes eller feiler under en brå bølge av samtidige tildelinger (f.eks.
+        // et foredrag der 50-100 deltakere registrerer seg i samme QR-gruppe i
+        // løpet av minutter) skal ALDRI kunne velte selve tildelingen, som allerede
+        // er lagret i databasen på dette tidspunktet. Returnerer faktisk utfall
+        // (ikke bare forsøkt), slik at SendtSms/SendtEpost forblir sannferdig.
+        var smsOk = false;
         if (sendSms)
         {
-            await _sms.SendAsync(pasient.MobilNr, meldingstekst, cancellationToken);
+            try
+            {
+                await _sms.SendAsync(pasient.MobilNr, meldingstekst, cancellationToken);
+                smsOk = true;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "Kunne ikke sende tildelings-SMS til pasient {PasientId} — tildelingen er likevel lagret.", pasient.Id);
+            }
         }
 
+        var epostOk = false;
         if (sendEpost)
         {
-            await _email.SendAsync(pasient.Email, epostEmne, meldingstekst, cancellationToken);
+            try
+            {
+                await _email.SendAsync(pasient.Email, epostEmne, meldingstekst, cancellationToken);
+                epostOk = true;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "Kunne ikke sende tildelings-e-post til pasient {PasientId} — tildelingen er likevel lagret.", pasient.Id);
+            }
         }
 
-        return (sendSms, sendEpost);
+        return (smsOk, epostOk);
     }
 
     private static string BygMelding(IReadOnlyList<TestLenke> lenker)

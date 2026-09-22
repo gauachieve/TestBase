@@ -141,6 +141,16 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   migrasjon. Se "Gruppe-rapportgenerator" i beslutningsloggen for en reell kurskorrigering underveis
   (startet feilaktig med å bygge nye DB-tabeller før brukeren pekte på at aggregeringen allerede
   fantes) og en Razor `<text>`-tag-fallgruve som ble funnet og løst med `Html.Raw`.
+- **Feiltolerant varsling ved QR-registrering (2026-09-22):** en kapasitetsgjennomgang FØR et
+  planlagt foredrag (50–100 samtidige QR-registreringer) avdekket at hver registrering utløste
+  opptil fire sekvensielle, UBESKYTTEDE eksterne API-kall (Vonage SMS + Azure Communication
+  Services e-post, to ganger) — en feilende/strupet leverandør under en brå brukertopp kunne velte
+  HELE registreringsforespørselen med en feilmelding til deltakeren, selv om pasienten og
+  testtildelingen allerede var lagret. Fikset: `PasientInvitasjonService.
+  SendFullforProfilLenkeAsync` og `TestTildelingsService.VarsleAsync` pakker nå hvert
+  utsendingsforsøk i try/catch (logges, aldri kastet videre) — se "Feiltolerant varsling ved
+  QR-registrering" i beslutningsloggen for full analyse og et forslag til en automatisert
+  lasttest-plan (samme dato) før noe slikt kjøres skarpt igjen.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
