@@ -4271,3 +4271,64 @@ forslag til å faktisk verifisere kapasiteten før den brukes skarpt, samt en p�
 sjekke Vonage/Azure Communication Services sine faktiske sendekvoter og vurdere midlertidig å
 skalere opp `testbase-test` sin App Service (i dag Basic B1, én instans, ingen autoskalering) og
 MySQL-server (i dag Burstable Standard_B1ms) for selve foredragsdagen.
+
+## Lasttest mot beta: reell kapasitetsgrense funnet (2026-09-22)
+
+Bruker var bekymret for kostnad (hver SMS/BankID-transaksjon koster penger) og ba om at en lasttest
+IKKE måtte generere utgifter — ellers ville den ikke blitt kjørt i det hele tatt. Løst helt uten
+noen infrastruktur-endring: `azd env get-values` for `testbase-beta` viste at INGEN Vonage-nøkler
+er satt der i det hele tatt (SMS er allerede `MockSmsSender`, kostnadsfritt), og selve QR-
+registreringsflyten bruker aldri BankID uansett (se forrige seksjon). Skriptet ble i tillegg satt
+opp til å KUN fylle inn mobilnummer (aldri e-post) — dermed null eksterne kall av noe slag under
+hele testen, ikke bare "billige" kall. Satt opp som dev-admin (`AdminId`+passord-snarveien, ikke
+BankID) i en dedikert, midlertidig "Lasttest"-gruppe med WHO-5 tilordnet, ryddet fullstendig
+(prøvedata slettet mellom hvert nivå, selve gruppen arkivert og slettet permanent til slutt) —
+beta står tilbake helt tomt for grupper, akkurat som før denne økten.
+
+**Verktøy:** k6 (installert via `winget install GrafanaLabs.k6`), ett skript
+(`lasttest-konferanse.js`, i scratchpad — IKKE en del av selve repoet, et engangsverktøy for denne
+hendelsen) som per virtuell deltaker: låser opp `StagingGate` (kun et problem på beta — se
+`StagingGate.cs`, `/BliPasient` er selv unntatt sperren, men `/Pasientportal/Tester/Fyll` er det
+IKKE, et allerede kjent, ikke rettet hull i unntakslisten), henter registreringssiden, venter
+2,5–5 sekunder (over `BotVern` sitt 2-sekunders minimum, simulerer et menneske som leser siden),
+poster registreringen, og fyller ut alle sider i testen til "Ferdig" trykkes — alt via rå HTTP
+(k6 følger redirects automatisk, egen cookie-jar per virtuell bruker, akkurat som en nettleser).
+
+**Reell fallgruve underveis:** den første kjøringen feilet 100 % med "Noe gikk galt. Prøv igjen."
+(BotVern sin bot-avvisning) — årsaken var at Razor HTML-koder attributtverdier ved rendering
+(`+` → `&#x2B;` i `Vist`-tidsstempelfeltet), og skriptet sendte den kodede strengen rett tilbake
+uten å dekode den først. Server-sidens `DateTimeOffset.TryParse` feilet da stille på den bokstavelig
+talt feilformede strengen, og `BotVern.ErSannsynligvisBot` tolket det som en bot. Løst med en liten
+HTML-entitet-dekoder i skriptet før verdier sendes tilbake som skjemafelt — en påminnelse om at
+"skrap verdien rett fra utsendt HTML og post den tilbake uendret" IKKE er trygt uten å regne med
+Razor sin automatiske HTML-koding av attributtverdier.
+
+**Resultat — trinnvis eskalering (10/25/50/75/85/100 samtidige virtuelle deltakere), samme WHO-5,
+samme gruppe, ryddet mellom hvert nivå:**
+
+| Nivå | Fullført | Feilrate (HTTP) | Snitt responstid | p95 responstid |
+|---|---|---|---|---|
+| 10  | 10/10 (100 %) | 0 %    | 468 ms  | 1,17 s |
+| 25  | 25/25 (100 %) | 0 %    | 1,08 s  | 2,88 s |
+| 50  | 50/50 (100 %) | 0 %    | 2,47 s  | 5,09 s |
+| 75  | 75/75 (100 %) | 0 %    | 4,57 s  | 10,9 s |
+| 85  | 60/85 (71 %)  | 7,71 % | 6,52 s  | 14,4 s |
+| 100 | 34/100 (34 %) | 15,0 % | 9,48 s  | 20,6 s |
+
+**Konklusjon: systemet tåler IKKE 100 samtidige deltakere på dagens `testbase-test`-infrastruktur
+(App Service Basic B1, én instans, ingen autoskalering + MySQL Burstable Standard_B1ms)** — det
+fungerer feilfritt opp til et sted mellom 75 og 85 samtidige, og degraderer deretter raskt (kun
+34 % fullførte ved 100). Under 75 er det ingen harde feil, men responstiden vokser lineært med
+belastningen (fra under et halvt sekund ved 10 til nesten 11 sekunder i 95-persentilen ved 75) —
+brukbart, men merkbart tregt mot slutten av det trygge området. Siden dette ble kjørt EFTER
+"Feiltolerant varsling ved QR-registrering"-fiksen (forrige seksjon), er disse tallene den
+FAKTISKE kapasiteten med den fiksen på plass — uten den ville trolig flere av de "vellykkede"
+lave nivåene også vist sporadiske feil fra en treg/strupet SMS-/e-post-leverandør.
+
+**Anbefaling til brukeren før foredraget (50–100 deltakere, 10 minutters vindu):** gitt at et reelt
+foredrag typisk sprer registreringene over noen sekunder til et par minutter (ikke alle 100 i
+akkurat samme sekund, slik lasttesten bevisst simulerte som verste-fall), er marginen trolig noe
+bedre enn tabellen isolert antyder — men å stole blindt på det uten sikkerhetsmargin frarådes.
+Konkret anbefaling: skaler `testbase-test` sin App Service opp til minst Standard S1 (åpner
+autoskalering) og MySQL til minst General Purpose eller Burstable B2s for selve foredragsdagen
+(via `azd provision` med endrede Bicep-parametre, reverserbart etterpå for å holde kostnaden nede).
