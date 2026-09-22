@@ -45,6 +45,39 @@
         <button type="submit">Slett prøvedata</button>
     </form>
 }
+@if (Model.TilordnedeTester.Any())
+{
+    <button type="button" class="btn btn-outline btn-sm" data-rapportknapp data-provedata="true">Generer Temp Gruppe Rapport</button>
+    <button type="button" class="btn btn-outline btn-sm" data-rapportknapp data-provedata="false">Generer Gruppe Rapport</button>
+}
+else
+{
+    <p><em>Tilordne minst én test til gruppen for å kunne generere en gruppe­rapport.</em></p>
+}
+
+<dialog id="grupperapportDialog">
+    <form method="get" action="/Admin/Grupper/Aggregert/@Model.Id">
+        <h2 id="grupperapportTittel">Generer gruppe­rapport</h2>
+        <input type="hidden" name="provedata" id="grupperapportProvedata" value="true" />
+        <fieldset>
+            <legend>Velg test</legend>
+            @foreach (var test in Model.TilordnedeTester)
+            {
+                var tidligste = Model.TidligsteDatoPerTest.GetValueOrDefault(test.Id);
+                <label class="fane-rad">
+                    <input type="radio" name="testId" value="@test.Id" class="rapport-test-radio"
+                           data-tidligste-provedata="@(tidligste.Provedata?.ToString("yyyy-MM-dd"))"
+                           data-tidligste-ekte="@(tidligste.Ekte?.ToString("yyyy-MM-dd"))" />
+                    @test.Navn
+                </label>
+            }
+        </fieldset>
+        <div><label>Fra <input type="date" name="fra" id="grupperapportFra" required /></label></div>
+        <div><label>Til <input type="date" name="til" id="grupperapportTil" required /></label></div>
+        <button type="submit" class="btn btn-accent">Generer</button>
+        <button type="button" class="btn btn-outline" id="grupperapportAvbryt">Avbryt</button>
+    </form>
+</dialog>
 
 <h2>Gruppeinnstillinger</h2>
 <form method="post" data-disable-on-submit="Lagrer …">
@@ -100,3 +133,4 @@
 </form>
 
 <script src="~/js/testinfo.js" asp-append-version="true"></script>
+<script src="~/js/grupperapport.js" asp-append-version="true"></script>

@@ -53,6 +53,19 @@ body.rolle-pasient {
    aksent-stripe på rapport-headeren, se TestKategoriFarge.cs og Rapport.cshtml. */
 .rapport-kategori-stripe { border-left: 6px solid var(--kategori-farge, var(--border)); padding-left: 0.85rem; }
 .rapport-kategori-navn { font-size: 0.8rem; color: var(--muted); margin-top: 0.15rem; }
+
+/* Gruppe-rapportgenerator (se GruppeService.HentEnkelttestAsync og
+   Grupper/Aggregert.cshtml sitt enkelttest-visningsmodus) — stat-fliser +
+   spredningsplott. Ett enkelt datasett (én test av gangen), derfor ingen
+   kategorisk fargepalett/forklaring nødvendig — kun aksentfargen. */
+.rapport-stat-grid { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1rem 0 1.5rem; }
+.rapport-stat-tile { flex: 1 1 8rem; border: 1px solid var(--border); border-radius: var(--radius); padding: 0.85rem 1rem; background: #fff; }
+.rapport-stat-verdi { font-size: 1.6rem; font-weight: 700; color: var(--ink); }
+.rapport-stat-etikett { font-size: 0.8rem; color: var(--muted); margin-top: 0.15rem; }
+.rapport-scatter { width: 100%; max-width: 620px; height: auto; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); }
+.rapport-scatter-gitter { stroke: var(--border); stroke-width: 1; }
+.rapport-scatter-akse { fill: var(--muted); font-size: 11px; }
+.rapport-scatter-punkt { fill: var(--accent-dark); stroke: #fff; stroke-width: 2; }
 .kategori-kognisjon { --kategori-farge: #6366f1; }
 .kategori-adhd { --kategori-farge: #f59e0b; }
 .kategori-sovn { --kategori-farge: #0ea5e9; }
@@ -957,7 +970,7 @@ main.page form#tildelForm { max-width: 760px; }
 .tildel-kanal-ikon { opacity: 0.3; margin-right: 0.3rem; }
 .tildel-kanal-ikon.tilgjengelig { opacity: 1; color: var(--accent-dark); }
 
-dialog#oppsummeringDialog {
+dialog#oppsummeringDialog, dialog#grupperapportDialog {
   border: none;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -965,7 +978,7 @@ dialog#oppsummeringDialog {
   max-width: 480px;
   width: 90%;
 }
-dialog#oppsummeringDialog::backdrop { background: rgba(22, 24, 31, 0.5); }
+dialog#oppsummeringDialog::backdrop, dialog#grupperapportDialog::backdrop { background: rgba(22, 24, 31, 0.5); }
 
 /* ---------- Testutfylling: Likert-skala/Ja-Nei som moderne knapperad ---------- */
 /* Erstatter små radio-sirkler med hele, klikkbare "piller" på én horisontal

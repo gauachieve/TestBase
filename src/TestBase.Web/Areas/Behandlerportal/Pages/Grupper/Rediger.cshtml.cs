@@ -45,6 +45,10 @@ public sealed class RedigerModel : PageModel
     public int AntallProvedata { get; private set; }
     public DateTimeOffset Opprettet { get; private set; }
 
+    /// <summary>Tester tilordnet DENNE gruppen — til radioknapp-valget i "Generer gruppe­rapport"-popupen, se Rediger.cshtml.</summary>
+    public IReadOnlyList<Test> TilordnedeTester { get; private set; } = Array.Empty<Test>();
+    public IReadOnlyDictionary<long, (DateOnly? Provedata, DateOnly? Ekte)> TidligsteDatoPerTest { get; private set; } = new Dictionary<long, (DateOnly?, DateOnly?)>();
+
     private long HentBehandlerId() => long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var id) ? id : 0;
 
     public async Task<IActionResult> OnGetAsync(long id, CancellationToken cancellationToken)
@@ -64,6 +68,7 @@ public sealed class RedigerModel : PageModel
         await LastKategoriTreAsync(cancellationToken);
         InvitasjonsLenke = $"{Request.Scheme}://{Request.Host}/BliPasient/g/{innhold.Gruppe.QrToken}";
         AntallProvedata = await _grupper.TellProvedataAsync(id, cancellationToken);
+        await LastRapportgrunnlagAsync(innhold, cancellationToken);
         return Page();
     }
 
@@ -91,6 +96,7 @@ public sealed class RedigerModel : PageModel
         InvitasjonsLenke = $"{Request.Scheme}://{Request.Host}/BliPasient/g/{innhold.Gruppe.QrToken}";
         AntallProvedata = 0;
         Melding = $"{antallSlettet} prøvepasient(er) slettet.";
+        await LastRapportgrunnlagAsync(innhold, cancellationToken);
         return Page();
     }
 
@@ -137,6 +143,8 @@ public sealed class RedigerModel : PageModel
             Opprettet = innhold.Gruppe.OpprettetUtc;
             await LastKategoriTreAsync(cancellationToken);
             InvitasjonsLenke = $"{Request.Scheme}://{Request.Host}/BliPasient/g/{innhold.Gruppe.QrToken}";
+            AntallProvedata = await _grupper.TellProvedataAsync(Id, cancellationToken);
+            await LastRapportgrunnlagAsync(innhold, cancellationToken);
             return Page();
         }
 
@@ -155,5 +163,12 @@ public sealed class RedigerModel : PageModel
         var testIder = KategoriTre.SelectMany(k => k.Tester).Select(t => t.Id).Distinct().ToList();
         var antallLedd = await _testService.HentAntallLeddPerTestAsync(testIder, cancellationToken);
         EstimertMinutterPerTestId = antallLedd.ToDictionary(kv => kv.Key, kv => Math.Max(1, (int)Math.Ceiling(kv.Value * 15.0 / 60)));
+    }
+
+    /// <summary>Grunnlaget "Generer gruppe­rapport"-popupen trenger — se Rediger.cshtml og GruppeService.HentTidligsteTildeltDatoPerTestAsync.</summary>
+    private async Task LastRapportgrunnlagAsync(GruppeMedTester innhold, CancellationToken cancellationToken)
+    {
+        TilordnedeTester = innhold.Tester;
+        TidligsteDatoPerTest = await _grupper.HentTidligsteTildeltDatoPerTestAsync(innhold.Gruppe.Id, cancellationToken);
     }
 }

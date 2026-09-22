@@ -1,68 +1,147 @@
 @page "{id:long}"
 @model TestBase.Web.Areas.Behandlerportal.Pages.Grupper.AggregertModel
 @{
-    ViewData["Title"] = "Aggregert rapport";
+    ViewData["Title"] = Model.TestId is not null ? "Gruppe­rapport" : "Aggregert rapport";
 }
 
-<h1>Aggregert rapport — @Model.GruppeNavn</h1>
-<p><a href="/Behandlerportal/Grupper/Rediger/@Model.Id">Tilbake til gruppen</a></p>
-
-<p>
-    <a href="/Behandlerportal/Grupper/Aggregert/@Model.Id?provedata=true"><strong>@(Model.Provedata ? "▸" : "")</strong> Prøvedata</a>
-    &nbsp;|&nbsp;
-    <a href="/Behandlerportal/Grupper/Aggregert/@Model.Id?provedata=false"><strong>@(!Model.Provedata ? "▸" : "")</strong> Ekte pasienter</a>
-</p>
-
-@if (!Model.Provedata)
+@if (Model.TestId is not null)
 {
-    <form method="get">
-        <input type="hidden" name="provedata" value="false" />
-        <label>Fra <input type="date" name="fra" value="@Model.Fra.ToString("yyyy-MM-dd")" /></label>
-        <label>Til <input type="date" name="til" value="@Model.Til.ToString("yyyy-MM-dd")" /></label>
-        <button type="submit">Oppdater</button>
-    </form>
-}
+    <h1>@(Model.Enkelttest?.Tittel ?? "Gruppe­rapport")</h1>
+    <p>
+        <a href="/Behandlerportal/Grupper/Rediger/@Model.Id">Tilbake til gruppen</a>
+        &nbsp;|&nbsp;
+        <a href="/Behandlerportal/Grupper/Aggregert/@Model.Id">◂ Tilbake til oversikt (alle tester)</a>
+    </p>
 
-@if (Model.Feilmelding is not null)
-{
-    <p style="color: darkred;">@Model.Feilmelding</p>
-}
-else if (!Model.Rader.Any())
-{
-    <p><em>Ingen fullførte besvarelser å aggregere ennå@(Model.Provedata ? " (prøvedata)" : " i den valgte perioden").</em></p>
+    @if (Model.Feilmelding is not null)
+    {
+        <p style="color: darkred;">@Model.Feilmelding</p>
+    }
+    else if (Model.Enkelttest is null)
+    {
+        <p><em>Fant ikke denne testen på gruppen.</em></p>
+    }
+    else
+    {
+        var d = Model.Enkelttest.Detaljer;
+        <p>@(Model.Enkelttest.Provedata ? "Prøvedata" : "Ekte pasienter") — @Model.Enkelttest.Fra.ToString("dd.MM.yyyy") til @Model.Enkelttest.Til.ToString("dd.MM.yyyy")</p>
+
+        @if (d.AntallFullfort == 0)
+        {
+            <p><em>Ingen fullførte besvarelser i det valgte intervallet.</em></p>
+        }
+        else
+        {
+            <div class="rapport-stat-grid">
+                <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@d.AntallFullfort</div><div class="rapport-stat-etikett">Antall deltakere</div></div>
+                <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@(d.GjennomsnittProsent?.ToString("0.0"))%</div><div class="rapport-stat-etikett">Gjennomsnitt</div></div>
+                <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@(d.MedianProsent?.ToString("0.0"))%</div><div class="rapport-stat-etikett">Median</div></div>
+                <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@(d.StandardavvikProsent?.ToString("0.0"))%</div><div class="rapport-stat-etikett">Standardavvik</div></div>
+            </div>
+
+            <h2>Spredning</h2>
+            <svg class="rapport-scatter" viewBox="0 0 560 220" role="img" aria-label="Spredningsplott av prosentskår per besvarelse">
+                @foreach (var linjeProsent in new[] { 0, 25, 50, 75, 100 })
+                {
+                    var y = 12 + (220 - 12 - 12) * (1 - linjeProsent / 100.0);
+                    var yStr = y.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    <line x1="40" y1="@yStr" x2="544" y2="@yStr" class="rapport-scatter-gitter" />
+                    @Html.Raw($"<text x=\"34\" y=\"{(y + 4).ToString(System.Globalization.CultureInfo.InvariantCulture)}\" class=\"rapport-scatter-akse\" text-anchor=\"end\">{linjeProsent}%</text>")
+                }
+                @foreach (var punkt in Model.Plott)
+                {
+                    <circle cx="@punkt.Cx.ToString(System.Globalization.CultureInfo.InvariantCulture)" cy="@punkt.Cy.ToString(System.Globalization.CultureInfo.InvariantCulture)" r="5" class="rapport-scatter-punkt">
+                        <title>@punkt.Tittel</title>
+                    </circle>
+                }
+            </svg>
+
+            @if (d.IndikatorFordeling.Any())
+            {
+                <h2>Fordeling</h2>
+                <table border="1" cellpadding="6" cellspacing="0">
+                    <thead>
+                        <tr><th>Indikator</th><th>Verdi</th><th>Antall</th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var indikator in d.IndikatorFordeling)
+                    {
+                        <tr>
+                            <td>@indikator.IndikatorNavn</td>
+                            <td>@indikator.Verdi</td>
+                            <td>@indikator.Antall</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+
+            <p><button type="button" class="btn btn-outline btn-sm" onclick="window.print()">Skriv ut</button></p>
+        }
+    }
 }
 else
 {
-    @foreach (var rad in Model.Rader)
+    <h1>Aggregert rapport — @Model.GruppeNavn</h1>
+    <p><a href="/Behandlerportal/Grupper/Rediger/@Model.Id">Tilbake til gruppen</a></p>
+
+    <p>
+        <a href="/Behandlerportal/Grupper/Aggregert/@Model.Id?provedata=true"><strong>@(Model.Provedata ? "▸" : "")</strong> Prøvedata</a>
+        &nbsp;|&nbsp;
+        <a href="/Behandlerportal/Grupper/Aggregert/@Model.Id?provedata=false"><strong>@(!Model.Provedata ? "▸" : "")</strong> Ekte pasienter</a>
+    </p>
+
+    @if (!Model.Provedata)
     {
-        <div style="border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem;">
-            <h2>@rad.TestNavn</h2>
-            <p>Antall fullførte besvarelser: <strong>@rad.AntallFullfort</strong></p>
-            @if (rad.AntallFullfort > 0)
-            {
-                <p>
-                    Gjennomsnitt: <strong>@(rad.GjennomsnittProsent?.ToString("0.0"))%</strong>
-                    — Median: <strong>@(rad.MedianProsent?.ToString("0.0"))%</strong>
-                </p>
-                @if (rad.IndikatorFordeling.Any())
+        <form method="get">
+            <input type="hidden" name="provedata" value="false" />
+            <label>Fra <input type="date" name="fra" value="@Model.Fra.ToString("yyyy-MM-dd")" /></label>
+            <label>Til <input type="date" name="til" value="@Model.Til.ToString("yyyy-MM-dd")" /></label>
+            <button type="submit">Oppdater</button>
+        </form>
+    }
+
+    @if (Model.Feilmelding is not null)
+    {
+        <p style="color: darkred;">@Model.Feilmelding</p>
+    }
+    else if (!Model.Rader.Any())
+    {
+        <p><em>Ingen fullførte besvarelser å aggregere ennå@(Model.Provedata ? " (prøvedata)" : " i den valgte perioden").</em></p>
+    }
+    else
+    {
+        @foreach (var rad in Model.Rader)
+        {
+            <div style="border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem;">
+                <h2>@rad.TestNavn</h2>
+                <p>Antall fullførte besvarelser: <strong>@rad.AntallFullfort</strong></p>
+                @if (rad.AntallFullfort > 0)
                 {
-                    <table border="1" cellpadding="6" cellspacing="0">
-                        <thead>
-                            <tr><th>Indikator</th><th>Verdi</th><th>Antall</th></tr>
-                        </thead>
-                        <tbody>
-                        @foreach (var indikator in rad.IndikatorFordeling)
-                        {
-                            <tr>
-                                <td>@indikator.IndikatorNavn</td>
-                                <td>@indikator.Verdi</td>
-                                <td>@indikator.Antall</td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table>
+                    <p>
+                        Gjennomsnitt: <strong>@(rad.GjennomsnittProsent?.ToString("0.0"))%</strong>
+                        — Median: <strong>@(rad.MedianProsent?.ToString("0.0"))%</strong>
+                    </p>
+                    @if (rad.IndikatorFordeling.Any())
+                    {
+                        <table border="1" cellpadding="6" cellspacing="0">
+                            <thead>
+                                <tr><th>Indikator</th><th>Verdi</th><th>Antall</th></tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var indikator in rad.IndikatorFordeling)
+                            {
+                                <tr>
+                                    <td>@indikator.IndikatorNavn</td>
+                                    <td>@indikator.Verdi</td>
+                                    <td>@indikator.Antall</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    }
                 }
-            }
-        </div>
+            </div>
+        }
     }
 }

@@ -4144,3 +4144,79 @@ testpasient for å teste "mangler profilinfo"-boksen på `Pasientportal/MinSide`
 etterpå; opprettet og slettet en ekte delvis-pasient for punkt 1+6). 48/48 enhetstester fortsatt
 grønt. Én ny migrasjon (`LeggTilGruppeStartSluttDato`, kun addering av to nullable kolonner —
 verifisert trygg, ingen omdøping/datatap-risiko).
+
+## Gruppe-rapportgenerator: navngitt enkelttest-rapport med standardavvik + spredningsplott (2026-09-22)
+
+Bruker ba om "Generer Temp Gruppe Rapport"/"Generer Gruppe Rapport"-knapper ved siden av
+"Slett prøvedata" på `Grupper/Rediger` (begge Areas) — en popup der behandler/admin radioknapp-
+velger ÉN av gruppens tilordnede tester + et datointervall, og får umiddelbart en navngitt rapport
+med N/gjennomsnitt/median/**standardavvik** + et **spredningsplott**.
+
+**Viktig kurskorrigering underveis:** startet først med å bygge et HELT NYTT, lagret
+rapport-subsystem (to nye entiteter `GruppeRapport`/`GruppeRapportDatapunkt`, egen migrasjon, egne
+visningssider) — før brukeren påpekte midt i økten: "you already have the aggregated report
+feature added." Rullet umiddelbart tilbake (slettet de to nye entitetsfilene, reverterte
+`AppDbContext`) og bygget i stedet videre PÅ den eksisterende `GruppeService.HentAggregatAsync`/
+`Grupper/Aggregert`-funksjonaliteten fra fase 4 — ingen ny migrasjon, ingen ny tabell. Lærdom: når
+brukeren nevner at noe "allerede finnes", stopp og se etter gjenbruk FØR man fortsetter å bygge nytt,
+selv om den opprinnelige beskrivelsen (radioknapp, popup, navngitt rapport) i utgangspunktet hørtes
+ut som noe nytt.
+
+**Implementasjon (kun utvidelse av eksisterende kode):**
+- `GruppeService.HentAggregatAsync` sin per-test-beregning trukket ut til en delt privat
+  `BeregnForTestAsync`-kjerne (brukt av BÅDE den eksisterende multi-test-oversikten og den nye
+  enkelttest-rapporten) — utvidet til også å beregne **standardavvik** (populasjon, delt på N, ikke
+  N-1 — disse dataene ER hele utvalget rapporten beskriver, ikke et stikkprøve) og samle rå
+  `(FullfortUtc, ProsentSkaar)`-datapunkter, billig å ta med selv der multi-oversikten ikke bruker
+  dem ennå.
+- Ny `GruppeService.HentEnkelttestAsync(gruppeId, testId, provedata, fra, til)` — samme
+  beregningskjerne for ÉN valgt test. **Bevisst avvik fra den eksisterende oversikten:** her gjelder
+  datointervallet BEGGE modi (også prøvedata), siden brukeren eksplisitt ba om et datovalg uansett
+  hvilken av de to knappene som trykkes — den gamle oversiktens "prøvedata er alltid ubegrenset i
+  tid"-regel er UENDRET for multi-test-oversikten, kun det nye enkelttest-sporet oppfører seg
+  annerledes.
+- Ny `GruppeService.HentTidligsteTildeltDatoPerTestAsync(gruppeId)` — tidligste `TildeltUtc` per
+  tilordnet test, separat for prøvedata/ekte-utvalget (3 spørringer totalt, ikke én per test) — til
+  å forhåndsutfylle popupens "Fra"-felt med "første gang testen ble utstedt", jf. kravet ordrett.
+- `Grupper/Aggregert.cshtml(.cs)` (begge Areas) fikk et nytt `testId`-query-parameter-styrt
+  "enkelttest"-visningsmodus SIDE OM SIDE med den eksisterende multi-test-oversikten (ingen endring
+  i oppførsel når `testId` er fraværende) — tittel "{gruppenavn} {testnavn} {fra}–{til}", fire
+  stat-fliser (Antall deltakere/Gjennomsnitt/Median/Standardavvik), et spredningsplott, den
+  eksisterende indikator-fordelingstabellen, og en "Skriv ut"-knapp. INGEN egen POST-handler eller
+  lagring — popupen er en vanlig `method="get"` til Aggregert-siden (samme "beregn på nytt hver
+  gang, ingen lagret rapport"-prinsipp som resten av gruppeaggregeringen).
+- Spredningsplottet er et server-rendret inline SVG (ingen ny JS-chart-bibliotek-avhengighet) —
+  X-akse er kronologisk rekkefølge (ren spredning, ingen egen tidsakse-mening), Y-akse er
+  prosentskår 0–100 % med hårfine rutenett-linjer ved 0/25/50/75/100, ÉN farge (aksentfarge, siden
+  dette er ett enkelt datasett — ingen kategorisk forklaring/legend nødvendig, jf. dataviz-
+  retningslinjene fulgt for dette prosjektet), 5px prikker med hvit ring, og en native SVG
+  `<title>`-tooltip per punkt (dato + prosent) som enkel hover-interaktivitet uten egen JS.
+- To knapper (`.btn.btn-outline.btn-sm`) rett under "Prøvedata"-avsnittet på `Grupper/Rediger`
+  (begge Areas), som åpner ÉN delt `<dialog>` (samme mønster som den eksisterende
+  `oppsummeringDialog` i tildelingsflyten) — ny `wwwroot/js/grupperapport.js` setter en skjult
+  `Provedata`-verdi basert på hvilken knapp som ble trykket, forhåndsvelger første test-radio, og
+  oppdaterer "Fra"-feltets `min`/verdi når testvalget endres (data-attributter satt server-side per
+  test, ett par per modus).
+
+**Reell Razor-fallgruve støtt på under bygging:** Razors spesial-håndterte `<text>`-pseudo-tag (kun
+ment for å bryte ut av markup til ren kode) kan IKKE bære attributter i det hele tatt — ikke engang
+med annen store/små bokstaver-variant (`<TEXT>` ga samme `RZ1023`-feil, ikke bare det opplagte
+`<text>`). Måtte omgås helt ved å bygge selve `<text x="..." y="...">...</text>`-elementet som en
+plain C#-streng og skrive den ut via `@Html.Raw(...)` i stedet for literal Razor-markup — gjelder
+ethvert fremtidig behov for et SVG `<text>`-element i en `.cshtml`-fil. Samtidig oppdaget en beslektet
+snublefelle i samme kodesnutt: `@(uttrykk).Metode(...)` (eksplisitt parentes) avslutter selve
+Razor-uttrykket ved den lukkende parentesen — alt etter, inkludert `.ToString(...)`, blir literal
+HTML-tekst, IKKE en del av C#-uttrykket. Kun IMPLISITTE uttrykk (`@verdi.Metode(...)`, uten
+omsluttende parentes rundt `@`) lar et kjede av medlemstilgang/metodekall henge med. Riktig fiks for
+et eksplisitt uttrykk er å legge HELE kjeden inni parentesen: `@((uttrykk).Metode(...))`.
+
+**Verifisert i nettleser (Playwright) med reelle data:** midlertidig flyttet fire eksisterende
+testpasienter (med til sammen 12 fullførte WHO-5-besvarelser fra tidligere faser i denne økten) inn
+i en tom testgruppe, genererte en ekte-pasient-rapport — fikk korrekt N=12, gjennomsnitt 54,7 %,
+median 50,0 %, standardavvik 23,9 %, et spredningsplott med 12 synlige punkter (native tooltip
+bekreftet med riktig dato+prosent per punkt via tilgjengelighetstreet), og den eksisterende
+indikator-fordelingstabellen uendret. Verifisert også tom-tilstand (0 fullførte i intervallet,
+"Ingen fullførte besvarelser..."), og at "Fra"-feltet korrekt forhåndsutfylles fra tidligste
+tildelingsdato når en test har historikk, og faller tilbake til dagens dato når den ikke har det.
+Testpasientenes gruppetilhørighet tilbakestilt til `NULL` etter verifisering. 48/48 enhetstester
+fortsatt grønt, ingen ny migrasjon (rent lag oppå eksisterende skjema).

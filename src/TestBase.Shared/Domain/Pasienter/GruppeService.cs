@@ -28,6 +28,29 @@ public sealed record TestAggregatRad(
     double? MedianProsent,
     IReadOnlyList<IndikatorFordelingRad> IndikatorFordeling);
 
+/// <summary>Ett enkelt fullført-tidspunkt + prosentskår — grunnlaget for spredningsplottet på GruppeService.HentEnkelttestAsync.</summary>
+public sealed record ProsentDatapunkt(DateTimeOffset FullfortUtc, int ProsentSkaar);
+
+/// <summary>
+/// Samme beregning som TestAggregatRad, men for ÉN test av gangen og utvidet
+/// med standardavvik + de rå datapunktene (til spredningsplott) — se
+/// GruppeService.BeregnForTestAsync (delt beregningskjerne med HentAggregatAsync)
+/// og "Gruppe-rapportgenerator" i docs/beslutningslogg.md.
+/// </summary>
+public sealed record TestAggregatDetaljer(
+    long TestId,
+    string TestNavn,
+    int AntallFullfort,
+    double? GjennomsnittProsent,
+    double? MedianProsent,
+    double? StandardavvikProsent,
+    IReadOnlyList<IndikatorFordelingRad> IndikatorFordeling,
+    IReadOnlyList<ProsentDatapunkt> Datapunkter);
+
+/// <summary>Én navngitt enkelttest-rapport for en gruppe — se GruppeService.HentEnkelttestAsync.</summary>
+public sealed record EnkelttestAggregat(
+    string GruppeNavn, bool Provedata, DateOnly Fra, DateOnly Til, string Tittel, TestAggregatDetaljer Detaljer);
+
 /// <summary>
 /// Behandlers pasientgrupper (se Gruppe) — CRUD, test-tilordning ved
 /// opprettelse (jf. docs/beslutningslogg.md "Invitasjons- og gruppesystem"),
@@ -192,53 +215,79 @@ public sealed class GruppeService
         var resultat = new List<TestAggregatRad>();
         foreach (var test in gruppeInnhold.Tester)
         {
-            var tildelingSporring = _db.TestTildelinger.Where(t =>
-                t.TestId == test.Id && pasientIder.Contains(t.PasientId) && t.Status == TestTildelingStatus.Fullfort);
-
-            if (!provedata)
-            {
-                if (fraUtc is not null)
-                {
-                    tildelingSporring = tildelingSporring.Where(t => t.FullfortUtc >= fraUtc);
-                }
-                if (tilUtc is not null)
-                {
-                    tildelingSporring = tildelingSporring.Where(t => t.FullfortUtc <= tilUtc);
-                }
-            }
-
-            var tildelingIder = await tildelingSporring.Select(t => t.Id).ToListAsync(cancellationToken);
-
-            var prosentSkaarer = new List<int>();
-            var indikatorTellinger = new Dictionary<(string Navn, string Verdi), int>();
-            foreach (var tildelingId in tildelingIder)
-            {
-                var skaaring = await _testService.BeregnSkaaringAsync(tildelingId, cancellationToken);
-                if (skaaring is null)
-                {
-                    continue;
-                }
-
-                prosentSkaarer.Add(skaaring.ProsentSkaar);
-                foreach (var indikator in skaaring.Indikatorer ?? Array.Empty<TestSkaaringIndikator>())
-                {
-                    var nokkel = (indikator.Navn, indikator.Verdi);
-                    indikatorTellinger[nokkel] = indikatorTellinger.GetValueOrDefault(nokkel) + 1;
-                }
-            }
-
-            var fordeling = indikatorTellinger
-                .Select(kv => new IndikatorFordelingRad(kv.Key.Navn, kv.Key.Verdi, kv.Value))
-                .OrderBy(r => r.IndikatorNavn).ThenBy(r => r.Verdi)
-                .ToList();
-
-            double? gjennomsnitt = prosentSkaarer.Count > 0 ? prosentSkaarer.Average() : null;
-            double? median = prosentSkaarer.Count > 0 ? BeregnMedian(prosentSkaarer) : null;
-
-            resultat.Add(new TestAggregatRad(test.Id, test.Navn, tildelingIder.Count, gjennomsnitt, median, fordeling));
+            // Prøvedata er bevisst ubegrenset i tid her (hele poenget er én samlet
+            // presentasjonsøkt) — se klassekommentaren. HentEnkelttestAsync nedenfor
+            // avviker bevisst fra dette (begge modi datobegrenset der), se der.
+            var detaljer = await BeregnForTestAsync(
+                test.Id, test.Navn, pasientIder,
+                provedata ? null : fraUtc, provedata ? null : tilUtc, cancellationToken);
+            resultat.Add(new TestAggregatRad(
+                detaljer.TestId, detaljer.TestNavn, detaljer.AntallFullfort,
+                detaljer.GjennomsnittProsent, detaljer.MedianProsent, detaljer.IndikatorFordeling));
         }
 
         return resultat;
+    }
+
+    /// <summary>
+    /// Delt beregningskjerne for ÉN test på tvers av et gitt pasientutvalg —
+    /// brukt av BÅDE HentAggregatAsync (oversikt, alle tester) og
+    /// HentEnkelttestAsync (rapportgenerator-popupen på Grupper/Rediger, ÉN
+    /// test av gangen). Inkluderer standardavvik + rå datapunkter selv når
+    /// oversikten (HentAggregatAsync) ikke bruker dem — billig å beregne
+    /// sammen med gjennomsnitt/median, og holder de to stiene i synk.
+    /// </summary>
+    private async Task<TestAggregatDetaljer> BeregnForTestAsync(
+        long testId, string testNavn, IReadOnlyList<long> pasientIder,
+        DateTimeOffset? fraUtc, DateTimeOffset? tilUtc, CancellationToken cancellationToken)
+    {
+        var tildelingSporring = _db.TestTildelinger.Where(t =>
+            t.TestId == testId && pasientIder.Contains(t.PasientId) && t.Status == TestTildelingStatus.Fullfort);
+
+        if (fraUtc is not null)
+        {
+            tildelingSporring = tildelingSporring.Where(t => t.FullfortUtc >= fraUtc);
+        }
+        if (tilUtc is not null)
+        {
+            tildelingSporring = tildelingSporring.Where(t => t.FullfortUtc <= tilUtc);
+        }
+
+        var tildelinger = await tildelingSporring
+            .OrderBy(t => t.FullfortUtc)
+            .Select(t => new { t.Id, t.FullfortUtc })
+            .ToListAsync(cancellationToken);
+
+        var prosentSkaarer = new List<int>();
+        var datapunkter = new List<ProsentDatapunkt>();
+        var indikatorTellinger = new Dictionary<(string Navn, string Verdi), int>();
+        foreach (var tildeling in tildelinger)
+        {
+            var skaaring = await _testService.BeregnSkaaringAsync(tildeling.Id, cancellationToken);
+            if (skaaring is null)
+            {
+                continue;
+            }
+
+            prosentSkaarer.Add(skaaring.ProsentSkaar);
+            datapunkter.Add(new ProsentDatapunkt(tildeling.FullfortUtc!.Value, skaaring.ProsentSkaar));
+            foreach (var indikator in skaaring.Indikatorer ?? Array.Empty<TestSkaaringIndikator>())
+            {
+                var nokkel = (indikator.Navn, indikator.Verdi);
+                indikatorTellinger[nokkel] = indikatorTellinger.GetValueOrDefault(nokkel) + 1;
+            }
+        }
+
+        var fordeling = indikatorTellinger
+            .Select(kv => new IndikatorFordelingRad(kv.Key.Navn, kv.Key.Verdi, kv.Value))
+            .OrderBy(r => r.IndikatorNavn).ThenBy(r => r.Verdi)
+            .ToList();
+
+        double? gjennomsnitt = prosentSkaarer.Count > 0 ? prosentSkaarer.Average() : null;
+        double? median = prosentSkaarer.Count > 0 ? BeregnMedian(prosentSkaarer) : null;
+        double? standardavvik = prosentSkaarer.Count > 0 ? BeregnStandardavvik(prosentSkaarer) : null;
+
+        return new TestAggregatDetaljer(testId, testNavn, tildelinger.Count, gjennomsnitt, median, standardavvik, fordeling, datapunkter);
     }
 
     private static double BeregnMedian(List<int> verdier)
@@ -246,6 +295,92 @@ public sealed class GruppeService
         var sortert = verdier.OrderBy(v => v).ToList();
         var midt = sortert.Count / 2;
         return sortert.Count % 2 == 0 ? (sortert[midt - 1] + sortert[midt]) / 2.0 : sortert[midt];
+    }
+
+    /// <summary>
+    /// Standardavvik for POPULASJONEN (delt på N, ikke N-1) — disse verdiene ER
+    /// hele utvalget rapporten beskriver, ikke et stikkprøve ment å generalisere
+    /// til en større populasjon, se docs/beslutningslogg.md "Gruppe-rapportgenerator".
+    /// </summary>
+    private static double BeregnStandardavvik(List<int> verdier)
+    {
+        var gjennomsnitt = verdier.Average();
+        var sumKvadratavvik = verdier.Sum(v => (v - gjennomsnitt) * (v - gjennomsnitt));
+        return Math.Sqrt(sumKvadratavvik / verdier.Count);
+    }
+
+    /// <summary>
+    /// Navngitt rapport for ÉN test i gruppen over et VALGT datointervall — til
+    /// "Generer Temp Gruppe Rapport"/"Generer Gruppe Rapport"-popupen på
+    /// Grupper/Rediger (se docs/beslutningslogg.md "Gruppe-rapportgenerator").
+    /// I MOTSETNING TIL HentAggregatAsync gjelder datointervallet her BEGGE
+    /// modi (også prøvedata) — brukeren ba eksplisitt om et datovalg uansett
+    /// hvilken av de to knappene som trykkes. Beregnes på nytt hver gang, ikke
+    /// lagret (samme "ingen lagret rapport"-prinsipp som den eksisterende
+    /// oversikten).
+    /// </summary>
+    public async Task<EnkelttestAggregat?> HentEnkelttestAsync(
+        long gruppeId, long testId, bool provedata, DateOnly fra, DateOnly til, CancellationToken cancellationToken = default)
+    {
+        var innhold = await HentMedTesterAsync(gruppeId, cancellationToken);
+        var test = innhold?.Tester.FirstOrDefault(t => t.Id == testId);
+        if (innhold is null || test is null)
+        {
+            return null;
+        }
+
+        var pasientIder = await _db.Pasienter
+            .Where(p => p.GruppeId == gruppeId && (provedata ? p.Personnummer == null : p.Personnummer != null))
+            .Select(p => p.Id)
+            .ToListAsync(cancellationToken);
+
+        var fraUtc = new DateTimeOffset(fra.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        var tilUtc = new DateTimeOffset(til.ToDateTime(TimeOnly.MaxValue), TimeSpan.Zero);
+
+        var detaljer = pasientIder.Count == 0
+            ? new TestAggregatDetaljer(testId, test.Navn, 0, null, null, null, Array.Empty<IndikatorFordelingRad>(), Array.Empty<ProsentDatapunkt>())
+            : await BeregnForTestAsync(testId, test.Navn, pasientIder, fraUtc, tilUtc, cancellationToken);
+
+        var tittel = $"{innhold.Gruppe.Navn} {test.Navn} {fra:dd.MM.yyyy}–{til:dd.MM.yyyy}";
+        return new EnkelttestAggregat(innhold.Gruppe.Navn, provedata, fra, til, tittel, detaljer);
+    }
+
+    /// <summary>
+    /// Tidligste tildelingsdato ("først utstedt") per tilordnet test i gruppen,
+    /// separat for prøvedata- og ekte-pasient-utvalget — til å forhåndsutfylle
+    /// "Fra"-datoen i rapportgenerator-popupen (se HentEnkelttestAsync/Grupper/
+    /// Rediger.cshtml). Null for et test+modus-par uten noen tildelinger ennå.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<long, (DateOnly? Provedata, DateOnly? Ekte)>> HentTidligsteTildeltDatoPerTestAsync(
+        long gruppeId, CancellationToken cancellationToken = default)
+    {
+        var innhold = await HentMedTesterAsync(gruppeId, cancellationToken);
+        if (innhold is null || innhold.Tester.Count == 0)
+        {
+            return new Dictionary<long, (DateOnly?, DateOnly?)>();
+        }
+
+        var testIder = innhold.Tester.Select(t => t.Id).ToList();
+        var provePasientIder = await _db.Pasienter.Where(p => p.GruppeId == gruppeId && p.Personnummer == null).Select(p => p.Id).ToListAsync(cancellationToken);
+        var ektePasientIder = await _db.Pasienter.Where(p => p.GruppeId == gruppeId && p.Personnummer != null).Select(p => p.Id).ToListAsync(cancellationToken);
+
+        var proveTidligste = provePasientIder.Count == 0
+            ? new Dictionary<long, DateTimeOffset>()
+            : await _db.TestTildelinger.Where(t => testIder.Contains(t.TestId) && provePasientIder.Contains(t.PasientId))
+                .GroupBy(t => t.TestId)
+                .Select(g => new { TestId = g.Key, Tidligste = g.Min(t => t.TildeltUtc) })
+                .ToDictionaryAsync(x => x.TestId, x => x.Tidligste, cancellationToken);
+
+        var ekteTidligste = ektePasientIder.Count == 0
+            ? new Dictionary<long, DateTimeOffset>()
+            : await _db.TestTildelinger.Where(t => testIder.Contains(t.TestId) && ektePasientIder.Contains(t.PasientId))
+                .GroupBy(t => t.TestId)
+                .Select(g => new { TestId = g.Key, Tidligste = g.Min(t => t.TildeltUtc) })
+                .ToDictionaryAsync(x => x.TestId, x => x.Tidligste, cancellationToken);
+
+        return testIder.ToDictionary(id => id, id => (
+            (DateOnly?)(proveTidligste.TryGetValue(id, out var p) ? DateOnly.FromDateTime(p.UtcDateTime) : null),
+            (DateOnly?)(ekteTidligste.TryGetValue(id, out var e) ? DateOnly.FromDateTime(e.UtcDateTime) : null)));
     }
 
     /// <summary>
