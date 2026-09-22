@@ -4625,3 +4625,110 @@ med `az appservice plan show` og helsesjekk `401`/live uendret `200`). All testd
 prøvepasienter slettet via "Slett prøvedata"-knappen FØR gruppen ble arkivert+slettet permanent,
 test-behandleren arkivert+slettet permanent. Live ble ALDRI rørt denne runden heller — brukeren ba
 kun om selve neste-nivå-testen og en rapport, ikke en "godt nok → skaler live"-avgjørelse ennå.
+
+## STØ avviste fødselsnummer-bestilling for ekte BankID — løsning: dropp NNIN-scope (2026-09-22)
+
+**Bakgrunn:** GGPsykolog AS sin bestilling av ekte BankID (via reselgeren Stø AS) for
+`Miljo:EktBankIdProfesjonell`-produksjonsflyten (admin/behandler sin FELLES innlogging, se
+`Pages/Konto/LoggInn`) ble avvist av Stø sin kundekontroll. Avvisningsgrunn (ordrett): "BankID
+tjenesten er i utgangspunktet ikke et utleveringssted for fødselsnummer... GGPsykolog AS er
+[ikke] et registrert helseforetak eller har oppgitt at de er databehandler på vegne av andre
+helseforetak eller autorisert helsepersonell med egne foretak." GGPsykolog AS vil aldri kunne
+oppfylle "helseforetak"-kravet.
+
+**Undersøkt (BankID sin offentlige OIDC-dokumentasjon, `developer.bankid.no`) og konkludert:**
+avvisningen gjelder KUN scopene som faktisk ber BankID om å UTLEVERE fødselsnummeret som en claim
+(`nnin`/`nnin_altsub`) — disse krever "legal basis" og er nettopp det Stø sin kundekontroll
+sjekker. `openid`+`profile`-scopene (minimal ID-token: anonym autentisering + navn/fødselsdato)
+er derimot UBETINGET tilgjengelig for enhver klient, ingen kvalifiseringssjekk. Ettersom
+TestBase ALLEREDE samler inn personnummer direkte fra brukeren selv ved egenregistrering (behandler
+sin `Inviter/Fullfor`, pasient sin `PasientRegistrering/Fullfor`/`BliPasient` — se
+`Areas/*/Pages/Pasienter`/`Pages/Inviter`) og lagrer det kryptert (DataProtection), er den EKTE
+BankID-innloggingens jobb kun å AUTENTISERE en allerede kjent person — ikke å slå opp/motta et
+ukjent fødselsnummer fra Stø. Norsk rett (personopplysningsloven §12, jf. Datatilsynets veiledning)
+tillater uansett behandling av fødselsnummer når det er reelt behov for sikker identifisering —
+identifisering av pasienter i et helsedatasystem er et opplagt tilfelle, UAVHENGIG av om
+fødselsnummeret kommer fra BankID sin claim eller fra brukerens eget skjema.
+
+**Besluttet retning (brukerens eksplisitte valg): "Rute 1" — dropp NNIN-scopet helt.**
+Fremtidig `Miljo:EktBankIdProfesjonell`-produksjonsintegrasjon skal be KUN om `openid`+`profile`,
+ALDRI `nnin`/`nnin_altsub` — BankID blir en ren sterk-autentiseringslager oppå det
+selv-registrerte, allerede krypterte personnummeret, ikke en oppslagskilde for det. Krever en
+arkitekturendring i matching-logikken (i dag: `AdminAuthenticationService`/
+`BehandlerAuthenticationService` sin `FinnVedPersonnummerAsync` forventer et personnummer FRA
+selve BankID-svaret) — istedenfor må en stabil per-relying-party-pseudonym-claim (BankID sin
+dokumentasjon nevner `bankid_altsub` som mer stabil enn den ustabile `sub`-clamien, men eksakt
+stabilitetsgaranti IKKE bekreftet i denne runden — verifiser i BankID sin fulle
+klient-provisjonerings-dokumentasjon før implementering) bindes til kontoen ved FØRSTE ekte
+BankID-innlogging etter selvregistrering, og brukes for gjenkjenning ved senere innlogginger.
+IKKE implementert ennå — kun besluttet retning, notert her for en senere økt.
+
+**Parallelt, brukerens eget valg: reapplyer likevel for `nnin_altsub`-scopet hos Stø**, denne gang
+med presisering om at fødselsnummeret ALLEREDE er kjent (samlet inn direkte fra brukeren), ikke
+bedt utlevert som ny informasjon — matcher `nnin_altsub` sin dokumenterte, snevrere
+bruksbegrensning ("can not be used to onboard new customers if you don't already possess their
+national identity number") bedre enn den generelle avvisningsteksten antyder. De to sporene er
+ikke gjensidig utelukkende — Rute 1 er hovedplanen uansett utfall av reapplikasjonen.
+
+**VIKTIG: dette er IKKE juridisk rådgivning** — samme forbehold som resten av
+`docs/compliance-dpia-utkast.md`. Den konkrete §12/GDPR-vurderingen over bør kvalitetssikres av
+prosjektets jurist/DPO før noen arkitekturendring rulles ut mot ekte pasientdata. Denne saken
+gjelder for øvrig KUN admin/behandler-innlogging — pasient bruker fortsatt alltid
+`MockBankIdProvider` uansett (bevisst arkitekturvalg, se CLAUDE.md), og er derfor helt urelatert
+til morgendagens (2026-09-23) konferanse-QR-registrering.
+
+## Lasttest mot beta, del 5: S2+B2s reproduserbart DÅRLIGERE — LIVE skalert til S2 alene for
+ekte konferanse (2026-09-22, samme dag)
+
+**Kontekst:** brukeren varslet at den ekte konferansen (50-1000 deltakere, QR-basert
+WHO-5-registrering) er 2026-09-23 kl. 11:50-13:00 norsk tid — én dag etter del 4s S2-funn. Bedt om
+å validere `S2`+`Standard_B2s` SAMMEN på beta FØR noe rulles til live (brukerens eksplisitte valg
+i en oppfølgingsspørring), siden del 4 kun testet App Service alene.
+
+**Resultat: S2+B2s presterte REPRODUSERBART DÅRLIGERE enn S2 alene — TO ganger, ikke ferske
+tallfeil.**
+
+| Kjøring | Fullførte besvarelser | Sjekker bestått | Snitt responstid |
+|---|---|---|---|
+| S2 alene (del 4) | 473 | 82,4 % | 13,2s |
+| S2+B2s, rett etter provisjonering | 3 | 32,6 % | 24,5s |
+| S2+B2s, etter ~4 min oppvarming (20× DB-berørende GET-kall) | 15 | 28,3 % | 28,1s |
+
+Oppvarmingshypotesen (MySQL-tier-bytte trigger en 60-120 sekunders restart + kald InnoDB
+buffer-pool, se tidligere "metodisk lærdom" i denne loggen) ble EKSPLISITT testet og AVKREFTET —
+oppvarmet kjøring var ikke bedre, om noe marginalt verre. MySQL-siden selv var IKKE flaskehalsen i
+noen av de to kjøringene (`cpu_percent` < 7 %, `active_connections` maks 106 av 250) — problemet lå
+på App Service-siden, men de vanlige `CpuTime`/`Threads`-metrikkene kunne ikke hentes for den andre
+kjøringen (Azure Monitor API returnerte uventet `BadRequest: Failed to find metric configuration...
+Valid metrics: MemoryWorkingSet,AverageMemoryWorkingSet,InstanceCount` — et API-datapunkt som i seg
+selv er mistenkelig og kan tyde på at selve App Service-instansen ble omprovisjonert/erstattet
+under den KOMBINERTE SKU-endringen, ikke bare skalert — IKKE undersøkt videre pga. tidspress før
+konferansen; verdt å følge opp senere om mønsteret gjentar seg). Konklusjon: å endre BEGGE
+ressursene (App Service-plan OG MySQL-server-SKU) i SAMME `azd provision`-kall ser ut til å gi en
+reell, reproduserbar ustabilitet som IKKE forsvinner med tid — ikke bare et forbigående
+kald-start-fenomen slik del 3s "metodiske lærdom" antok.
+
+**Beslutning: LIVE (`testbase-test`, `www.psytest.no`) skalert til `S2` ALENE for konferansen —
+MySQL UENDRET på `Standard_B1ms`.** Dette er den ENESTE konfigurasjonen som har vist konsistent
+gode resultater (473/1000, 82 % — division 4). Verifisert på selve live-miljøet: `az appservice
+plan show` bekrefter `S2`/`Standard`, `az mysql flexible-server show` bekrefter uendret
+`Standard_B1ms`, 5× helsesjekk `200` på under 400ms. `azd provision` tok 3m59s
+(`testbase-test-1790085185`-deployment).
+
+**Sikkerhetsdetalj:** samme "pin til nåværende verdi FØR endring"-mønster fra del 3 ble fulgt —
+`testbase-test` sine `APP_SERVICE_SKU_NAME`/`_TIER`/`MYSQL_SKU_NAME`/`_TIER`-miljøvariabler var
+allerede satt til dagens verdier (fra del 3s sikkerhetsrunde), så kun `APP_SERVICE_SKU_NAME=S2`/
+`_TIER=Standard` ble endret denne gangen — MySQL-variablene ble bevisst IKKE rørt.
+
+**Oppfølging planlagt for etter konferansen (2026-09-23, ca. 13:15 norsk tid):** en
+CronCreate-jobb (session-only — brukeren har bekreftet å holde denne Claude Code-økten åpen
+gjennom natten, noe som gjør den langt mer pålitelig enn normalt, men IKKE en garanti; brukeren er
+bedt om å uansett starte/gjenoppta en økt etter kl. 13:00 i morgen som backup) er satt opp til å:
+hente ekte Azure-metrikker for konferansevinduet, hente ekte deltaker-/fullføringstall fra selve
+konferansegruppen, dokumentere funnene her (sammenlignet med k6-simuleringens 473/1000-anslag), og
+skalere LIVE tilbake til `B1`/`Basic` + `Standard_B1ms`/`Burstable` etterpå.
+
+**Testdata ryddet på beta** (samme mønster: "Slett prøvedata" før arkivering+permanent sletting av
+BEGGE gruppene fra denne runden, test-behandleren likeså), beta satt tilbake til `B1`/`Basic` +
+`Standard_B1ms`/`Burstable` (`azd provision` 6m3s, bekreftet). Beta ble IKKE holdt oppskalert —
+brukeren presiserte eksplisitt at kun live trengte forhøyet tier for morgendagen.

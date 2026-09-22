@@ -186,6 +186,33 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   (fortsatt B1ms) er det. Naturlig neste steg: `S2` + `Standard_B2s` SAMTIDIG. Beta satt tilbake
   til B1/Basic samme dag, live ALDRI rørt. Se "Lasttest mot beta, del 4" i beslutningsloggen for
   full sammenligningstabell og Azure-metrikk-tall.
+- **Lasttest mot beta, del 5 — S2+B2s reproduserbart dårligere, LIVE skalert til S2 alene for
+  ekte konferanse 2026-09-23 (2026-09-22, samme dag):** `S2`+`Standard_B2s` SAMMEN ble testet på
+  beta TO ganger (rett etter provisjonering OG etter 4 min oppvarming) — BEGGE ganger
+  reproduserbart DÅRLIGERE enn `S2` alene (3-15 fullførte besvarelser mot 473, 28-33 % sjekker
+  bestått mot 82 %). MySQL var ikke flaskehalsen i noen av kjøringene; årsaken på App
+  Service-siden er UAVKLART (Azure Monitor nektet å levere CpuTime/Threads-metrikker for én
+  kjøring — mistenkelig, ikke fulgt opp pga. tidspress). **LIVE (`testbase-test`) er derfor
+  skalert til `S2` ALENE (MySQL uendret `Standard_B1ms`) for den faktiske konferansen 23. sep
+  2026 kl. 11:50-13:00** — den eneste konfigurasjonen med konsistent gode resultater. En
+  session-only CronCreate-jobb (23. sep ~13:17 norsk tid, IKKE garantert å overleve til da) skal
+  hente ekte konferanse-metrikker, dokumentere dem, og skalere live tilbake til B1/Basic
+  etterpå — brukeren bedt om å uansett sjekke inn etter kl. 13:00. Se "Lasttest mot beta, del 5"
+  i beslutningsloggen.
+- **STØ avviste ekte BankID sin fødselsnummer-bestilling — løsning: dropp NNIN-scope
+  (2026-09-22, samme dag):** GGPsykolog AS sin BankID-bestilling ble avvist av reselgeren Stø AS
+  siden foretaket ikke er "helseforetak"/dokumentert databehandler. Undersøkt mot BankID sin
+  offentlige OIDC-dokumentasjon: kun `nnin`/`nnin_altsub`-scopene (faktisk UTLEVERING av
+  fødselsnummer) krever slik "legal basis" — `openid`+`profile` er ubetinget tilgjengelig for
+  enhver klient. Besluttet retning (brukerens valg): fremtidig
+  `Miljo:EktBankIdProfesjonell`-integrasjon skal KUN be om `openid`+`profile`, ALDRI
+  `nnin`/`nnin_altsub` — BankID blir en ren autentiseringslager oppå det personnummeret brukeren
+  ALLEREDE har oppgitt selv ved egenregistrering (som allerede lagres kryptert), ikke en
+  oppslagskilde. Krever en arkitekturendring i `AdminAuthenticationService`/
+  `BehandlerAuthenticationService` sin personnummer-basert matching — IKKE implementert ennå.
+  Brukeren reapplyer PARALLELT for `nnin_altsub` hos Stø uansett. Gjelder KUN admin/behandler —
+  pasient er alltid mock BankID, urelatert til konferansen. IKKE juridisk rådgivning, bør
+  kvalitetssikres av DPO/jurist. Se "STØ avviste fødselsnummer-bestilling" i beslutningsloggen.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
