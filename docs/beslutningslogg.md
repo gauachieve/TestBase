@@ -4562,3 +4562,66 @@ tieren er App Service `S2` (2 vCPU/3,5 GB) — ikke `S1`.** De nye `APP_SERVICE_
 autoskalering aktivert (kun mulig på Standard+, se `docs/beslutningslogg.md` tidligere seksjon om
 autoskalering) fremfor en fast, større enkelt-instans, siden konferanse-scenarioet i sin natur er
 en kortvarig spiss, ikke vedvarende last.
+
+## Lasttest mot beta, del 4: Standard S2 — reelt gjennombrudd (2026-09-22, samme dag)
+
+**Oppfølging av forrige seksjons "husk til neste test"-anbefaling.** Brukerens instruks denne
+runden var kortere: "prøv neste nivå da, og rapporter tilbake" — App Service ble satt til
+`S2` (2 vCPU/3,5 GB), MySQL BEVISST holdt uendret på `Standard_B1ms`/Burstable (samme mekanisme fra
+forrige seksjon: `azd env set APP_SERVICE_SKU_NAME S2` + `_TIER Standard`, deretter
+`azd provision`, 3m48s). Å holde MySQL fast var et bevisst valg for å isolere ÉN variabel av
+gangen — forrige runde viste at databasen aldri var nær en flaskehals ved denne skalaen, så en
+eventuell forbedring denne gangen kan da med rimelig sikkerhet tilskrives ekstra CPU-kjerner alene.
+Helsesjekk kjørt 5 ganger (alle `401`, 60-300ms) før lasttesten for å bekrefte et friskt, oppvarmet
+utgangspunkt.
+
+**Ny testgruppe måtte lages på nytt** (samme mønster som del 3 — forrige runde sin testdata var
+ryddet vekk). Ekstra snarvei oppdaget denne runden: en behandler trenger IKKE engang fullføre selve
+`Inviter/Fullfor`-registreringsskjemaet for å eies en gruppe — det holder å sende SELVE
+invitasjonen (Behandler-raden opprettes med `Status = Invitert` med det samme), siden
+`Admin/Grupper/Ny` sin behandler-nedtrekksliste kun ekskluderer `Arkivert`. Sparer et helt steg
+(og dermed hele e-post-verifiserings-problemet fra del 3) i fremtidige oppsett.
+
+**Lasttest-resultat (samme `lasttest-konferanse-realistisk.js`, samme ~1000-deltakere
+ankomstkurve): DRAMATISK bedre enn BÅDE B1-baseline OG S1-forsøket.**
+
+| Mål | B1 (opprinnelig) | S1 + B2s (del 3) | **S2 (denne runden)** |
+|---|---|---|---|
+| Fullførte besvarelser | ~0 | 1 | **473** |
+| Sjekker bestått | lavt (ikke presist tallfestet) | 27,9 % | **82,4 %** |
+| Snitt HTTP-responstid | 51-59s | 31,9s | **13,2s** |
+| p95 responstid | ~60s (timeout) | 48,0s | **33,2s** |
+| StagingGate-oppslåsing bestått | — | 46 % | **99,5 % (998/1003)** |
+
+**Azure-metrikker for testvinduet bekrefter HVORFOR:**
+- App Service `CpuTime`: toppet på 59,8 sekund CPU-tid per 60-sekunders måleperiode — mot 9,2 på
+  B1/S1 (som begge kun har 1 kjerne). Med 2 kjerner tilgjengelig betyr dette at appen nå FAKTISK
+  klarte å bruke den ekstra kapasiteten — omtrent 50 % samlet utnyttelse av begge kjernene under
+  lastens topp, en categorisk endring fra "hjelpeløst kø-bundet på én kjerne".
+- App Service `Threads`: 51 samtidige tråder mot slutten (lavere enn S1-forsøkets 86, til tross for
+  MER trafikk kom gjennom) — konsistent med at tråder nå faktisk fikk gjort arbeid i stedet for å
+  stå og vente.
+- App Service `Http5xx`: 400 feil i det travleste minuttet — reelle serverfeil oppstod fortsatt
+  under press, ikke null, men systemet som helhet holdt seg oppe og fullførte likevel de fleste
+  forespørslene.
+- MySQL `cpu_percent`: klatret til 26,9 % (mot 6,1 % i forrige runde) — fortsatt langt fra mettet,
+  men synlig høyere nå som mer trafikk faktisk NÅDDE databasen i stedet for å kø seg opp i
+  App Service-laget.
+- MySQL `active_connections`: toppet på **222 av det hevede taket på 250** — den nye, reelle
+  flaskehalsen. `aborted_connections` spikte til 391 i det travleste minuttet, sannsynligvis nå en
+  blanding av reelle tilkoblingsavslag NÆR grensen og fortsatt noen App Service-side timeouts.
+
+**Konklusjon: `S2` er det første virkelig funksjonelle skalerings-trinnet for
+konferanse-scenarioet, men IKKE en fullstendig løsning ennå** — 473 av 1003 forsøkte iterasjoner
+fullførte (mot en teoretisk topp på ~1000 registrerte deltakere), og MySQL sin tilkoblingsgrense
+(fortsatt `Standard_B1ms`, 250 maks-tilkoblinger) er nå tydelig i ferd med å bli den begrensende
+faktoren etter hvert som App Service-siden er avlastet. **Naturlig neste eksperiment: `S2` +
+`Standard_B2s` (eller høyere) SAMTIDIG** — nå som begge lag har blitt bekreftet som reelle,
+sekvensielle flaskehalser (App Service FØRST, deretter MySQL), er det rimelig å forvente at en
+kombinert oppskalering kommer enda nærmere 100 % fullføring.
+
+**Beta satt tilbake til `B1`/`Basic`** (samme reversible mønster, `azd provision` 3m54s, bekreftet
+med `az appservice plan show` og helsesjekk `401`/live uendret `200`). All testdata ryddet: 492
+prøvepasienter slettet via "Slett prøvedata"-knappen FØR gruppen ble arkivert+slettet permanent,
+test-behandleren arkivert+slettet permanent. Live ble ALDRI rørt denne runden heller — brukeren ba
+kun om selve neste-nivå-testen og en rapport, ikke en "godt nok → skaler live"-avgjørelse ennå.

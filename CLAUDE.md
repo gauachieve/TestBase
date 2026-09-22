@@ -176,6 +176,16 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   trådpool-/tilkoblings-kø, ikke rå CPU. Live ble ALDRI rørt; beta satt tilbake til B1/Basic +
   Standard_B1ms/Burstable samme dag. Neste eksperiment-verdige tier er `S2` (2 vCPU/3,5 GB), ikke
   `S1` — se "Lasttest mot beta, del 3" i beslutningsloggen for full metodikk og Azure-metrikk-tall.
+- **Lasttest mot beta, del 4 — Standard S2 er et reelt gjennombrudd (2026-09-22, samme dag):**
+  App Service alene satt til `S2` (2 vCPU/3,5 GB, MySQL bevisst holdt på `Standard_B1ms` for å
+  isolere variabelen) og retestet mot samme ~1000-deltakere-scenario: 473 fullførte besvarelser
+  (mot 1 på S1, ~0 på opprinnelig B1), 82,4 % sjekker bestått (mot 27,9 %), snitt responstid 13,2s
+  (mot 31,9s). App Service `CpuTime` viste nå faktisk 2-kjerners bruk (~50 % samlet utnyttelse) i
+  stedet for kø-oppbygging. **Den NYE flaskehalsen: MySQL `active_connections` toppet på 222 av det
+  hevede taket på 250** — App Service-siden er ikke lenger den begrensende faktoren, databasen
+  (fortsatt B1ms) er det. Naturlig neste steg: `S2` + `Standard_B2s` SAMTIDIG. Beta satt tilbake
+  til B1/Basic samme dag, live ALDRI rørt. Se "Lasttest mot beta, del 4" i beslutningsloggen for
+  full sammenligningstabell og Azure-metrikk-tall.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
