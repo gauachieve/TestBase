@@ -134,6 +134,18 @@ param tillatUtviklingsSnarveier string = 'false'
 @description('Snevrere enn tillatUtviklingsSnarveier over — styrer KUN PersonnummerOverride (admin/behandler+pasient-innlogging). MIDLERTIDIG "true" på live fra 2026-09-20 (se docs/beslutningslogg.md "PersonnummerOverride midlertidig gjeninnført på live") siden MockBankIdProvider er den ENESTE IBankIdProvider som noensinne registreres, og uten denne kan INGEN ekte bruker logge inn før Miljo:EktBankIdProfesjonell er skrudd på. Fjern/sett "false" igjen så snart ekte BankID er verifisert på live. "true"/"false" som STRENG. Settes via azd-miljøvariabelen MILJO_TILLAT_PERSONNUMMER_OVERRIDE.')
 param tillatPersonnummerOverride string = 'false'
 
+@description('App Service Plan SKU-navn — standard B1 (Basic). Settes via azd-miljøvariabelen APP_SERVICE_SKU_NAME for å skalere ett miljø opp/ned uten kodeendring (se docs/beslutningslogg.md "Lasttest mot beta, del 3").')
+param appServicePlanSkuName string = 'B1'
+
+@description('App Service Plan SKU-tier — standard Basic. Settes via APP_SERVICE_SKU_TIER, MÅ matche appServicePlanSkuName (S1 hører til Standard).')
+param appServicePlanSkuTier string = 'Basic'
+
+@description('MySQL Flexible Server SKU-navn — standard Standard_B1ms (Burstable). Settes via MYSQL_SKU_NAME.')
+param mysqlSkuName string = 'Standard_B1ms'
+
+@description('MySQL Flexible Server SKU-tier — standard Burstable. Settes via MYSQL_SKU_TIER, MÅ matche mysqlSkuName.')
+param mysqlSkuTier string = 'Burstable'
+
 var resourceToken = uniqueString(subscription().id, environmentName, location)
 var tags = {
   'azd-env-name': environmentName
@@ -187,6 +199,10 @@ module resources 'resources.bicep' = {
     vippsBetaTestClientSecret: vippsBetaTestClientSecret
     vippsBetaTestSubscriptionKey: vippsBetaTestSubscriptionKey
     vippsBetaTestMerchantSerialNumber: vippsBetaTestMerchantSerialNumber
+    appServicePlanSkuName: appServicePlanSkuName
+    appServicePlanSkuTier: appServicePlanSkuTier
+    mysqlSkuName: mysqlSkuName
+    mysqlSkuTier: mysqlSkuTier
   }
 }
 

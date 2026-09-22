@@ -132,6 +132,18 @@ param vippsBetaTestSubscriptionKey string = ''
 @description('KUN beta: Vipps test-merchant Merchant Serial Number — se main.bicep.')
 param vippsBetaTestMerchantSerialNumber string = ''
 
+@description('App Service Plan SKU-navn (f.eks. B1, S1) — se main.bicep. Gjør det mulig å skalere ett miljø opp/ned for lasttesting uten å røre koden hver gang, se docs/beslutningslogg.md "Lasttest mot beta, del 3".')
+param appServicePlanSkuName string = 'B1'
+
+@description('App Service Plan SKU-tier (f.eks. Basic, Standard) — se main.bicep. Må matche appServicePlanSkuName (S1 hører til Standard, ikke Basic).')
+param appServicePlanSkuTier string = 'Basic'
+
+@description('MySQL Flexible Server SKU-navn (f.eks. Standard_B1ms, Standard_B2s) — se main.bicep.')
+param mysqlSkuName string = 'Standard_B1ms'
+
+@description('MySQL Flexible Server SKU-tier (f.eks. Burstable) — se main.bicep. Må matche mysqlSkuName.')
+param mysqlSkuTier string = 'Burstable'
+
 // Testmiljø uten ekte pasientdata — passordet genereres deterministisk og lagres kun i Key Vault.
 var mysqlAdministratorPassword = 'Tb${uniqueString(resourceGroup().id, resourceToken)}!26'
 
@@ -146,8 +158,8 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   location: location
   tags: tags
   sku: {
-    name: 'B1'
-    tier: 'Basic'
+    name: appServicePlanSkuName
+    tier: appServicePlanSkuTier
   }
   kind: 'linux'
   properties: {
@@ -160,8 +172,8 @@ resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-06-30' = {
   location: location
   tags: tags
   sku: {
-    name: 'Standard_B1ms'
-    tier: 'Burstable'
+    name: mysqlSkuName
+    tier: mysqlSkuTier
   }
   properties: {
     administratorLogin: mysqlAdministratorLogin

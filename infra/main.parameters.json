@@ -109,6 +109,18 @@
     },
     "vippsBetaTestMerchantSerialNumber": {
       "value": "${VIPPS_BETATEST_MERCHANT_SERIAL_NUMBER}"
+    },
+    "appServicePlanSkuName": {
+      "value": "${APP_SERVICE_SKU_NAME}"
+    },
+    "appServicePlanSkuTier": {
+      "value": "${APP_SERVICE_SKU_TIER}"
+    },
+    "mysqlSkuName": {
+      "value": "${MYSQL_SKU_NAME}"
+    },
+    "mysqlSkuTier": {
+      "value": "${MYSQL_SKU_TIER}"
     }
   }
 }

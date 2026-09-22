@@ -4468,3 +4468,97 @@ aldri det reelle problemet ved denne skalaen.
 optimaliseringene gjorde ting verre. Systemet hadde ikke fått tid til å hente seg inn igjen etter
 den ekstreme belastningen rett i forveien. Fremtidige før/etter-sammenligninger bør vente til et
 helsesjekk-kall bekrefter normal responstid FØR neste kjøring startes.
+
+## Lasttest mot beta, del 3: Standard S1 var feil neste steg (2026-09-22)
+
+**Oppfølging av forrige seksjons anbefaling** ("Standard S1" ble pekt på som løsningen på
+1000-deltakere-scenarioet). Brukerens instruks: skaler beta opp til "neste tier", kjør testene på
+nytt, og hvis resultatet var godt nok, skaler live likt — ellers skaler beta ned igjen og husk
+konklusjonen til neste gang.
+
+**Infrastrukturendring, gjort reversibel med vilje:** `infra/resources.bicep` og `infra/main.bicep`
+fikk fire nye parametere (`appServicePlanSkuName`/`appServicePlanSkuTier`/`mysqlSkuName`/
+`mysqlSkuTier`, default hhv. `B1`/`Basic`/`Standard_B1ms`/`Burstable` — dagens verdier), koblet til
+nye azd-miljøvariabler (`APP_SERVICE_SKU_NAME` osv.) i `infra/main.parameters.json`, i stedet for å
+hardkode en ny SKU rett i Bicep-filen. Dette gjør at FREMTIDIGE opp-/ned-skaleringer for lasttesting
+er en ren `azd env set` + `azd provision`-operasjon, ikke en kode-endring hver gang — direkte svar på
+brukerens "husk det til neste test". **Viktig sikkerhetsdetalj under innføringen:** siden
+`main.parameters.json` bruker ubetinget `"${VAR}"`-substitusjon (ingen fallback til Bicep sin egen
+parameter-default hvis miljøvariabelen mangler — azd setter da verdien til en TOM streng, som ville
+gitt en ugyldig SKU og feilet — eller i verste fall en util-tilsiktet SKU-endring på et miljø der
+variabelen aldri var satt), ble BEGGE miljøer (`testbase-test` OG `testbase-beta`) eksplisitt satt
+til dagens verdier FØR noen `azd provision` ble kjørt i det hele tatt — også live, selv om live
+aldri skulle røres denne runden. Dette er nå et permanent mønster: en ny SKU-parameter av denne
+typen krever alltid en eksplisitt "pin til nåværende verdi på alle miljøer"-runde før den tas i
+bruk noe sted.
+
+**Beta ble satt til App Service Standard S1 + MySQL Flexible Server Burstable Standard_B2s**
+(`azd provision`, 6m8s, bekreftet med `az appservice plan show`/`az mysql flexible-server show`
+etterpå). Helsesjekk kjørt tre ganger rett før selve lasttesten (alle tre `401` — StagingGate,
+som forventet — på 79-89ms) for å garantere en gyldig før/etter-sammenligning, jf. forrige seksjons
+metodiske lærdom.
+
+**Ny gruppe + QR-token måtte lages fra bunnen** (forrige runde sin testdata var ryddet vekk, og
+selve beta-databasen har ingen behandlere fra før). Underveis ble to reelle, ikke-trivielle
+funn gjort om selve TEST-OPPSETTET (ikke om produktkoden):
+- Admin/Grupper/Ny sin behandler-nedtrekksliste viser KUN behandlere med
+  `Status != BehandlerStatus.Arkivert` — en fersk `Invitert`-behandler (ikke ferdig registrert)
+  dukker OPP der og kan trygt eies en gruppe, uten at behandleren noensinne må fullføre
+  BankID/2FA/e-post-verifiseringen sin. Nyttig snarvei for fremtidig test-oppsett: en ny
+  behandler trenger ALDRI å fullføre egenregistreringen for å kunne eie en lasttest-gruppe.
+- Både beta OG live har ekte Azure Communication Services e-postutsending WIRED INN ALLTID
+  (opprettes ubetinget i `resources.bicep`, ikke bak en azd-miljøvariabel) — `MockEmailSender`
+  brukes ALDRI i Azure, kun lokalt. En behandler-egenregistrering med en oppdiktet e-postadresse
+  (f.eks. `@example.invalid`) sender dermed et ekte (aldri levert) e-postforsøk og
+  bekreftelseskoden vises ALDRI i verken UI eller loggstrøm (i motsetning til SMS-koden, som
+  fortsatt er ekte mock med UI-reveal siden `VONAGE_API_KEY` ikke er satt på beta) — se forrige
+  punkt for hvorfor dette denne gangen ikke var nødvendig å løse.
+
+**Lasttest-resultat (samme `lasttest-konferanse-realistisk.js`, samme ~1000-deltakere
+ankomstkurve over ~3m15s): KLART DÅRLIGERE enn både før- og etter-optimalisering-kjøringene på
+den GAMLE B1/B1ms-tieren.** Kun 1 fullført besvarelse (`fullforte_besvarelser`) av 754 fullførte
+iterasjoner, 27,9 % av alle sjekker bestod (mot langt høyere andeler i tidligere runder),
+gjennomsnittlig responstid 31,9s (opptil 60s/timeout), 47,3 % av alle HTTP-forespørsler feilet.
+
+**Rotårsaken til hvorfor "neste tier" var feil valg — bekreftet med Azure-metrikker for
+testvinduet:**
+- App Service `CpuTime`: maks ~9,2 sekund CPU-tid per 60-sekunders måleperiode — under 16 %
+  utnyttelse av ÉN kjerne. IKKE CPU-mettet.
+- App Service `Threads`: klatret jevnt til 86 samtidige tråder mot slutten av testen, i takt med
+  at `AverageResponseTime` klatret til 48,8 sekund — konsistent med trådpool-/kø-oppbygging, ikke
+  med at CPU-en var full.
+- MySQL `cpu_percent`: maks 6,1 % — B2s-en (dobbelt så mye CPU/RAM som B1ms) hadde enormt med
+  ledig kapasitet.
+- MySQL `active_connections`: maks 51 (godt under den hevede grensen på 250 fra forrige runde).
+- MySQL `aborted_connections`: 71-123 per minutt under selve lastens topp — reelt tegn på at
+  klienter (App Service-siden) ga opp/timet ut FØR MySQL rakk å svare, ikke at MySQL selv var
+  overbelastet.
+
+**Den avgjørende, tidligere upåaktede detaljen: Azure App Service Basic B1 og Standard S1 har
+IDENTISK maskinvare** — begge er "small"-størrelsen med 1 vCPU / 1,75 GB RAM. Standard-tieren gir
+KUN ekstra funksjoner (autoskalering, staging slots, daglige sikkerhetskopier, egendefinert
+domene-SSL) — ALDRI mer prosessorkraft på samme størrelsesbokstav. Forrige seksjons konklusjon
+("...krever Standard-tier eller høyere... se forrige seksjons anbefaling om Standard S1") var
+dermed en reell feilslutning: den pekte riktig på at CPU-kjerner (ikke databasekapasitet) er
+flaskehalsen, men "Standard S1" alene endrer ALDRI antall kjerner — kun "S2" (2 vCPU/3,5 GB) eller
+høyere (eller Premium v3-serien) gjør det. Denne kjøringen endte opp som et rent, informativt
+negativt eksperiment: den isolerte at en STØRRE database alene (B1ms→B2s) ikke endrer noe når
+flaskehalsen ligger et helt annet sted, og at tallene ble merkbart VERRE enn før — sannsynligvis
+fordi 1000 samtidige tilkoblingsforsøk mot samme trange 1-kjerners motpart under en NYLIG
+tier-endret App Service (mulig kald oppstart/re-JIT rett etter provisjonering) er enda mer
+ustabilt enn mot en lenge kjørende, "varm" instans, selv om selve maskinvaren i teorien er lik.
+
+**Konklusjon til brukeren: IKKE godt nok — live ble ALDRI rørt denne runden.** Beta satt tilbake
+til `B1`/`Basic` + `Standard_B1ms`/`Burstable` (samme `azd provision`-mønster, 6m19s), bekreftet
+med `az appservice plan show`/`az mysql flexible-server show` (tilbake til opprinnelige verdier)
+og helsesjekk (`beta` `401`, `live` uendret `200`). All testdata ryddet (gruppen arkivert+slettet
+permanent, test-behandleren arkivert+slettet permanent) via Playwright på samme måte som
+tidligere runder.
+
+**Husk til neste test (brukerens eksplisitte ønske): den faktiske neste eksperiment-verdige
+tieren er App Service `S2` (2 vCPU/3,5 GB) — ikke `S1`.** De nye `APP_SERVICE_SKU_NAME=S2`/
+`APP_SERVICE_SKU_TIER=Standard`-miljøvariablene er nå bare én `azd env set`-kommando unna på
+`testbase-beta` (samme mekanisme som denne runden innførte) — vurder også å teste MED
+autoskalering aktivert (kun mulig på Standard+, se `docs/beslutningslogg.md` tidligere seksjon om
+autoskalering) fremfor en fast, større enkelt-instans, siden konferanse-scenarioet i sin natur er
+en kortvarig spiss, ikke vedvarende last.

@@ -163,6 +163,19 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   Beholdt likevel — reell nytte ved mer moderat, vedvarende last. Se "Lasttest mot beta, del 2" og
   "Optimalisering før skalering" i beslutningsloggen for full metodikk, tall og en ærlig
   forklaring på HVORFOR kode-optimalisering ikke kan løse en ren CPU-kjerne-flaskehals.
+- **Lasttest mot beta, del 3 — App Service-SKU er nå parameterisert, "Standard S1" var feil
+  neste steg (2026-09-22, samme dag):** `infra/resources.bicep`/`main.bicep` fikk fire nye
+  azd-miljøvariabel-styrte parametere (`APP_SERVICE_SKU_NAME`/`_TIER`, `MYSQL_SKU_NAME`/`_TIER`,
+  default dagens verdier) slik at fremtidig opp-/nedskalering for lasttesting er ren
+  `azd env set` + `azd provision`, ikke en kodeendring. Beta ble skalert til Standard S1 +
+  MySQL Burstable B2s og retestet med samme 1000-deltakere-scenario — resultatet ble MERKBART
+  DÅRLIGERE enn før (27,9 % bestått, kun 1 fullført besvarelse), fordi **Basic B1 og Standard S1
+  har IDENTISK maskinvare (1 vCPU/1,75 GB) — Standard gir kun ekstra funksjoner, aldri flere
+  kjerner.** Azure-metrikker bekreftet CPU IKKE var mettet noe sted (App Service <16 %, MySQL
+  <7 %), men tråd-/responstidsoppbygging (86 tråder, 48,8s snitt) pekte fortsatt mot
+  trådpool-/tilkoblings-kø, ikke rå CPU. Live ble ALDRI rørt; beta satt tilbake til B1/Basic +
+  Standard_B1ms/Burstable samme dag. Neste eksperiment-verdige tier er `S2` (2 vCPU/3,5 GB), ikke
+  `S1` — se "Lasttest mot beta, del 3" i beslutningsloggen for full metodikk og Azure-metrikk-tall.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
