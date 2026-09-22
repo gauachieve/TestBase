@@ -37,6 +37,13 @@ builder.Services.AddDataProtection();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, AuthenticatedCurrentUserContext>();
 builder.Services.AddScoped<ToFaktorService>();
+// I-minne-cache for kortlevde, høyfrekvente oppslag under en brå trafikktopp
+// (f.eks. mange samtidige QR-registreringer på samme token, eller gjentatt
+// lasting av samme tests faste struktur) — se GruppeService/TestService for
+// bruk, og docs/beslutningslogg.md "Optimalisering før skalering" for
+// begrunnelsen (funnet via reell lasttest, ikke forhåndsantatt).
+builder.Services.AddMemoryCache();
+
 builder.Services.AddScoped<AdminAuthenticationService>();
 builder.Services.AddScoped<BehandlerAuthenticationService>();
 builder.Services.AddScoped<BehandlerInvitasjonService>();

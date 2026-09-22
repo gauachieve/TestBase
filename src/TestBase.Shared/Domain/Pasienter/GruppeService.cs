@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Tester;
@@ -62,11 +63,24 @@ public sealed class GruppeService
 {
     private readonly AppDbContext _db;
     private readonly TestService _testService;
+    private readonly IMemoryCache _cache;
 
-    public GruppeService(AppDbContext db, TestService testService)
+    /// <summary>
+    /// Bevisst KORT — QR-token-oppslag skal fortsatt bli virkningsløst "umiddelbart"
+    /// etter regenerering, jf. teksten i Rediger.cshtml ("slutter da å virke
+    /// umiddelbart"). 10 sekunder er lenge nok til å slå sammen tusenvis av
+    /// identiske oppslag mot SAMME token i en brå registreringsbølge (se
+    /// docs/beslutningslogg.md "Optimalisering før skalering"), men kort nok til
+    /// at en regenerert/arkivert QR-kode praktisk talt slutter å virke med det
+    /// samme for enhver NY bølge av besøkende.
+    /// </summary>
+    private static readonly TimeSpan QrOppslagCacheTid = TimeSpan.FromSeconds(10);
+
+    public GruppeService(AppDbContext db, TestService testService, IMemoryCache cache)
     {
         _db = db;
         _testService = testService;
+        _cache = cache;
     }
 
     private static string NyQrToken() => RandomNumberGenerator.GetHexString(24);
@@ -141,8 +155,26 @@ public sealed class GruppeService
         return new GruppeMedTester(gruppe, tester);
     }
 
-    public Task<Gruppe?> FinnVedQrTokenAsync(string qrToken, CancellationToken cancellationToken = default) =>
-        _db.Grupper.FirstOrDefaultAsync(g => g.QrToken == qrToken && !g.ErArkivert, cancellationToken);
+    /// <summary>
+    /// Kortlevd-cachet (se QrOppslagCacheTid) — kalt fra BliPasient på BÅDE GET
+    /// og POST, og under en QR-registreringsbølge (f.eks. et foredrag) er dette
+    /// nøyaktig SAMME token slått opp av alle deltakerne samtidig. Returnerer en
+    /// frikoblet (AsNoTracking) entitet, trygg å gjenbruke på tvers av
+    /// forespørsler siden ingen kaller muterer den.
+    /// </summary>
+    public async Task<Gruppe?> FinnVedQrTokenAsync(string qrToken, CancellationToken cancellationToken = default)
+    {
+        var cacheNokkel = $"gruppe-qr:{qrToken}";
+        if (_cache.TryGetValue(cacheNokkel, out Gruppe? cachet))
+        {
+            return cachet;
+        }
+
+        var gruppe = await _db.Grupper.AsNoTracking()
+            .FirstOrDefaultAsync(g => g.QrToken == qrToken && !g.ErArkivert, cancellationToken);
+        _cache.Set(cacheNokkel, gruppe, QrOppslagCacheTid);
+        return gruppe;
+    }
 
     public async Task<bool> OppdaterAsync(
         long gruppeId, string navn, IReadOnlyCollection<long> testIder,
@@ -491,6 +523,9 @@ public sealed class GruppeService
             return null;
         }
 
+        // Fjerner ikke bare fra cache — sørger for at "umiddelbart" fortsatt er sant
+        // til tross for QrOppslagCacheTid, se FinnVedQrTokenAsync.
+        _cache.Remove($"gruppe-qr:{gruppe.QrToken}");
         gruppe.QrToken = NyQrToken();
         await _db.SaveChangesAsync(cancellationToken);
         return gruppe.QrToken;
@@ -519,11 +554,27 @@ public sealed class GruppeService
             return null;
         }
 
+        if (behandler.PasientInviteQrToken is not null)
+        {
+            _cache.Remove($"behandler-qr:{behandler.PasientInviteQrToken}");
+        }
         behandler.PasientInviteQrToken = NyQrToken();
         await _db.SaveChangesAsync(cancellationToken);
         return behandler.PasientInviteQrToken;
     }
 
-    public Task<Behandler?> FinnBehandlerVedQrTokenAsync(string qrToken, CancellationToken cancellationToken = default) =>
-        _db.Behandlere.FirstOrDefaultAsync(b => b.PasientInviteQrToken == qrToken && b.Status != BehandlerStatus.Arkivert, cancellationToken);
+    /// <summary>Samme kortlevd-cache-begrunnelse som FinnVedQrTokenAsync.</summary>
+    public async Task<Behandler?> FinnBehandlerVedQrTokenAsync(string qrToken, CancellationToken cancellationToken = default)
+    {
+        var cacheNokkel = $"behandler-qr:{qrToken}";
+        if (_cache.TryGetValue(cacheNokkel, out Behandler? cachet))
+        {
+            return cachet;
+        }
+
+        var behandler = await _db.Behandlere.AsNoTracking()
+            .FirstOrDefaultAsync(b => b.PasientInviteQrToken == qrToken && b.Status != BehandlerStatus.Arkivert, cancellationToken);
+        _cache.Set(cacheNokkel, behandler, QrOppslagCacheTid);
+        return behandler;
+    }
 }

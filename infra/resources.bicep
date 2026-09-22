@@ -181,6 +181,21 @@ resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-06-30' = {
   }
 }
 
+// Standard_B1ms sin systemdefault (171) er godt under det SKU-en faktisk
+// tillater (opptil 341, se allowedValues) — hevet her slik at appens egen
+// tilkoblingspool (Maximum Pool Size i connection-stringen under) faktisk får
+// utnytte det, uten å måtte skalere opp selve MySQL-tier-en. Dynamisk
+// parameter (isDynamicConfig=true) — trer i kraft uten omstart. Se
+// docs/beslutningslogg.md "Optimalisering før skalering".
+resource mysqlMaxConnections 'Microsoft.DBforMySQL/flexibleServers/configurations@2023-06-30' = {
+  parent: mysqlServer
+  name: 'max_connections'
+  properties: {
+    value: '250'
+    source: 'user-override'
+  }
+}
+
 // Testmiljø: App Service har ingen fast utgående IP uten VNet-integrasjon, så vi tillater
 // Azure-interne IP-er. Ingen ekte pasientdata lagres her — se CLAUDE.md.
 resource mysqlFirewallAzure 'Microsoft.DBforMySQL/flexibleServers/firewallRules@2023-06-30' = {
@@ -222,7 +237,11 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   }
 }
 
-var mysqlConnectionString = 'Server=${mysqlServer.properties.fullyQualifiedDomainName};Port=3306;Database=${databaseName};User=${mysqlAdministratorLogin};Password=${mysqlAdministratorPassword};SslMode=Required;'
+// Maximum Pool Size hevet fra MySqlConnector sin default (100) til 200 —
+// under mysqlMaxConnections sitt nye tak (250, se der) med margin til
+// administrasjons-/overvåkingstilkoblinger. Kun ÉN App Service-instans i dag
+// (ingen skalering ut), så hele denne poolen er reelt tilgjengelig for appen.
+var mysqlConnectionString = 'Server=${mysqlServer.properties.fullyQualifiedDomainName};Port=3306;Database=${databaseName};User=${mysqlAdministratorLogin};Password=${mysqlAdministratorPassword};SslMode=Required;Maximum Pool Size=200;'
 
 resource connectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: keyVault

@@ -4332,3 +4332,139 @@ bedre enn tabellen isolert antyder — men å stole blindt på det uten sikkerhe
 Konkret anbefaling: skaler `testbase-test` sin App Service opp til minst Standard S1 (åpner
 autoskalering) og MySQL til minst General Purpose eller Burstable B2s for selve foredragsdagen
 (via `azd provision` med endrede Bicep-parametre, reverserbart etterpå for å holde kostnaden nede).
+
+## Lasttest mot beta, del 2: realistisk ankomstkurve for 1000 deltakere (2026-09-22)
+
+Bruker stilte et godt motargument mot den forrige lasttestens metodikk: et ekte publikum som "sjekker
+telefonen" reagerer ikke alle i samme millisekund slik `--vus`/`--iterations`-modusen i k6 simulerer
+— reaksjonene sprer seg naturlig over et par minutter, og bruker mente 1000 deltakere trolig ville
+gå greit gitt en slik spredning. Vurdering FØR ny test: sannsynligvis IKKE, siden mennesker som
+reagerer på en skjermet oppfordring ("skann nå") typisk klumper seg tidlig (sosialt press, folk
+følger naboen) fremfor å spre seg jevnt — og selv 75-brukers-testen over hadde allerede en naturlig
+spredning på ~36 sekunder uten å unngå sammenbrudd rett over. I stedet for å fortsette å resonnere
+fra antakelser på begge sider, ble det bygget en ny, mer realistisk lasttest og kjørt for å måle det
+faktisk.
+
+**Nytt skript:** `lasttest-konferanse-realistisk.js` (samme scratchpad, samme nullkostnad-oppsett —
+kun mobilnummer, allerede mocket SMS på beta, dev-admin-innlogging) — bruker k6 sin
+`ramping-arrival-rate`-executor (styrer ANKOMSTRATE over tid, ikke et fast antall virtuelle
+brukere) med en bevisst front-tung kurve: rask stigning til 20 ankomster/sekund over 15 sekunder,
+holdt i 15 sekunder til (toppen — "det sosiale presset"), rask nedgang til 3/sekund over 30
+sekunder, så en lang hale på 3/sekund i 2 minutter (de trege etternølerne), til slutt ned mot null
+— totalt ca. 1000-1200 forsøkte ankomster over ~3,25 minutter, matchende brukerens eget scenario
+ordrett ("spredt over 2 minutter eller mer... 2-5 minutter totalt").
+
+**Resultat: et nesten totalt sammenbrudd — langt verre enn den forrige, kunstige alt-på-en-gang-testen.**
+Av rundt 1177 forsøkte ankomster (706 fullførte forsøk + 202 avbrutt da testen ble avsluttet + 269
+droppet fordi k6 ikke rakk å starte dem i tide) endte KUN 9 pasienter opp registrert i det hele
+tatt, og reelt sett fullførte trolig ingen hele test-utfyllingen (den egne "fullførte
+besvarelser"-telleren ble aldri en gang inkrementert — 0 reelle fullføringer). Selv det ENKLEST
+mulige kallet i hele flyten — å låse opp StagingGate, en ren minnebasert sjekk uten noen
+databasekontakt i det hele tatt — feilet 64 % av tiden.
+
+**Reelle Azure-metrikker for dette vinduet viser noe NYTT sammenlignet med forrige runde: denne
+gangen kollapset selve App Service-en, ikke bare databasen:**
+
+| Metrikk | Topp | Vurdering |
+|---|---|---|
+| MySQL CPU | 9,4 % | Fortsatt god margin |
+| MySQL aktive tilkoblinger | 48 (LAVERE enn forrige runde — fordi de fleste forespørsler feilet FØR de nådde databasen) | — |
+| **MySQL avbrutte tilkoblinger** | **opptil 83/minutt** | Reelle databasefeil, i motsetning til forrige, mildere test (der var den 0 gjennom hele vinduet) |
+| **App Service gjennomsnittlig responstid** | **51,6 sekunder** | Praktisk talt full stopp |
+| App Service trådtall | 3 → 93 | Trådopphopning |
+
+I den forrige (mildere) testen holdt App Service sin CPU seg lav (under 20 % av én kjerne) hele
+veien — konklusjonen den gangen var at MySQL var den trange flaskehalsen, ikke selve appen. Ved
+denne mye høyere, mer realistiske belastningen (som paradoksalt nok TOTALT sett genererte FÆRRE
+vellykkede databaseoperasjoner, siden de fleste forespørsler aldri kom så langt) ble i stedet
+selve web-appen (Basic B1, én CPU-kjerne) den primære flaskehalsen — en klassisk "opphopnings"-
+kollaps: så snart responstidene begynte å stige, fortsatte nye ankomster å komme i henhold til
+ankomstplanen mens de gamle fortsatt satt fast, og systemet kom aldri tilbake i likevekt.
+
+**Konklusjon, som svar på "kan dagens oppsett trolig håndtere 1000 deltakere i en
+konferansesetting": nei, definitivt ikke** — selv med en realistisk, front-tung ankomstkurve over
+mer enn 3 minutter (ikke en kunstig "alle samtidig"-eksplosjon) kollapser HELE stacken, ikke bare
+databasen. Dette er en vesentlig skjerpelse av forrige runde sin konklusjon (som fortsatt pekte på
+"skaler opp App Service OG MySQL" som riktig løsning, men denne testen viser at App Service-siden
+er MINST like kritisk å skalere opp som databasesiden — kanskje mer, gitt at det var den som falt
+sammen først under en realistisk ankomstkurve).
+
+**Ryddet opp:** 9 prøvepasienter slettet, gruppen "Lasttest2" arkivert og deretter slettet
+permanent — beta står tomt for grupper igjen, som etter forrige runde.
+
+## Optimalisering før skalering: fire reelle funn, én reell grense (2026-09-22)
+
+Bruker spurte, med rette, om det finnes optimaliseringer i EGEN kode å gjøre før man betaler for
+mer kapasitet. Gjennomgang av den faktiske "hot path"-koden (QR-registrering → testutfylling)
+avdekket fire konkrete, trygge forbedringer — implementert, testet lokalt, deployet til beta, og
+RETESTET for å måle faktisk effekt (ikke bare anta at det hjalp).
+
+**Fire endringer:**
+1. **`GruppeService.FinnVedQrTokenAsync`/`FinnBehandlerVedQrTokenAsync` kortlevd-cachet** (10
+   sekunder, `IMemoryCache`) — dette er token-oppslaget BliPasient gjør på BÅDE GET og POST, og
+   under en registreringsbølge er det nøyaktig SAMME token slått opp av alle deltakerne samtidig.
+   `AsNoTracking()` lagt til samtidig. QR-regenerering fjerner eksplisitt den gamle cache-oppføringen
+   først, slik at "slutter å virke umiddelbart"-garantien i UI-teksten fortsatt holder.
+2. **`TestService.HentTildelingMedInnholdAsync` sin test-STRUKTUR (spørsmål/sider) kortlevd-cachet**
+   (60 sekunder) — denne dataen er identisk for alle deltakere som tar SAMME test og endres
+   praktisk talt aldri midt i et event, men ble før lastet på nytt (3 spørringer) for hver eneste
+   GET og POST av utfyllingssiden, per deltaker, per side.
+3. **Fjernet en reell, unødvendig dobbel-spørring** i `TestTildelingsService`: `Behandler` ble
+   hentet TO ganger for samme ID i samme forespørsel (én gang for PartnerId, én gang til inni
+   `BeregnPrisPerTestAsync`) — nå hentet én gang og gjenbrukt.
+4. **MySQL sin `max_connections` hevet fra standardverdien 171 til 250** (godt innenfor SKU-ens
+   egen øvre grense på 341, `isDynamicConfig=true` — ingen restart i teorien, men se fallgruve
+   under), og appens egen `Maximum Pool Size` i connection-stringen hevet fra MySqlConnector sin
+   default (100) til 200 — begge nå Bicep-forvaltet (`infra/resources.bicep`), ikke en løs
+   CLI-endring som ville forsvunnet ved neste `azd provision`.
+
+**Reell fallgruve oppdaget underveis:** rett etter `azd provision` av `max_connections`-endringen
+(punkt 4) kastet appen en ekte `MySqlException: Connect Timeout expired` på første forsøk —
+til tross for at Azure sin egen dokumentasjon av parameteren sier `isDynamicConfig: true` ("ingen
+restart nødvendig"), oppsto en kortvarig tilkoblingsforstyrrelse rett etter endringen ble
+anvendt. Forbigående (fungerte normalt på nytt forsøk sekunder senere) — men en påminnelse om at
+selv en "dynamisk" MySQL-parameterendring bør gjøres i god tid før noe skarpt, aldri rett før.
+
+**Retest, samme metodikk som forrige runde (samme `lasttest-konferanse-realistisk.js`, samme
+front-tunge ankomstkurve, ~1000-1200 forsøkte ankomster over ~3,25 minutter):**
+
+| | Før optimalisering | Etter optimalisering |
+|---|---|---|
+| Reelt fullførte besvarelser | 0 | 0 |
+| Registrerte pasienter | 9 | 10 |
+| StagingGate-oppslag lyktes | 36 % | 19 % |
+| App Service snitt-responstid (topp) | 51,6 s | 59,1 s |
+| MySQL CPU (topp) | 9,4 % | 10,4 % |
+| MySQL aktive tilkoblinger (topp) | 48 | 61 |
+
+**Konklusjon: optimaliseringene gjorde INGEN målbar forskjell på 1000-deltakere-scenarioet — og
+det er et reelt, forventet resultat, ikke en mislykket fiks.** Azure-metrikkene fra BEGGE kjøringer
+viser samme mønster: MySQL sin CPU og tilkoblingstall forble lave hele veien (databasen var ALDRI
+i nærheten av å bli en flaskehals her), mens App Service sin responstid uansett kollapset til
+40-60+ sekunder i snitt. Når flaskehalsen er antall RÅ CPU-KJERNER en enkelt Basic B1-instans har
+til å i det hele tatt ta imot og behandle tusenvis av samtidige socket-tilkoblinger — ikke antall
+databasespørringer eller tilgjengelige databasetilkoblinger per forespørsel — hjelper det ikke å
+gjøre hver forespørsel litt "lettere". Færre spørringer betyr fortsatt at HVER av de mange samtidige
+forespørslene konkurrerer om de samme få prosessortrådene.
+
+**Disse fire endringene er likevel IKKE bortkastet arbeid — de beholdes:**
+- De reduserer reell unødvendig databasebelastning og kode-duplisering uansett skala (særlig
+  relevant ved mer moderat, vedvarende bruk — mange behandlere/pasienter gjennom en vanlig
+  arbeidsdag, ikke bare konferanse-spissbelastninger).
+- De gir ekte, dokumentert margin på databasesiden (250 vs. 171 tilkoblinger) som blir nyttig i
+  kombinasjon med en oppskalert App Service, selv om de alene ikke løser 1000-brukere-scenarioet.
+- Ingen av dem introduserer risiko eller kompleksitet av betydning (korte cache-TTL-er,
+  `AsNoTracking()` på rene lesespørringer, fjerning av en triviell duplikat-spørring).
+
+**Endelig, ærlig svar til brukeren: nei, egen kode-optimalisering løser ikke 1000-deltakere-
+scenarioet.** Den eneste veien dit er faktisk mer CPU-kapasitet på selve App Service-en (flere
+kjerner og/eller flere instanser via autoskalering, som krever Standard-tier eller høyere) — se
+forrige seksjons anbefaling om Standard S1. Databasesiden (nå enda bedre rustet enn før) var
+aldri det reelle problemet ved denne skalaen.
+
+**Metodisk lærdom, notert for senere:** en oppfølgende 100-brukers burst-test kjørt RETT ETTER
+1000-deltakere-testen viste tilsynelatende DÅRLIGERE tall enn den opprinnelige (før-optimalisering)
+100-brukers-testen — dette er IKKE en gyldig sammenligning og skal ikke tolkes som at
+optimaliseringene gjorde ting verre. Systemet hadde ikke fått tid til å hente seg inn igjen etter
+den ekstreme belastningen rett i forveien. Fremtidige før/etter-sammenligninger bør vente til et
+helsesjekk-kall bekrefter normal responstid FØR neste kjøring startes.

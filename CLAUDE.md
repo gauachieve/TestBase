@@ -151,6 +151,18 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   utsendingsforsøk i try/catch (logges, aldri kastet videre) — se "Feiltolerant varsling ved
   QR-registrering" i beslutningsloggen for full analyse og et forslag til en automatisert
   lasttest-plan (samme dato) før noe slikt kjøres skarpt igjen.
+- **Lasttest mot beta + optimalisering (2026-09-22, samme dag):** en k6-lasttest med en REALISTISK
+  front-tung ankomstkurve (ikke bare "alle samtidig") viste at ~1000 konferansedeltakere over
+  2-5 minutter kollapser HELE App Service-en (Basic B1, én kjerne — 51-59 sekunders snitt-
+  responstid, nesten null fullførte besvarelser), IKKE bare databasen. Fire kodeoptimaliseringer
+  ble deretter implementert og retestet (kortlevd `IMemoryCache` for QR-token-oppslag og
+  test-struktur, fjernet en duplikat `Behandler`-spørring, hevet MySQL sin `max_connections`
+  171→250 + appens `Maximum Pool Size` 100→200, begge nå Bicep-forvaltet) — Azure-metrikker viste
+  at MySQL ALDRI var nær en flaskehals i noen av kjøringene (CPU <11 %), og optimaliseringene
+  gjorde derfor INGEN målbar forskjell på 1000-scenarioet (fortsatt tilnærmet null fullføringer).
+  Beholdt likevel — reell nytte ved mer moderat, vedvarende last. Se "Lasttest mot beta, del 2" og
+  "Optimalisering før skalering" i beslutningsloggen for full metodikk, tall og en ærlig
+  forklaring på HVORFOR kode-optimalisering ikke kan løse en ren CPU-kjerne-flaskehals.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using TestBase.Shared.Data;
+using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Providers;
 
@@ -162,9 +163,14 @@ public sealed class TestTildelingsService
     {
         var pasienter = await _db.Pasienter.Where(p => pasientIder.Contains(p.Id)).ToListAsync(cancellationToken);
 
-        var behandlerPartnerId = behandlerId is null
+        // Hentet ÉN gang her (i stedet for én gang for PartnerId + én gang til
+        // inni BeregnPrisPerTestAsync) — samme entitet gjenbrukt begge steder,
+        // se docs/beslutningslogg.md "Optimalisering før skalering". AsNoTracking
+        // siden den kun leses, aldri muteres, i denne metoden.
+        var behandler = behandlerId is null
             ? null
-            : (await _db.Behandlere.Where(b => b.Id == behandlerId).Select(b => b.PartnerId).FirstOrDefaultAsync(cancellationToken));
+            : await _db.Behandlere.AsNoTracking().FirstOrDefaultAsync(b => b.Id == behandlerId, cancellationToken);
+        var behandlerPartnerId = behandler?.PartnerId;
 
         // Håndhever partnerens test-allow-list HER også, ikke bare i tre-visningen
         // (HentKategoriTreAsync) — en rå POST med en testId utenfor
@@ -181,7 +187,7 @@ public sealed class TestTildelingsService
 
         var tester = await _db.Tester.Where(t => testIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, cancellationToken);
         var inkludererSms = varslingsmetode is Varslingspreferanse.Sms or Varslingspreferanse.Begge;
-        var prisPerTestId = await BeregnPrisPerTestAsync(behandlerId, tester, onsketHonorarKrPerTestId, inkludererSms, cancellationToken);
+        var prisPerTestId = await BeregnPrisPerTestAsync(behandler, tester, onsketHonorarKrPerTestId, inkludererSms, cancellationToken);
 
         var perPasient = new List<TildeltPasientResultat>();
         foreach (var pasient in pasienter)
@@ -228,18 +234,17 @@ public sealed class TestTildelingsService
         return new TildelingsBatchResultat(perPasient);
     }
 
-    /// <summary>Beregner prisen for hver test ÉN gang for hele batchen — se TildelOgVarsleAsync.</summary>
+    /// <summary>
+    /// Beregner prisen for hver test ÉN gang for hele batchen — se
+    /// TildelOgVarsleAsync. Tar imot en ALLEREDE innlastet <paramref name="behandler"/>
+    /// (kalleren har den fra før — ikke hent den på nytt her, se
+    /// docs/beslutningslogg.md "Optimalisering før skalering").
+    /// </summary>
     private async Task<Dictionary<long, PrisberegningResultat>> BeregnPrisPerTestAsync(
-        long? behandlerId, IReadOnlyDictionary<long, Test> tester,
+        Behandler? behandler, IReadOnlyDictionary<long, Test> tester,
         IReadOnlyDictionary<long, decimal?> onsketHonorarKrPerTestId, bool inkludererSms, CancellationToken cancellationToken)
     {
         var resultat = new Dictionary<long, PrisberegningResultat>();
-        if (behandlerId is null)
-        {
-            return resultat;
-        }
-
-        var behandler = await _db.Behandlere.FirstOrDefaultAsync(b => b.Id == behandlerId, cancellationToken);
         if (behandler is null)
         {
             return resultat;
@@ -247,7 +252,7 @@ public sealed class TestTildelingsService
 
         var partner = behandler.PartnerId is null
             ? null
-            : await _db.Partnere.FirstOrDefaultAsync(p => p.Id == behandler.PartnerId, cancellationToken);
+            : await _db.Partnere.AsNoTracking().FirstOrDefaultAsync(p => p.Id == behandler.PartnerId, cancellationToken);
         var dekketAvAbonnement = behandler.HarEgetAbonnement || (partner?.HarAktivtAbonnement ?? false);
 
         foreach (var (testId, test) in tester)

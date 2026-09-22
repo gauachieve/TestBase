@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Tester.Skaaring;
@@ -25,12 +26,27 @@ public sealed class TestService
     private readonly AppDbContext _db;
     private readonly IReadOnlyList<ITestSkaaringsberegner> _skaaringsberegnere;
     private readonly BehandlerMeldingService _meldingService;
+    private readonly IMemoryCache _cache;
 
-    public TestService(AppDbContext db, IEnumerable<ITestSkaaringsberegner> skaaringsberegnere, BehandlerMeldingService meldingService)
+    /// <summary>
+    /// En tests EGEN struktur (spørsmål/sider) endres praktisk talt aldri mens
+    /// den er i aktiv bruk — men lastes på nytt for HVER GET og HVER POST av
+    /// utfyllingssiden, per deltaker, per side. Under en registreringsbølge er
+    /// dette identiske spørringer mot SAMME test fra alle deltakerne samtidig,
+    /// se docs/beslutningslogg.md "Optimalisering før skalering". 60 sekunder
+    /// balanserer "praktisk talt alltid oppdatert nok" mot en reell
+    /// ytelsesgevinst — ingen eksplisitt cache-invalidering ved redigering i
+    /// Admin/Tester/Sider|Ledd (bevisst utelatt, lav risiko: verste fall er at
+    /// en ENDRING i en tests struktur tar opptil 60 sekunder å slå igjennom).
+    /// </summary>
+    private static readonly TimeSpan TestStrukturCacheTid = TimeSpan.FromSeconds(60);
+
+    public TestService(AppDbContext db, IEnumerable<ITestSkaaringsberegner> skaaringsberegnere, BehandlerMeldingService meldingService, IMemoryCache cache)
     {
         _db = db;
         _skaaringsberegnere = skaaringsberegnere.ToList();
         _meldingService = meldingService;
+        _cache = cache;
     }
 
     public async Task<Test> OpprettTestAsync(
@@ -696,14 +712,31 @@ public sealed class TestService
             return null;
         }
 
-        var test = await _db.Tester.FirstAsync(t => t.Id == tildeling.TestId, cancellationToken);
-        var sider = await _db.TestSider.Where(s => s.TestId == test.Id).OrderBy(s => s.Rekkefolge).ToListAsync(cancellationToken);
-        var sideIder = sider.Select(s => s.Id).ToList();
-        var alleLedd = await _db.TestLedd.Where(l => sideIder.Contains(l.TestSideId)).OrderBy(l => l.Rekkefolge).ToListAsync(cancellationToken);
+        var (test, sider, alleLedd) = await HentTestStrukturAsync(tildeling.TestId, cancellationToken);
         var svar = await _db.TestSvar.Where(s => s.TestTildelingId == tildelingId)
             .ToDictionaryAsync(s => s.TestLeddId, s => s.SvarVerdi, cancellationToken);
 
         return new TestMedInnhold(tildeling, test, sider, alleLedd, svar);
+    }
+
+    /// <summary>Kortlevd-cachet (se TestStrukturCacheTid) — se HentTildelingMedInnholdAsync.</summary>
+    private async Task<(Test Test, List<TestSide> Sider, List<TestLedd> AlleLedd)> HentTestStrukturAsync(
+        long testId, CancellationToken cancellationToken)
+    {
+        var cacheNokkel = $"test-struktur:{testId}";
+        if (_cache.TryGetValue(cacheNokkel, out (Test, List<TestSide>, List<TestLedd>) cachet))
+        {
+            return cachet;
+        }
+
+        var test = await _db.Tester.AsNoTracking().FirstAsync(t => t.Id == testId, cancellationToken);
+        var sider = await _db.TestSider.AsNoTracking().Where(s => s.TestId == testId).OrderBy(s => s.Rekkefolge).ToListAsync(cancellationToken);
+        var sideIder = sider.Select(s => s.Id).ToList();
+        var alleLedd = await _db.TestLedd.AsNoTracking().Where(l => sideIder.Contains(l.TestSideId)).OrderBy(l => l.Rekkefolge).ToListAsync(cancellationToken);
+
+        var resultat = (test, sider, alleLedd);
+        _cache.Set(cacheNokkel, resultat, TestStrukturCacheTid);
+        return resultat;
     }
 
     /// <summary>
