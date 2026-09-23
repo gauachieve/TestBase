@@ -251,6 +251,12 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   ingen oppdiktede normeringstall lagt inn, kun ekte, sitert litteratur duger. Se "Tre
   brukerfeedback-punkter fra selve konferansen" i beslutningsloggen for full arkitektur og hvordan
   fylle inn ekte tall for én test når/hvis normeringsdata skaffes.
+- **Grupperapportens "Spredning" byttet fra tidslinje til histogram (2026-09-23, samme dag):**
+  `Grupper/Aggregert` (begge Areas) sin spredningsgraf viste tidligere prosentskår KRONOLOGISK —
+  byttet til et ekte histogram: 10 %-brede bøtter over 0-100 %, søylehøyde = antall deltakere i
+  bøtta. `ScatterPunkt`→`HistogramSoyle`, ny `BeregnHistogram` (bøtter via `verdi / 10`, klemt
+  [0,9], siste bøtte dekker 90-100). Kun visningslaget endret — `GruppeService`/`ProsentDatapunkt`
+  urørt. Se "Grupperapportens 'Spredning' byttet fra tidslinje til histogram" i beslutningsloggen.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

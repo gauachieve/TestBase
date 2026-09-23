@@ -4946,3 +4946,32 @@ gyldighetsgrense satt på WHO-5 i dev, som forventet — ingen advarsel vist).
 økt — startet på nytt for anledningen fremfor å håndskrive migrasjonen + `AppDbContextModelSnapshot.cs`
 manuelt, som ville vært et unødvendig risikabelt sidespor for to enkle `AddColumn`-operasjoner).
 Generert migrasjon inneholder KUN to rene `AddColumn`-kall, ingen feiltolket rename.
+
+## Grupperapportens "Spredning" byttet fra tidslinje til histogram over verdier (2026-09-23,
+samme dag)
+
+Brukeren så den ferdig fungerende grupperapporten (etter GADIT-fiksen over) og påpekte at
+"Spredning"-grafen viste prosentskår KRONOLOGISK (x-akse = rekkefølge over tid), mens ønsket var
+fordelingen AV VERDIER — et histogram: del 0-100 % i 10 %-brede bøtter, og vis som en søyle hvor
+høyt antall deltakere som endte i hver bøtte.
+
+**Endring, i BEGGE `Grupper/Aggregert`-sidepar (Admin og Behandlerportal, identisk mønster som
+resten av disse sidene):**
+- `ScatterPunkt` (Cx/Cy/Tittel — ett punkt per besvarelse, kronologisk plassert) erstattet med
+  `HistogramSoyle` (X/Y/Bredde/Hoyde/Etikett/Antall — én søyle per 10 %-bøtte).
+- Ny `BeregnHistogram`: bøtter hver besvarelses `ProsentSkaar` med `verdi / 10` (heltallsdivisjon,
+  klemt til [0,9]) — bøtte 9 dekker BEVISST 90-100 (11 verdier) slik at en skår på nøyaktig 100 har
+  et hjem, resten er rene 10-brede intervaller. Søylehøyde skaleres mot den STØRSTE bøtta (ikke et
+  fast tall), siden antall deltakere varierer fritt fra gruppe til gruppe.
+- Ingen endring i selve datagrunnlaget (`GruppeService`/`ProsentDatapunkt` urørt) — kun hvordan de
+  samme prosentskårene tegnes.
+- CSS: nye `.rapport-histogram`/`-soyle`/`-etikett`/`-antall`-klasser i `site.css`, samme
+  design-tokens (`--accent-dark`/`--muted`/`--ink`/`--border`/`--radius`) som den eksisterende
+  spredningsplott-stilen (`.rapport-scatter-*`, beholdt urørt — ingen andre steder brukte den).
+
+**Manuell nettleserverifisering lokalt:** tre WHO-5-besvarelser med bevisst ulik skår (0 %, ~48 %,
+80 %) ga et histogram med tre separate søyler i riktig bøtte, hver merket med antall (1) over
+søylen og riktig %-intervall under — gjennomsnitt/median i stat-boksene stemte overens (46,7 % snitt
+av 0+48+80 ≈ riktig). Samme `<text>`-i-SVG-fallgruve som `Grupper/Aggregert.cshtml` sitt forrige
+spredningsplott allerede hadde løst (se "Gruppe-rapportgenerator") — ny kode fulgte samme
+`@Html.Raw(...)`-mønster fra start, ingen ny RZ1023-feil.

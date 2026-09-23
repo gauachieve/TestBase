@@ -66,6 +66,10 @@ body.rolle-pasient {
 .rapport-scatter-gitter { stroke: var(--border); stroke-width: 1; }
 .rapport-scatter-akse { fill: var(--muted); font-size: 11px; }
 .rapport-scatter-punkt { fill: var(--accent-dark); stroke: #fff; stroke-width: 2; }
+.rapport-histogram { width: 100%; max-width: 620px; height: auto; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); }
+.rapport-histogram-soyle { fill: var(--accent-dark); }
+.rapport-histogram-etikett { fill: var(--muted); font-size: 11px; }
+.rapport-histogram-antall { fill: var(--ink); font-size: 11px; font-weight: 700; }
 .kategori-kognisjon { --kategori-farge: #6366f1; }
 .kategori-adhd { --kategori-farge: #f59e0b; }
 .kategori-sovn { --kategori-farge: #0ea5e9; }

@@ -40,21 +40,27 @@
             </div>
 
             <h2>Spredning</h2>
-            <svg class="rapport-scatter" viewBox="0 0 560 220" role="img" aria-label="Spredningsplott av prosentskår per besvarelse">
-                @foreach (var linjeProsent in new[] { 0, 25, 50, 75, 100 })
-                {
-                    var y = 12 + (220 - 12 - 12) * (1 - linjeProsent / 100.0);
-                    var yStr = y.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    <line x1="40" y1="@yStr" x2="544" y2="@yStr" class="rapport-scatter-gitter" />
-                    @Html.Raw($"<text x=\"34\" y=\"{(y + 4).ToString(System.Globalization.CultureInfo.InvariantCulture)}\" class=\"rapport-scatter-akse\" text-anchor=\"end\">{linjeProsent}%</text>")
-                }
-                @foreach (var punkt in Model.Plott)
-                {
-                    <circle cx="@punkt.Cx.ToString(System.Globalization.CultureInfo.InvariantCulture)" cy="@punkt.Cy.ToString(System.Globalization.CultureInfo.InvariantCulture)" r="5" class="rapport-scatter-punkt">
-                        <title>@punkt.Tittel</title>
-                    </circle>
-                }
-            </svg>
+            <p><em>Antall deltakere per 10 %-intervall av prosentskår.</em></p>
+            @if (Model.Plott.Count == 0)
+            {
+                <p><em>Ingen data å vise spredning for.</em></p>
+            }
+            else
+            {
+                <svg class="rapport-histogram" viewBox="0 0 560 220" role="img" aria-label="Histogram over antall deltakere per 10 %-intervall av prosentskår">
+                    @foreach (var soyle in Model.Plott)
+                    {
+                        <rect x="@soyle.X.ToString(System.Globalization.CultureInfo.InvariantCulture)" y="@soyle.Y.ToString(System.Globalization.CultureInfo.InvariantCulture)" width="@soyle.Bredde.ToString(System.Globalization.CultureInfo.InvariantCulture)" height="@soyle.Hoyde.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="rapport-histogram-soyle">
+                            <title>@($"{soyle.Etikett}%: {soyle.Antall} deltaker(e)")</title>
+                        </rect>
+                        @if (soyle.Antall > 0)
+                        {
+                            @Html.Raw($"<text x=\"{(soyle.X + soyle.Bredde / 2).ToString(System.Globalization.CultureInfo.InvariantCulture)}\" y=\"{(soyle.Y - 4).ToString(System.Globalization.CultureInfo.InvariantCulture)}\" class=\"rapport-histogram-antall\" text-anchor=\"middle\">{soyle.Antall}</text>")
+                        }
+                        @Html.Raw($"<text x=\"{(soyle.X + soyle.Bredde / 2).ToString(System.Globalization.CultureInfo.InvariantCulture)}\" y=\"208\" class=\"rapport-histogram-etikett\" text-anchor=\"middle\">{soyle.Etikett}%</text>")
+                    }
+                </svg>
+            }
 
             @if (d.IndikatorFordeling.Any())
             {

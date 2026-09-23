@@ -4,8 +4,13 @@ using TestBase.Shared.Domain.Pasienter;
 
 namespace TestBase.Web.Areas.Admin.Pages.Grupper;
 
-/// <summary>Ett punkt i spredningsplottet, allerede omregnet til SVG-koordinater — se AggregertModel.BeregnPlott.</summary>
-public sealed record ScatterPunkt(double Cx, double Cy, string Tittel);
+/// <summary>
+/// Én søyle i spredningshistogrammet, allerede omregnet til SVG-koordinater
+/// — se AggregertModel.BeregnHistogram. Byttet fra et spredningsplott OVER TID
+/// (2026-09-23, brukerfeedback: "spredning" skal vise fordelingen AV VERDIER,
+/// ikke prosentskår kronologisk) til et histogram over 10 %-intervaller.
+/// </summary>
+public sealed record HistogramSoyle(double X, double Y, double Bredde, double Hoyde, string Etikett, int Antall);
 
 /// <summary>
 /// Admin sin variant av Behandlerportal/Grupper/Aggregert — samme
@@ -32,7 +37,7 @@ public sealed class AggregertModel : PageModel
 
     public long? TestId { get; private set; }
     public EnkelttestAggregat? Enkelttest { get; private set; }
-    public IReadOnlyList<ScatterPunkt> Plott { get; private set; } = Array.Empty<ScatterPunkt>();
+    public IReadOnlyList<HistogramSoyle> Plott { get; private set; } = Array.Empty<HistogramSoyle>();
 
     public async Task<IActionResult> OnGetAsync(
         long id, bool provedata = true, DateOnly? fra = null, DateOnly? til = null, long? testId = null, CancellationToken cancellationToken = default)
@@ -66,7 +71,7 @@ public sealed class AggregertModel : PageModel
             Fra = fra.Value;
 
             Enkelttest = await _grupper.HentEnkelttestAsync(id, testId.Value, provedata, Fra, Til, cancellationToken);
-            Plott = BeregnPlott(Enkelttest?.Detaljer.Datapunkter ?? Array.Empty<ProsentDatapunkt>());
+            Plott = BeregnHistogram(Enkelttest?.Detaljer.Datapunkter ?? Array.Empty<ProsentDatapunkt>());
             return Page();
         }
 
@@ -77,29 +82,45 @@ public sealed class AggregertModel : PageModel
         return Page();
     }
 
-    private static IReadOnlyList<ScatterPunkt> BeregnPlott(IReadOnlyList<ProsentDatapunkt> datapunkter)
+    /// <summary>
+    /// Bøtter alle prosentskår i 10 %-brede intervaller (0-9, 10-19, …, 90-100 —
+    /// siste bøtte er 11 bred slik at en skår på nøyaktig 100 har et hjem) og
+    /// regner søylehøydene om til SVG-koordinater for et 560×220-plott, skalert
+    /// mot den STØRSTE bøtta (ikke mot et fast tall), siden selve antallet
+    /// deltakere varierer helt fritt fra gruppe til gruppe.
+    /// </summary>
+    private static IReadOnlyList<HistogramSoyle> BeregnHistogram(IReadOnlyList<ProsentDatapunkt> datapunkter)
     {
-        if (datapunkter.Count == 0)
+        const int antallBoetter = 10;
+        var boetter = new int[antallBoetter];
+        foreach (var dp in datapunkter)
         {
-            return Array.Empty<ScatterPunkt>();
+            boetter[Math.Clamp(dp.ProsentSkaar / 10, 0, antallBoetter - 1)]++;
         }
 
-        const double venstreMarg = 40, hoyreMarg = 16, toppMarg = 12, bunnMarg = 12, bredde = 560, hoyde = 220;
+        var maksAntall = boetter.Max();
+        if (maksAntall == 0)
+        {
+            return Array.Empty<HistogramSoyle>();
+        }
+
+        const double venstreMarg = 10, hoyreMarg = 10, toppMarg = 20, bunnMarg = 24, bredde = 560, hoyde = 220, mellomrom = 4;
         var plottBredde = bredde - venstreMarg - hoyreMarg;
         var plottHoyde = hoyde - toppMarg - bunnMarg;
+        var soyleBredde = (plottBredde - mellomrom * (antallBoetter - 1)) / antallBoetter;
 
-        var punkter = new List<ScatterPunkt>();
-        for (var i = 0; i < datapunkter.Count; i++)
+        var soyler = new List<HistogramSoyle>();
+        for (var i = 0; i < antallBoetter; i++)
         {
-            var dp = datapunkter[i];
-            var x = datapunkter.Count == 1
-                ? venstreMarg + plottBredde / 2
-                : venstreMarg + plottBredde * i / (datapunkter.Count - 1);
-            var y = toppMarg + plottHoyde * (1 - dp.ProsentSkaar / 100.0);
-            var tittel = $"{dp.FullfortUtc.ToLocalTime():dd.MM.yyyy}: {dp.ProsentSkaar}%";
-            punkter.Add(new ScatterPunkt(x, y, tittel));
+            var antall = boetter[i];
+            var soyleHoyde = plottHoyde * antall / (double)maksAntall;
+            var x = venstreMarg + i * (soyleBredde + mellomrom);
+            var y = toppMarg + (plottHoyde - soyleHoyde);
+            var nedreGrense = i * 10;
+            var etikett = i == antallBoetter - 1 ? $"{nedreGrense}-100" : $"{nedreGrense}-{nedreGrense + 9}";
+            soyler.Add(new HistogramSoyle(x, y, soyleBredde, soyleHoyde, etikett, antall));
         }
 
-        return punkter;
+        return soyler;
     }
 }
