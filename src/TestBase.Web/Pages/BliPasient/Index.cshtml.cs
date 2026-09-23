@@ -54,10 +54,6 @@ public sealed class IndexModel : PageModel
     [BindProperty]
     public string? Epost { get; set; }
 
-    /// <summary>Valgfritt — BEVISST, se PasientInvitasjonService.RegistrerViaQrAsync. Blank inntil videre = "prøv systemet"-terskel.</summary>
-    [BindProperty]
-    public string? Personnummer { get; set; }
-
     [BindProperty]
     public bool GodtarLagringAvData { get; set; }
 
@@ -109,21 +105,6 @@ public sealed class IndexModel : PageModel
             return Page();
         }
 
-        if (!string.IsNullOrWhiteSpace(Personnummer))
-        {
-            if (!PersonnummerValidator.ErGyldigFormat(Personnummer))
-            {
-                Feilmelding = "Personnummer må bestå av nøyaktig 11 siffer — eller la feltet stå tomt.";
-                return Page();
-            }
-
-            if (await _pasientService.HarAnnenPasientMedPersonnummerAsync(Personnummer, cancellationToken))
-            {
-                Feilmelding = "Det finnes allerede en pasient med dette personnummeret. Ta kontakt med din behandler.";
-                return Page();
-            }
-        }
-
         if (!GodtarLagringAvData)
         {
             Feilmelding = "Du må godta lagring av opplysningene dine for å fortsette.";
@@ -133,8 +114,13 @@ public sealed class IndexModel : PageModel
         var (behandlerId, gruppeId) = await LosTokenAsync(cancellationToken);
         var baseUrl = $"{Request.Scheme}://{Request.Host}";
 
+        // Personnummer samles bevisst IKKE inn her lenger (2026-09-23) — flyttet
+        // utelukkende til PasientRegistrering/FullforProfil ("neste steg"), etter at
+        // en reell konferanse viste at feltet her bremset/forvirret rask
+        // selvregistrering. Blank personnummer er fortsatt "prøv systemet"-terskelen,
+        // se PasientInvitasjonService.RegistrerViaQrAsync.
         var pasient = await _pasientService.RegistrerViaQrAsync(
-            behandlerId!.Value, gruppeId, Personnummer, MobilNr ?? string.Empty, Epost ?? string.Empty,
+            behandlerId!.Value, gruppeId, personnummer: null, MobilNr ?? string.Empty, Epost ?? string.Empty,
             GodtarLagringAvData, baseUrl, cancellationToken);
 
         if (gruppeId is not null)

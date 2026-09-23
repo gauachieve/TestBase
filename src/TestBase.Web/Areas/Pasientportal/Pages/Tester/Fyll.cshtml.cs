@@ -9,7 +9,12 @@ namespace TestBase.Web.Areas.Pasientportal.Pages.Tester;
 /// <summary>
 /// Side-for-side utfylling av en tildelt test, jf. "Definisjon av en test" i
 /// kravdokumentet: fremdrift i %, instruksjon per test/side/ledd,
-/// Neste/Forrige/Lagre/Ferdig, og en belønningsside ved fullføring.
+/// Neste/Forrige/Ferdig, og en belønningsside ved fullføring. Hadde tidligere
+/// en egen "Lagre"-knapp (lagre-og-bli-på-samme-side) — FJERNET 2026-09-23:
+/// den var reelt overflødig (Neste/Ferdig lagrer alltid gjeldende sides svar
+/// FØR de flytter videre, se OnPostAsync under) og forvirret pasienter under
+/// en reell konferanse til å tro at "Lagre" betydde at testen var levert til
+/// behandler. Se docs/beslutningslogg.md.
 /// </summary>
 [Authorize(Policy = "PasientOmrade")]
 public sealed class FyllModel : PageModel
@@ -36,6 +41,14 @@ public sealed class FyllModel : PageModel
     /// <summary>Neste ikke-fullførte tildeling for samme pasient — se bugliste 2026-09-13 punkt 8 ("Ferdigstill og videre til neste test").</summary>
     public long? NesteIkkeFullforteTildelingId { get; private set; }
 
+    /// <summary>
+    /// Satt (2026-09-23) når for mange ledd sto ubesvart, se
+    /// Test.MaksUbesvartProsent/TestService.BeregnSkaaringAsync — vist som en
+    /// informasjonsboks på "Ferdig!"-siden, ALDRI en sperre for selve
+    /// innsendingen (den har allerede skjedd på dette tidspunktet).
+    /// </summary>
+    public string? GyldighetsAdvarsel { get; private set; }
+
     public TestSide? GjeldendeSide => Innhold is null ? null : Innhold.Sider.ElementAtOrDefault(GjeldendeSideNummer - 1);
 
     public IEnumerable<TestLedd> LeddPaaGjeldendeSide =>
@@ -60,6 +73,8 @@ public sealed class FyllModel : PageModel
         {
             ErFullfort = true;
             await LastNesteIkkeFullforteAsync(id, cancellationToken);
+            var skaaring = await _testService.BeregnSkaaringAsync(id, cancellationToken);
+            GyldighetsAdvarsel = skaaring?.GyldighetsAdvarsel;
             return Page();
         }
 

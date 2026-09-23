@@ -4860,3 +4860,89 @@ det opprinnelige 500-feilen.
 
 **Ingen infrastruktur rørt denne runden** — kun en ren kodefiks. Dette var en ekte, brukerrapportert
 produksjonsfeil på ekte (brukerbekreftet) konferansedata, ikke et testscenario.
+
+## Tre brukerfeedback-punkter fra selve konferansen: fjern "Lagre"-knappen, dropp personnummer i
+steg 1, normert gjennomsnitt-imputering + gyldighetsgrense (2026-09-23)
+
+Brukeren observerte deltakerne direkte under konferansen og meldte tre distinkte funn/ønsker samme
+dag som GADIT-feilen over.
+
+### 1. "Lagre"-knappen fjernet fra Pasientportal/Tester/Fyll
+
+Flere deltakere trodde et klikk på "Lagre" betydde at testen var LEVERT til behandler. Den gjorde
+ikke det — den lagret bare gjeldende sides svar og ble stående på SAMME side. Undersøkt: dette var
+allerede reelt OVERFLØDIG funksjonalitet — `Neste`/`Ferdig` lagrer UANSETT gjeldende sides svar FØR
+de flytter videre (samme `TestService.LagreSvarAsync`-kall), så "Lagre" ga null praktisk fordel og
+KUN forvirring. Fjernet knappen helt fra `Fyll.cshtml` — ingen kodeendring nødvendig utover selve
+markup-fjerningen, siden lagre-og-fortsett allerede var (og fortsatt er) standardoppførselen.
+
+### 2. Personnummer fjernet fra `BliPasient` (steg 1) — flyttet utelukkende til
+`PasientRegistrering/FullforProfil` (steg 2, allerede eksisterende)
+
+Feltet var allerede VALGFRITT i steg 1, men bremset/forvirret rask selvregistrering under press.
+`PasientRegistrering/FullforProfil` samler ALLEREDE inn personnummer (blant navn/kjønn/adresse) som
+en etablert "neste steg"-side — ingen ny side trengtes. Fjernet `Personnummer`-feltet fullstendig
+fra `BliPasient/Index.cshtml` (markup) OG `Index.cshtml.cs` (BindProperty + valideringsblokk),
+`RegistrerViaQrAsync` kalles nå alltid med `personnummer: null` fra denne siden. Blank personnummer
+er fortsatt "prøv systemet"-terskelen (uendret), bare at steg 1 nå ALDRI kan sette det til noe
+annet enn null uansett.
+
+### 3. Normert gjennomsnitt-imputering + gyldighetsgrense (ny, generell mekanisme)
+
+Brukerens ønske: mange standardiserte tester har publisert normeringslitteratur (populasjons-
+gjennomsnitt per ledd) og en kjent grense for hvor stor andel ubesvarte ledd som gjør resultatet
+klinisk UPÅLITELIG. Ønsket oppførsel: aldri blokkere innsending, men (a) imputere normert
+gjennomsnitt for et ubesvart ledd der det er kjent, slik at et tall likevel kan beregnes, og (b)
+varsle behandler (rapportvisning) — og pasienten selv, i en mildere form — når andelen ubesvart
+overskrider en grense.
+
+**Datamodell (ny migrasjon `LeggTilGyldighetsgrenseOgNormertGjennomsnitt`):**
+- `Test.MaksUbesvartProsent` (`int?`) — maks andel (0-100) ubesvarte ledd før gyldighetsadvarsel.
+  Null (default for ALLE eksisterende tester) = funksjonen AV for den testen.
+- `TestLedd.NormertGjennomsnitt` (`decimal(10,4)?`) — normert (populasjons-)gjennomsnittssvar for
+  ETT ledd, brukt til imputering. Null (default for ALLE eksisterende ledd) = ingen imputering for
+  det leddet, akkurat som før.
+
+**BEVISST IKKE fylt inn noen verdi for noen eksisterende test/ledd denne runden** — verken
+gyldighetsgrense eller normerte gjennomsnitt er ekte tall vi har verifisert mot publisert
+normeringslitteratur per test, og å dikte opp plausible tall for reelle kliniske screeningverktøy
+ville vært aktivt uansvarlig. Mekanismen er derfor bygget og FULLT FUNKSJONELL, men SOVENDE for
+alle 20+ innebygde tester inntil noen (brukeren, en fagperson) legger inn ekte, siterte verdier —
+enten direkte i databasen eller (senere) via en admin-UI som IKKE er bygget ennå (ingen UI for å
+redigere ledd finnes fra før, se CLAUDE.md "Admin/Tester/Rediger dekker kun testens egne felt").
+
+**`TestService.BeregnSkaaringAsync` skrevet om:** henter nå ALLE testens ledd (ikke bare besvarte)
+for å kjenne den faktiske nevneren. Bygger en fullstendig, ordnet svarliste der et ubesvart ledd MED
+kjent normert gjennomsnitt får et syntetisk (ALDRI lagret) `TestSvar` med den AVRUNDEDE normerte
+verdien (`Math.Round(..., AwayFromZero)` — nesten alle skåringsberegnere gjør et rått `int.Parse`,
+siden selve svarskalaen alltid er heltallsbasert, mens et normert gjennomsnitt fra litteraturen ofte
+ikke er det). Et ubesvart ledd UTEN kjent normert gjennomsnitt er fortsatt bare fraværende fra
+listen, akkurat som tidligere. Hvis `Test.MaksUbesvartProsent` er satt og andelen ubesvart
+overskrider den, settes `TestSkaaring.GyldighetsAdvarsel` (ny, valgfri record-egenskap, default
+null — ingen eksisterende skåringsberegner-kallsted trengte endring).
+
+**UI:**
+- `Behandlerportal/Pasienter/Rapport.cshtml`: en gul advarselsboks med FULL teknisk
+  gyldighetsadvarsel-tekst i "Resultat"-seksjonen, BÅDE i den vanlige visningen og i
+  "Kopier til utklippstavle"-malen (slik at advarselen følger med hvis rapporten limes inn i et
+  journalsystem).
+- `Pasientportal/Tester/Fyll.cshtml`: en mildere, IKKE-teknisk informasjonsboks på "Ferdig!"-siden
+  ("Du hoppet over noen spørsmål...") — bevisst IKKE samme rå tekst som behandler ser. Pasientens
+  EGEN `Pasientportal/Tester/Rapport.cshtml` (den de ser etter godkjenning) er BEVISST IKKE endret
+  denne runden — samme vurdering, unngår klinisk språk uten kontekst.
+- **"Ferdig"/innsendingsknappen er ALDRI deaktivert eller gated av dette** — verken i markup eller
+  i `FyllModel.OnPostAsync` (uendret) — advarselen er alltid EFTER innsending, aldri en sperre.
+
+**Testet:** to nye integrasjonstester (`GyldighetsgrenseTests.cs`, mot en ekte migrert database, se
+mønster fra `BetalingPipelineTests.cs`) — én som bekrefter advarsel utløses + imputering teller
+riktig i råskår mot den ALLEREDE seedede WHO-5-testen (satt/nullstilt i try/finally for å ikke
+lekke til andre tester), én som bekrefter NULL-grense (dagens standard for alt) aldri gir advarsel
+uansett hvor mye som mangler. Alle 51 tester grønne (Docker startet opp for anledningen — se under).
+Manuell nettleserverifisering lokalt: BliPasient uten personnummer-felt, Fyll uten Lagre-knapp,
+innsending med 2 av 5 WHO-5-spørsmål ubesvart gikk gjennom uten feil eller sperre (ingen
+gyldighetsgrense satt på WHO-5 i dev, som forventet — ingen advarsel vist).
+
+**Migrasjon generert med ekte `dotnet ef migrations add`** (Docker Desktop var nede fra en tidligere
+økt — startet på nytt for anledningen fremfor å håndskrive migrasjonen + `AppDbContextModelSnapshot.cs`
+manuelt, som ville vært et unødvendig risikabelt sidespor for to enkle `AddColumn`-operasjoner).
+Generert migrasjon inneholder KUN to rene `AddColumn`-kall, ingen feiltolket rename.

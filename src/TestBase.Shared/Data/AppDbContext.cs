@@ -212,6 +212,8 @@ public sealed class AppDbContext : DbContext
             entity.Property(t => t.MinstePartnerAndelKr).HasColumnType("decimal(10,2)");
         });
 
+        modelBuilder.Entity<TestLedd>().Property(l => l.NormertGjennomsnitt).HasColumnType("decimal(10,4)");
+
         modelBuilder.Entity<TestSide>(entity =>
         {
             entity.ToTable("test_sider");

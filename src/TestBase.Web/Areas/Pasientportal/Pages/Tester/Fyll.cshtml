@@ -13,6 +13,12 @@ else if (Model.ErFullfort)
 {
     <h1>Ferdig!</h1>
     <p>@(Model.Innhold.Test.Belonningstekst ?? "Takk for at du fylte ut testen.")</p>
+    @if (Model.GyldighetsAdvarsel is not null)
+    {
+        <div style="border: 1px solid #c90; background: #fff8e6; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
+            <p><strong>Merk:</strong> Du hoppet over noen spørsmål, så resultatet er mindre sikkert enn vanlig — svarene dine er likevel sendt inn, og behandleren din vil se denne merknaden på rapporten.</p>
+        </div>
+    }
     @if (Model.Innhold.Tildeling.RapportGodkjentUtc is not null && Model.Innhold.Tildeling.RapportSynligForPasient)
     {
         <p><a class="btn-accent" href="/Pasientportal/Tester/Rapport/@Model.Innhold.Tildeling.Id">Se rapporten din</a></p>
@@ -126,7 +132,6 @@ else
                 {
                     <button type="submit" name="Handling" value="Forrige">Forrige</button>
                 }
-                <button type="submit" name="Handling" value="Lagre">Lagre</button>
                 @if (Model.GjeldendeSideNummer < totalSider)
                 {
                     <button type="submit" name="Handling" value="Neste">Neste</button>

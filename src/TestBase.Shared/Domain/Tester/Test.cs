@@ -75,4 +75,19 @@ public sealed class Test
 
     /// <summary>Superadmin-satt gulv for hvor lite en partner-admin kan sette sin egen PartnerTestAndel til.</summary>
     public decimal MinstePartnerAndelKr { get; set; }
+
+    /// <summary>
+    /// Gyldighetsgrense (2026-09-23): maks andel (0-100) av testens ledd som kan
+    /// stå ubesvart FØR resultatet flagges som en gyldighetsadvarsel til
+    /// behandler — se TestService.BeregnSkaaringAsync og
+    /// TestLedd.NormertGjennomsnitt (brukt til å likevel kunne beregne et tall
+    /// for ubesvarte ledd som har et kjent normert gjennomsnitt). Null (default
+    /// for ALLE eksisterende tester) betyr at funksjonen er AV for den testen —
+    /// vi har bevisst IKKE fylt inn en verdi for noen innebygd test ennå, siden
+    /// riktig grense/normert gjennomsnitt krever ekte, sitert normeringslitteratur
+    /// per test (se docs/beslutningslogg.md), ikke en oppdiktet tommelfingerregel.
+    /// Testen kan ALLTID leveres inn uansett — dette gir KUN en advarsel i
+    /// rapporten, aldri en sperre for pasienten (se Pasientportal/Tester/Fyll).
+    /// </summary>
+    public int? MaksUbesvartProsent { get; set; }
 }

@@ -5,7 +5,13 @@ namespace TestBase.Shared.Domain.Tester.Skaaring;
 /// er valgfrie, navngitte kategoriske konklusjoner utover selve tallskåren
 /// (se TestSkaaringIndikator) — null/tom for tester som ikke har noen (de
 /// fleste), populert av f.eks. Who5Skaaringsberegner.
+/// <paramref name="GyldighetsAdvarsel"/> (2026-09-23) er satt av
+/// TestService.BeregnSkaaringAsync — IKKE av den enkelte skåringsberegner —
+/// når andelen ubesvarte ledd overskrider testens Test.MaksUbesvartProsent.
+/// Null (vanligste tilfelle) betyr ingen advarsel. Se
+/// docs/beslutningslogg.md "Normert gjennomsnitt-imputering + gyldighetsgrense".
 /// </summary>
 public sealed record TestSkaaring(
     int RaaSkaar, int RaaSkaarMaks, int ProsentSkaar, string Fortolkning,
-    IReadOnlyList<TestSkaaringIndikator>? Indikatorer = null);
+    IReadOnlyList<TestSkaaringIndikator>? Indikatorer = null,
+    string? GyldighetsAdvarsel = null);

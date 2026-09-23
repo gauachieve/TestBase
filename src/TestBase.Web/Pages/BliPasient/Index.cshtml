@@ -25,7 +25,7 @@ else
             <text> i gruppen «<strong>@Model.GruppeNavn</strong>»</text>
         }.
     </p>
-    <p><em>Rask registrering — du kan legge inn navn og resten senere. Oppgi mobilnummer eller e-post (minst én av dem).</em></p>
+    <p><em>Rask registrering — du kan legge inn personnummer og resten senere. Oppgi mobilnummer eller e-post (minst én av dem).</em></p>
 
     @if (Model.Feilmelding is not null)
     {
@@ -35,10 +35,6 @@ else
     <form method="post" data-disable-on-submit="Registrerer …">
         <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
         <div><label>E-post</label><br /><input asp-for="Epost" type="email" /></div>
-        <div>
-            <label>Personnummer (valgfritt — la stå tomt for å prøve systemet først)</label><br />
-            <input asp-for="Personnummer" />
-        </div>
 
         <h2>Samtykke</h2>
         <pre style="white-space: pre-wrap; border: 1px solid #ccc; padding: 1rem; max-height: 300px; overflow-y: auto;">@Model.AvtaleTekst</pre>

@@ -240,6 +240,17 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   prøvedata-deltakere + 1 ekte pasient, ingen krasj). Se "Reell 500-feil i GADIT-skåring" i
   beslutningsloggen — inkl. en åpen oppfølgingsoppgave om å sjekke andre skåringsklasser for samme
   sårbarhetsmønster.
+- **Tre konferanse-feedback-punkter (2026-09-23, samme dag):** (1) "Lagre"-knappen på
+  `Pasientportal/Tester/Fyll` FJERNET — forvirret deltakere til å tro testen var levert; reelt
+  overflødig siden Neste/Ferdig alltid lagrer gjeldende side uansett. (2) Personnummer FJERNET fra
+  `BliPasient` (steg 1) — utelukkende samlet inn i `PasientRegistrering/FullforProfil` (steg 2,
+  allerede eksisterende) nå. (3) NY generell mekanisme: `Test.MaksUbesvartProsent` (gyldighetsgrense)
+  + `TestLedd.NormertGjennomsnitt` (imputering av ubesvarte ledd) — `TestSkaaring.GyldighetsAdvarsel`
+  vises som advarsel i behandlers rapport (+ en mildere variant til pasienten på "Ferdig!"-siden),
+  ALDRI en sperre for innsending. BEVISST SOVENDE for alle eksisterende tester (begge felt null) —
+  ingen oppdiktede normeringstall lagt inn, kun ekte, sitert litteratur duger. Se "Tre
+  brukerfeedback-punkter fra selve konferansen" i beslutningsloggen for full arkitektur og hvordan
+  fylle inn ekte tall for én test når/hvis normeringsdata skaffes.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

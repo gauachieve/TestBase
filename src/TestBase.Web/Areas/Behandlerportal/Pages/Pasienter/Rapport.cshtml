@@ -67,6 +67,12 @@ else
         {
             <div class="rapport-seksjon">
                 <span class="rapport-seksjon-tittel">Resultat</span>
+                @if (Model.Skaaring.GyldighetsAdvarsel is not null)
+                {
+                    <div class="rapport-gyldighetsadvarsel" style="border: 1px solid #c90; background: #fff8e6; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.75rem;">
+                        <strong>Gyldighetsadvarsel:</strong> @Model.Skaaring.GyldighetsAdvarsel
+                    </div>
+                }
                 <div class="rapport-skaarboks">
                     <div class="rapport-skaartall">@Model.Skaaring.ProsentSkaar %</div>
                     <div class="rapport-fremdrift">
@@ -204,6 +210,12 @@ else if (Model.Tildeling?.RapportGodkjentUtc is not null)
                #rapportKopierMal og får denne boksen med som en del av helheten. *@
             <div id="rapportKopierResultat" style="border: 2px solid #d97c1f; border-radius: 8px; padding: 12px 14px; background: #fff; margin-bottom: 14px;">
                 <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #d97c1f; margin-bottom: 6px;">Resultat</div>
+                @if (Model.Skaaring.GyldighetsAdvarsel is not null)
+                {
+                    <div style="border: 1px solid #c90; background: #fff8e6; padding: 8px 10px; border-radius: 4px; margin-bottom: 8px; font-size: 12px;">
+                        <strong>Gyldighetsadvarsel:</strong> @Model.Skaaring.GyldighetsAdvarsel
+                    </div>
+                }
                 <div style="font-size: 14px; margin-bottom: 6px;">
                     <strong>@Model.Skaaring.ProsentSkaar %</strong> (råskår @Model.Skaaring.RaaSkaar/@Model.Skaaring.RaaSkaarMaks)
                 </div>

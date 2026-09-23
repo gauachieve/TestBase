@@ -969,21 +969,79 @@ public sealed class TestService
             return null;
         }
 
-        // Sortert etter (side.Rekkefolge, ledd.Rekkefolge) — IKKE bare databasens
-        // naturlige rekkefølge, som ikke er garantert, og IKKE bare ledd.Rekkefolge
-        // alene (den telles PER SIDE, så side 2 sitt ledd 1 ville ellers sortert
-        // før side 1 sitt ledd 5). Nødvendig for skåringsklasser som må
-        // ekskludere ett bestemt (typisk siste) ledd fra sumskåren basert på
-        // posisjon, se PHQ-9 sitt funksjonsspørsmål.
-        var svar = await (
-            from s in _db.TestSvar
-            join l in _db.TestLedd on s.TestLeddId equals l.Id
+        // ALLE testens ledd, sortert etter (side.Rekkefolge, ledd.Rekkefolge) — IKKE
+        // bare de besvarte, og IKKE bare databasens naturlige rekkefølge (ikke
+        // garantert), og IKKE bare ledd.Rekkefolge alene (telles PER SIDE, så side 2
+        // sitt ledd 1 ville ellers sortert før side 1 sitt ledd 5). "Alle" (ikke bare
+        // besvarte) er nødvendig fra 2026-09-23 for å vite den FAKTISKE nevneren når
+        // vi beregner andel ubesvart under, se Test.MaksUbesvartProsent.
+        var alleLedd = await (
+            from l in _db.TestLedd
             join side in _db.TestSider on l.TestSideId equals side.Id
-            where s.TestTildelingId == tildelingId
+            where side.TestId == test.Id
             orderby side.Rekkefolge, l.Rekkefolge
-            select s
+            select l
         ).ToListAsync(cancellationToken);
-        return beregner.BeregnSkaaring(svar);
+
+        var besvarteSvar = await _db.TestSvar
+            .Where(s => s.TestTildelingId == tildelingId)
+            .ToListAsync(cancellationToken);
+
+        // Fullstendig svarliste i riktig rekkefølge: et besvart ledd bruker sitt
+        // ekte svar, et ubesvart ledd MED kjent normert gjennomsnitt får et
+        // syntetisk (ALDRI lagret til databasen) TestSvar med den normerte
+        // verdien — se TestLedd.NormertGjennomsnitt. Et ubesvart ledd UTEN normert
+        // gjennomsnitt er rett og slett fraværende fra listen, akkurat som før
+        // denne funksjonen fantes 2026-09-23 (se docs/beslutningslogg.md "Normert
+        // gjennomsnitt-imputering + gyldighetsgrense").
+        var fullstendigSvar = new List<TestSvar>(alleLedd.Count);
+        var ubesvarteAntall = 0;
+        foreach (var ledd in alleLedd)
+        {
+            var eksisterende = besvarteSvar.FirstOrDefault(s => s.TestLeddId == ledd.Id);
+            if (eksisterende is not null)
+            {
+                fullstendigSvar.Add(eksisterende);
+                continue;
+            }
+
+            ubesvarteAntall++;
+            if (ledd.NormertGjennomsnitt is not null)
+            {
+                // Rundet til nærmeste hele tall — nesten alle skåringsberegnere
+                // (WHO-5, GADIT, PHQ-9, ...) gjør et rått int.Parse på SvarVerdi,
+                // siden selve svarskalaen alltid er heltallsbasert (f.eks. 0-4).
+                // Et normert gjennomsnitt fra litteraturen er derimot ofte IKKE et
+                // helt tall (f.eks. 2,3) — avrunding her, ikke i selve
+                // skåringsberegneren, holder RaaSkaar/ProsentSkaar heltallsbasert
+                // slik hele domenemodellen ellers forutsetter.
+                var avrundetVerdi = (int)Math.Round(ledd.NormertGjennomsnitt.Value, MidpointRounding.AwayFromZero);
+                fullstendigSvar.Add(new TestSvar
+                {
+                    TestTildelingId = tildelingId,
+                    TestLeddId = ledd.Id,
+                    SvarVerdi = avrundetVerdi.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    BesvartUtc = tildeling.FullfortUtc ?? DateTimeOffset.UtcNow
+                });
+            }
+        }
+
+        var skaaring = beregner.BeregnSkaaring(fullstendigSvar);
+
+        if (test.MaksUbesvartProsent is not null && alleLedd.Count > 0)
+        {
+            var andelUbesvartProsent = ubesvarteAntall * 100m / alleLedd.Count;
+            if (andelUbesvartProsent > test.MaksUbesvartProsent.Value)
+            {
+                var advarsel =
+                    $"{ubesvarteAntall} av {alleLedd.Count} spørsmål ({Math.Round(andelUbesvartProsent)}%) ble ikke " +
+                    $"besvart — over grensen på {test.MaksUbesvartProsent}% for denne testen. Manglende svar er " +
+                    "erstattet med normert gjennomsnitt der det finnes; resultatet bør uansett tolkes med forsiktighet.";
+                skaaring = skaaring with { GyldighetsAdvarsel = advarsel };
+            }
+        }
+
+        return skaaring;
     }
 
     /// <summary>
