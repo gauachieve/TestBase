@@ -17,6 +17,12 @@ public sealed class RaadsRSkaaringsberegner : ITestSkaaringsberegner
 
     public string TestKode => "raads_r";
 
+    public IReadOnlyList<TestSkaaringGrenseverdi> Histogramgrenser { get; } = new[]
+    {
+        new TestSkaaringGrenseverdi("Ritvo 2011", 65),
+        new TestSkaaringGrenseverdi("Andersen 2011", 72)
+    };
+
     public TestSkaaring BeregnSkaaring(IReadOnlyList<TestSvar> svar)
     {
         var reversert = RaadsRTestSeeder.ErReversertPerLedd;

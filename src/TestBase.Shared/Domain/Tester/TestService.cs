@@ -1080,6 +1080,13 @@ public sealed class TestService
     public IReadOnlyList<TestSkaaringReferanselinje> HentReferanselinjer(string? testKode) =>
         FinnBeregner(testKode)?.Referanselinjer ?? Array.Empty<TestSkaaringReferanselinje>();
 
+    /// <summary>Se ITestSkaaringsberegner.VisSomProsentIHistogram — FALSK (råskår) som fallback for tester uten registrert beregner.</summary>
+    public bool VisSomProsentIHistogram(string? testKode) => FinnBeregner(testKode)?.VisSomProsentIHistogram ?? false;
+
+    /// <summary>Se ITestSkaaringsberegner.Histogramgrenser — tom liste for tester uten en enkel, navngitt cutoff.</summary>
+    public IReadOnlyList<TestSkaaringGrenseverdi> HentHistogramgrenser(string? testKode) =>
+        FinnBeregner(testKode)?.Histogramgrenser ?? Array.Empty<TestSkaaringGrenseverdi>();
+
     private ITestSkaaringsberegner? FinnBeregner(string? testKode) =>
         testKode is null ? null : _skaaringsberegnere.FirstOrDefault(b => b.TestKode == testKode);
 }

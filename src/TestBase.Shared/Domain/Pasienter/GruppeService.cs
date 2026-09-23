@@ -17,34 +17,53 @@ public sealed record IndikatorFordelingRad(string IndikatorNavn, string Verdi, i
 /// Aggregert resultat for ÉN test på tvers av en gruppes pasienter — fase 4,
 /// se docs/beslutningslogg.md. Bevisst ÉN generisk visning for ALLE tester
 /// (ikke egne visualiseringer per test, jf. avklaringen før byggingen startet):
-/// N, gjennomsnitt/median prosentskår, og en kategorisk fordeling basert på
-/// hver skåringsberegners egne TestSkaaringIndikator-er (fungerer for enhver
-/// test som har en registrert ITestSkaaringsberegner, uten testspesifikk kode).
+/// N, gjennomsnitt/median, og en kategorisk fordeling basert på hver
+/// skåringsberegners egne TestSkaaringIndikator-er (fungerer for enhver test
+/// som har en registrert ITestSkaaringsberegner, uten testspesifikk kode).
+/// <paramref name="Gjennomsnitt"/>/<paramref name="Median"/> er i RÅSKÅR for de
+/// fleste tester (2026-09-23 — se ITestSkaaringsberegner.VisSomProsentIHistogram:
+/// publiserte cutoffs er nesten alltid på råskår-skalaen, en prosentkonvertering
+/// ville skjult dem), KUN i prosent for de få testene som selv rapporterer slik
+/// (WHO-5/WHO-5 VAS) — <paramref name="VisSomProsent"/> avgjør hvilket, og
+/// <paramref name="SkalaMaks"/> er enten 100 (prosent) eller testens faktiske
+/// råskår-maks.
 /// </summary>
 public sealed record TestAggregatRad(
     long TestId,
     string TestNavn,
     int AntallFullfort,
-    double? GjennomsnittProsent,
-    double? MedianProsent,
+    double? Gjennomsnitt,
+    double? Median,
+    bool VisSomProsent,
+    int SkalaMaks,
     IReadOnlyList<IndikatorFordelingRad> IndikatorFordeling);
 
-/// <summary>Ett enkelt fullført-tidspunkt + prosentskår — grunnlaget for spredningsplottet på GruppeService.HentEnkelttestAsync.</summary>
-public sealed record ProsentDatapunkt(DateTimeOffset FullfortUtc, int ProsentSkaar);
+/// <summary>
+/// Ett enkelt fullført-tidspunkt + skår — grunnlaget for spredningshistogrammet
+/// på GruppeService.HentEnkelttestAsync. Bærer BÅDE prosent- og råskår (2026-09-23)
+/// slik at histogrammet kan bøtte i hvilken enhet testen faktisk skal vises i,
+/// se TestAggregatRad sin klassekommentar.
+/// </summary>
+public sealed record ProsentDatapunkt(DateTimeOffset FullfortUtc, int ProsentSkaar, int RaaSkaar, int RaaSkaarMaks);
 
 /// <summary>
 /// Samme beregning som TestAggregatRad, men for ÉN test av gangen og utvidet
-/// med standardavvik + de rå datapunktene (til spredningsplott) — se
-/// GruppeService.BeregnForTestAsync (delt beregningskjerne med HentAggregatAsync)
-/// og "Gruppe-rapportgenerator" i docs/beslutningslogg.md.
+/// med standardavvik, de rå datapunktene (til histogrammet) og eventuelle
+/// navngitte cutoff-verdier fra normeringslitteraturen (2026-09-23, se
+/// ITestSkaaringsberegner.Histogramgrenser) — se GruppeService.BeregnForTestAsync
+/// (delt beregningskjerne med HentAggregatAsync) og "Gruppe-rapportgenerator" i
+/// docs/beslutningslogg.md.
 /// </summary>
 public sealed record TestAggregatDetaljer(
     long TestId,
     string TestNavn,
     int AntallFullfort,
-    double? GjennomsnittProsent,
-    double? MedianProsent,
-    double? StandardavvikProsent,
+    double? Gjennomsnitt,
+    double? Median,
+    double? Standardavvik,
+    bool VisSomProsent,
+    int SkalaMaks,
+    IReadOnlyList<TestSkaaringGrenseverdi> Grenseverdier,
     IReadOnlyList<IndikatorFordelingRad> IndikatorFordeling,
     IReadOnlyList<ProsentDatapunkt> Datapunkter);
 
@@ -241,7 +260,9 @@ public sealed class GruppeService
 
         if (pasientIder.Count == 0)
         {
-            return gruppeInnhold.Tester.Select(t => new TestAggregatRad(t.Id, t.Navn, 0, null, null, Array.Empty<IndikatorFordelingRad>())).ToList();
+            return gruppeInnhold.Tester
+                .Select(t => new TestAggregatRad(t.Id, t.Navn, 0, null, null, _testService.VisSomProsentIHistogram(t.Kode), 100, Array.Empty<IndikatorFordelingRad>()))
+                .ToList();
         }
 
         var resultat = new List<TestAggregatRad>();
@@ -251,11 +272,11 @@ public sealed class GruppeService
             // presentasjonsøkt) — se klassekommentaren. HentEnkelttestAsync nedenfor
             // avviker bevisst fra dette (begge modi datobegrenset der), se der.
             var detaljer = await BeregnForTestAsync(
-                test.Id, test.Navn, pasientIder,
+                test.Id, test.Navn, test.Kode, pasientIder,
                 provedata ? null : fraUtc, provedata ? null : tilUtc, cancellationToken);
             resultat.Add(new TestAggregatRad(
                 detaljer.TestId, detaljer.TestNavn, detaljer.AntallFullfort,
-                detaljer.GjennomsnittProsent, detaljer.MedianProsent, detaljer.IndikatorFordeling));
+                detaljer.Gjennomsnitt, detaljer.Median, detaljer.VisSomProsent, detaljer.SkalaMaks, detaljer.IndikatorFordeling));
         }
 
         return resultat;
@@ -270,7 +291,7 @@ public sealed class GruppeService
     /// sammen med gjennomsnitt/median, og holder de to stiene i synk.
     /// </summary>
     private async Task<TestAggregatDetaljer> BeregnForTestAsync(
-        long testId, string testNavn, IReadOnlyList<long> pasientIder,
+        long testId, string testNavn, string? testKode, IReadOnlyList<long> pasientIder,
         DateTimeOffset? fraUtc, DateTimeOffset? tilUtc, CancellationToken cancellationToken)
     {
         var tildelingSporring = _db.TestTildelinger.Where(t =>
@@ -290,8 +311,11 @@ public sealed class GruppeService
             .Select(t => new { t.Id, t.FullfortUtc })
             .ToListAsync(cancellationToken);
 
-        var prosentSkaarer = new List<int>();
+        var visSomProsent = _testService.VisSomProsentIHistogram(testKode);
+        var grenseverdier = _testService.HentHistogramgrenser(testKode);
+
         var datapunkter = new List<ProsentDatapunkt>();
+        var raaSkaarMaks = 0;
         var indikatorTellinger = new Dictionary<(string Navn, string Verdi), int>();
         foreach (var tildeling in tildelinger)
         {
@@ -301,8 +325,8 @@ public sealed class GruppeService
                 continue;
             }
 
-            prosentSkaarer.Add(skaaring.ProsentSkaar);
-            datapunkter.Add(new ProsentDatapunkt(tildeling.FullfortUtc!.Value, skaaring.ProsentSkaar));
+            raaSkaarMaks = skaaring.RaaSkaarMaks;
+            datapunkter.Add(new ProsentDatapunkt(tildeling.FullfortUtc!.Value, skaaring.ProsentSkaar, skaaring.RaaSkaar, skaaring.RaaSkaarMaks));
             foreach (var indikator in skaaring.Indikatorer ?? Array.Empty<TestSkaaringIndikator>())
             {
                 var nokkel = (indikator.Navn, indikator.Verdi);
@@ -315,11 +339,21 @@ public sealed class GruppeService
             .OrderBy(r => r.IndikatorNavn).ThenBy(r => r.Verdi)
             .ToList();
 
-        double? gjennomsnitt = prosentSkaarer.Count > 0 ? prosentSkaarer.Average() : null;
-        double? median = prosentSkaarer.Count > 0 ? BeregnMedian(prosentSkaarer) : null;
-        double? standardavvik = prosentSkaarer.Count > 0 ? BeregnStandardavvik(prosentSkaarer) : null;
+        // Statistikken (snitt/median/standardavvik) regnes i SAMME enhet som
+        // histogrammet skal vise — se ITestSkaaringsberegner.VisSomProsentIHistogram
+        // sin klassekommentar for hvorfor råskår er standarden, ikke prosent.
+        var relevanteVerdier = visSomProsent
+            ? datapunkter.Select(d => d.ProsentSkaar).ToList()
+            : datapunkter.Select(d => d.RaaSkaar).ToList();
 
-        return new TestAggregatDetaljer(testId, testNavn, tildelinger.Count, gjennomsnitt, median, standardavvik, fordeling, datapunkter);
+        double? gjennomsnitt = relevanteVerdier.Count > 0 ? relevanteVerdier.Average() : null;
+        double? median = relevanteVerdier.Count > 0 ? BeregnMedian(relevanteVerdier) : null;
+        double? standardavvik = relevanteVerdier.Count > 0 ? BeregnStandardavvik(relevanteVerdier) : null;
+        var skalaMaks = visSomProsent ? 100 : raaSkaarMaks;
+
+        return new TestAggregatDetaljer(
+            testId, testNavn, tildelinger.Count, gjennomsnitt, median, standardavvik,
+            visSomProsent, skalaMaks, grenseverdier, fordeling, datapunkter);
     }
 
     private static double BeregnMedian(List<int> verdier)
@@ -370,8 +404,11 @@ public sealed class GruppeService
         var tilUtc = new DateTimeOffset(til.ToDateTime(TimeOnly.MaxValue), TimeSpan.Zero);
 
         var detaljer = pasientIder.Count == 0
-            ? new TestAggregatDetaljer(testId, test.Navn, 0, null, null, null, Array.Empty<IndikatorFordelingRad>(), Array.Empty<ProsentDatapunkt>())
-            : await BeregnForTestAsync(testId, test.Navn, pasientIder, fraUtc, tilUtc, cancellationToken);
+            ? new TestAggregatDetaljer(
+                testId, test.Navn, 0, null, null, null,
+                _testService.VisSomProsentIHistogram(test.Kode), 100,
+                _testService.HentHistogramgrenser(test.Kode), Array.Empty<IndikatorFordelingRad>(), Array.Empty<ProsentDatapunkt>())
+            : await BeregnForTestAsync(testId, test.Navn, test.Kode, pasientIder, fraUtc, tilUtc, cancellationToken);
 
         var tittel = $"{innhold.Gruppe.Navn} {test.Navn} {fra:dd.MM.yyyy}–{til:dd.MM.yyyy}";
         return new EnkelttestAggregat(innhold.Gruppe.Navn, provedata, fra, til, tittel, detaljer);

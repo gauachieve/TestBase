@@ -37,6 +37,15 @@ public sealed class Who5VasSkaaringsberegner : ITestSkaaringsberegner
         new TestSkaaringReferanselinje("Depresjon", DepresjonGrense)
     };
 
+    /// <summary>Prosent ER selve VAS-skalaen her (råskår/5, se BeregnSkaaring) — samme grenseverdier som Referanselinjer over.</summary>
+    public bool VisSomProsentIHistogram => true;
+
+    public IReadOnlyList<TestSkaaringGrenseverdi> Histogramgrenser { get; } = new[]
+    {
+        new TestSkaaringGrenseverdi("Velvære", VelvaereGrense),
+        new TestSkaaringGrenseverdi("Depresjon", DepresjonGrense)
+    };
+
     public TestSkaaring BeregnSkaaring(IReadOnlyList<TestSvar> svar)
     {
         var verdier = svar.Select(s => int.Parse(s.SvarVerdi)).ToList();

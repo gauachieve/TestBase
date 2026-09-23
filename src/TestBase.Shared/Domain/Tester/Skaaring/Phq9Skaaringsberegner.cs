@@ -20,6 +20,14 @@ public sealed class Phq9Skaaringsberegner : ITestSkaaringsberegner
 
     public string TestKode => "phq9";
 
+    public IReadOnlyList<TestSkaaringGrenseverdi> Histogramgrenser { get; } = new[]
+    {
+        new TestSkaaringGrenseverdi("Mild", 5),
+        new TestSkaaringGrenseverdi("Moderat", 10),
+        new TestSkaaringGrenseverdi("Moderat til alvorlig", 15),
+        new TestSkaaringGrenseverdi("Alvorlig", 20)
+    };
+
     public TestSkaaring BeregnSkaaring(IReadOnlyList<TestSvar> svar)
     {
         var raaSkaar = svar.Take(AntallSkaaredeLedd).Sum(s => int.Parse(s.SvarVerdi));

@@ -32,32 +32,43 @@
         }
         else
         {
+            var enhet = d.VisSomProsent ? "%" : "";
+            var maksSuffiks = d.VisSomProsent ? "" : $" (av {d.SkalaMaks})";
+            var gjennomsnittEtikett = "Gjennomsnitt" + maksSuffiks;
+            var medianEtikett = "Median" + maksSuffiks;
             <div class="rapport-stat-grid">
                 <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@d.AntallFullfort</div><div class="rapport-stat-etikett">Antall deltakere</div></div>
-                <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@(d.GjennomsnittProsent?.ToString("0.0"))%</div><div class="rapport-stat-etikett">Gjennomsnitt</div></div>
-                <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@(d.MedianProsent?.ToString("0.0"))%</div><div class="rapport-stat-etikett">Median</div></div>
-                <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@(d.StandardavvikProsent?.ToString("0.0"))%</div><div class="rapport-stat-etikett">Standardavvik</div></div>
+                <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@(d.Gjennomsnitt?.ToString("0.0"))@enhet</div><div class="rapport-stat-etikett">@gjennomsnittEtikett</div></div>
+                <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@(d.Median?.ToString("0.0"))@enhet</div><div class="rapport-stat-etikett">@medianEtikett</div></div>
+                <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@(d.Standardavvik?.ToString("0.0"))@enhet</div><div class="rapport-stat-etikett">Standardavvik</div></div>
             </div>
 
             <h2>Spredning</h2>
-            <p><em>Antall deltakere per 10 %-intervall av prosentskår.</em></p>
+            <p><em>@(d.VisSomProsent ? "Antall deltakere per 10 %-intervall av prosentskår." : $"Antall deltakere per skår-intervall (råskår, maks {d.SkalaMaks}).")</em></p>
             @if (Model.Plott.Count == 0)
             {
                 <p><em>Ingen data å vise spredning for.</em></p>
             }
             else
             {
-                <svg class="rapport-histogram" viewBox="0 0 560 220" role="img" aria-label="Histogram over antall deltakere per 10 %-intervall av prosentskår">
+                <svg class="rapport-histogram" viewBox="0 0 560 220" role="img" aria-label="Histogram over antall deltakere per skår-intervall">
                     @foreach (var soyle in Model.Plott)
                     {
                         <rect x="@soyle.X.ToString(System.Globalization.CultureInfo.InvariantCulture)" y="@soyle.Y.ToString(System.Globalization.CultureInfo.InvariantCulture)" width="@soyle.Bredde.ToString(System.Globalization.CultureInfo.InvariantCulture)" height="@soyle.Hoyde.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="rapport-histogram-soyle">
-                            <title>@($"{soyle.Etikett}%: {soyle.Antall} deltaker(e)")</title>
+                            <title>@($"{soyle.Etikett}{enhet}: {soyle.Antall} deltaker(e)")</title>
                         </rect>
                         @if (soyle.Antall > 0)
                         {
                             @Html.Raw($"<text x=\"{(soyle.X + soyle.Bredde / 2).ToString(System.Globalization.CultureInfo.InvariantCulture)}\" y=\"{(soyle.Y - 4).ToString(System.Globalization.CultureInfo.InvariantCulture)}\" class=\"rapport-histogram-antall\" text-anchor=\"middle\">{soyle.Antall}</text>")
                         }
-                        @Html.Raw($"<text x=\"{(soyle.X + soyle.Bredde / 2).ToString(System.Globalization.CultureInfo.InvariantCulture)}\" y=\"208\" class=\"rapport-histogram-etikett\" text-anchor=\"middle\">{soyle.Etikett}%</text>")
+                        @Html.Raw($"<text x=\"{(soyle.X + soyle.Bredde / 2).ToString(System.Globalization.CultureInfo.InvariantCulture)}\" y=\"208\" class=\"rapport-histogram-etikett\" text-anchor=\"middle\">{soyle.Etikett}{enhet}</text>")
+                    }
+                    @foreach (var grense in Model.Grenselinjer)
+                    {
+                        <line x1="@grense.X.ToString(System.Globalization.CultureInfo.InvariantCulture)" y1="@grense.Y1.ToString(System.Globalization.CultureInfo.InvariantCulture)" x2="@grense.X.ToString(System.Globalization.CultureInfo.InvariantCulture)" y2="@grense.Y2.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="rapport-histogram-grenselinje">
+                            <title>@($"{grense.Navn}: {grense.Verdi}{enhet}")</title>
+                        </line>
+                        @Html.Raw($"<text x=\"{grense.X.ToString(System.Globalization.CultureInfo.InvariantCulture)}\" y=\"14\" class=\"rapport-histogram-grenseetikett\" text-anchor=\"middle\">{grense.Navn}</text>")
                     }
                 </svg>
             }
@@ -124,9 +135,10 @@ else
                 <p>Antall fullførte besvarelser: <strong>@rad.AntallFullfort</strong></p>
                 @if (rad.AntallFullfort > 0)
                 {
+                    var radEnhet = rad.VisSomProsent ? "%" : $" / {rad.SkalaMaks}";
                     <p>
-                        Gjennomsnitt: <strong>@(rad.GjennomsnittProsent?.ToString("0.0"))%</strong>
-                        — Median: <strong>@(rad.MedianProsent?.ToString("0.0"))%</strong>
+                        Gjennomsnitt: <strong>@(rad.Gjennomsnitt?.ToString("0.0"))@radEnhet</strong>
+                        — Median: <strong>@(rad.Median?.ToString("0.0"))@radEnhet</strong>
                     </p>
                     @if (rad.IndikatorFordeling.Any())
                     {

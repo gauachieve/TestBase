@@ -14,6 +14,11 @@ public sealed class GaditSkaaringsberegner : ITestSkaaringsberegner
 
     public string TestKode => "gadit";
 
+    public IReadOnlyList<TestSkaaringGrenseverdi> Histogramgrenser { get; } = new[]
+    {
+        new TestSkaaringGrenseverdi("Grenseverdi", Cutoff)
+    };
+
     public TestSkaaring BeregnSkaaring(IReadOnlyList<TestSvar> svar)
     {
         // Klassifiserer HVERT svar etter sin egen VERDI (tall vs. "Ja"/"Nei"),

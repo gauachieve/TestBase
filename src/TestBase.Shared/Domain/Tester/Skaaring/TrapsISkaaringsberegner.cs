@@ -19,6 +19,11 @@ public sealed class TrapsISkaaringsberegner : ITestSkaaringsberegner
 
     public string TestKode => "traps_i";
 
+    public IReadOnlyList<TestSkaaringGrenseverdi> Histogramgrenser { get; } = new[]
+    {
+        new TestSkaaringGrenseverdi("Grenseverdi", Grenseverdi)
+    };
+
     public TestSkaaring BeregnSkaaring(IReadOnlyList<TestSvar> svar)
     {
         var del2Svar = svar.Skip(AntallDel1Ledd).Take(AntallDel2Ledd);

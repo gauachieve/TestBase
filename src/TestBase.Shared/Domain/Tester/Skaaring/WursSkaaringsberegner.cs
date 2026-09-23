@@ -19,6 +19,11 @@ public sealed class WursSkaaringsberegner : ITestSkaaringsberegner
 
     public string TestKode => "wurs";
 
+    public IReadOnlyList<TestSkaaringGrenseverdi> Histogramgrenser { get; } = new[]
+    {
+        new TestSkaaringGrenseverdi("Grenseverdi", Grenseverdi)
+    };
+
     public TestSkaaring BeregnSkaaring(IReadOnlyList<TestSvar> svar)
     {
         var raaSkaar = WursTestSeeder.Wurs25Posisjoner

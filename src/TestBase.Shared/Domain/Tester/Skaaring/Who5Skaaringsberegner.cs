@@ -24,6 +24,15 @@ public sealed class Who5Skaaringsberegner : ITestSkaaringsberegner
 
     public string TestKode => "who5";
 
+    /// <summary>WHO-5s egen veiledning rapporterer selv i prosentskår (0-100) — se klassekommentaren.</summary>
+    public bool VisSomProsentIHistogram => true;
+
+    /// <summary>Grenseverdi 13/25 uttrykt i samme prosentskala som resten av testen rapporteres i (13*4=52).</summary>
+    public IReadOnlyList<TestSkaaringGrenseverdi> Histogramgrenser { get; } = new[]
+    {
+        new TestSkaaringGrenseverdi("Grenseverdi", Grenseverdi * 4)
+    };
+
     public TestSkaaring BeregnSkaaring(IReadOnlyList<TestSvar> svar)
     {
         var verdier = svar.Select(s => int.Parse(s.SvarVerdi)).ToList();

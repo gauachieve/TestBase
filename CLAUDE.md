@@ -257,6 +257,23 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   bøtta. `ScatterPunkt`→`HistogramSoyle`, ny `BeregnHistogram` (bøtter via `verdi / 10`, klemt
   [0,9], siste bøtte dekker 90-100). Kun visningslaget endret — `GruppeService`/`ProsentDatapunkt`
   urørt. Se "Grupperapportens 'Spredning' byttet fra tidslinje til histogram" i beslutningsloggen.
+- **Histogrammet byttet fra alltid-prosent til råskår-som-standard + cutoff-linjer (2026-09-23,
+  samme dag):** de fleste standardiserte tester publiserer sin kliniske grenseverdi i RÅSKÅR (GADIT
+  ≥5 av 8, PHQ-9 5/10/15/20 av 27), ikke prosent — å alltid konvertere skjulte de klinisk
+  meningsfulle tallene, bevisst IKKE valgt selv om det hadde gjort koden enklere. Ny valgfri
+  `ITestSkaaringsberegner`-konfigurasjon (default interface members, INGEN av de ~17 eksisterende
+  beregnerne trengte kodeendring): `VisSomProsentIHistogram` (kun `true` for Who5/Who5Vas — deres
+  EGEN offisielle rapporteringskonvensjon) og `Histogramgrenser` (populert fra allerede EKSISTERENDE
+  cutoff-konstanter i Gadit/Ipds/TrapsI/Wurs/RaadsR/Phq9/MadrsS/Who5/Who5Vas — ingen ny klinisk data
+  oppfunnet). `BeregnHistogram` generalisert til enhver skala (`bucketBredde = ⌈skalaMaks/10⌉`, så
+  en liten råskala som GADITs 0-8 IKKE tvinges til 10 kunstig smale bøtter), cutoff-linjer tegnes
+  presist (verdibasert X, ikke bøtte-indeksbasert). Verifisert i nettleser mot ekte lokal GADIT-data:
+  oversikt viser "2,5 / 8" (råskår), enkelttest-histogram viser råskår-bøtter + stiplet
+  "Grenseverdi"-linje presist ved verdi 5. Underveis funnet og fikset en NY, tidligere
+  udokumentert Razor-fallgruve (bokstav-rett-før-`@variabel` renderer bokstavelig i stedet for å
+  interpolere — se fallgruve-listen under). Se "Histogrammet byttet fra alltid-prosent til
+  råskår-som-standard" i beslutningsloggen. Samme kjente PHQ-9-posisjonssårbarhet fortsatt IKKE
+  fikset, kun re-flagget.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
@@ -504,6 +521,7 @@ dotnet watch run
 - EF Core kan IKKE oversette en `OrderBy`/`Where` på en BEREGNET C#-property (en `=>`-uttrykksbundet getter som kombinerer flere kolonner, f.eks. `Visningsnavn => $"{Fornavn} {Etternavn}"`) til SQL — kaster `InvalidOperationException` ved spørringsoversettelse (500-feil ved sidevisning), selv om akkurat samme property brukes helt trygt EFTER `.ToListAsync()` (LINQ-to-Objects, ikke LINQ-to-Entities). Skjedde reelt i `Admin/Grupper/Ny.cshtml.cs` (`_db.Behandlere.OrderBy(b => b.Visningsnavn)` — fanget lokalt via Playwright før deploy, se beslutningsloggen "Admin fikk full CRUD på Grupper"). Hent listen FØRST via `ToListAsync()`, sorter/filtrer på beregnede propertyer i minnet ETTERPÅ.
 - ASP.NET Cores modellbinding konverterer et INNSENDT MEN TOMT skjemafelt til `null` for en `[BindProperty] string`-property — IKKE til `""`, UANSETT hvilken C#-defaultverdi (`= string.Empty`) propertyen har. Rammer ethvert valgfritt tekstfelt der property-typen er ikke-nullbar `string`: en `required string`/`NOT NULL`-kolonne nedstrøms (f.eks. `Pasient.Email`) får da `DbUpdateException`/500 ("Column 'X' cannot be null") så snart feltet faktisk står tomt — selv om ALDRI EN ENESTE linje kode eksplisitt satte noe til `null`. Skjedde reelt i `BliPasient/Index.cshtml.cs` og `PasientRegistrering/FullforProfil.cshtml.cs` (2026-09-20, se beslutningsloggen "Forenklet QR-registrering") da e-post ble gjort valgfritt — fanget ved å faktisk teste "kun telefon, ikke e-post" i nettleser, ikke bare "alle felt utfylt". Ethvert valgfritt tekstfelt MÅ deklareres `string?` på PageModel-en (ikke `string` med default `""`), med en eksplisitt `?? string.Empty`/tilsvarende konvertering ved kallet til laget under som fortsatt krever en ikke-nullbar streng.
 - Razors spesial-håndterte `<text>`-pseudo-tag (kun ment for å bryte ut av markup til ren kode inni en `@foreach`/`@if`-blokk) kan IKKE bære attributter i det hele tatt — heller ikke med en annen store/små bokstaver-variant (`<TEXT>` gir samme `RZ1023`-feil). Rammer et hvilket som helst forsøk på å bygge et ekte SVG `<text>`-element (akseetiketter i et graf/plott) direkte i Razor-markup. Løsning: bygg elementet som en plain C#-streng og skriv den ut via `@Html.Raw(...)` i stedet, se `Grupper/Aggregert.cshtml` sitt spredningsplott (docs/beslutningslogg.md "Gruppe-rapportgenerator"). Samme sted ble en beslektet fallgruve funnet: `@(uttrykk).Metode(...)` (eksplisitt parentes rundt `@`) avslutter selve Razor-uttrykket ved den lukkende parentesen — alt etter, inkludert `.ToString(...)`, blir literal HTML-tekst i stedet for en del av C#-uttrykket. Kun IMPLISITTE uttrykk (`@verdi.Metode(...)`, uten omsluttende parentes) lar et kjede av medlemstilgang/metodekall henge med; et eksplisitt uttrykk må ha hele kjeden inni parentesen: `@((uttrykk).Metode(...))`.
+- Et bokstav-tegn UMIDDELBART etterfulgt av `@variabel` uten mellomrom, inni HTML-elementinnhold (f.eks. `<div>Gjennomsnitt@maksSuffiks</div>`), tolkes IKKE pålitelig som en Razor-kodeovergang — renderer bokstavelig `"Gjennomsnitt@maksSuffiks"`, INKLUDERT selve `@`-tegnet, i stedet for å interpolere variabelens verdi. Ingen kompilatorfeil, ingen runtime-feil, bare feil tekst på skjermen (bekreftet via skjermbilde i `Grupper/Aggregert.cshtml`, 2026-09-23, se "Histogrammet byttet fra alltid-prosent til råskår-som-standard" i beslutningsloggen). Et EKSPLISITT uttrykk rett før `@` (`@(uttrykk)@variabel`, parentes-tegn) er IKKE rammet — kun bokstav-rett-før-`@` er det. Løsning: bygg hele strengen som en frittstående C#-variabel FØRST (`var etikett = "Gjennomsnitt" + maksSuffiks;`), og referer den som et frittstående `@etikett`-uttrykk med ingen tilstøtende bokstavtekst.
 
 ## Hvordan jobbe videre
 

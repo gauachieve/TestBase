@@ -4975,3 +4975,63 @@ søylen og riktig %-intervall under — gjennomsnitt/median i stat-boksene stemt
 av 0+48+80 ≈ riktig). Samme `<text>`-i-SVG-fallgruve som `Grupper/Aggregert.cshtml` sitt forrige
 spredningsplott allerede hadde løst (se "Gruppe-rapportgenerator") — ny kode fulgte samme
 `@Html.Raw(...)`-mønster fra start, ingen ny RZ1023-feil.
+
+## Histogrammet byttet fra alltid-prosent til råskår-som-standard + cutoff-linjer (2026-09-23,
+samme dag)
+
+Brukeren så histogrammet over (bygget rett over, alltid i 10 %-bøtter) og påpekte et reelt
+klinisk problem: de fleste standardiserte tester publiserer sin cutoff/grenseverdi i RÅSKÅR (f.eks.
+GADIT ≥5 av 8, PHQ-9 5/10/15/20 av 27), ikke som prosent — å alltid konvertere til prosent skjuler
+de klinisk meningsfulle tallene, selv om det gjør koden enklere (eksplisitt IKKE valgt). WHO-5/WHO-5
+VAS er de reelle unntakene — prosent ER selve testens offisielle rapporteringskonvensjon der. Ba i
+tillegg om at faktiske cutoff-verdier tegnes inn i histogrammet der de finnes.
+
+**Ny, valgfri per-beregner-konfigurasjon (`ITestSkaaringsberegner`, default interface members —
+INGEN av de ~17 eksisterende implementasjonene trengte endring for å kompilere):**
+- `bool VisSomProsentIHistogram => false` — kun overstyrt til `true` i `Who5Skaaringsberegner` og
+  `Who5VasSkaaringsberegner`.
+- `IReadOnlyList<TestSkaaringGrenseverdi> Histogramgrenser => Array.Empty<...>()` — ny
+  `TestSkaaringGrenseverdi(string Navn, int Verdi)`-record. Populert (gjenbruker EKSISTERENDE
+  cutoff-konstanter, ingen ny klinisk data oppfunnet) i: Who5 (Grenseverdi×4=52 på 0-100-skalaen),
+  Who5Vas (VelvaereGrense=50/DepresjonGrense=28), Gadit (Cutoff=5 på 0-8), Ipds, TrapsI, Wurs,
+  RaadsR, Phq9 (5/10/15/20), MadrsS.
+- `TestService` fikk to nye tynne accessor-metoder (`VisSomProsentIHistogram`/
+  `HentHistogramgrenser`, delegerer til `FinnBeregner(testKode)`), brukt av `GruppeService`.
+
+**`GruppeService`:** `TestAggregatRad`/`TestAggregatDetaljer`/`ProsentDatapunkt` utvidet med
+`VisSomProsent`/`SkalaMaks`/`Grenseverdier` + råskår ved siden av prosentskår per datapunkt.
+`BeregnForTestAsync` slår opp testens `VisSomProsentIHistogram`/`Histogramgrenser` via
+`TestService` og bygger bøttegrunnlaget fra RÅSKÅR med mindre testen selv sier prosent.
+
+**Histogram-bøtting generalisert til å håndtere enhver skala, ikke bare en fast 0-100 %:**
+`bucketBredde = Math.Max(1, ⌈skalaMaks/10⌉)`, `antallBøtter = ⌈skalaMaks/bucketBredde⌉` — en liten
+råskala (GADIT 0-8) degraderer grasiøst til 8 ett-brede bøtter i stedet for å bli tvunget til 10
+kunstig smale. Cutoff-linjer tegnes IKKE bøtte-indeksbasert, men presist ved
+`venstreMarg + verdi/skalaMaks × plottBredde` — en cutoff midt i en bøtte havner der den faktisk
+er. Ny `HistogramGrenselinje`-record (X/Y1/Y2 allerede omregnet til SVG-koordinater, samme mønster
+som `HistogramSoyle`), rendret som en stiplet, rødlig `<line>` + `@Html.Raw(...)`-basert tekstetikett
+(unngikk en NY variant av samme `<text>`-attributt-fallgruve). Ny CSS:
+`.rapport-histogram-grenselinje`/`-grenseetikett` i `site.css`.
+
+**Reell Razor-fallgruve funnet og fikset underveis (IKKE tidligere dokumentert i CLAUDE.md):** et
+bokstav-tegn UMIDDELBART etterfulgt av `@variabel` uten mellomrom
+(`<div>Gjennomsnitt@maksSuffiks</div>`) tolkes IKKE pålitelig som en Razor-kodeovergang inni
+HTML-elementinnhold — renderer bokstavelig teksten "Gjennomsnitt@maksSuffiks", inkludert selve
+`@`-tegnet, i stedet for å sette inn variabelens verdi. Bekreftet via skjermbilde. Løsning: bygg
+HELE strengen i C# først (`var gjennomsnittEtikett = "Gjennomsnitt" + maksSuffiks;`) og referer den
+som et frittstående `@gjennomsnittEtikett`-uttrykk uten tilstøtende bokstavtekst. Bekreftet (samme
+skjermbilde) at `@(uttrykk)@variabel` (parentes-tegn rett før `@`) IKKE har dette problemet — kun
+bokstav-rett-før er rammet. Anvendt i BEGGE `Grupper/Aggregert.cshtml` (Admin og Behandlerportal).
+
+**Verifisert manuelt i nettleser mot ekte lokal data (ny lokal-dev-only gruppe "GADIT-test", to
+prøvedata-pasienter med råskår 0 og 5):** oversiktstabellen viser nå "Gjennomsnitt: 2,5 / 8 — Median:
+2,5 / 8" (råskår, IKKE prosent). Enkelttest-histogrammet for GADIT viser råskår-bøtter
+(0,1,2,...,7-8), søyler ved 0 og 5, og en stiplet "Grenseverdi"-linje presist plassert ved
+råverdi 5 (5/8 av plottbredden) — ikke hoppet til nærmeste bøttekant. Alle 51 tester fortsatt
+grønne (ingen test asserter på rendret HTML, så ingen ny testdekning trengtes for selve
+Razor-fiksen, men kjørt for hygiene).
+
+**Samme kjente, IKKE fiksede sårbarhet som tidligere flagget:** `Phq9Skaaringsberegner` bruker
+fortsatt `svar.Take(9)` (posisjonsbasert), samme mønster som knakk GADIT — siden alle 10 PHQ-9-ledd
+er numeriske, ville et hoppet-over spørsmål her gi en STILLE feil skår, ikke en krasj. Ikke rørt
+denne runden, kun re-flagget.

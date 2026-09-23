@@ -15,6 +15,15 @@ public sealed class MadrsSSkaaringsberegner : ITestSkaaringsberegner
 
     public string TestKode => "madrs_s";
 
+    public IReadOnlyList<TestSkaaringGrenseverdi> Histogramgrenser { get; } = new[]
+    {
+        new TestSkaaringGrenseverdi("Lett forstemning", 6),
+        new TestSkaaringGrenseverdi("Lett deprimert", 11),
+        new TestSkaaringGrenseverdi("Moderat deprimert", 22),
+        new TestSkaaringGrenseverdi("Alvorlig deprimert", 29),
+        new TestSkaaringGrenseverdi("Svært alvorlig", 34)
+    };
+
     public TestSkaaring BeregnSkaaring(IReadOnlyList<TestSvar> svar)
     {
         var raaSkaar = svar.Sum(s => int.Parse(s.SvarVerdi));

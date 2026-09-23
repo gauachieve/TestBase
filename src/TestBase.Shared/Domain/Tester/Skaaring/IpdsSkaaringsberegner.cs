@@ -24,6 +24,11 @@ public sealed class IpdsSkaaringsberegner : ITestSkaaringsberegner
 
     public string TestKode => "ipds";
 
+    public IReadOnlyList<TestSkaaringGrenseverdi> Histogramgrenser { get; } = new[]
+    {
+        new TestSkaaringGrenseverdi("Grenseverdi", Grenseverdi)
+    };
+
     /// <summary>0-basert leddindeks → hvilken DSM-IV-personlighetsforstyrrelse leddet er hentet fra, se klassekommentaren.</summary>
     private static readonly IReadOnlyList<string> KlyngePerLedd = new[]
     {

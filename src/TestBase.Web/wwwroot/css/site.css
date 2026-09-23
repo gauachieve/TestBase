@@ -70,6 +70,8 @@ body.rolle-pasient {
 .rapport-histogram-soyle { fill: var(--accent-dark); }
 .rapport-histogram-etikett { fill: var(--muted); font-size: 11px; }
 .rapport-histogram-antall { fill: var(--ink); font-size: 11px; font-weight: 700; }
+.rapport-histogram-grenselinje { stroke: var(--fare-dark); stroke-width: 2; stroke-dasharray: 4 3; }
+.rapport-histogram-grenseetikett { fill: var(--fare-dark); font-size: 10px; font-weight: 700; }
 .kategori-kognisjon { --kategori-farge: #6366f1; }
 .kategori-adhd { --kategori-farge: #f59e0b; }
 .kategori-sovn { --kategori-farge: #0ea5e9; }
