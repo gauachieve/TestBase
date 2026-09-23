@@ -225,6 +225,21 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   ble likevel skalert trygt tilbake til `B1`/`Basic` (rent reversibelt, uavhengig av
   gruppe-usikkerheten). Avventer brukerens avklaring om hvilken gruppe/mekanisme konferansen
   faktisk brukte, og hva "Test Gruppe" faktisk er. Se "Etter konferansen" i beslutningsloggen.
+  **Oppdatering samme dag: brukeren bekreftet "Test Gruppe" ER konferansegruppen** (GADIT-testen og
+  09-20-datoen var altså bevisste, ikke tegn på feil gruppe) — og rapporterte deretter en reell
+  500-feil ved rapportgenerering. Rotårsak: `GaditSkaaringsberegner` antok en FAST POSISJON i
+  svar-listen (ledd 0-5 = frekvens, 6-7 = Ja/Nei), men `TestService.LagreSvarAsync` hopper stille
+  over ubesvarte felt UTEN å hindre "Fullfort" — én pasient som droppet ett frekvensspørsmål fikk
+  dermed et Ja/Nei-svar til å lande på en posisjon koden ventet tall, og `int.Parse` kastet.
+  **Samme posisjonsbaserte mønster finnes i `Phq9Skaaringsberegner`** (`svar.Take(9)` for å
+  ekskludere funksjonsspørsmålet) — der ville det IKKE krasje (alle 10 PHQ-9-ledd er numeriske) men
+  STILLE gi feil depresjons-sumskår, ikke undersøkt/fikset ennå. Fikset kun for GADIT: klassifiserer
+  nå hvert svar etter EGEN VERDI (tall vs. "Ja"/"Nei"), ikke posisjon — robust uavhengig av hvilke
+  ledd som faktisk ble besvart. Ny regresjonstest lagt til, deployet med `azd deploy` (ren
+  kodeendring), verifisert ende-til-ende i nettleser på selve den virkelige konferansedataen (34
+  prøvedata-deltakere + 1 ekte pasient, ingen krasj). Se "Reell 500-feil i GADIT-skåring" i
+  beslutningsloggen — inkl. en åpen oppfølgingsoppgave om å sjekke andre skåringsklasser for samme
+  sårbarhetsmønster.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

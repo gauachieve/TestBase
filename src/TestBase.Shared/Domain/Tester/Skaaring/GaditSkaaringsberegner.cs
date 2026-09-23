@@ -16,15 +16,27 @@ public sealed class GaditSkaaringsberegner : ITestSkaaringsberegner
 
     public TestSkaaring BeregnSkaaring(IReadOnlyList<TestSvar> svar)
     {
+        // Klassifiserer HVERT svar etter sin egen VERDI (tall vs. "Ja"/"Nei"),
+        // ikke etter POSISJON i listen — `TestService.LagreSvarAsync` hopper
+        // stille over tomme/uendrede felt (aldri en TestSvar-rad for et
+        // ubesvart ledd), og pasienten kan likevel markere testen "Fullfort"
+        // uten at alle 8 ledd er besvart. En posisjonsbasert antagelse
+        // (ledd 0-5 = frekvens, 6-7 = Ja/Nei) forskyves da og feiler med
+        // "input string was not in a correct format" på en helt vanlig,
+        // ekte besvarelse — oppdaget 2026-09-23 på en reell konferanse-
+        // rapportgenerering, se docs/beslutningslogg.md. Et ubesvart ledd
+        // bidrar naturlig med 0 siden det rett og slett ikke finnes i `svar`.
         var raaSkaar = 0;
-        for (var i = 0; i < 6; i++)
+        foreach (var s in svar)
         {
-            var verdi = int.Parse(svar[i].SvarVerdi);
-            raaSkaar += verdi >= 3 ? 1 : 0;
-        }
-        for (var i = 6; i < 8; i++)
-        {
-            raaSkaar += svar[i].SvarVerdi == "Ja" ? 1 : 0;
+            if (int.TryParse(s.SvarVerdi, out var frekvensverdi))
+            {
+                raaSkaar += frekvensverdi >= 3 ? 1 : 0;
+            }
+            else if (s.SvarVerdi == "Ja")
+            {
+                raaSkaar += 1;
+            }
         }
 
         var prosentSkaar = (int)Math.Round(raaSkaar * 100m / Maks);

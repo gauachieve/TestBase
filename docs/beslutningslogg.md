@@ -4803,3 +4803,60 @@ faktisk brukt for dagens konferanse? Ble den kanskje ikke gjennomført, utsatt, 
 annen URL/metode enn `Admin/Grupper`-systemet (f.eks. en behandler sin EGEN QR uten gruppe, som per
 arkitekturen viser kun en bekreftelsesside og ikke automatisk testtildeling)? Og: hva ER egentlig
 "Test Gruppe" fra 2026-09-20 — et tidligere reelt screening-arrangement som bevisst skal beholdes?
+
+**Oppfølging samme dag: brukeren bekreftet "Test Gruppe" ER den faktiske konferansegruppen** (til
+tross for GADIT-testen og 2026-09-20-datoen — begge var altså bevisste/forventede, ikke tegn på feil
+gruppe). Straks etter bekreftelsen meldte brukeren en reell 500-feil ved forsøk på å generere
+grupperapporten, med en `Request-ID` fra ASP.NET Cores standard feilhåndteringsmiddleware.
+
+## Reell 500-feil i GADIT-skåring: posisjonsbasert antagelse knakk på et ubesvart spørsmål
+(2026-09-23)
+
+**Rotårsak, funnet via `az webapp log tail` mot live rett etter brukeren reproduserte feilen:**
+
+```
+System.FormatException: The input string 'Nei' was not in a correct format.
+   at System.Int32.Parse(String s)
+   at GaditSkaaringsberegner.BeregnSkaaring(...) i GaditSkaaringsberegner.cs:line 22
+```
+
+`GaditSkaaringsberegner.BeregnSkaaring` antok en FAST POSISJON i `svar`-listen: ledd 0-5 =
+frekvensspørsmål (numerisk verdi 0-4), ledd 6-7 = Ja/Nei-spørsmål. Denne antagelsen holder KUN hvis
+ALLE 8 ledd faktisk er besvart. `TestService.LagreSvarAsync` hopper imidlertid stille over
+tomme/ubesvarte felt (`if (string.IsNullOrWhiteSpace(verdi)) continue;`, linje 763) — det lagres
+ALDRI en `TestSvar`-rad for et ledd pasienten ikke svarte på, og INGENTING hindrer at testen likevel
+markeres `Fullfort`. En pasient som hoppet over ETT av de 6 frekvensspørsmålene endte dermed opp med
+kun 7 `TestSvar`-rader — det 6. elementet i listen (som skulle vært ledd 7s "Ja"/"Nei") ble tolket
+som ledd 6 (frekvens) og `int.Parse("Nei")` kastet.
+
+**Systemisk funn, IKKE fikset denne runden:** samme mønster finnes i `Phq9Skaaringsberegner`
+(`svar.Take(9)` for å EKSKLUDERE det 10. funksjonsspørsmålet fra sumskåren) — men siden ALLE 10
+PHQ-9-ledd er samme svartype (numerisk `LikertSkala`), ville et ubesvart tidlig spørsmål der IKKE
+krasje, men i stedet STILLE inkludere funksjonsspørsmålets verdi i depresjons-sumskåren og gi et
+FEIL tall uten noen feilmelding — potensielt alvorligere enn GADIT sin synlige krasj, siden ingen
+ville blitt varslet. `TestService.BeregnSkaaringAsync` sin egen kodekommentar (linje 972-977)
+bekrefter at dette posisjonsbaserte mønsteret er BEVISST brukt av flere skåringsklasser, ikke en
+enkeltstående glipp. IKKE undersøkt om andre skåringsklasser (Eq40, Idq, Paq11R, Picd, Traps-I,
+osv.) har lignende sårbarhet — bør gjennomgås systematisk en annen gang, ikke under dette
+akutte presset.
+
+**Fiks (kun GADIT denne runden):** `GaditSkaaringsberegner.BeregnSkaaring` klassifiserer nå HVERT
+svar etter sin egen VERDI (tallparses = frekvensspørsmål, "Ja"/"Nei" = Ja/Nei-spørsmål) i stedet for
+posisjon i listen — korrekt uavhengig av rekkefølge OG uavhengig av hvor mange/hvilke ledd som
+faktisk ble besvart (et ubesvart ledd bidrar naturlig med 0, siden det rett og slett ikke finnes i
+`svar`). Ny regresjonstest lagt til i `SkaaringsberegnereTests.cs`
+(`Gadit_UbesvartMidtstiltFrekvensledd_KraskerIkkeOgTellerResterendeSvarRiktig`) som reproduserer
+akkurat dette scenarioet. Alle 28 skåringstester (og alle andre rene enhetstester uten
+databaseavhengighet) grønne før deploy — de 7 testene som feilet (Rediger-/HeleFlyten-/
+BetalingPipeline-testene) feiler pga. manglende lokal Docker/MySQL-tilkobling, IKKE relatert til
+denne endringen.
+
+**Deployet til live med `azd deploy`** (2m58s, IKKE `azd provision` — ren kodeendring, ingen
+infrastrukturendring), helsesjekk `200` etterpå. **Verifisert ende-til-ende i nettleser** (samme
+side brukeren selv brukte): "Generer Gruppe Rapport" (ekte pasienter, testId 17/GADIT) — 1 deltaker,
+ingen krasj. "Generer Temp Gruppe Rapport" (prøvedata, samme test, 2026-09-01–2026-09-23) — 34
+deltakere, ingen krasj, inkludert nettopp den pasienten hvis ufullstendige besvarelse forårsaket
+det opprinnelige 500-feilen.
+
+**Ingen infrastruktur rørt denne runden** — kun en ren kodefiks. Dette var en ekte, brukerrapportert
+produksjonsfeil på ekte (brukerbekreftet) konferansedata, ikke et testscenario.

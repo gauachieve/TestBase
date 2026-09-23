@@ -309,6 +309,21 @@ public sealed class SkaaringsberegnereTests
     }
 
     [Fact]
+    public void Gadit_UbesvartMidtstiltFrekvensledd_KraskerIkkeOgTellerResterendeSvarRiktig()
+    {
+        // Regresjonstest for reell 500-feil 2026-09-23: TestService.LagreSvarAsync hopper stille
+        // over tomme felt (ingen TestSvar-rad for et ubesvart ledd), så en pasient som markerer
+        // testen "Fullfort" uten å svare på ETT frekvensspørsmål ender opp med bare 7 TestSvar,
+        // ikke 8 — det 3. frekvensleddet mangler her. En posisjonsbasert antagelse ville da tolket
+        // det 6. elementet ("Ja") som et frekvenssvar og kastet en FormatException ved int.Parse.
+        var svar = Svar("4", "3", /* ledd 3 aldri besvart */ "0", "0", "0", "Ja", "Nei");
+        var resultat = new GaditSkaaringsberegner().BeregnSkaaring(svar);
+
+        Assert.Equal(3, resultat.RaaSkaar); // 1(4)+1(3)+0+0+0 + Ja(1) + Nei(0) = 3
+        Assert.Equal(8, resultat.RaaSkaarMaks); // maks er fortsatt 8, uavhengig av hvor mange som faktisk svarte
+    }
+
+    [Fact]
     public void Idq_KriterierKreverBaadeNokEndosserteLeddOgBekreftetFunksjonstap()
     {
         // 5 ledd (inkl. ett kjerneledd) skåret "De fleste dager" (3), funksjon = "Nei" -> IKKE oppfylt.
