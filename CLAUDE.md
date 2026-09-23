@@ -213,6 +213,18 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   Brukeren reapplyer PARALLELT for `nnin_altsub` hos Stø uansett. Gjelder KUN admin/behandler —
   pasient er alltid mock BankID, urelatert til konferansen. IKKE juridisk rådgivning, bør
   kvalitetssikres av DPO/jurist. Se "STØ avviste fødselsnummer-bestilling" i beslutningsloggen.
+- **Etter konferansen (2026-09-23): konferansegruppen kunne IKKE identifiseres, live skalert ned
+  uansett — VIKTIG SIKKERHETSFUNN:** den planlagte oppfølgingsjobben fant INGEN gruppe som matcher
+  dagens WHO-5-konferanse i `Admin/Grupper` på live — kun én eksisterende gruppe ("Test Gruppe",
+  opprettet 2026-09-20, tre dager FØR konferansen, med et pengespillavhengighet-screeningverktøy
+  tilordnet, ikke WHO-5). MySQL-metrikker for konferansevinduet viser praktisk talt INGEN aktivitet
+  utover idle-grunnlinje. **`Admin/Pasienter` avdekket at store deler av "Test Gruppe" sine 43
+  pasienter har det som ser ut som EKTE navn/e-post/(i minst ett tilfelle) et gyldig-utseende
+  personnummer — IKKE syntetisk testdata.** Disse radene er BEVISST IKKE rørt/slettet/undersøkt
+  videre, og verken navn, e-post eller personnummer er gjengitt i noen kildekontrollert fil. Live
+  ble likevel skalert trygt tilbake til `B1`/`Basic` (rent reversibelt, uavhengig av
+  gruppe-usikkerheten). Avventer brukerens avklaring om hvilken gruppe/mekanisme konferansen
+  faktisk brukte, og hva "Test Gruppe" faktisk er. Se "Etter konferansen" i beslutningsloggen.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

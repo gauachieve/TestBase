@@ -4732,3 +4732,74 @@ skalere LIVE tilbake til `B1`/`Basic` + `Standard_B1ms`/`Burstable` etterpå.
 BEGGE gruppene fra denne runden, test-behandleren likeså), beta satt tilbake til `B1`/`Basic` +
 `Standard_B1ms`/`Burstable` (`azd provision` 6m3s, bekreftet). Beta ble IKKE holdt oppskalert —
 brukeren presiserte eksplisitt at kun live trengte forhøyet tier for morgendagen.
+
+## Etter konferansen (2026-09-23): gruppen kunne IKKE identifiseres med sikkerhet — live skalert
+ned, ingen konklusjon om selve konferansens ytelse trukket ennå
+
+**Den planlagte oppfølgingsjobben** (CronCreate, satt opp i forrige seksjon) kjørte som planlagt
+kl. 13:17 norsk tid, altså rett etter konferansens oppgitte sluttidspunkt (11:50-13:00). Målet var å
+hente ekte Azure-metrikker og ekte deltaker-/fullføringstall for konferansen, sammenligne med
+k6-simuleringens 473/1000-anslag fra "Lasttest mot beta, del 4", og skalere live tilbake ned.
+
+**MySQL-metrikker for vinduet 09:45-11:05 UTC (11:45-13:05 norsk tid) viser praktisk talt INGEN
+aktivitet utover idle-grunnlinje:** `active_connections` toppet på 7 (mot en idle-grunnlinje på 5
+resten av tiden), `aborted_connections` var 0 gjennom hele vinduet (kun ett enkeltstående
+2-tilfelle). Til sammenligning viste selv den MINSTE k6-lasttesten denne uken (10-25 VUs, tidlig i
+"Lasttest mot beta, del 1") `active_connections` godt over dette. Dette tyder sterkt på at INGEN
+betydelig registreringsbølge traff databasen i dette tidsvinduet, uansett hvilken mekanisme
+konferansen faktisk brukte.
+
+**App Service sine klassiske metrikker (CpuTime/Threads/Http5xx/AverageResponseTime) var
+UTILGJENGELIGE for live sin App Service-ressurs** (`az monitor metrics list-definitions` viser at
+KUN `MemoryWorkingSet`/`AverageMemoryWorkingSet`/`InstanceCount` er registrert for
+`app-testbase-tk46vyxboocho` akkurat nå — samme feilmelding som dukket opp for BETA under del 5s
+andre S2+B2s-kjøring i går). Beta (nå tilbake på `B1`/`Basic`) har derimot ALLE klassiske
+metrikker tilgjengelig akkurat nå, bekreftet ved samme kommando. Dette er altså IKKE en generell
+Azure-regresjon eller noe knyttet til S2-tieren spesifikt (siden beta hadde disse metrikkene
+tilgjengelig BÅDE før og etter egne SKU-endringer i går) — det er spesifikt knyttet til
+LIVE-ressursen, årsak fortsatt ukjent. Verdt å undersøke videre en annen gang (f.eks. sjekke
+diagnostic settings/Application Insights-tilknytning på live vs. beta), men blokkerer ikke selve
+appens funksjon (helsesjekk er og har vært `200` hele veien).
+
+**Selve konferansegruppen kunne IKKE identifiseres med sikkerhet.** `Admin/Grupper` på live viser
+kun ÉN gruppe totalt: "Test Gruppe", opprettet 2026-09-20 (TRE dager før konferansen), eid av en
+behandler, med KUN "Spillavhengighet ICD-11 GADIT" (et pengespillavhengighet-screeningverktøy)
+tilordnet — IKKE WHO-5, som var testen konferansen skulle bruke. Gruppen har ingen
+Startdato/Sluttdato satt. Dette matcher IKKE beskrivelsen av dagens WHO-5-baserte
+QR-konferanse i det hele tatt.
+
+**Viktig sikkerhetsfunn, IKKE håndtert videre denne runden:** `Admin/Pasienter` viser at store deler
+av denne gruppens 43 pasienter har det som ser ut som EKTE navn, e-postadresser (inkl. domener som
+tyder på en reell fagperson-/organisasjonssammenheng rundt pengespillavhengighet) og i minst ETT
+tilfelle et fullstendig utfylt, gyldig-utseende norsk personnummer — IKKE syntetisk
+test-mønster-data. Disse radene er BEVISST IKKE rørt, IKKE slettet, IKKE brukt til noen
+rapportgenerering, og verken navn, e-post eller personnummer er gjengitt her eller andre steder i
+kildekontrollert dokumentasjon — kun dette generiske varselet. Dette kan være en tidligere, reell
+(og muligens fullt gyldig/tilsiktet) bruk av systemet av brukeren selv til et annet formål enn
+denne ukens WHO-5-konferanse — MEN det kunne ikke bekreftes uten å spørre brukeren direkte, så
+INGEN antakelse om at dette er trygt testdata ble gjort. Se `CLAUDE.md` sitt prinsipp "Ingen ekte
+pasientdata i dev/test noensinne" — dette gjelder eksplisitt IKKE på samme måte for selve
+LIVE-miljøet (der ekte pasientdata på et tidspunkt er selve formålet), men det MÅ i så fall skje
+bevisst og med fullt samtykke/korrekt rettslig grunnlag, ikke oppdages tilfeldig av en automatisert
+oppfølgingsjobb som dette.
+
+**Handling denne runden: KUN det trygge, tidssensitive steget ble gjennomført.** Live skalert
+tilbake til `B1`/`Basic` + `Standard_B1ms`/`Burstable` (uendret — MySQL ble aldri rørt for live i
+det hele tatt denne uken), bekreftet med `az appservice plan show` (`B1`/`Basic`) og tre helsesjekk
+(`200`, 0.3-0.5s). `azd provision` tok 5m5s. Dette var trygt å gjøre uavhengig av
+gruppe-usikkerheten over, siden det er rent reversibelt og tidspunktet uansett var forbi
+konferansens oppgitte sluttid.
+
+**IKKE gjort denne runden, avventer brukerens avklaring:**
+- Steg 2/3 fra oppfølgingsjobbens instruks (finne ekte deltaker-/fullføringstall, skrive en
+  sammenligning mot k6-simuleringens 473/1000-anslag) — kan ikke gjøres pålitelig før riktig
+  gruppe/mekanisme er identifisert.
+- Ingen konklusjon trukket om hvorvidt `S2`-skaleringen faktisk hjalp eller ikke under den ekte
+  konferansen, siden det ikke er bekreftet at konferansen genererte merkbar trafikk i det hele tatt.
+- "Test Gruppe" sitt datainnhold — verken ryddet, undersøkt videre, eller antatt trygt.
+
+**Spørsmål til brukeren (se sesjonens svar når de kommer):** hvilken gruppe/QR-kode/mekanisme ble
+faktisk brukt for dagens konferanse? Ble den kanskje ikke gjennomført, utsatt, eller brukte en helt
+annen URL/metode enn `Admin/Grupper`-systemet (f.eks. en behandler sin EGEN QR uten gruppe, som per
+arkitekturen viser kun en bekreftelsesside og ikke automatisk testtildeling)? Og: hva ER egentlig
+"Test Gruppe" fra 2026-09-20 — et tidligere reelt screening-arrangement som bevisst skal beholdes?
