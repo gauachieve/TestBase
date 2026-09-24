@@ -329,9 +329,14 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   PHQ-9s tilsvarende kjente sårbarhet for en fremtidig opprydningsrunde. **Del 3 (samme natt):**
   CORE-10 (kortversjon av CORE-OM, CORE System Trust) også ferdig — reverse-skårer ledd 1/5,
   flagger ledd 3/10 (selvskading/"livet ikke verdt å leve") separat, `ITestSkaaringsberegnerMedLedd`.
-  Gjenstår fortsatt: CORE-OM (full 34-ledds versjon), en CORE-risikomodul, SIPP-118, YGTSS-R,
-  MADRS klinikkversjon, SCID-5-PF (de tre siste krever "behandler fyller ut"-mekanismen), Mini-
-  Screen 6 og HCR-20 V3 (lisensfølsomme).
+  **Del 4 (samme natt, cron-jobben fortsatte automatisk):** CORE-OM (full 34-ledds versjon, 4
+  domener, 10 reverse-skårte ledd) og CORE-A (frittstående 8-ledds risikoscreening — brukerens
+  forkortelse tolket som et supplement til CORE-OMs risikodomene, IKKE et navngitt offisielt
+  dokument) også ferdig. CORE-A er BEVISST IKKE et sumskår-verktøy — risiko for seg selv/andre
+  flagges som egne indikatorer uansett totalskår, verifisert ende-til-ende i nettleser (en
+  besvarelse med 6 % totalskår viste likevel korrekt "Flagget" for risiko for andre). Gjenstår
+  fortsatt: SIPP-118, YGTSS-R, MADRS klinikkversjon, SCID-5-PF (de tre siste krever "behandler
+  fyller ut"-mekanismen), Mini-Screen 6 og HCR-20 V3 (lisensfølsomme).
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

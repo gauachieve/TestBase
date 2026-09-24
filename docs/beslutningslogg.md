@@ -5291,3 +5291,41 @@ Committes og deployes til begge miljøer sammen med denne loggføringen.
 tidligere seksjon), SIPP-118, YGTSS-R, MADRS klinikkversjon, SCID-5-PF (alle tre siste krever den
 planlagte "behandler fyller ut"-mekanismen, IKKE bygget ennå), Mini-Screen 6 og HCR-20 V3 (begge
 lisensfølsomme, skal IKKE ha oppdiktet ekte iteminnhold).
+
+## Natt-økt, del 4: CORE-OM (full 34-ledds versjon) og CORE-A (frittstående risikoscreening)
+(2026-09-25, samme natt — cron-jobben fra del 1 kjørte og fortsatte arbeidet automatisk)
+
+**CORE-OM** (`core_om`, "Funksjon, livskvalitet og behandlingsutfall") — den fulle 34-ledds
+versjonen som CORE-10 (del 3) er en kortversjon av. Samme opphavsrettslige forbehold som CORE-10:
+OMSKREVET/PARAFRASERT, IKKE verbatim. 4 domener: Velvære (4 ledd), Problemer/symptomer (12 ledd:
+angst/depresjon/fysisk/traume), Livsfunksjon (12 ledd), Risiko (6 ledd: risiko for seg selv 4 +
+risiko for andre 2). 10 positivt formulerte ledd (3 i Velvære, 7 i Livsfunksjon) reverse-skåres.
+Forenklet klinisk cutoff (gjennomsnitt ≥1,0) — offisielle CORE-OM-normer skiller noe mellom kjønn,
+IKKE modellert her (samme forenklings-beslutning som DUDIT sin kjønnsavhengige cutoff, men her
+valgt ett enkelt tall i stedet for å oppgi begge, siden CORE sin kjønnsforskjell er mindre
+klinisk kritisk enn DUDITs). Risikoledd (29-34) flagges alltid separat, uavhengig av totalskår.
+
+**CORE-A** (`core_a`, "Vold, selvmord og risikovurdering") — brukerens forkortelse for "det tredje
+CORE-skjemaet" var IKKE entydig i offentlig CORE-litteratur. BEVISST EGEN TOLKNING: et kort (8
+ledd), FRITTSTÅENDE risikoscreening (selvskading/selvmord + fare for andre) som supplerer CORE-OM
+sitt innebygde 6-ledds risikodomene med mer klinisk handlingsrettet informasjon (konkret plan,
+tilgang til middel) — til bruk når en rask risikosjekk alene er ønskelig. **Arkitektonisk bevisst
+IKKE et sumskår-verktøy**: skåringsberegneren flagger risiko for seg selv og risiko for andre som
+EGNE, uavhengige indikatorer, og fortolkningsteksten sier eksplisitt at ETHVERT ledd besvart over
+laveste alternativ krever klinisk oppfølging UANSETT totalskår — en lav prosentskår skal aldri
+kunne leses som "trygt". Verifisert i nettleser (se under) at nettopp DETTE virker: en besvarelse
+med kun ett enkelt "Noen ganger"-svar (ledd 6, fare for andre) ga 6 % totalskår, MEN rapporten
+viste like fullt "MINST ETT RISIKOLEDD ER BESVART..." og en rød "Flagget"-indikator for risiko for
+andre, atskilt fra en grønn "Ikke flagget" for risiko for seg selv.
+
+Begge bruker `ITestSkaaringsberegnerMedLedd` for korrekt domene-/reverse-/risikogruppering
+uavhengig av hoppet-over ledd.
+
+**Verifisert:** build + alle 59 tester grønne (4 nye regresjonstester). FULL ende-til-ende
+nettleser-verifisering av CORE-A (tildel→fyll ut med bevisst ett risikoledd besvart→behandler-
+rapport), som validerte nettopp "aldri et sumskår-verktøy"-designprinsippet i praksis, ikke bare i
+kode. CORE-OM kun strukturelt spot-sjekket (kategori/sider), ikke en full fyll-runde. Committes og
+deployes til begge miljøer sammen med denne loggføringen.
+
+**Gjenstår fortsatt:** SIPP-118, YGTSS-R, MADRS klinikkversjon, SCID-5-PF (de tre siste krever
+"behandler fyller ut"-mekanismen), Mini-Screen 6 og HCR-20 V3 (lisensfølsomme).

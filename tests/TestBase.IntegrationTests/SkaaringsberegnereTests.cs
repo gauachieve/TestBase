@@ -484,4 +484,39 @@ public sealed class SkaaringsberegnereTests
 
         Assert.Contains(resultat.Indikatorer!, i => i.Navn.Contains("Livet ikke verdt") && !i.Positiv);
     }
+
+    [Fact]
+    public void CoreOm_ReverseSkaarerRiktigeLeddOgFlaggerRisikoUavhengigAvHoppetOverLedd()
+    {
+        // 34 ledd: Velvære(1-4) alle "0" -> reversert (posisjon 0,1,3) gir 4+4+0+4=12, ledd 2 (indeks 1) hoppes over.
+        var par = new List<(int, string?)>
+        {
+            (1, "0"), (2, null), (3, "0"), (4, "0")
+        };
+        for (var i = 5; i <= 16; i++) par.Add((i, "0"));   // Problemer/symptomer
+        for (var i = 17; i <= 28; i++) par.Add((i, "0"));  // Livsfunksjon
+        for (var i = 29; i <= 34; i++) par.Add((i, "0"));  // Risiko, alt 0 bortsett fra ett ledd under
+        par[par.Count - 1] = (34, "3"); // Ledd 34 = "truet med å skade andre" -> risiko for andre flagges
+
+        var (alleLedd, svar) = LeddOgSvar(par.ToArray());
+        var resultat = new CoreOmSkaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        // Velvære: ledd1(revers 4-0=4) + ledd2(revers, mangler->0, 4-0=4) + ledd3(IKKE revers, 0) + ledd4(revers 4) = 12.
+        Assert.Contains("Velvære 12/16", resultat.Fortolkning);
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn.Contains("Risiko for andre") && !i.Positiv);
+    }
+
+    [Fact]
+    public void CoreA_ErIkkeEtSumskaarVerktoy_FlaggerEnkeltleddSelvOmTotalenErLav()
+    {
+        var par = Enumerable.Range(1, 8).Select(i => (i, (string?)"0")).ToList();
+        par[2] = (3, "1"); // Ledd 3 = konkret selvmordsplan, besvart 1 (lavt, men IKKE null)
+        var (alleLedd, svar) = LeddOgSvar(par.ToArray());
+
+        var resultat = new CoreARisikoSkaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        Assert.Contains("MINST ETT RISIKOLEDD", resultat.Fortolkning);
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Risiko for seg selv" && !i.Positiv);
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Risiko for andre" && i.Positiv);
+    }
 }
