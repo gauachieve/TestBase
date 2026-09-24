@@ -5140,3 +5140,74 @@ konvensjon som resten av prosjektet:
 forhåndsvalgt pasient, og søkefeltet på steg 2 filtrerer kategori-treet korrekt ned til kun
 matchende tester (kategorier uten treff kollapser helt). Alle 51 tester fortsatt grønne. Deployet
 til BÅDE live og beta samme dag.
+
+## Natt-økt: seks nye innebygde tester + generell fiks for delskala-skåring (2026-09-24/25)
+
+Brukeren ga en lang liste med nye tester å bygge overnatting, uten å vente på tilbakemelding
+("ta alle beslutningene selv og commit/deploy... det blir 'feil' i første forsøk uansett, men det
+er lettere for meg å kommentere enn å beskrive alt for hånd"), pluss et ønske om at arbeidet
+fortsetter automatisk når økten får mer usage igjen (se CronCreate-oppsettet nederst i denne
+seksjonen, når det er satt opp). Listen var: ASRS, YGTSS-R, MADRS (klinikkversjon), PHQ-9 (fantes
+allerede), SCL-25, CORE (alle 3 skjemaene) + SIPP-118, SCID-5-PF, Mini-Screen 6 (usikker lisens),
+AUDIT, DUDIT, BSQ-14, EDE-Q, TRAPS-II, SDQ-20, HCR-20 V3.
+
+**Første, generelle arkitekturfiks (påkrevd FØR flere av testene kunne bygges trygt):** ny
+`ITestSkaaringsberegnerMedLedd : ITestSkaaringsberegner` — en valgfri utvidelse som gir en
+skåringsberegner tilgang til ALLE testens ledd (ikke bare de besvarte), slik at delskala-
+gruppering kan gjøres via ekte `TestLedd.Id`-oppslag i stedet for listeposisjon. Nødvendig fordi
+GADIT-klassen bugs (se "Reell 500-feil i GADIT-skåring", 2026-09-23) rammer ETHVER ny test med
+FLERE delskalaer der alle ledd deler samme Likert-skala (så verdibasert klassifisering, som løste
+GADIT, ikke virker der) — et hoppet-over spørsmål ville ellers forskjøvet hvilke svar som havner i
+hvilken delskala. `TestService.BeregnSkaaringAsync` OG det tidligere upassede
+`HentSkaaringHistorikkAsync` (funnet under samme gjennomgang — kalte `BeregnSkaaring` DIREKTE uten
+å sjekke det nye grensesnittet, ville krasjet "utvikling over tid"-grafen for enhver ny
+MedLedd-basert test) sjekker nå begge dette grensesnittet FØR de faller tilbake til det
+opprinnelige. INGEN av de ~20 eksisterende skåringsberegnerne trengte endring. Verifisert med to
+nye regresjonstester (`SkaaringsberegnereTests.cs`:
+`Asrs_HoppetOverDelASporsmaalForskyverIkkeHvilkeSvarSomTelles`,
+`Scl25_SelvmordsleddFlaggesKunNaarBesvartOverLaveste`) OG en full ende-til-ende-
+nettleserverifisering (assign→fyll ut med ett hoppet-over Del A-spørsmål→godkjenningsrapport) som
+bekreftet korrekt Råskår 4/6 og riktig "Positiv"-indikator uten krasj.
+
+**Seks nye tester bygget denne runden** (alle patient-selvutfylte, ingen skjemaendring — samme
+`Test`/`TestSide`/`TestLedd`-modell som alt eksisterende):
+
+- **ASRS Symptomsjekkliste** (`asrs`, kategori "ADHD, autisme og nevroutvikling") — WHO/Kessler
+  v1.1, 18 ledd (Del A = validert 6-ledds screener med ASYMMETRISKE per-ledd-terskler, Del B =
+  12 tilleggsledd som ikke teller). Bruker `ITestSkaaringsberegnerMedLedd`.
+- **AUDIT** (`audit`, "Rus og avhengighet") — WHOs alkoholscreening, 10 ledd (ulike svarskalaer
+  per ledd), enkel sum 0-40, offisielle WHO-cutoffs (8/16/20).
+- **DUDIT** (`dudit`, "Rus og avhengighet") — Berman et al. sin narkotika-motpart til AUDIT, 11
+  ledd, sum 0-44. Cutoff for "mulig problem" er KJØNNSAVHENGIG (menn ≥6, kvinner ≥2) —
+  skåringsberegneren har ingen tilgang til pasientens kjønn (ren funksjon), så begge grenser
+  oppgis i fortolkningsteksten i stedet for å hardkode én av dem.
+- **SCL-25 / Hopkins Symptom Checklist-25** (`scl25`, "Diagnostikk, tverrgående og øvrige
+  verktøy") — 25 ledd, angst-delskala (1-10) + depresjons-delskala (11-25), offisiell
+  gjennomsnitt-cutoff 1,75. Ledd 24 ("Tanker om å avslutte livet") flagges ALLTID som egen,
+  fremhevet selvmordsscreening-indikator når besvart over laveste alternativ, uavhengig av
+  totalskår — en bevisst sikkerhetsbeslutning, ikke noe kildematerialet krevde eksplisitt. Bruker
+  `ITestSkaaringsberegnerMedLedd`.
+- **BSQ-14** (`bsq14`, "Spiseforstyrrelser og kroppsbilde") — Evans & Dolan sin kortversjon av
+  Cooper et al. sitt Body Shape Questionnaire, 14 ledd, sum 14-84, cutoffs proporsjonalt skalert
+  fra de mye siterte BSQ-34-grensene (IKKE hentet fra en BSQ-14-spesifikk offisiell kilde).
+- **SDQ-20** (`sdq20`, "Traumer, dissosiasjon og belastninger") — Nijenhuis et al. sitt
+  Somatoform Dissociation Questionnaire, 20 ledd, sum 20-100, offisiell cutoff ≥30.
+
+**Bevisst IKKE gjort for noen av disse:** norsk oversettelse er EGENFORFATTET (ikke hentet fra en
+sitert offisiell norsk kilde, i motsetning til PHQ-9/WHO-5 sine spesifikke kildehenvisninger) —
+hver seeder sin XML-kommentar sier dette eksplisitt og anbefaler kvalitetssikring før reell
+klinisk bruk, i tråd med brukerens eget "det blir feil i første forsøk". Ingen `MaksUbesvartProsent`/
+`NormertGjennomsnitt` satt (samme prinsipp som alle tidligere tester — ingen oppdiktede
+normeringstall).
+
+**Verifisert:** build + alle 53 tester grønne (51 gamle + 2 nye), OG en full nettleser-verifisering
+av ASRS spesifikt (den eneste av de seks som bruker det nye grensesnittet i produksjonskode-stien,
+ikke bare enhetstest). De fem andre er IKKE browser-verifisert enkeltvis denne runden — kun bygget
+etter nøyaktig samme, allerede validerte mønster (Phq9TestSeeder/-Skaaringsberegner) og
+build-verifisert.
+
+**Fortsettelse:** resten av listen (YGTSS-R, MADRS klinikkversjon, EDE-Q, CORE×3, SIPP-118,
+SCID-5-PF, TRAPS-II, Mini-Screen 6, HCR-20 V3) bygges videre i påfølgende deler av samme natt-økt —
+se senere seksjoner i loggen (samme dato/påfølgende dato) for status og videre plan, inkl. en ny,
+planlagt "testen fylles ut av behandler, ikke pasient"-mekanisme som trengs for YGTSS-R/
+MADRS-klinikk/SCID-5-PF.

@@ -1026,7 +1026,9 @@ public sealed class TestService
             }
         }
 
-        var skaaring = beregner.BeregnSkaaring(fullstendigSvar);
+        var skaaring = beregner is ITestSkaaringsberegnerMedLedd beregnerMedLedd
+            ? beregnerMedLedd.BeregnSkaaringMedLedd(fullstendigSvar, alleLedd)
+            : beregner.BeregnSkaaring(fullstendigSvar);
 
         if (test.MaksUbesvartProsent is not null && alleLedd.Count > 0)
         {
@@ -1068,7 +1070,10 @@ public sealed class TestService
         foreach (var tildeling in tildelinger)
         {
             var svar = await _db.TestSvar.Where(s => s.TestTildelingId == tildeling.Id).ToListAsync(cancellationToken);
-            punkter.Add(new SkaaringHistorikkPunkt(tildeling, beregner.BeregnSkaaring(svar)));
+            var skaaring = beregner is ITestSkaaringsberegnerMedLedd beregnerMedLedd
+                ? beregnerMedLedd.BeregnSkaaringMedLedd(svar, (await HentTestStrukturAsync(tildeling.TestId, cancellationToken)).AlleLedd)
+                : beregner.BeregnSkaaring(svar);
+            punkter.Add(new SkaaringHistorikkPunkt(tildeling, skaaring));
         }
 
         return punkter;

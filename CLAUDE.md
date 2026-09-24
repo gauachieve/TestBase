@@ -297,6 +297,24 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   `tabellfilter.js`) i BEGGE Areas; Aktiv/Arkivert-faner (samme `faner.js`-mønster som
   `Grupper/Index`) på BÅDE `Behandlerportal/Pasienter/Index` og `Admin/Pasienter/Index`. Se
   "Fire UI-forbedringer på tildelingsflyten + pasientlister" i beslutningsloggen.
+- **Natt-økt (2026-09-24/25, pågående over flere økter): stor batch nye innebygde tester,
+  autonomt uten å vente på brukerens tilbakemelding** — se docs/beslutningslogg.md "Natt-økt:
+  seks nye innebygde tester..." (og senere seksjoner samme natt/påfølgende dager) for full,
+  løpende status. Ny, generell arkitekturfiks først: `ITestSkaaringsberegnerMedLedd` (valgfri
+  utvidelse av `ITestSkaaringsberegner`, ingen eksisterende beregner endret) gir en
+  skåringsberegner ekte `TestLedd.Id`-oppslag mot ALLE testens ledd — nødvendig for enhver ny test
+  med FLERE delskalaer der alle ledd deler samme Likert-skala (samme rotårsak-klasse som
+  GADIT-krasjen 2026-09-23, men verdibasert klassifisering virker ikke der). Samtidig fikset:
+  `TestService.HentSkaaringHistorikkAsync` kalte skåringsberegneren direkte uten å sjekke dette
+  nye grensesnittet (ville krasjet "utvikling over tid"-grafen for enhver MedLedd-basert test).
+  Første seks tester ferdig: ASRS, AUDIT, DUDIT, SCL-25, BSQ-14, SDQ-20 — alle patient-
+  selvutfylte, INGEN skjemaendring. Norsk oversettelse er EGENFORFATTET for samtlige (ikke hentet
+  fra en sitert offisiell kilde) — eksplisitt flagget i hver seeder, bør kvalitetssikres før reell
+  klinisk bruk, i tråd med brukerens eget "det blir feil i første forsøk uansett". Gjenstår:
+  YGTSS-R, MADRS klinikkversjon, EDE-Q, CORE×3, SIPP-118, SCID-5-PF, TRAPS-II, Mini-Screen 6
+  (usikker lisens), HCR-20 V3 (lisensiert forensisk risikovurderingsverktøy — bør IKKE bygges med
+  oppdiktet reelt iteminnhold, se beslutningsloggen når/hvis den seksjonen er skrevet) — pluss en
+  planlagt "test fylles ut av behandler, ikke pasient"-mekanisme som trengs for tre av disse.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

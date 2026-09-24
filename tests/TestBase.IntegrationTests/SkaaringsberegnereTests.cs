@@ -369,4 +369,52 @@ public sealed class SkaaringsberegnereTests
         var anankasme = resultat.Indikatorer!.Single(i => i.Navn == "Anankasme");
         Assert.Contains("sum 16/60", anankasme.Verdi);
     }
+
+    /// <summary>Ledd med fortløpende Id-er (1..N) og en tilhørende TestSvar for hver — til å teste ITestSkaaringsberegnerMedLedd-implementasjoner.</summary>
+    private static (List<TestLedd> AlleLedd, List<TestSvar> Svar) LeddOgSvar(params (int LeddNr, string? Verdi)[] par)
+    {
+        var alleLedd = par.Select(p => new TestLedd { Id = p.LeddNr, TestSideId = 1, Sporsmalstekst = "x", Svartype = TestSvartype.LikertSkala }).ToList();
+        var svar = par.Where(p => p.Verdi is not null)
+            .Select(p => new TestSvar { TestLeddId = p.LeddNr, SvarVerdi = p.Verdi! })
+            .ToList();
+        return (alleLedd, svar);
+    }
+
+    [Fact]
+    public void Asrs_HoppetOverDelASporsmaalForskyverIkkeHvilkeSvarSomTelles()
+    {
+        // 18 ledd totalt (Del A = 1-6, Del B = 7-18). Ledd 3 (Del A) er UBESVART — skal
+        // IKKE gjøre at ledd 7 sin (Del B) verdi feilaktig telles som Del A sitt tredje svar
+        // (samme rotårsak-klasse som GADIT-krasjen, se ITestSkaaringsberegnerMedLedd).
+        var par = new List<(int, string?)>
+        {
+            (1, "2"), (2, "3"), (3, null), (4, "3"), (5, "4"), (6, "0")
+        };
+        for (var i = 7; i <= 18; i++)
+        {
+            par.Add((i, "4")); // Del B: høye verdier som IKKE skal påvirke Del A-skåren
+        }
+        var (alleLedd, svar) = LeddOgSvar(par.ToArray());
+
+        var resultat = new AsrsSkaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        // Ledd 1 (terskel 2): 2>=2 ja. Ledd 2 (terskel 2): 3>=2 ja. Ledd 3: ubesvart, telles ikke.
+        // Ledd 4 (terskel 3): 3>=3 ja. Ledd 5 (terskel 3): 4>=3 ja. Ledd 6 (terskel 3): 0>=3 nei.
+        // -> 4 av 6 over terskel, uavhengig av Del B sine (mye høyere) verdier.
+        Assert.Equal(4, resultat.RaaSkaar);
+        Assert.Equal(6, resultat.RaaSkaarMaks);
+        Assert.Contains("Positiv", resultat.Indikatorer!.Single().Verdi);
+    }
+
+    [Fact]
+    public void Scl25_SelvmordsleddFlaggesKunNaarBesvartOverLaveste()
+    {
+        var par = Enumerable.Range(1, 25).Select(i => (i, (string?)"1")).ToList();
+        par[23] = (24, "3"); // Ledd 24 = "Tanker om å avslutte livet", besvart 3 (over 1)
+        var (alleLedd, svar) = LeddOgSvar(par.ToArray());
+
+        var resultat = new Scl25Skaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn.Contains("Selvmordsscreening") && !i.Positiv);
+    }
 }

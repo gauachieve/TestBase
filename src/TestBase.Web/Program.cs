@@ -98,6 +98,18 @@ builder.Services.AddScoped<ITestSkaaringsberegner, IaqSkaaringsberegner>();
 builder.Services.AddScoped<IInnebygdTestSeeder, IaqTestSeeder>();
 builder.Services.AddScoped<ITestSkaaringsberegner, GaditSkaaringsberegner>();
 builder.Services.AddScoped<IInnebygdTestSeeder, GaditTestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, AsrsSkaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, AsrsTestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, AuditSkaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, AuditTestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, DuditSkaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, DuditTestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, Scl25Skaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, Scl25TestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, Bsq14Skaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, Bsq14TestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, Sdq20Skaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, Sdq20TestSeeder>();
 
 // Admin og Behandlerportal deler nå én samlet innloggingsside (/Konto/LoggInn
 // — BankID finner personen og logger inn på høyeste rolle selv, uten at
