@@ -5329,3 +5329,35 @@ deployes til begge miljøer sammen med denne loggføringen.
 
 **Gjenstår fortsatt:** SIPP-118, YGTSS-R, MADRS klinikkversjon, SCID-5-PF (de tre siste krever
 "behandler fyller ut"-mekanismen), Mini-Screen 6 og HCR-20 V3 (lisensfølsomme).
+
+## Natt-økt, del 5: "SIPP-118" — en BEVISST kraftig redusert tilpasning, IKKE det ekte
+118-ledds instrumentet (2026-09-25, samme natt)
+
+**Viktig forbehold FØR resten av denne seksjonen:** det virkelige SIPP-118 (Verheul et al. 2008)
+har 118 ledd fordelt på 16 spesifikke fasetter under 5 overordnede domener. Vi hadde IKKE
+tilstrekkelig sikker kildetilgang under denne økten til å gjengi de 16 fasettene eller de 118
+konkrete leddene korrekt — å gjette på dem med falsk selvsikkerhet ville vært verre enn å være
+tydelig om begrensningen. Testen som faktisk ble bygget (`sipp118`, "Personlighet, relasjoner og
+sosial fungering") er derfor en BEVISST KRAFTIG REDUSERT egen tilpasning: kun de 5 kjente,
+overordnede domenenavnene (Selvkontroll, Identitetsintegrasjon, Relasjonell kapasitet,
+Ansvarlighet, Sosial harmoni) er beholdt, hvert med 6 selvforfattede ledd (30 totalt, IKKE 118).
+Dette er eksplisitt merket i testens rapportintroduksjon OG i seeder-koden sin XML-dokumentasjon —
+testnavnet i UI-et sier selv "forenklet, inspirert av SIPP-118", ikke "SIPP-118", nettopp for å
+ikke gi et falskt inntrykk av å være det validerte instrumentet. Må enten erstattes med det ekte
+118-ledds instrumentet (krever egen kildetilgang/lisensavklaring) eller forbli tydelig merket som
+en forenklet uttestingsversjon.
+
+**Skåring:** høyere skår = BEDRE personlighetsfunksjon (motsatt konvensjon av de fleste
+symptommålene i systemet, i tråd med selve SIPP-118s tolkningsretning). Negativt formulerte
+("maladaptive") ledd reverse-skåres (5 − rå verdi), MEN et ubesvart maladaptivt ledd teller
+korrekt som 0 (ikke feilaktig reversert til en falsk maks-verdi 5) — verifisert eksplisitt med en
+ny regresjonstest. Bruker `ITestSkaaringsberegnerMedLedd` for domenegruppering/reverse-skåring
+uavhengig av hoppet-over ledd.
+
+**Verifisert:** build + alle 60 tester grønne (1 ny regresjonstest, ingen bugs funnet denne
+runden). Strukturell nettleser-spot-sjekk (5 sider med korrekte domenenavn i riktig rekkefølge) —
+IKKE en full fyll-ut-runde. Committes og deployes til begge miljøer sammen med denne loggføringen.
+
+**Gjenstår fortsatt:** YGTSS-R, MADRS klinikkversjon, SCID-5-PF (krever "behandler fyller ut"-
+mekanismen, som er NESTE oppgave), Mini-Screen 6 og HCR-20 V3 (lisensfølsomme, dokumenteres uten
+oppdiktet iteminnhold).

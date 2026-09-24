@@ -519,4 +519,19 @@ public sealed class SkaaringsberegnereTests
         Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Risiko for seg selv" && !i.Positiv);
         Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Risiko for andre" && i.Positiv);
     }
+
+    [Fact]
+    public void Sipp118_ReverseSkaarerMaladaptiveLeddOgManglendeLeddTellerSomZeroIkkeFalskMaks()
+    {
+        // Selvkontroll (ledd 1-6): ledd 1 (maladaptiv, reversert) besvart "1" -> reverse til 5-1=4 (best mulig).
+        // Ledd 3 (maladaptiv, reversert) HOPPES OVER -> skal telle 0, IKKE bli reversert til en falsk "5".
+        var par = new List<(int, string?)> { (1, "1"), (2, "4"), (3, null), (4, "4"), (5, "4"), (6, "4") };
+        for (var i = 7; i <= 30; i++) par.Add((i, "4")); // Resten: alle adaptive svar er "4" (best)
+        var (alleLedd, svar) = LeddOgSvar(par.ToArray());
+
+        var resultat = new Sipp118Skaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        // Selvkontroll: ledd1(revers 5-1=4) + ledd2(4) + ledd3(mangler->0, IKKE reversert til 5) + ledd4(revers 5-4=1) + ledd5(revers 5-4=1) + ledd6(4) = 14.
+        Assert.Contains("Selvkontroll 14/24", resultat.Fortolkning);
+    }
 }

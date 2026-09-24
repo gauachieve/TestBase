@@ -336,7 +336,15 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   flagges som egne indikatorer uansett totalskår, verifisert ende-til-ende i nettleser (en
   besvarelse med 6 % totalskår viste likevel korrekt "Flagget" for risiko for andre). Gjenstår
   fortsatt: SIPP-118, YGTSS-R, MADRS klinikkversjon, SCID-5-PF (de tre siste krever "behandler
-  fyller ut"-mekanismen), Mini-Screen 6 og HCR-20 V3 (lisensfølsomme).
+  fyller ut"-mekanismen), Mini-Screen 6 og HCR-20 V3 (lisensfølsomme). **Del 5 (samme natt):**
+  "SIPP-118" (`sipp118`) er BEVISST en kraftig redusert egen tilpasning (30 ledd, kun de 5 kjente
+  overordnede domenene), IKKE en gjengivelse av det ekte 118-ledds/16-fasetts instrumentet — vi
+  hadde ikke sikker nok kildetilgang til å gjengi de 16 fasettene korrekt, og valgte å være
+  eksplisitt om begrensningen (testnavnet sier selv "forenklet, inspirert av") fremfor å gjette med
+  falsk selvsikkerhet. Høyere skår = bedre funksjon (motsatt konvensjon av symptommål), reverse-
+  skårer maladaptive ledd men et hoppet-over maladaptivt ledd teller 0 (ikke falsk maks 5) —
+  verifisert med regresjonstest. Gjenstår: YGTSS-R, MADRS klinikkversjon, SCID-5-PF (krever
+  "behandler fyller ut"-mekanismen, NESTE oppgave), Mini-Screen 6 og HCR-20 V3 (lisensfølsomme).
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
