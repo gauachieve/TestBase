@@ -5211,3 +5211,59 @@ SCID-5-PF, TRAPS-II, Mini-Screen 6, HCR-20 V3) bygges videre i påfølgende dele
 se senere seksjoner i loggen (samme dato/påfølgende dato) for status og videre plan, inkl. en ny,
 planlagt "testen fylles ut av behandler, ikke pasient"-mekanisme som trengs for YGTSS-R/
 MADRS-klinikk/SCID-5-PF.
+
+**Kontinuitetsoppsett:** brukeren la seg og ba om at arbeidet fortsetter automatisk når økten får
+mer usage igjen. Satt opp en session-only `CronCreate`-jobb (kjører hver time, klokkeslett :17,
+utløper automatisk etter 7 dager — IKKE persistert til disk, dør hvis selve CLI-prosessen
+avsluttes helt) med en fullstendig, selvstendig prompt som peker tilbake til denne loggseksjonen
+for status. Dette er beste tilgjengelige mekanisme, men INGEN garanti mot at en helt ny økt må
+startes manuelt av brukeren hvis prosessen faktisk dør (se verktøyets egen dokumentasjon:
+"session-only... dies when Claude exits").
+
+## Natt-økt, del 2: EDE-Q + TRAPS II, samt en reell bug funnet og fikset i TRAPS II underveis
+(2026-09-24/25, samme natt)
+
+**EDE-Q** (`edeq`, "Spiseforstyrrelser og kroppsbilde") — Fairburn & Beglin sitt Eating Disorder
+Examination Questionnaire. Selve originalspørsmålene er OPPHAVSRETTSLIG BESKYTTET — denne
+versjonen er en OMSKREVET/PARAFRASERT gjengivelse (delskalaene gruppert sammen fremfor offisiell
+sammenflettet rekkefølge), IKKE en verbatim kopi av det lisensierte skjemaet. 23 skårede ledd i 4
+delskalaer (Restriksjon 5, Spisebekymring 5, Figurbekymring 8, Vektbekymring 5, alle 0-6) + 5
+ikke-skårede fritekst-atferdsspørsmål bakerst (samme "teller ikke med"-mønster som PHQ-9s
+funksjonsspørsmål). Globalskår = snitt av de 4 delskala-snittene (offisiell EDE-Q-konvensjon, IKKE
+et vektet snitt av enkeltledd), cutoff ≥4,0 (mye sitert grense for klinisk signifikant
+symptomatologi). Bruker `ITestSkaaringsberegnerMedLedd`.
+
+**TRAPS II** (`traps_ii`, "Traumer, dissosiasjon og belastninger") — NKVTS sin ICD-11/kompleks
+PTSD-motpart til den allerede innebygde TRAPS I (som selv eksplisitt nevnte TRAPS II som utenfor
+scope 2026-09-12). Del 1 er NØYAKTIG samme traumeeksponerings-sjekkliste (SLESQ-R) som TRAPS I.
+Del 2 gjenbruker BEVISST samme ordlyd som den allerede innebygde ITQ-testen (International Trauma
+Questionnaire) for indre konsistens — VI HAR IKKE selvstendig verifisert et eget, offisielt
+"TRAPS II"-dokumentavsnitt hos NKVTS med akkurat denne ordlyden; dette er en rimelig, men
+uverifisert sammenstilling av to kjente NKVTS-oversatte instrumenter under samme TRAPS-branding
+som TRAPS I følger. Flagget tydelig i seeder-kommentaren, bør kvalitetssikres mot et faktisk NKVTS
+TRAPS II-dokument.
+
+**Reell bug funnet og fikset UNDER BYGGING, før commit** (fanget av en ny enhetstest, ikke i
+produksjon): `TrapsIiSkaaringsberegner` sitt første utkast bygde `svarPerLeddId` med
+`svar.ToDictionary(s => s.TestLeddId, s => int.Parse(s.SvarVerdi))` — men Del 1 (traumeeksponering)
+sine ledd er JaNei/Fritekst, IKKE tall, og `BeregnSkaaringMedLedd` mottar den FULLSTENDIGE
+svarlisten for hele testen (ikke bare PTSD/DSO-delen). Dette kastet `FormatException` på "Ja"
+umiddelbart. Fikset: bygger nå en streng-basert dictionary og parser kun ETT ledd av gangen, kun
+for ledd som faktisk trengs (PTSD/DSO), med `int.TryParse` i stedet for `int.Parse`. Verifisert at
+samme mønster IKKE finnes i `AsrsSkaaringsberegner`/`Scl25Skaaringsberegner` (begge er trygge siden
+ALLE deres ledd faktisk er numeriske — ingen blandet JaNei/Fritekst/Likert i samme test).
+
+**Beslektet, IKKE fikset funn fra samme gjennomgang:** `ItqSkaaringsberegner` (den allerede
+eksisterende, frittstående ITQ-testen) bruker fortsatt REN LISTEPOSISJON (`svar[index]`) for å
+klassifisere PTSD/DSO-symptomer — SAMME sårbarhetsklasse som GADIT-krasjen og TRAPS II sin bug
+over. Et hoppet-over ITQ-spørsmål ville forskyve alle påfølgende indekser og gi feil diagnostisk
+konklusjon, evt. `FormatException`/`IndexOutOfRangeException`. IKKE rettet denne runden (utenfor
+det eksplisitte testlisten brukeren ga) — kun re-flagget her, sammen med PHQ-9s tilsvarende kjente
+sårbarhet, som en kandidat for en fremtidig opprydningsrunde nå som `ITestSkaaringsberegnerMedLedd`
+finnes som verktøy for å fikse det ordentlig.
+
+**Verifisert:** build + alle 55 tester grønne (2 nye regresjonstester lagt til, pluss den som fanget
+TRAPS II-bugen over). Strukturell nettleser-spot-sjekk av begge nye tester (sider/ledd-antall og
+-rekkefølge stemmer med seeder-koden) — IKKE en full assign→fyll ut→rapport-runde denne gangen
+(kun ASRS fikk det, som validering av selve det nye grensesnittet). Committes og deployes til
+begge miljøer sammen med denne loggføringen.

@@ -314,7 +314,19 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   YGTSS-R, MADRS klinikkversjon, EDE-Q, CORE×3, SIPP-118, SCID-5-PF, TRAPS-II, Mini-Screen 6
   (usikker lisens), HCR-20 V3 (lisensiert forensisk risikovurderingsverktøy — bør IKKE bygges med
   oppdiktet reelt iteminnhold, se beslutningsloggen når/hvis den seksjonen er skrevet) — pluss en
-  planlagt "test fylles ut av behandler, ikke pasient"-mekanisme som trengs for tre av disse.
+  planlagt "test fylles ut av behandler, ikke pasient"-mekanisme som trengs for tre av disse. En
+  session-only `CronCreate`-jobb (hver time, utløper etter 7 dager) satt opp for å fortsette
+  arbeidet automatisk — INGEN garanti mot at en helt ny økt må startes manuelt hvis selve
+  CLI-prosessen faktisk avsluttes, se beslutningsloggen. **Del 2 (samme natt):** EDE-Q og TRAPS II
+  også ferdig — begge OMSKREVNE/PARAFRASERTE gjengivelser av opphavsrettslig beskyttede
+  instrumenter (Fairburn & Beglins EDE-Q, og en uverifisert NKVTS "TRAPS II"-sammenstilling av
+  SLESQ-R + samme innhold som den allerede innebygde ITQ-testen), IKKE verbatim kopier — flagget
+  tydelig i hver seeder. En reell bug ble funnet OG FIKSET FØR commit (fanget av en ny enhetstest):
+  `TrapsIiSkaaringsberegner` sitt første utkast parset ALLE svar som tall, men Del 1 sine JaNei-ledd
+  er ikke tall — `FormatException` umiddelbart. Samtidig oppdaget, IKKE fikset: den allerede
+  eksisterende, frittstående `ItqSkaaringsberegner` bruker fortsatt ren listeposisjon (`svar[index]`)
+  for PTSD/DSO-klassifisering — SAMME sårbarhetsklasse som GADIT-krasjen — re-flagget sammen med
+  PHQ-9s tilsvarende kjente sårbarhet for en fremtidig opprydningsrunde.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

@@ -417,4 +417,46 @@ public sealed class SkaaringsberegnereTests
 
         Assert.Contains(resultat.Indikatorer!, i => i.Navn.Contains("Selvmordsscreening") && !i.Positiv);
     }
+
+    [Fact]
+    public void Edeq_GlobalskaarErSnittAvFireDelskalaerIkkeVektetSnittAvEnkeltledd()
+    {
+        // Restriksjon (5 ledd) og Spisebekymring (5 ledd) = 0, Figurbekymring (8 ledd) og
+        // Vektbekymring (5 ledd) = 6 (maks) -> delskala-snitt 0, 0, 6, 6 -> global (0+0+6+6)/4 = 3.
+        var par = new List<(int, string?)>();
+        for (var i = 1; i <= 10; i++) par.Add((i, "0"));
+        for (var i = 11; i <= 23; i++) par.Add((i, "6"));
+        for (var i = 24; i <= 28; i++) par.Add((i, "tekst")); // ikke-skårede fritekstledd
+        var (alleLedd, svar) = LeddOgSvar(par.ToArray());
+
+        var resultat = new EdeqSkaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        Assert.Contains("3,00", resultat.Fortolkning.Replace(".", ","));
+        Assert.Equal(138, resultat.RaaSkaarMaks);
+    }
+
+    [Fact]
+    public void TrapsIi_HoppetOverEksponeringsleddPaavirkerIkkePtsdDsoKlassifisering()
+    {
+        // Del 1 (15 ledd) + "Om hendelsen" (2 ledd) hoppes helt over/delvis over -- skal IKKE
+        // forskyve hvilke ledd som telles som PTSD/DSO-symptomer (samme rotårsak som GADIT).
+        var par = new List<(int, string?)>();
+        for (var i = 1; i <= 15; i++) par.Add((i, i % 3 == 0 ? null : "Ja")); // noen Del 1-ledd ubesvart
+        par.Add((16, null)); // "Om hendelsen" beskrivelse, ubesvart
+        par.Add((17, "3"));  // hendelsestidspunkt
+        // PTSD-symptomer (18-23): oppfyller alle tre par -> reDx/avDx/thDx sanne
+        par.Add((18, "3")); par.Add((19, "0")); par.Add((20, "3")); par.Add((21, "0")); par.Add((22, "3")); par.Add((23, "0"));
+        // PTSD-funksjon (24-26): minst én over terskel
+        par.Add((24, "2")); par.Add((25, "0")); par.Add((26, "0"));
+        // DSO-symptomer (27-32): INGEN par oppfyller terskel -> dsoKriterier skal bli falsk
+        for (var i = 27; i <= 32; i++) par.Add((i, "0"));
+        // DSO-funksjon (33-35)
+        par.Add((33, "0")); par.Add((34, "0")); par.Add((35, "0"));
+
+        var (alleLedd, svar) = LeddOgSvar(par.ToArray());
+
+        var resultat = new TrapsIiSkaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        Assert.Contains("PTSD er oppfylt (uten kompleks PTSD)", resultat.Fortolkning);
+    }
 }
