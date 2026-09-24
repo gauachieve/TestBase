@@ -30,9 +30,24 @@ public sealed class PasienterModel : PageModel
 
     public string? Feilmelding { get; private set; }
 
-    public async Task OnGetAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Satt fra "Tildel tester"-ikonknappen på Pasienter/Index for ÉN bestemt
+    /// pasient — hopper direkte til steg 2 (samme sluttresultat som å huke av
+    /// akkurat denne ene raden og trykke Neste i steg 1), i stedet for å tvinge
+    /// brukeren gjennom en ett-rad-lang seleksjon de allerede har gjort ved å
+    /// klikke ikonet.
+    /// </summary>
+    public async Task<IActionResult> OnGetAsync(long? forhaandsvalgtId, CancellationToken cancellationToken)
     {
         Pasienter = await _tildelingsService.HentTilgjengeligePasienterAsync(HentBehandlerId(), cancellationToken);
+
+        if (forhaandsvalgtId is not null && Pasienter.Any(p => p.Pasient.Id == forhaandsvalgtId))
+        {
+            TempData["TildelPasientIder"] = forhaandsvalgtId.Value.ToString();
+            return RedirectToPage("Tester");
+        }
+
+        return Page();
     }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)

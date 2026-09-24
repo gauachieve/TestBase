@@ -1,5 +1,6 @@
 @page
 @model TestBase.Web.Areas.Admin.Pages.Pasienter.IndexModel
+@using TestBase.Shared.Domain.Pasienter
 @{
     ViewData["Title"] = "Pasienter";
     ViewData["BredSide"] = true;
@@ -22,66 +23,79 @@
     </p>
 }
 
-<div>
-    <label for="pasientSok">Søk</label><br />
-    <input type="search" id="pasientSok" data-tabellfilter="#pasientTabell"
-           placeholder="Søk i navn, behandler, gruppe, mobil, e-post, personnummer, status …" />
+@{
+    var aktiveRader = Model.Rader.Where(r => r.Pasient.Status != PasientStatus.Arkivert).ToList();
+    var arkiverteRader = Model.Rader.Where(r => r.Pasient.Status == PasientStatus.Arkivert).ToList();
+}
+
+<div data-fane-beholder>
+    <div class="fane-rad" role="tablist">
+        <button type="button" class="fane-knapp" data-fane="aktive">Aktive (@aktiveRader.Count)</button>
+        <button type="button" class="fane-knapp" data-fane="arkivert">Arkivert (@arkiverteRader.Count)</button>
+    </div>
+
+    <div>
+        <label for="pasientSok">Søk</label><br />
+        <input type="search" id="pasientSok" data-fane-sok
+               placeholder="Søk i navn, behandler, gruppe, mobil, e-post, personnummer, status …" />
+    </div>
+
+    <table id="pasientTabell" border="1" cellpadding="6" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Navn</th>
+                <th>Partner</th>
+                <th>Behandler</th>
+                <th>Gruppe</th>
+                <th>Mobil</th>
+                <th>E-post</th>
+                <th>Personnummer</th>
+                <th>Tildelt</th>
+                <th>Besvart</th>
+                <th>Status</th>
+                <th></th>
+                @if (Model.VisSlettede)
+                {
+                    <th></th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var rad in aktiveRader.Concat(arkiverteRader))
+        {
+            var p = rad.Pasient;
+            var fane = p.Status == PasientStatus.Arkivert ? "arkivert" : "aktive";
+            var sok = $"{p.Navn} {rad.PartnerNavn} {rad.BehandlerNavn} {p.Gruppe?.Navn} {p.MobilNr} {p.Email} {p.Personnummer} {p.Status}".ToLowerInvariant();
+            <tr data-fane-rad="@fane" data-sok="@sok">
+                <td>@(p.Navn ?? "(ikke fullført)")</td>
+                <td>@(rad.PartnerNavn ?? "-")</td>
+                <td>@(rad.BehandlerNavn ?? "-")</td>
+                <td>@(p.Gruppe?.Navn ?? "-")</td>
+                <td>@p.MobilNr</td>
+                <td>@p.Email</td>
+                <td>@(p.Personnummer ?? "(ikke registrert ennå)")</td>
+                <td>@rad.Tildelt</td>
+                <td>@rad.Besvart</td>
+                <td>@(p.ErSlettet ? "Slettet" : p.Status.ToString())</td>
+                <td><a href="/Admin/Pasienter/GodkjenteRapporter/@p.Id">Godkjente rapporter</a></td>
+                @if (Model.VisSlettede)
+                {
+                    <td>
+                        @if (p.ErSlettet)
+                        {
+                            <form method="post" asp-page-handler="GjenopprettFraSlettet" style="display:inline;" data-disable-on-submit="Gjenoppretter …">
+                                <input type="hidden" name="id" value="@p.Id" />
+                                <button type="submit" class="btn-icon" title="Gjenopprett" aria-label="Gjenopprett">
+                                    <partial name="_Ikon" model="@("gjenopprett")" />
+                                </button>
+                            </form>
+                        }
+                    </td>
+                }
+            </tr>
+        }
+        </tbody>
+    </table>
 </div>
 
-<table id="pasientTabell" border="1" cellpadding="6" cellspacing="0">
-    <thead>
-        <tr>
-            <th>Navn</th>
-            <th>Partner</th>
-            <th>Behandler</th>
-            <th>Gruppe</th>
-            <th>Mobil</th>
-            <th>E-post</th>
-            <th>Personnummer</th>
-            <th>Tildelt</th>
-            <th>Besvart</th>
-            <th>Status</th>
-            <th></th>
-            @if (Model.VisSlettede)
-            {
-                <th></th>
-            }
-        </tr>
-    </thead>
-    <tbody>
-    @foreach (var rad in Model.Rader)
-    {
-        var p = rad.Pasient;
-        var sok = $"{p.Navn} {rad.PartnerNavn} {rad.BehandlerNavn} {p.Gruppe?.Navn} {p.MobilNr} {p.Email} {p.Personnummer} {p.Status}".ToLowerInvariant();
-        <tr data-sok="@sok">
-            <td>@(p.Navn ?? "(ikke fullført)")</td>
-            <td>@(rad.PartnerNavn ?? "-")</td>
-            <td>@(rad.BehandlerNavn ?? "-")</td>
-            <td>@(p.Gruppe?.Navn ?? "-")</td>
-            <td>@p.MobilNr</td>
-            <td>@p.Email</td>
-            <td>@(p.Personnummer ?? "(ikke registrert ennå)")</td>
-            <td>@rad.Tildelt</td>
-            <td>@rad.Besvart</td>
-            <td>@(p.ErSlettet ? "Slettet" : p.Status.ToString())</td>
-            <td><a href="/Admin/Pasienter/GodkjenteRapporter/@p.Id">Godkjente rapporter</a></td>
-            @if (Model.VisSlettede)
-            {
-                <td>
-                    @if (p.ErSlettet)
-                    {
-                        <form method="post" asp-page-handler="GjenopprettFraSlettet" style="display:inline;" data-disable-on-submit="Gjenoppretter …">
-                            <input type="hidden" name="id" value="@p.Id" />
-                            <button type="submit" class="btn-icon" title="Gjenopprett" aria-label="Gjenopprett">
-                                <partial name="_Ikon" model="@("gjenopprett")" />
-                            </button>
-                        </form>
-                    }
-                </td>
-            }
-        </tr>
-    }
-    </tbody>
-</table>
-
-<script src="~/js/tabellfilter.js" asp-append-version="true"></script>
+<script src="~/js/faner.js" asp-append-version="true"></script>

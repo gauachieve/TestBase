@@ -50,8 +50,13 @@ else if (Model.ValgtePasienter.Any())
           data-disable-on-submit="Sender …">
         <input type="hidden" asp-for="PasientIderCsv" />
 
+        <div>
+            <label for="tildelTestSok">Søk i tester</label><br />
+            <input type="search" id="tildelTestSok" data-tredfilter="#tildelKategoriTre" placeholder="Søk i testnavn …" />
+        </div>
+
         <div class="tildel-med-info">
-        <div class="tildel-kategori-tre">
+        <div class="tildel-kategori-tre" id="tildelKategoriTre">
         @foreach (var kategori in Model.KategoriTre)
         {
             <details open>
@@ -66,7 +71,7 @@ else if (Model.ValgtePasienter.Any())
                     @foreach (var test in kategori.Tester)
                     {
                         var visningsnavn = test.Navn + (string.IsNullOrEmpty(test.OversettelseNotat) ? "" : $" ({test.OversettelseNotat})");
-                        <li>
+                        <li data-sok="@visningsnavn.ToLowerInvariant()">
                             <label>
                                 <input type="checkbox" name="TestIder" value="@test.Id" class="tildel-test-checkbox" data-test-id="@test.Id"
                                        data-test-navn="@visningsnavn"
@@ -140,6 +145,7 @@ else if (Model.ValgtePasienter.Any())
 
     <script src="~/js/tildel.js" asp-append-version="true"></script>
     <script src="~/js/testinfo.js" asp-append-version="true"></script>
+    <script src="~/js/testtre-filter.js" asp-append-version="true"></script>
 }
 else
 {

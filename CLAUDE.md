@@ -288,6 +288,15 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   kodestien. Selve Vonage-saldoen er et SEPARAT, ufikset driftsproblem (fakturering, ikke kode) —
   advarselsboksen vil fortsette å vises til kontoen fylles på. Deployet til BÅDE live og beta samme
   dag. Se "Reell 500-feil ved admin/behandler-innlogging" i beslutningsloggen.
+- **Fire UI-forbedringer på tildelingsflyten + pasientlister (2026-09-24, samme dag):** gruppe­
+  rapport-popupens "Generer"-knapp gråes ut + endrer tekst mens den genererer (kun ett
+  `data-disable-on-submit`-attributt, gjenbrukt eksisterende mekanisme); ny "Tildel tester"-
+  ikonknapp per rad på `Behandlerportal/Pasienter/Index` som hopper RETT til steg 2 av
+  tildelingsflyten for akkurat den pasienten (`?forhaandsvalgtId=`); søkefilter på testvalget
+  (`Tildel/Tester`, ny `testtre-filter.js`) og på pasientvalget (`Tildel/Pasienter`, gjenbrukt
+  `tabellfilter.js`) i BEGGE Areas; Aktiv/Arkivert-faner (samme `faner.js`-mønster som
+  `Grupper/Index`) på BÅDE `Behandlerportal/Pasienter/Index` og `Admin/Pasienter/Index`. Se
+  "Fire UI-forbedringer på tildelingsflyten + pasientlister" i beslutningsloggen.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

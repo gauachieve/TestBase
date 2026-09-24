@@ -5086,3 +5086,51 @@ kreve et nytt forsøk (som fortsatt vil feile på selve SMS-leveringen, kun ikke
 direkte mot LIVE (samme personnummer+captcha-kombinasjon ga `500` FØR fiksen, `302`→advarselsboks
 på `/Konto/BekreftKode` ETTER). Deployet til BÅDE live og beta samme dag (`azd deploy`, ren
 kodeendring, ingen migrasjon).
+
+**Beslektet, IKKE fikset funn fra samme feilsøkingsrunde:** `PaaminnelseService.SendTilBehandlerAsync`
+(den daglige påminnelse-bakgrunnstjenesten om ugodkjente rapporter) kaller `ISmsSender.SendAsync`
+like ubeskyttet — samme Vonage-402 førte til at `DagligPaaminnelseBakgrunnstjeneste.ExecuteAsync`
+logget "Daglig påminnelse-sjekk feilet" og avbrøt HELE kjøringen, ikke bare varselet til den ene
+behandleren som feilet. Lavere alvorlighetsgrad enn 2FA-krasjen (ingen 500, ingen brukervendt
+konsekvens — kun at RESTEN av dagens behandlere i køen mister sin påminnelse også), IKKE rørt denne
+runden, kun flagget som samme mønster å rydde opp i senere.
+
+## Fire UI-forbedringer på tildelingsflyten + pasientlister (2026-09-24, samme dag)
+
+Etter 2FA-krasj-fiksen ba brukeren om fire mindre, konkrete UI-forbedringer før kvelden — alle
+implementert i BEGGE Areas (Admin/Behandlerportal) der det samme sidemønsteret finnes fra før, samme
+konvensjon som resten av prosjektet:
+
+1. **"Generer"-knappen på gruppe­rapport-popupen gråes ut + endrer tekst mens den genererer** —
+   rapportgenerering kan ta tid på større grupper. Løst med KUN ett attributt,
+   `data-disable-on-submit="Genererer …"`, på `<form>` inni `#grupperapportDialog`
+   (`Grupper/Rediger.cshtml`, begge Areas) — gjenbruker den allerede eksisterende
+   `validering.js`-mekanismen (bygget for POST-skjemaer, men fungerer identisk for dette GET-skjemaet
+   siden den lytter på `submit`-eventet generisk).
+2. **Ny "Tildel tester"-ikonknapp per pasientrad** på `Behandlerportal/Pasienter/Index` (kun
+   behandler-siden, ikke Admin sin — eksplisitt brukerscope), lenker til
+   `/Behandlerportal/Tildel/Pasienter?forhaandsvalgtId={id}`. `Tildel/Pasienter.cshtml.cs`
+   (Behandlerportal) sin `OnGetAsync` fikk en ny `forhaandsvalgtId`-parameter — hvis satt og
+   pasienten faktisk er blant behandlerens tilgjengelige pasienter, hopper den RETT til steg 2
+   (`TempData["TildelPasientIder"]` + redirect), i stedet for å tvinge brukeren gjennom en
+   ett-rad-lang seleksjon i steg 1 de allerede har gjort ved å klikke ikonet.
+3. **Søkefilter på testvalget** (`Tildel/Tester.cshtml`, BEGGE Areas) — ny
+   `wwwroot/js/testtre-filter.js`: filtrerer `<li data-sok="...">` i kategori-treet på testnavn,
+   skjuler tomme kategorier og tvinger dem åpne igjen når søket treffer noe i dem. Samme
+   "checkboks overlever skjuling"-prinsipp som resten av søkefiltrene i appen (elementet fjernes
+   aldri fra DOM-en, kun `hidden`).
+4. **Søkefilter på pasientvalget** (`Tildel/Pasienter.cshtml`, BEGGE Areas) — gjenbrukte den
+   eksisterende `tabellfilter.js` (samme mønster som `Behandlerportal/Pasienter/Index` allerede
+   hadde), ingen ny kode trengtes utover å legge til `data-sok`/tabell-id.
+5. **Aktiv/Arkivert-faner på ALLE pasientlister** (`Behandlerportal/Pasienter/Index` OG
+   `Admin/Pasienter/Index`) — samme `faner.js`-mønster som `Grupper/Index` allerede etablerte
+   (kombinert fane+søk, ett søkefelt filtrerer begge faner samtidig). Radene splittes i Razor via
+   `Where(r => r.Pasient.Status == PasientStatus.Arkivert)` (ingen endring i PageModel-laget) —
+   Admin sin eksisterende "vis slettede" superadmin-toggle (et helt annet konsept, hard-slettede
+   rader) er UENDRET og virker uavhengig av de nye fanene.
+
+**Verifisert i nettleser (lokalt, som behandler via rollebytte):** faner+søk fungerer på
+`Behandlerportal/Pasienter`, "Tildel tester"-ikonet hopper direkte til steg 2 med riktig
+forhåndsvalgt pasient, og søkefeltet på steg 2 filtrerer kategori-treet korrekt ned til kun
+matchende tester (kategorier uten treff kollapser helt). Alle 51 tester fortsatt grønne. Deployet
+til BÅDE live og beta samme dag.

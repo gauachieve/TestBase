@@ -18,8 +18,13 @@
 }
 else
 {
+    <div>
+        <label for="tildelPasientSok">Søk</label><br />
+        <input type="search" id="tildelPasientSok" data-tabellfilter="#tildelPasientTabell" placeholder="Søk i navn, gruppe …" />
+    </div>
+
     <form method="post">
-        <table border="1" cellpadding="6" cellspacing="0">
+        <table id="tildelPasientTabell" border="1" cellpadding="6" cellspacing="0">
             <thead>
                 <tr>
                     <th></th>
@@ -35,7 +40,8 @@ else
                 var harMobil = !string.IsNullOrWhiteSpace(p.MobilNr);
                 var harEpost = !string.IsNullOrWhiteSpace(p.Email);
                 var kanVelges = harMobil || harEpost;
-                <tr style="@(kanVelges ? "" : "color: #999;")">
+                var sok = $"{p.Navn} {p.Gruppe?.Navn}".ToLowerInvariant();
+                <tr style="@(kanVelges ? "" : "color: #999;")" data-sok="@sok">
                     <td><input type="checkbox" name="PasientIder" value="@p.Id" disabled="@(!kanVelges)" /></td>
                     <td>@(p.Navn ?? "(ikke fullført)")</td>
                     <td>@(p.Gruppe?.Navn ?? "-")</td>
@@ -60,3 +66,5 @@ else
 }
 
 <p><a href="/Behandlerportal/Pasienter">Tilbake til pasienter</a></p>
+
+<script src="~/js/tabellfilter.js" asp-append-version="true"></script>
