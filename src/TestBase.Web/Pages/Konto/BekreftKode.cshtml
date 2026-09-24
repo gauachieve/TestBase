@@ -15,6 +15,13 @@
     <p class="dev-bar">Utviklingsmiljø: koden er <strong>@Model.DevKode</strong> (sendes normalt på SMS — vist her siden mock-SMS kun logges til konsollen).</p>
 }
 
+@if (Model.SmsFeilet)
+{
+    <div style="border: 1px solid #c90; background: #fff8e6; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.75rem;">
+        <strong>Kunne ikke sende SMS-koden akkurat nå.</strong> Koden er likevel opprettet, men ble ikke levert til mobilen din. Vent litt og <a href="/Konto/LoggInn">logg inn på nytt</a> for å prøve igjen, eller kontakt administrator hvis problemet vedvarer.
+    </div>
+}
+
 @if (Model.Feilmelding is not null)
 {
     <p style="color: darkred;">@Model.Feilmelding</p>

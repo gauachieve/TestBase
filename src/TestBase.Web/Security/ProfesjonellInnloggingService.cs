@@ -49,9 +49,10 @@ public sealed class ProfesjonellInnloggingService
                 return ProfesjonellInnloggingResultat.FerdigInnlogget(MaalEtterInnlogging(returnUrl, "Admin", "/Administratorer/Index"));
             }
 
-            var kode = await _adminAuth.StartToFaktorAsync(administrator, cancellationToken);
+            var toFaktorResultat = await _adminAuth.StartToFaktorAsync(administrator, cancellationToken);
             return ProfesjonellInnloggingResultat.TrengerToFaktor(
-                administratorRolle, administrator.Id, huskMeg, returnUrl, Miljo.TillatUtviklingsSnarveier(_configuration) ? kode : null);
+                administratorRolle, administrator.Id, huskMeg, returnUrl,
+                Miljo.TillatUtviklingsSnarveier(_configuration) ? toFaktorResultat.Kode : null, !toFaktorResultat.SendtSms);
         }
 
         var behandler = await _behandlerAuth.FinnVedPersonnummerAsync(personnummer, cancellationToken);
@@ -83,9 +84,10 @@ public sealed class ProfesjonellInnloggingService
                 return ProfesjonellInnloggingResultat.FerdigInnlogget(MaalEtterInnlogging(returnUrl, "Behandlerportal", "/Pasienter/Index"));
             }
 
-            var kode = await _behandlerAuth.StartToFaktorAsync(behandler, cancellationToken);
+            var toFaktorResultat = await _behandlerAuth.StartToFaktorAsync(behandler, cancellationToken);
             return ProfesjonellInnloggingResultat.TrengerToFaktor(
-                UserRole.Behandler, behandler.Id, huskMeg, returnUrl, Miljo.TillatUtviklingsSnarveier(_configuration) ? kode : null);
+                UserRole.Behandler, behandler.Id, huskMeg, returnUrl,
+                Miljo.TillatUtviklingsSnarveier(_configuration) ? toFaktorResultat.Kode : null, !toFaktorResultat.SendtSms);
         }
 
         return ProfesjonellInnloggingResultat.Feil("Fant ingen administrator- eller behandlerkonto for denne BankID-personen.");
@@ -115,16 +117,19 @@ public sealed class ProfesjonellInnloggingResultat
     public string? ToFaktorReturnUrl { get; private init; }
     public string? DevToFaktorKode { get; private init; }
 
+    /// <summary>True hvis selve SMS-utsendingen feilet (f.eks. leverandøren nede/lav saldo) — 2FA-koden ER likevel opprettet og gyldig, brukeren fikk den bare ikke levert. Se ToFaktorService.StartAsync.</summary>
+    public bool ToFaktorSmsFeilet { get; private init; }
+
     public string? Feilmelding { get; private init; }
 
     public static ProfesjonellInnloggingResultat FerdigInnlogget(IActionResult resultat) =>
         new() { ErFerdig = true, FerdigResultat = resultat };
 
-    public static ProfesjonellInnloggingResultat TrengerToFaktor(UserRole rolle, long id, bool huskMeg, string? returnUrl, string? devKode) =>
+    public static ProfesjonellInnloggingResultat TrengerToFaktor(UserRole rolle, long id, bool huskMeg, string? returnUrl, string? devKode, bool smsFeilet = false) =>
         new()
         {
             TrengerToFaktorFlagg = true, ToFaktorRolle = rolle, ToFaktorId = id,
-            ToFaktorHuskMeg = huskMeg, ToFaktorReturnUrl = returnUrl, DevToFaktorKode = devKode
+            ToFaktorHuskMeg = huskMeg, ToFaktorReturnUrl = returnUrl, DevToFaktorKode = devKode, ToFaktorSmsFeilet = smsFeilet
         };
 
     public static ProfesjonellInnloggingResultat Feil(string melding) => new() { Feilmelding = melding };

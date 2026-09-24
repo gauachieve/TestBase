@@ -274,6 +274,20 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   interpolere — se fallgruve-listen under). Se "Histogrammet byttet fra alltid-prosent til
   råskår-som-standard" i beslutningsloggen. Samme kjente PHQ-9-posisjonssårbarhet fortsatt IKKE
   fikset, kun re-flagget.
+- **Reell 500-feil ved admin/behandler-innlogging: 2FA-SMS krasjet hele innloggingen (2026-09-24):**
+  `ToFaktorService.StartAsync` kalte `ISmsSender.SendAsync` UBESKYTTET — Vonage-kontoen har for
+  øyeblikket lav saldo (`402 Payment Required`), så ETHVERT innloggingsforsøk som når 2FA-steget
+  (gyldig admin/behandler-personnummer, ingen betrodd enhet fra før) kastet en ufanget
+  `HttpRequestException` helt til en `500`-side — reelt LIVE innloggingsstopp, reprodusert og
+  bekreftet med `curl` + `az webapp log tail` (samme metode som GADIT-krasjen dagen før). Fikset:
+  SMS-utsendingen er nå i try/catch (`ToFaktorStartResultat(Kode, SendtSms)`), 2FA-koden opprettes
+  og er gyldig UANSETT, men `Pages/Konto/BekreftKode.cshtml` viser nå en ærlig advarselsboks når
+  SMS-leveringen feilet i stedet for å late som den lyktes — 2FA er essensielt for innlogging (i
+  motsetning til en fire-and-forget-varsling), så dette er IKKE samme "svelg stille"-mønster som
+  "Feiltolerant varsling ved QR-registrering" (2026-09-22), som forøvrig aldri dekket denne
+  kodestien. Selve Vonage-saldoen er et SEPARAT, ufikset driftsproblem (fakturering, ikke kode) —
+  advarselsboksen vil fortsette å vises til kontoen fylles på. Deployet til BÅDE live og beta samme
+  dag. Se "Reell 500-feil ved admin/behandler-innlogging" i beslutningsloggen.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

@@ -49,6 +49,7 @@ public sealed class BankIdFullforModel : PageModel
             TempData["ToFaktorId"] = resultat.ToFaktorId!.Value.ToString();
             TempData["ToFaktorHuskMeg"] = resultat.ToFaktorHuskMeg;
             TempData["ToFaktorReturnUrl"] = resultat.ToFaktorReturnUrl;
+            TempData["ToFaktorSmsFeilet"] = resultat.ToFaktorSmsFeilet;
             return RedirectToPage("BekreftKode");
         }
 

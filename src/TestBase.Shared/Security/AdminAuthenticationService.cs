@@ -58,7 +58,7 @@ public sealed class AdminAuthenticationService
         return administratorer.FirstOrDefault(a => a.Personnummer == personnummer);
     }
 
-    public Task<string> StartToFaktorAsync(Administrator administrator, CancellationToken cancellationToken = default) =>
+    public Task<ToFaktorStartResultat> StartToFaktorAsync(Administrator administrator, CancellationToken cancellationToken = default) =>
         _toFaktor.StartAsync(ToFaktorPrincipalType.Administrator, administrator.Id, administrator.MobilNr, cancellationToken);
 
     public Task<bool> VerifiserToFaktorAsync(Administrator administrator, string kode, CancellationToken cancellationToken = default) =>

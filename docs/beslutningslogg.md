@@ -5035,3 +5035,54 @@ Razor-fiksen, men kjørt for hygiene).
 fortsatt `svar.Take(9)` (posisjonsbasert), samme mønster som knakk GADIT — siden alle 10 PHQ-9-ledd
 er numeriske, ville et hoppet-over spørsmål her gi en STILLE feil skår, ikke en krasj. Ikke rørt
 denne runden, kun re-flagget.
+
+## Reell 500-feil ved admin/behandler-innlogging: 2FA-SMS-utsending krasjet HELE
+innloggingsforsøket (2026-09-24)
+
+Brukeren rapporterte en reell krasj på LIVE ved innlogging med et ekte behandler-personnummer
+(PersonnummerOverride, jf. "PersonnummerOverride midlertidig gjeninnført på live") + riktig
+sikkerhetsspørsmål. Reprodusert direkte mot `www.psytest.no` med `curl` (samme metode som GADIT-
+krasjen 2026-09-23) mens `az webapp log tail` fanget stack trace — bekreftet `500` og en ekte
+`Request-ID`, IKKE en falsk positiv.
+
+**Rotårsak:** `ToFaktorService.StartAsync` kalte `ISmsSender.SendAsync` UBESKYTTET (ingen try/catch)
+for å sende 2FA-koden. `VonageSmsSender.SendAsync` kaller `response.EnsureSuccessStatusCode()`
+ubetinget — og Vonage-kontoen har for øyeblikket for lav saldo (`402 Payment Required`,
+`"Low balance"`), så ETHVERT innloggingsforsøk som når frem til 2FA-steget (dvs. et gyldig
+personnummer for en administrator/behandler UTEN betrodd enhet fra før) kaster en ufanget
+`HttpRequestException` helt opp til `LoggInnModel.OnPostAsync`/`BankIdFullforModel.OnGetAsync` og
+gir en generisk `500`-feilside — reelt, LIVE innloggingsstopp for enhver admin/behandler som
+trenger SMS-2FA akkurat nå, ikke bare et uheldig randtilfelle. Samme mønster som
+`Feiltolerant varsling ved QR-registrering` (2026-09-22) identifiserte og fikset for
+pasient-invitasjons-SMS/e-post — men DEN runden dekket kun `PasientInvitasjonService`/
+`TestTildelingsService`, ikke `ToFaktorService`, som ble oversett siden det er en helt annen kodesti
+(admin/behandler-innlogging, ikke pasientvarsling).
+
+**Fiks — men IKKE et rent "svelg feilen"-mønster denne gangen, siden 2FA er ESSENSIELT for å
+fullføre innloggingen (i motsetning til en fire-and-forget-varsling):**
+- `ToFaktorService.StartAsync` returnerer nå en ny `ToFaktorStartResultat(string Kode, bool
+  SendtSms)` i stedet for en bar streng — selve SMS-utsendingen er pakket i try/catch (logges via
+  `ILogger`, aldri kastet videre), men 2FA-koden opprettes og lagres i databasen UANSETT (den ER
+  gyldig, bare ikke levert).
+- `AdminAuthenticationService`/`BehandlerAuthenticationService.StartToFaktorAsync` (tynne
+  passthroughs) og `ProfesjonellInnloggingService.FullforAsync`/`ProfesjonellInnloggingResultat`
+  oppdatert til å bære `SendtSms`/`ToFaktorSmsFeilet` helt frem til UI-et — BEGGE kallesteder
+  (`Pages/Konto/LoggInn.cshtml.cs` sin mock-BankID-vei OG `BankIdFullfor.cshtml.cs` sin ekte
+  Idura-vei på beta) satt til å videreføre flagget via TempData, samme mønster som eksisterende
+  `DevToFaktorKode`.
+- `Pages/Konto/BekreftKode.cshtml` viser nå en gul advarselsboks når SMS-utsendingen feilet
+  ("Kunne ikke sende SMS-koden akkurat nå ... koden er likevel opprettet, men ble ikke levert ...
+  logg inn på nytt for å prøve igjen") — ærlig i stedet for stille å late som koden ble levert.
+  Flagget bevares over et feilslått kode-forsøk (`OnPostAsync`) på samme måte som `DevToFaktorKode`
+  allerede gjorde.
+
+**IKKE løst av denne kodeendringen — separat, operasjonelt problem:** selve årsaken til at Vonage
+returnerer 402, er at KONTOEN har lav/tom saldo. Dette er en fakturerings-/påfyllingsoppgave hos
+Vonage, ikke noe kode kan fikse — brukeren må fylle på saldo før ekte SMS-2FA faktisk leveres igjen.
+Frem til da vil ALLE admin/behandler-innlogginger som trenger SMS-2FA vise advarselsboksen over og
+kreve et nytt forsøk (som fortsatt vil feile på selve SMS-leveringen, kun ikke lenger krasje siden).
+
+**Verifisert:** build+alle 51 tester grønne lokalt, OG selve krasjen reprodusert og bekreftet fikset
+direkte mot LIVE (samme personnummer+captcha-kombinasjon ga `500` FØR fiksen, `302`→advarselsboks
+på `/Konto/BekreftKode` ETTER). Deployet til BÅDE live og beta samme dag (`azd deploy`, ren
+kodeendring, ingen migrasjon).

@@ -182,6 +182,7 @@ public sealed class LoggInnModel : PageModel
             TempData["ToFaktorId"] = resultat.ToFaktorId!.Value.ToString();
             TempData["ToFaktorHuskMeg"] = resultat.ToFaktorHuskMeg;
             TempData["ToFaktorReturnUrl"] = resultat.ToFaktorReturnUrl;
+            TempData["ToFaktorSmsFeilet"] = resultat.ToFaktorSmsFeilet;
             return RedirectToPage("BekreftKode");
         }
 

@@ -39,6 +39,9 @@ public sealed class BekreftKodeModel : PageModel
     /// <summary>Kun satt i Development — se ToFaktorService.StartAsync/Pages/Konto/LoggInn.cshtml.cs.</summary>
     public string? DevKode { get; private set; }
 
+    /// <summary>True hvis selve SMS-utsendingen feilet (leverandøren nede/lav saldo, se ToFaktorService.StartAsync) — koden er likevel gyldig, brukeren fikk den bare ikke levert per SMS.</summary>
+    public bool SmsFeilet { get; private set; }
+
     public IActionResult OnGet()
     {
         if (TempData.Peek("ToFaktorRolle") is null)
@@ -47,6 +50,7 @@ public sealed class BekreftKodeModel : PageModel
         }
 
         DevKode = TempData.Peek("DevToFaktorKode") as string;
+        SmsFeilet = TempData.Peek("ToFaktorSmsFeilet") as bool? ?? false;
         return Page();
     }
 
@@ -63,6 +67,7 @@ public sealed class BekreftKodeModel : PageModel
         var huskMeg = TempData["ToFaktorHuskMeg"] as bool? ?? false;
         var returnUrl = TempData["ToFaktorReturnUrl"] as string;
         DevKode = TempData["DevToFaktorKode"] as string;
+        SmsFeilet = TempData["ToFaktorSmsFeilet"] as bool? ?? false;
 
         return rolle is UserRole.Administrator or UserRole.Superadmin
             ? await BekreftAdministratorAsync(id, huskMeg, returnUrl, rolleVerdi, idVerdi, cancellationToken)
@@ -87,6 +92,7 @@ public sealed class BekreftKodeModel : PageModel
             TempData["ToFaktorHuskMeg"] = huskMeg;
             TempData["ToFaktorReturnUrl"] = returnUrl;
             TempData["DevToFaktorKode"] = DevKode;
+            TempData["ToFaktorSmsFeilet"] = SmsFeilet;
             await _auditLogger.LogAsync(
                 administrator.AdminId, nameof(UserRole.Administrator), "ToFaktorFeilet",
                 nameof(Administrator), administrator.Id.ToString(), cancellationToken: cancellationToken);
@@ -122,6 +128,7 @@ public sealed class BekreftKodeModel : PageModel
             TempData["ToFaktorHuskMeg"] = huskMeg;
             TempData["ToFaktorReturnUrl"] = returnUrl;
             TempData["DevToFaktorKode"] = DevKode;
+            TempData["ToFaktorSmsFeilet"] = SmsFeilet;
             await _auditLogger.LogAsync(
                 $"behandler:{behandler.Id}", nameof(UserRole.Behandler), "ToFaktorFeilet",
                 nameof(Behandler), behandler.Id.ToString(), cancellationToken: cancellationToken);
