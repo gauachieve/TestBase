@@ -326,7 +326,12 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   er ikke tall — `FormatException` umiddelbart. Samtidig oppdaget, IKKE fikset: den allerede
   eksisterende, frittstående `ItqSkaaringsberegner` bruker fortsatt ren listeposisjon (`svar[index]`)
   for PTSD/DSO-klassifisering — SAMME sårbarhetsklasse som GADIT-krasjen — re-flagget sammen med
-  PHQ-9s tilsvarende kjente sårbarhet for en fremtidig opprydningsrunde.
+  PHQ-9s tilsvarende kjente sårbarhet for en fremtidig opprydningsrunde. **Del 3 (samme natt):**
+  CORE-10 (kortversjon av CORE-OM, CORE System Trust) også ferdig — reverse-skårer ledd 1/5,
+  flagger ledd 3/10 (selvskading/"livet ikke verdt å leve") separat, `ITestSkaaringsberegnerMedLedd`.
+  Gjenstår fortsatt: CORE-OM (full 34-ledds versjon), en CORE-risikomodul, SIPP-118, YGTSS-R,
+  MADRS klinikkversjon, SCID-5-PF (de tre siste krever "behandler fyller ut"-mekanismen), Mini-
+  Screen 6 og HCR-20 V3 (lisensfølsomme).
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

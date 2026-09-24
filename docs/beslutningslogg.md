@@ -5267,3 +5267,27 @@ TRAPS II-bugen over). Strukturell nettleser-spot-sjekk av begge nye tester (side
 -rekkefølge stemmer med seeder-koden) — IKKE en full assign→fyll ut→rapport-runde denne gangen
 (kun ASRS fikk det, som validering av selve det nye grensesnittet). Committes og deployes til
 begge miljøer sammen med denne loggføringen.
+
+## Natt-økt, del 3: CORE-10 (2026-09-25, samme natt)
+
+**CORE-10** (`core10`, "Funksjon, livskvalitet og behandlingsutfall") — Evans, Connell, Barkham et
+al. sin kortversjon av CORE-OM (Clinical Outcomes in Routine Evaluation, CORE System Trust,
+University of Sheffield). Fritt tilgjengelig for klinisk bruk med registrering hos CORE System
+Trust, men ORDLYDEN er opphavsrettslig beskyttet — denne versjonen er OMSKREVET/PARAFRASERT, IKKE
+en verbatim kopi. 10 ledd (0-4, siste uke), ledd 1 og 5 (positivt formulert) REVERSE-SKÅRES (4 −
+rå verdi), sum 0-40, offisiell klinisk cutoff ≥11. Ledd 3 (selvskadingstanker) og ledd 10 ("livet
+ikke verdt å leve") flagges ALLTID separat når besvart over laveste alternativ, samme
+sikkerhetsprinsipp som SCL-25/CORE-10s egne risikoledd tilsier. Bruker
+`ITestSkaaringsberegnerMedLedd` for å identifisere reverserte/risiko-ledd via ekte TestLeddId,
+uavhengig av hoppet-over ledd.
+
+**Verifisert:** build + alle 57 tester grønne (2 nye regresjonstester: reverse-skåring med et
+hoppet-over ledd, og risikoledd-flagging). IKKE browser-verifisert denne runden (samme, allerede
+validerte seeder/scorer-mønster som resten av batchen) — kun enhetstestet og build-verifisert.
+Committes og deployes til begge miljøer sammen med denne loggføringen.
+
+**Gjenstår fortsatt** (se "Fortsettelse" over for full liste + kontinuitetsoppsett): CORE-OM
+(34-ledds fullversjon), en CORE-risikomodul ("CORE-A", egen tolkning av brukerens forkortelse — se
+tidligere seksjon), SIPP-118, YGTSS-R, MADRS klinikkversjon, SCID-5-PF (alle tre siste krever den
+planlagte "behandler fyller ut"-mekanismen, IKKE bygget ennå), Mini-Screen 6 og HCR-20 V3 (begge
+lisensfølsomme, skal IKKE ha oppdiktet ekte iteminnhold).

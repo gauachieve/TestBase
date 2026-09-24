@@ -459,4 +459,29 @@ public sealed class SkaaringsberegnereTests
 
         Assert.Contains("PTSD er oppfylt (uten kompleks PTSD)", resultat.Fortolkning);
     }
+
+    [Fact]
+    public void Core10_ReverseSkaarerLeddEnOgFemUavhengigAvHoppetOverLedd()
+    {
+        // Ledd 2 (indeks 1) hoppes over. Ledd 1 og 5 (positivt formulert) = 0 (verst) -> reverse-skåres til 4 hver.
+        // Ledd 3,4,6,7,8,9,10 = 0. Forventet sum: 4 (ledd1) + 0(ledd2 mangler) + 0+0 + 4(ledd5) + 0+0+0+0+0 = 8.
+        var par = new List<(int, string?)> { (1, "0"), (2, null), (3, "0"), (4, "0"), (5, "0"), (6, "0"), (7, "0"), (8, "0"), (9, "0"), (10, "0") };
+        var (alleLedd, svar) = LeddOgSvar(par.ToArray());
+
+        var resultat = new Core10Skaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        Assert.Equal(8, resultat.RaaSkaar);
+    }
+
+    [Fact]
+    public void Core10_LivetIkkeVerdtAaLeveFlaggesSeparatUavhengigAvTotalskaar()
+    {
+        var par = Enumerable.Range(1, 10).Select(i => (i, (string?)"0")).ToList();
+        par[9] = (10, "2"); // Ledd 10 = "livet ikke verdt å leve", besvart 2 (over 0)
+        var (alleLedd, svar) = LeddOgSvar(par.ToArray());
+
+        var resultat = new Core10Skaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn.Contains("Livet ikke verdt") && !i.Positiv);
+    }
 }
