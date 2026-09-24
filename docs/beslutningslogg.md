@@ -5095,6 +5095,12 @@ behandleren som feilet. Lavere alvorlighetsgrad enn 2FA-krasjen (ingen 500, inge
 konsekvens — kun at RESTEN av dagens behandlere i køen mister sin påminnelse også), IKKE rørt denne
 runden, kun flagget som samme mønster å rydde opp i senere.
 
+**Oppdatering samme kveld: brukeren fylte på Vonage-kontoen.** Reverifisert direkte mot LIVE med
+samme personnummer+captcha-reproduksjon som over — ingen SMS-feilet-advarsel vises lenger på
+`/Konto/BekreftKode`, dvs. selve SMS-leveringen fungerer igjen, ikke bare at krasjen er unngått.
+Selve kodefiksen (try/catch + advarselsboks) er uendret og beholdt — den er fortsatt riktig
+beredskap for neste gang en ekstern leverandør er nede/har lav saldo, uansett årsak.
+
 ## Fire UI-forbedringer på tildelingsflyten + pasientlister (2026-09-24, samme dag)
 
 Etter 2FA-krasj-fiksen ba brukeren om fire mindre, konkrete UI-forbedringer før kvelden — alle
