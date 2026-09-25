@@ -354,9 +354,17 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   rett under spørsmålet. Første test på denne mekanismen: YGTSS-R (Leckman et al. 1989,
   tic-alvorlighet, `ITestSkaaringsberegnerMedLedd` siden sjekklisten kan ha ulikt antall avkryssede
   ledd) — verifisert FULLT ende-til-ende i nettleser (tildeling → ingen pasientvarsel vist → utfylt
-  av behandler m/ kommentar → rapport viste korrekt 60/100 og kommentaren riktig plassert). Gjenstår:
-  MADRS klinikkversjon og SCID-5-PF (samme mekanisme, bør gå raskere nå), Mini-Screen 6 og
-  HCR-20 V3 (lisensfølsomme).
+  av behandler m/ kommentar → rapport viste korrekt 60/100 og kommentaren riktig plassert). **Del 7
+  (samme natt):** MADRS klinikkversjon (`madrs_klinikk`) — den kliniker-administrerte originalen,
+  til forskjell fra den innebygde selvutfyllingsversjonen MADRS-S. 10 ledd (mot MADRS-S sine 9,
+  siden "tilsynelatende tungsinn" og "rapportert tungsinn" er separate ledd her), samme 0-6-skala
+  (0-60 totalt). Andre test på "behandler fyller ut"-mekanismen — INGEN ny sideinfrastruktur
+  trengtes, `FyllForPasient` er allerede fullt generisk. Selvmordsledd (ledd 10) flagges separat
+  uavhengig av totalskår, identifisert via ekte TestLeddId (`ITestSkaaringsberegnerMedLedd`).
+  Verifisert FULLT ende-til-ende i nettleser: 38/60 "alvorlig deprimert" + selvmordsflagg korrekt
+  vist, kommentar korrekt plassert i rapporten. Gjenstår: SCID-5-PF (samme mekanisme, mest
+  komplekse — per-ledd-kommentarer OG unike cutoffs per personlighetsforstyrrelse), Mini-Screen 6
+  og HCR-20 V3 (lisensfølsomme).
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

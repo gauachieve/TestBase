@@ -555,4 +555,35 @@ public sealed class SkaaringsberegnereTests
         Assert.Contains("fonatorisk delskår 0/25", resultat.Fortolkning);
         Assert.Equal(45, resultat.RaaSkaar); // 25 (motorisk) + 0 (fonatorisk) + 20 (funksjon)
     }
+
+    [Fact]
+    public void MadrsKlinikk_SelvmordsleddFlaggesSeparatUavhengigAvLavTotalskaar()
+    {
+        // Ledd 1-9 = 0 (ingen depresjon), ledd 10 (selvmordstanker, siste ledd-ID) = 2 -> lav
+        // totalskår (2/60) men selvmordsleddet skal FORTSATT flagges eksplisitt.
+        var par = Enumerable.Range(1, 10).Select(i => (i, (string?)"0")).ToList();
+        par[9] = (10, "2");
+        var (alleLedd, svar) = LeddOgSvar(par.ToArray());
+
+        var resultat = new MadrsKlinikkSkaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        Assert.Equal(2, resultat.RaaSkaar);
+        Assert.Equal(60, resultat.RaaSkaarMaks);
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Selvmordstanker" && !i.Positiv);
+    }
+
+    [Fact]
+    public void MadrsKlinikk_HoppetOverLeddForskyverIkkeHvilketLeddSomErSelvmordsleddet()
+    {
+        // Ledd 5 (redusert appetitt) hoppes over. Selvmordsleddet identifiseres via ekte
+        // TestLeddId (10, siste), IKKE listeposisjon i svar-listen (som her ville vært indeks 8).
+        var par = new List<(int, string?)> { (1, "6"), (2, "6"), (3, "6"), (4, "6"), (5, null), (6, "6"), (7, "6"), (8, "6"), (9, "6"), (10, "6") };
+        var (alleLedd, svar) = LeddOgSvar(par.ToArray());
+
+        var resultat = new MadrsKlinikkSkaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        Assert.Equal(54, resultat.RaaSkaar); // 9 besvarte ledd * 6
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Selvmordstanker" && !i.Positiv);
+        Assert.Contains("alvorlig deprimert", resultat.Fortolkning);
+    }
 }

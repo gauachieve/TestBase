@@ -5418,3 +5418,39 @@ denne loggføringen.
 
 **Gjenstår:** MADRS klinikkversjon og SCID-5-PF (samme mekanisme, bør nå gå raskere siden
 infrastrukturen er ferdig), Mini-Screen 6 og HCR-20 V3 (lisensfølsomme).
+
+## Natt-økt, del 7: MADRS klinikkversjon — andre test på "behandler fyller ut"-mekanismen (2026-09-25, samme natt)
+
+MADRS klinikkversjon (`madrs_klinikk`, Montgomery Åsberg Depression Rating Scale, Montgomery &
+Åsberg 1979) — den KLINIKER-ADMINISTRERTE originalen, til forskjell fra den allerede innebygde
+selvutfyllingsversjonen MADRS-S. Kliniker-versjonen har 10 ledd (mot MADRS-S sine 9) — den skiller
+"tilsynelatende tungsinn" (klinikerens OBSERVASJON under intervjuet) fra "rapportert tungsinn"
+(pasientens egen beskrivelse), et skille et selvutfyllingsskjema ikke kan gjenskape. Samme 0-6-skala
+med mellomtrinn (0-60 totalt) som MADRS-S. Ordlyden på hvert ledd er en EGEN, klinisk rimelig
+gjengivelse av den velkjente MADRS-strukturen (selve item-titlene er offentlig kjent
+fagterminologi) — IKKE en verbatim gjengivelse av et lisensiert skåringshefte med de faktiske
+ankerformuleringene, bør kvalitetssikres mot en offisiell norsk klinikerversjon før reell bruk.
+Alvorlighetsgrensene (≤6 ikke deprimert, ≤19 lett, ≤34 moderat, >34 alvorlig) er en mye brukt, men
+omtrentlig konvensjon (jf. Snaith m.fl. 1986) — samme forbehold som MADRS-S. Ledd 10
+(selvmordstanker) flagges alltid separat når besvart over 0, UAVHENGIG av totalskår, via
+`ITestSkaaringsberegnerMedLedd` (identifiserer selvmordsleddet som det ledd-ID-messig SISTE leddet
+på siden, ikke listeposisjon i svar-listen — samme robusthetsmønster som resten av natten).
+
+Ingen ny sideinfrastruktur trengtes — `FyllForPasient`-siden bygget i del 6 er allerede fullt
+generisk (rendrer enhver test/side/ledd-type), så denne testen la kun til seeder + skåringsberegner
++ 2 `Program.cs`-linjer + 2 regresjonstester.
+
+**Verifisert FULLT ende-til-ende i nettleser:** tildelt til en ekte pasient via
+Behandlerportal-tildelingsflyten (la også merke til en tidspunkt-for-utsending/planlegging-dialog i
+flyten som ikke var eksplisitt dokumentert fra tidligere natte-økter — eksisterende fase 6-
+funksjonalitet, ikke noe nytt bygget her) → bekreftelsessiden viste korrekt "Tester du skal fylle ut
+selv" uten patient-varsel → fylte ut alle 10 ledd + én ledd-kommentar på `FyllForPasient/66` → 63 %
+(38/60, "alvorlig deprimert") vist korrekt i rapporten, med "Selvmordstanker"-indikatoren riktig
+flagget (kun ledd 10 = 2, resten = 4, viser at flagget IKKE avhenger av totalskåren) → side 2 av
+rapporten viste alle 10 spørsmål med korrekte svarlabels OG kommentaren riktig plassert under ledd 1.
+Build + alle 63 tester grønne (2 nye regresjonstester). Committes og deployes til begge miljøer
+sammen med denne loggføringen.
+
+**Gjenstår:** SCID-5-PF (samme mekanisme, den mest komplekse — trenger per-ledd-kommentarer OG unike
+cutoffs per personlighetsforstyrrelse), Mini-Screen 6 og HCR-20 V3 (lisensfølsomme, dokumenteres
+uten oppdiktet iteminnhold).
