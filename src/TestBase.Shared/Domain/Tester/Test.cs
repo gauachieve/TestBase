@@ -90,4 +90,16 @@ public sealed class Test
     /// rapporten, aldri en sperre for pasienten (se Pasientportal/Tester/Fyll).
     /// </summary>
     public int? MaksUbesvartProsent { get; set; }
+
+    /// <summary>
+    /// Sant for tester som skal fylles ut AV BEHANDLER (om pasienten), ikke av
+    /// pasienten selv — f.eks. kliniker-administrerte intervjuer/observasjons-
+    /// skalaer (YGTSS-R, MADRS klinikkversjon, SCID-5-PF). Slike tildelinger
+    /// sendes ALDRI til pasienten (ingen SMS/e-post, ingen lenke pasienten kan
+    /// åpne), prises alltid 0/IkkePakrevd (se TestTildelingsService.
+    /// TildelOgVarsleAsync), og fylles ut av behandleren selv på
+    /// Behandlerportal/Pasienter/FyllForPasient — se docs/beslutningslogg.md
+    /// "Behandler-utfylte tester". Standard false for ALLE eksisterende tester.
+    /// </summary>
+    public bool FyllesUtAvBehandler { get; set; }
 }

@@ -94,9 +94,13 @@
                 var sok = $"{rad.PasientNavn} {rad.TestNavn}".ToLowerInvariant();
                 <tr data-fane-rad="ikke-besvart" data-sok="@sok">
                     <td>@(rad.PasientNavn ?? "(ikke fullført registrering)")</td>
-                    <td>@rad.TestNavn</td>
+                    <td>@rad.TestNavn @(rad.FyllesUtAvBehandler ? "(fylles ut av deg)" : "")</td>
                     <td>@rad.Tildeling.TildeltUtc.ToString("d") (@rad.Tildeling.Status)</td>
                     <td>
+                        @if (rad.FyllesUtAvBehandler)
+                        {
+                            <a href="/Behandlerportal/Pasienter/FyllForPasient/@rad.Tildeling.Id">Fyll ut</a>
+                        }
                         <a href="/Behandlerportal/Pasienter/Detaljer/@rad.PasientId">Se pasient</a>
                         <form method="post" asp-page-handler="SlettIkkeBesvart" style="display:inline;"
                               onsubmit="return confirm('Slette denne ubesvarte tildelingen permanent?');">

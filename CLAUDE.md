@@ -343,8 +343,20 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   eksplisitt om begrensningen (testnavnet sier selv "forenklet, inspirert av") fremfor å gjette med
   falsk selvsikkerhet. Høyere skår = bedre funksjon (motsatt konvensjon av symptommål), reverse-
   skårer maladaptive ledd men et hoppet-over maladaptivt ledd teller 0 (ikke falsk maks 5) —
-  verifisert med regresjonstest. Gjenstår: YGTSS-R, MADRS klinikkversjon, SCID-5-PF (krever
-  "behandler fyller ut"-mekanismen, NESTE oppgave), Mini-Screen 6 og HCR-20 V3 (lisensfølsomme).
+  verifisert med regresjonstest. **Del 6 (samme natt):** "behandler fyller ut"-mekanismen bygget —
+  `Test.FyllesUtAvBehandler` + `TestSvar.BehandlerKommentar` (ny migrasjon), en ny side
+  `Behandlerportal/Pasienter/FyllForPasient/{id}/{side?}` (samme side-for-side-mønster som
+  pasientens `Tester/Fyll`, men eierskapssjekk mot behandlers egne pasienter, ingen betalingsgate,
+  én kommentarboks per ledd). `TestTildelingsService.TildelOgVarsleAsync` gir en slik test verken
+  pris eller pasientvarsel — den havner i stedet i en ny `BehandlerOppgave`-liste vist i begge
+  Tildel/Tester.cshtml-resultatsidene, og som en "Fyll ut"-lenke i `MinSide` sin "Ikke besvart"-fane.
+  Kommentarer vises nå i BEGGE Areas' rapportvisning (inkl. Behandlerportals utklippstavle-mal)
+  rett under spørsmålet. Første test på denne mekanismen: YGTSS-R (Leckman et al. 1989,
+  tic-alvorlighet, `ITestSkaaringsberegnerMedLedd` siden sjekklisten kan ha ulikt antall avkryssede
+  ledd) — verifisert FULLT ende-til-ende i nettleser (tildeling → ingen pasientvarsel vist → utfylt
+  av behandler m/ kommentar → rapport viste korrekt 60/100 og kommentaren riktig plassert). Gjenstår:
+  MADRS klinikkversjon og SCID-5-PF (samme mekanisme, bør gå raskere nå), Mini-Screen 6 og
+  HCR-20 V3 (lisensfølsomme).
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

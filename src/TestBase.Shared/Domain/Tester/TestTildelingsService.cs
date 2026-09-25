@@ -21,7 +21,15 @@ public sealed record TestLenke(long TildelingId, string TestNavn, string Lenke);
 public sealed record TildeltPasientResultat(
     long PasientId, string? Navn, IReadOnlyList<TestLenke> Lenker, bool SendtSms, bool SendtEpost);
 
-public sealed record TildelingsBatchResultat(IReadOnlyList<TildeltPasientResultat> PerPasient);
+/// <summary>
+/// Én behandler-utfylt test (se Test.FyllesUtAvBehandler) opprettet i denne
+/// batchen — ALDRI sendt til pasienten (ingen lenke, ingen SMS/e-post), lenken
+/// her peker til Behandlerportal/Pasienter/FyllForPasient i stedet for
+/// Pasientportal/Tester/Fyll. Se TestTildelingsService.TildelOgVarsleAsync.
+/// </summary>
+public sealed record BehandlerOppgave(long TildelingId, string TestNavn, long PasientId, string? PasientNavn, string Lenke);
+
+public sealed record TildelingsBatchResultat(IReadOnlyList<TildeltPasientResultat> PerPasient, IReadOnlyList<BehandlerOppgave>? BehandlerOppgaver = null);
 
 /// <summary>
 /// Prisingskonteksten for ÉN behandler, brukt til å vise en levende
@@ -190,6 +198,7 @@ public sealed class TestTildelingsService
         var prisPerTestId = await BeregnPrisPerTestAsync(behandler, tester, onsketHonorarKrPerTestId, inkludererSms, cancellationToken);
 
         var perPasient = new List<TildeltPasientResultat>();
+        var behandlerOppgaver = new List<BehandlerOppgave>();
         foreach (var pasient in pasienter)
         {
             var lenker = new List<TestLenke>();
@@ -199,6 +208,13 @@ public sealed class TestTildelingsService
                     testId, pasient.Id, behandlerId: behandlerId, administratorId: administratorId,
                     frist: null, varighetMinutter: null, cancellationToken: cancellationToken);
 
+                // Behandler-utfylte tester (se Test.FyllesUtAvBehandler — YGTSS-R/MADRS
+                // klinikkversjon/SCID-5-PF) sendes ALDRI til pasienten: ingen pris (samme
+                // "IkkePakrevd"-prinsipp som prøvepasienter under), ingen lenke i SMS/e-post,
+                // ingen oppføring i selve varslingsmeldingen. Behandleren fyller den ut selv
+                // på Behandlerportal/Pasienter/FyllForPasient, se BehandlerOppgave.
+                var erBehandlerUtfylt = tester.GetValueOrDefault(testId)?.FyllesUtAvBehandler ?? false;
+
                 // "Prøv systemet"-pasient (intet personnummer, se PasientInvitasjonService.
                 // RegistrerViaQrAsync) skal ALDRI møte betalingsgaten, uansett testens pris —
                 // det er selve poenget med terskelen ("sample the system before committing to
@@ -206,7 +222,7 @@ public sealed class TestTildelingsService
                 // som enhver annen tildeling, ingen spesialbehandling — se
                 // docs/beslutningslogg.md "Fase 5: betalingsgate for gruppetildelte tester".
                 var erProvepasient = string.IsNullOrWhiteSpace(pasient.Personnummer);
-                var pris = erProvepasient ? null : prisPerTestId.GetValueOrDefault(testId);
+                var pris = (erProvepasient || erBehandlerUtfylt) ? null : prisPerTestId.GetValueOrDefault(testId);
                 _db.TestTildelingBetalinger.Add(new TestTildelingBetaling
                 {
                     TestTildelingId = tildeling.Id,
@@ -220,18 +236,31 @@ public sealed class TestTildelingsService
                     OpprettetUtc = DateTimeOffset.UtcNow
                 });
 
-                lenker.Add(new TestLenke(
-                    tildeling.Id,
-                    tester.GetValueOrDefault(testId)?.Navn ?? "(ukjent test)",
-                    $"{baseUrl.TrimEnd('/')}/Pasientportal/Tester/Fyll/{tildeling.Id}"));
+                if (erBehandlerUtfylt)
+                {
+                    behandlerOppgaver.Add(new BehandlerOppgave(
+                        tildeling.Id,
+                        tester.GetValueOrDefault(testId)?.Navn ?? "(ukjent test)",
+                        pasient.Id, pasient.Navn,
+                        $"{baseUrl.TrimEnd('/')}/Behandlerportal/Pasienter/FyllForPasient/{tildeling.Id}"));
+                }
+                else
+                {
+                    lenker.Add(new TestLenke(
+                        tildeling.Id,
+                        tester.GetValueOrDefault(testId)?.Navn ?? "(ukjent test)",
+                        $"{baseUrl.TrimEnd('/')}/Pasientportal/Tester/Fyll/{tildeling.Id}"));
+                }
             }
             await _db.SaveChangesAsync(cancellationToken);
 
-            var (sendtSms, sendtEpost) = await VarsleAsync(pasient, BygMelding(lenker), "Nye tester tildelt i PsyTest", varslingsmetode, cancellationToken);
+            var (sendtSms, sendtEpost) = lenker.Count == 0
+                ? (false, false)
+                : await VarsleAsync(pasient, BygMelding(lenker), "Nye tester tildelt i PsyTest", varslingsmetode, cancellationToken);
             perPasient.Add(new TildeltPasientResultat(pasient.Id, pasient.Navn, lenker, sendtSms, sendtEpost));
         }
 
-        return new TildelingsBatchResultat(perPasient);
+        return new TildelingsBatchResultat(perPasient, behandlerOppgaver);
     }
 
     /// <summary>

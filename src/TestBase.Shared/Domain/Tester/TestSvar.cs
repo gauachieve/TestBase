@@ -11,4 +11,13 @@ public sealed class TestSvar
     public required string SvarVerdi { get; set; }
 
     public DateTimeOffset BesvartUtc { get; set; }
+
+    /// <summary>
+    /// Behandlerens fritekstkommentar til DETTE spesifikke leddet — kun
+    /// meningsfullt for behandler-utfylte tester (se Test.FyllesUtAvBehandler),
+    /// f.eks. SCID-5-PF sitt behov for en klinisk begrunnelse per spørsmål.
+    /// Alltid null for pasient-utfylte tester. Vises i rapporten sammen med
+    /// selve svaret når satt. Se docs/beslutningslogg.md "Behandler-utfylte tester".
+    /// </summary>
+    public string? BehandlerKommentar { get; set; }
 }

@@ -122,6 +122,8 @@ builder.Services.AddScoped<ITestSkaaringsberegner, CoreARisikoSkaaringsberegner>
 builder.Services.AddScoped<IInnebygdTestSeeder, CoreARisikoTestSeeder>();
 builder.Services.AddScoped<ITestSkaaringsberegner, Sipp118Skaaringsberegner>();
 builder.Services.AddScoped<IInnebygdTestSeeder, Sipp118TestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, YgtssRSkaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, YgtssRTestSeeder>();
 
 // Admin og Behandlerportal deler nå én samlet innloggingsside (/Konto/LoggInn
 // — BankID finner personen og logger inn på høyeste rolle selv, uten at

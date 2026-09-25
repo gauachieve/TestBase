@@ -44,7 +44,7 @@ public sealed class RapportModel : PageModel
         _currentUser = currentUser;
     }
 
-    public sealed record SvarRad(string Sporsmal, string SvarLabel);
+    public sealed record SvarRad(string Sporsmal, string SvarLabel, string? BehandlerKommentar = null);
     public sealed record SideMedSvar(TestSide Side, IReadOnlyList<SvarRad> Svar);
 
     public Pasient? Pasient { get; private set; }
@@ -181,6 +181,12 @@ public sealed class RapportModel : PageModel
             return false;
         }
 
+        // Kun behandler-utfylte tester (se Test.FyllesUtAvBehandler) har noensinne en
+        // BehandlerKommentar — tomt oppslag/harmløst for enhver annen test.
+        var kommentarPerLeddId = await _db.TestSvar
+            .Where(s => s.TestTildelingId == id && s.BehandlerKommentar != null)
+            .ToDictionaryAsync(s => s.TestLeddId, s => s.BehandlerKommentar!, cancellationToken);
+
         Sider = innhold.Sider.Select(side =>
         {
             var svar = innhold.AlleLedd.Where(l => l.TestSideId == side.Id).Select(ledd =>
@@ -193,7 +199,7 @@ public sealed class RapportModel : PageModel
                     TestSvartype.VisuellAnalogSkala => $"{raaVerdi}/100",
                     _ => raaVerdi
                 };
-                return new SvarRad(ledd.Sporsmalstekst, label);
+                return new SvarRad(ledd.Sporsmalstekst, label, kommentarPerLeddId.GetValueOrDefault(ledd.Id));
             }).ToList();
             return new SideMedSvar(side, svar);
         }).ToList();

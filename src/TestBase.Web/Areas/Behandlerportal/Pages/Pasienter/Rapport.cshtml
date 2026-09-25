@@ -144,7 +144,16 @@ else
                     <tbody>
                     @foreach (var rad in side.Svar)
                     {
-                        <tr><td>@rad.Sporsmal</td><td>@rad.SvarLabel</td></tr>
+                        <tr>
+                            <td>
+                                @rad.Sporsmal
+                                @if (!string.IsNullOrWhiteSpace(rad.BehandlerKommentar))
+                                {
+                                    <br /><em style="color: #666; font-size: 0.9em;">Kommentar: @rad.BehandlerKommentar</em>
+                                }
+                            </td>
+                            <td>@rad.SvarLabel</td>
+                        </tr>
                     }
                     </tbody>
                 </table>
@@ -277,7 +286,13 @@ else if (Model.Tildeling?.RapportGodkjentUtc is not null)
                 @foreach (var rad in side.Svar)
                 {
                     <tr>
-                        <td style="border-bottom: 1px solid #e8e6e0; padding: 4px;">@rad.Sporsmal</td>
+                        <td style="border-bottom: 1px solid #e8e6e0; padding: 4px;">
+                            @rad.Sporsmal
+                            @if (!string.IsNullOrWhiteSpace(rad.BehandlerKommentar))
+                            {
+                                <br /><span style="color: #6b7280; font-style: italic;">Kommentar: @rad.BehandlerKommentar</span>
+                            }
+                        </td>
                         <td style="border-bottom: 1px solid #e8e6e0; padding: 4px;">@rad.SvarLabel</td>
                     </tr>
                 }

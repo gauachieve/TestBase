@@ -5361,3 +5361,60 @@ IKKE en full fyll-ut-runde. Committes og deployes til begge miljøer sammen med 
 **Gjenstår fortsatt:** YGTSS-R, MADRS klinikkversjon, SCID-5-PF (krever "behandler fyller ut"-
 mekanismen, som er NESTE oppgave), Mini-Screen 6 og HCR-20 V3 (lisensfølsomme, dokumenteres uten
 oppdiktet iteminnhold).
+
+## Natt-økt, del 6: "Behandler fyller ut"-mekanismen bygget + YGTSS-R (2026-09-25, samme natt)
+
+Bygget den planlagte infrastrukturen for tester som fylles ut AV BEHANDLER, om pasienten — ALDRI
+sendt til pasienten — nødvendig for YGTSS-R, MADRS klinikkversjon og SCID-5-PF.
+
+**Skjemaendring (ny EF-migrasjon `LeggTilBehandlerUtfyllingFelt`, kun to rene `AddColumn`, ingen
+feiltolket rename):**
+- `Test.FyllesUtAvBehandler` (bool, default false) — markerer en test som kliniker-administrert.
+- `TestSvar.BehandlerKommentar` (string?, `text`-kolonne) — fritekstkommentar PER LEDD, kun
+  meningsfullt for behandler-utfylte tester (alltid null for pasient-utfylte).
+
+**Tildelingsflyt (`TestTildelingsService.TildelOgVarsleAsync`):** en behandler-utfylt test i
+batchen får ALDRI en `TestLenke` (ingen SMS/e-post, ingen lenke pasienten kan åpne) og prises
+alltid 0/`IkkePakrevd` (samme prinsipp som prøvepasienter, men uavhengig av pasientens
+personnummer-status). Ny `BehandlerOppgave`-record samler disse i en egen liste på
+`TildelingsBatchResultat`, vist i BEGGE Tildel/Tester.cshtml-resultatsidene under en egen "Tester
+du skal fylle ut selv" (behandler) / "Tester som skal fylles ut av behandler" (admin, uten
+direktelenke — det er ikke admin som fyller den ut) -seksjon. Bekreftelsessiden viser INGEN
+patient-varslingsseksjon i det hele tatt når alle testene i batchen er behandler-utfylte (unngikk
+en misvisende "Ingen varsel sendt (mangler kontaktinfo)"-melding som ellers ville vist for feil
+årsak).
+
+**Ny utfyllingsside** `Behandlerportal/Pasienter/FyllForPasient/{id}/{side?}` — samme side-for-
+side-struktur som `Pasientportal/Tester/Fyll` (fremdrift, Neste/Forrige/Ferdig, ingen "Lagre"-
+knapp), men: (1) eierskapssjekk mot behandlerens EGNE pasienter (samme mønster som
+`Behandlerportal/Pasienter/Detaljer` sin `HarTilgangAsync`, inkl. partner-admin-utvidelsen), (2)
+INGEN betalingsgate (alltid gratis), (3) en fritekst-kommentarboks UNDER hvert leddsvar
+(`Kommentar_{leddId}`), lagret via en ny `TestService.LagreSvarAsync`-overload med en
+`kommentarPerLeddId`-parameter — kommentar og svarverdi lagres/oppdateres UAVHENGIG av hverandre,
+siden en behandler kan begynne å notere før hen har bestemt svarverdien. `MinSide` sin "Ikke
+besvart"-fane fikk en "Fyll ut"-direktelenke for slike tildelinger, merket "(fylles ut av deg)".
+Rapportvisningen (BEGGE Areas, både vanlig visning og "Kopier til utklippstavle"-malen) viser nå
+kommentaren i kursiv rett under spørsmålsteksten når satt — harmløst tomt for enhver annen test.
+
+**YGTSS-R** (`ygtss_r`, "ADHD, autisme og nevroutvikling") — Leckman, Riddle, Hardin et al. (1989),
+den FØRSTE testen som bruker den nye mekanismen. Sjekkliste over motoriske/vokale tic-typer (ikke
+skåret, kun klinisk kontekst) + 5 alvorlighetsdimensjoner hver for motorisk og fonatorisk (antall/
+frekvens/intensitet/kompleksitet/interferens, 0-5), pluss en samlet funksjonsnedsettelsesvurdering
+(0-50). Total YGTSS-skår = motorisk delskår + fonatorisk delskår + funksjonsnedsettelse (0-100).
+Ordlyd-ankrene for hver dimensjon er EGEN, klinisk rimelig gjengivelse (ikke verbatim sitert),
+bør kvalitetssikres. Bruker `ITestSkaaringsberegnerMedLedd` — sjekklisten kan ha ULIKT antall
+avkryssede ledd fra pasient til pasient, og de 5 rangeringsleddene identifiseres via ekte
+TestLeddId-oppslag, ikke listeposisjon.
+
+**Verifisert FULLT ende-til-ende i nettleser** (den mest grundige verifiseringen denne natten):
+tildelt YGTSS-R til en ekte pasient (med personnummer, ikke prøvedata) → bekreftelsessiden viste
+INGEN patient-varslingsseksjon, kun "Tester du skal fylle ut selv" med direktelenke → fylte ut alle
+3 sider på FyllForPasient, inkludert én ledd-kommentar → "Ferdig"-siden viste "Min side (behandler)"
+badge økt til 1 (ny oppgave i "Venter på godkjenning") → rapporten viste korrekt Råskår 60/100
+(15/25 motorisk + 15/25 fonatorisk + 30/50 funksjon, alle tall stemte med det som ble fylt ut) OG
+kommentaren korrekt gjengitt i kursiv under riktig spørsmål. Build + alle 61 tester grønne (1 ny
+regresjonstest for sjekkliste-robustheten). Committes og deployes til begge miljøer sammen med
+denne loggføringen.
+
+**Gjenstår:** MADRS klinikkversjon og SCID-5-PF (samme mekanisme, bør nå gå raskere siden
+infrastrukturen er ferdig), Mini-Screen 6 og HCR-20 V3 (lisensfølsomme).

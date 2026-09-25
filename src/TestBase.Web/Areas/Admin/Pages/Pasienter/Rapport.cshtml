@@ -76,7 +76,16 @@ else
                         <tbody>
                         @foreach (var rad in side.Svar)
                         {
-                            <tr><td>@rad.Sporsmal</td><td>@rad.SvarLabel</td></tr>
+                            <tr>
+                                <td>
+                                    @rad.Sporsmal
+                                    @if (!string.IsNullOrWhiteSpace(rad.BehandlerKommentar))
+                                    {
+                                        <br /><em style="color: #666; font-size: 0.9em;">Kommentar: @rad.BehandlerKommentar</em>
+                                    }
+                                </td>
+                                <td>@rad.SvarLabel</td>
+                            </tr>
                         }
                         </tbody>
                     </table>

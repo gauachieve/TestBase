@@ -248,6 +248,7 @@ public sealed class AppDbContext : DbContext
             entity.ToTable("test_svar");
             entity.HasKey(s => s.Id);
             entity.Property(s => s.SvarVerdi).HasMaxLength(2000).IsRequired();
+            entity.Property(s => s.BehandlerKommentar).HasColumnType("text");
             entity.HasIndex(s => new { s.TestTildelingId, s.TestLeddId }).IsUnique();
         });
 

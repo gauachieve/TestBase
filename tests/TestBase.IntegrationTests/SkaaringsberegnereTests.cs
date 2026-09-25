@@ -534,4 +534,25 @@ public sealed class SkaaringsberegnereTests
         // Selvkontroll: ledd1(revers 5-1=4) + ledd2(4) + ledd3(mangler->0, IKKE reversert til 5) + ledd4(revers 5-4=1) + ledd5(revers 5-4=1) + ledd6(4) = 14.
         Assert.Contains("Selvkontroll 14/24", resultat.Fortolkning);
     }
+
+    [Fact]
+    public void YgtssR_SjekklisteMedUliktAntallAvkrysningerForskyverIkkeRangeringsleddene()
+    {
+        // Motorisk sjekkliste (10 ledd) har KUN 3 av 10 besvart "Ja" (resten hoppet over) -- skal
+        // IKKE forskyve hvilke 5 påfølgende ledd som telles som rangeringsdimensjoner.
+        var par = new List<(int, string?)>();
+        for (var i = 1; i <= 10; i++) par.Add((i, i <= 3 ? "Ja" : null));
+        // Motorisk rangering (ledd 11-15): sum skal bli 5+5+5+5+5=25 (maks).
+        for (var i = 11; i <= 15; i++) par.Add((i, "5"));
+        for (var i = 16; i <= 23; i++) par.Add((i, "Nei")); // Fonatorisk sjekkliste, alt "Nei"
+        for (var i = 24; i <= 28; i++) par.Add((i, "0"));   // Fonatorisk rangering: sum 0
+        par.Add((29, "20"));                                 // Funksjonsnedsettelse
+
+        var (alleLedd, svar) = LeddOgSvar(par.ToArray());
+        var resultat = new YgtssRSkaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        Assert.Contains("Motorisk delskår 25/25", resultat.Fortolkning);
+        Assert.Contains("fonatorisk delskår 0/25", resultat.Fortolkning);
+        Assert.Equal(45, resultat.RaaSkaar); // 25 (motorisk) + 0 (fonatorisk) + 20 (funksjon)
+    }
 }

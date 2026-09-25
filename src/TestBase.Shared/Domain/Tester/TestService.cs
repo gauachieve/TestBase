@@ -310,6 +310,20 @@ public sealed class TestService
         return true;
     }
 
+    /// <summary>Se Test.FyllesUtAvBehandler — samme mønster som SettIcdElleveKlarAsync.</summary>
+    public async Task<bool> SettFyllesUtAvBehandlerAsync(long testId, bool fyllesUtAvBehandler, CancellationToken cancellationToken = default)
+    {
+        var test = await _db.Tester.FirstOrDefaultAsync(t => t.Id == testId, cancellationToken);
+        if (test is null)
+        {
+            return false;
+        }
+
+        test.FyllesUtAvBehandler = fyllesUtAvBehandler;
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     /// <summary>
     /// Samme mønster/begrunnelse som SettRapportIntroduksjonAsync — lar en
     /// seeders "allerede finnes"-gren oppdatere et testnavn (f.eks. en
@@ -748,7 +762,19 @@ public sealed class TestService
     /// </summary>
     public async Task LagreSvarAsync(
         long tildelingId, IReadOnlyDictionary<long, string> svarPerLeddId, bool markerFullfort,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        await LagreSvarAsync(tildelingId, svarPerLeddId, markerFullfort, kommentarPerLeddId: null, cancellationToken);
+
+    /// <summary>
+    /// Overload med behandler-kommentar per ledd — brukt av Behandlerportal/
+    /// Pasienter/FyllForPasient (se Test.FyllesUtAvBehandler). Et ledd kan ha
+    /// KUN en kommentar uten selve svaret besvart ennå (f.eks. behandler
+    /// begynner å notere før hen har bestemt seg for svarverdien), så
+    /// kommentar og svarverdi oppdateres/opprettes UAVHENGIG av hverandre.
+    /// </summary>
+    public async Task LagreSvarAsync(
+        long tildelingId, IReadOnlyDictionary<long, string> svarPerLeddId, bool markerFullfort,
+        IReadOnlyDictionary<long, string>? kommentarPerLeddId, CancellationToken cancellationToken = default)
     {
         var tildeling = await _db.TestTildelinger.FirstAsync(t => t.Id == tildelingId, cancellationToken);
 
@@ -758,9 +784,14 @@ public sealed class TestService
             tildeling.StartetUtc = DateTimeOffset.UtcNow;
         }
 
-        foreach (var (leddId, verdi) in svarPerLeddId)
+        var beroerteLeddIder = svarPerLeddId.Keys.Union(kommentarPerLeddId?.Keys ?? Enumerable.Empty<long>());
+        foreach (var leddId in beroerteLeddIder)
         {
-            if (string.IsNullOrWhiteSpace(verdi))
+            var verdi = svarPerLeddId.GetValueOrDefault(leddId);
+            var kommentar = kommentarPerLeddId?.GetValueOrDefault(leddId);
+            var harVerdi = !string.IsNullOrWhiteSpace(verdi);
+            var harKommentar = !string.IsNullOrWhiteSpace(kommentar);
+            if (!harVerdi && !harKommentar)
             {
                 continue;
             }
@@ -770,19 +801,30 @@ public sealed class TestService
 
             if (eksisterende is not null)
             {
-                eksisterende.SvarVerdi = verdi;
-                eksisterende.BesvartUtc = DateTimeOffset.UtcNow;
+                if (harVerdi)
+                {
+                    eksisterende.SvarVerdi = verdi!;
+                    eksisterende.BesvartUtc = DateTimeOffset.UtcNow;
+                }
+                if (kommentarPerLeddId is not null)
+                {
+                    eksisterende.BehandlerKommentar = harKommentar ? kommentar : null;
+                }
             }
-            else
+            else if (harVerdi)
             {
                 _db.TestSvar.Add(new TestSvar
                 {
                     TestTildelingId = tildelingId,
                     TestLeddId = leddId,
-                    SvarVerdi = verdi,
-                    BesvartUtc = DateTimeOffset.UtcNow
+                    SvarVerdi = verdi!,
+                    BesvartUtc = DateTimeOffset.UtcNow,
+                    BehandlerKommentar = harKommentar ? kommentar : null
                 });
             }
+            // Kommentar uten verdi og uten eksisterende rad: ingen rad å feste kommentaren til ennå
+            // (TestSvar.SvarVerdi er required) — kommentaren går tapt inntil selve svaret gis. Akseptert
+            // avveining fremfor å innføre en nullable SvarVerdi kun for dette sjeldne tilfellet.
         }
 
         if (markerFullfort)
@@ -868,7 +910,7 @@ public sealed class TestService
         return true;
     }
 
-    public sealed record TildelingMedTestOgPasient(TestTildeling Tildeling, string TestNavn, long PasientId, string? PasientNavn);
+    public sealed record TildelingMedTestOgPasient(TestTildeling Tildeling, string TestNavn, long PasientId, string? PasientNavn, bool FyllesUtAvBehandler = false);
 
     /// <summary>Fullførte tester som venter på behandlers godkjenning — behandlers oppgaveliste, jf. beslutningsloggen.</summary>
     public async Task<IReadOnlyList<TildelingMedTestOgPasient>> HentUgodkjenteFullforteForBehandlerAsync(
@@ -940,13 +982,15 @@ public sealed class TestService
         List<TestTildeling> tildelinger, CancellationToken cancellationToken)
     {
         var testIder = tildelinger.Select(t => t.TestId).Distinct().ToList();
-        var testNavn = await _db.Tester.Where(t => testIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Navn, cancellationToken);
+        var tester = await _db.Tester.Where(t => testIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, cancellationToken);
 
         var pasientIder = tildelinger.Select(t => t.PasientId).Distinct().ToList();
         var pasientNavn = await _db.Pasienter.Where(p => pasientIder.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Navn, cancellationToken);
 
         return tildelinger
-            .Select(t => new TildelingMedTestOgPasient(t, testNavn.GetValueOrDefault(t.TestId, "(ukjent test)"), t.PasientId, pasientNavn.GetValueOrDefault(t.PasientId)))
+            .Select(t => new TildelingMedTestOgPasient(
+                t, tester.GetValueOrDefault(t.TestId)?.Navn ?? "(ukjent test)", t.PasientId, pasientNavn.GetValueOrDefault(t.PasientId),
+                tester.GetValueOrDefault(t.TestId)?.FyllesUtAvBehandler ?? false))
             .ToList();
     }
 

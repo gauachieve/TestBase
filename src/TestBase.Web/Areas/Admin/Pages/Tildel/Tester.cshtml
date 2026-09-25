@@ -14,23 +14,37 @@
 @if (Model.Resultat is not null)
 {
     <h2>Tildeling fullført</h2>
-    <ul>
-    @foreach (var rad in Model.Resultat.PerPasient)
+    @if (Model.Resultat.PerPasient.Any(r => r.Lenker.Any()))
     {
-        <li>
-            <strong>@(rad.Navn ?? "(ikke fullført)")</strong> —
-            @if (rad.SendtSms) { <text>SMS sendt. </text> }
-            @if (rad.SendtEpost) { <text>E-post sendt. </text> }
-            @if (!rad.SendtSms && !rad.SendtEpost) { <text>Ingen varsel sendt (mangler kontaktinfo).</text> }
-            <ul>
-            @foreach (var lenke in rad.Lenker)
-            {
-                <li>@lenke.TestNavn: <a href="@lenke.Lenke">@lenke.Lenke</a></li>
-            }
-            </ul>
-        </li>
+        <ul>
+        @foreach (var rad in Model.Resultat.PerPasient.Where(r => r.Lenker.Any()))
+        {
+            <li>
+                <strong>@(rad.Navn ?? "(ikke fullført)")</strong> —
+                @if (rad.SendtSms) { <text>SMS sendt. </text> }
+                @if (rad.SendtEpost) { <text>E-post sendt. </text> }
+                @if (!rad.SendtSms && !rad.SendtEpost) { <text>Ingen varsel sendt (mangler kontaktinfo).</text> }
+                <ul>
+                @foreach (var lenke in rad.Lenker)
+                {
+                    <li>@lenke.TestNavn: <a href="@lenke.Lenke">@lenke.Lenke</a></li>
+                }
+                </ul>
+            </li>
+        }
+        </ul>
     }
-    </ul>
+    @if (Model.Resultat.BehandlerOppgaver is { Count: > 0 })
+    {
+        <h2>Tester som skal fylles ut av behandler</h2>
+        <p><em>Disse testene sendes ALDRI til pasienten — de fylles ut av pasientens behandler, som en oppgave på behandlerens Min side.</em></p>
+        <ul>
+        @foreach (var oppgave in Model.Resultat.BehandlerOppgaver)
+        {
+            <li>@oppgave.TestNavn for <strong>@(oppgave.PasientNavn ?? "(ikke fullført)")</strong></li>
+        }
+        </ul>
+    }
     <p><a href="/Admin/Tildel/Pasienter">Tildel flere tester</a></p>
 }
 else if (Model.PlanlagtOpprettet)

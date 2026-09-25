@@ -1,0 +1,123 @@
+@page "{id:long}/{side:int?}"
+@model TestBase.Web.Areas.Behandlerportal.Pages.Pasienter.FyllForPasientModel
+@using TestBase.Shared.Domain.Tester
+@{
+    ViewData["Title"] = "Fyll ut test";
+}
+
+@if (Model.Innhold is null)
+{
+    <p style="color: darkred;">Fant ikke testen, eller den er ikke en behandler-utfylt test.</p>
+}
+else if (Model.ErFullfort)
+{
+    <h1>Ferdig!</h1>
+    <p>Du har fullført @Model.Innhold.Test.Navn for @(Model.PasientNavn ?? "pasienten").</p>
+    <p><a class="btn-accent" href="/Behandlerportal/Pasienter/Rapport/@Model.Innhold.Tildeling.Id">Se rapporten</a></p>
+    <p><a href="/Behandlerportal/MinSide">Tilbake til min side</a></p>
+}
+else
+{
+    var totalSider = Model.Innhold.Sider.Count;
+    var fremdriftProsent = totalSider == 0 ? 0 : (Model.GjeldendeSideNummer - 1) * 100 / totalSider;
+
+    <h1>@Model.Innhold.Test.Navn</h1>
+    <p>Fylles ut av deg, om pasienten <strong>@(Model.PasientNavn ?? "(ikke fullført)")</strong> — denne testen sendes ALDRI til pasienten.</p>
+    <p>Side @Model.GjeldendeSideNummer av @totalSider</p>
+    <div style="border: 1px solid #ccc; width: 100%; height: 1rem;">
+        <div style="background: #4a4; width: @(fremdriftProsent)%; height: 100%;"></div>
+    </div>
+
+    @if (Model.GjeldendeSideNummer == 1 && !string.IsNullOrWhiteSpace(Model.Innhold.Test.Beskrivelse))
+    {
+        <p class="test-intro"><em>@Model.Innhold.Test.Beskrivelse</em></p>
+    }
+
+    @if (Model.GjeldendeSide is not null)
+    {
+        <h2>@Model.GjeldendeSide.Navn</h2>
+        @if (!string.IsNullOrWhiteSpace(Model.GjeldendeSide.Instruksjon))
+        {
+            <p><em>@Model.GjeldendeSide.Instruksjon</em></p>
+        }
+
+        <form method="post" data-disable-on-submit="Lagrer svar …">
+            @foreach (var ledd in Model.LeddPaaGjeldendeSide)
+            {
+                var eksisterende = Model.Innhold.EksisterendeSvar.GetValueOrDefault(ledd.Id);
+                var eksisterendeKommentar = Model.KommentarPerLeddId.GetValueOrDefault(ledd.Id);
+                <div style="margin-bottom: 1.5rem; border-bottom: 1px solid #eee; padding-bottom: 1rem;">
+                    <p><strong>@ledd.Sporsmalstekst</strong></p>
+                    @if (!string.IsNullOrWhiteSpace(ledd.Instruksjon))
+                    {
+                        <p><em>@ledd.Instruksjon</em></p>
+                    }
+
+                    @if (ledd.Svartype == TestSvartype.LikertSkala)
+                    {
+                        var punkter = TestLeddSvaralternativer.Parse(ledd.Svaralternativer);
+                        <div class="svar-rad">
+                        @foreach (var punkt in punkter)
+                        {
+                            <label class="svar-knapp">
+                                <input type="radio" name="Svar_@ledd.Id" value="@punkt.Verdi" checked="@(eksisterende == punkt.Verdi.ToString())" />
+                                <span>@punkt.Tekst</span>
+                            </label>
+                        }
+                        </div>
+                    }
+                    else if (ledd.Svartype == TestSvartype.VisuellAnalogSkala)
+                    {
+                        var endepunkter = TestLeddSvaralternativer.Parse(ledd.Svaralternativer);
+                        var lavEndepunkt = endepunkter.OrderBy(p => p.Verdi).FirstOrDefault();
+                        var hoyEndepunkt = endepunkter.OrderByDescending(p => p.Verdi).FirstOrDefault();
+                        <div class="vas-glidebryter">
+                            <input type="range" class="vas-slider" min="0" max="100" name="Svar_@ledd.Id" value="@(eksisterende ?? "50")" />
+                            <div class="vas-endepunkter">
+                                <span>@(lavEndepunkt?.Tekst ?? "0")</span>
+                                <span>@(hoyEndepunkt?.Tekst ?? "100")</span>
+                            </div>
+                        </div>
+                    }
+                    else if (ledd.Svartype == TestSvartype.JaNei)
+                    {
+                        <div class="svar-rad">
+                            <label class="svar-knapp">
+                                <input type="radio" name="Svar_@ledd.Id" value="Ja" checked="@(eksisterende == "Ja")" />
+                                <span>Ja</span>
+                            </label>
+                            <label class="svar-knapp">
+                                <input type="radio" name="Svar_@ledd.Id" value="Nei" checked="@(eksisterende == "Nei")" />
+                                <span>Nei</span>
+                            </label>
+                        </div>
+                    }
+                    else
+                    {
+                        <textarea name="Svar_@ledd.Id" rows="3" cols="50">@eksisterende</textarea>
+                    }
+
+                    <p style="margin-top: 0.5rem;">
+                        <label style="font-size: 0.9em; color: #555;">Din kommentar til dette spørsmålet (valgfritt, vises i rapporten):</label><br />
+                        <textarea name="Kommentar_@ledd.Id" rows="2" cols="60" placeholder="Klinisk begrunnelse, observasjon, eksempel …">@eksisterendeKommentar</textarea>
+                    </p>
+                </div>
+            }
+
+            <div>
+                @if (Model.GjeldendeSideNummer > 1)
+                {
+                    <button type="submit" name="Handling" value="Forrige">Forrige</button>
+                }
+                @if (Model.GjeldendeSideNummer < totalSider)
+                {
+                    <button type="submit" name="Handling" value="Neste">Neste</button>
+                }
+                else
+                {
+                    <button type="submit" name="Handling" value="Ferdig">Ferdig</button>
+                }
+            </div>
+        </form>
+    }
+}
