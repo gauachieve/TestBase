@@ -362,9 +362,18 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   trengtes, `FyllForPasient` er allerede fullt generisk. Selvmordsledd (ledd 10) flagges separat
   uavhengig av totalskår, identifisert via ekte TestLeddId (`ITestSkaaringsberegnerMedLedd`).
   Verifisert FULLT ende-til-ende i nettleser: 38/60 "alvorlig deprimert" + selvmordsflagg korrekt
-  vist, kommentar korrekt plassert i rapporten. Gjenstår: SCID-5-PF (samme mekanisme, mest
-  komplekse — per-ledd-kommentarer OG unike cutoffs per personlighetsforstyrrelse), Mini-Screen 6
-  og HCR-20 V3 (lisensfølsomme).
+  vist, kommentar korrekt plassert i rapporten. **Del 8 (samme natt):** SCID-5-PF (`scid5_pf`) — den
+  mest komplekse testen bygget i natt: kliniker-administrert screening for alle 10 DSM-5
+  personlighetsforstyrrelser (81 ledd, egne parafraserte kriterier per forstyrrelse — IKKE sitert
+  fra DSM-5 eller det lisensierte SCID-5-PD-intervjuet, se seeder-XML-doc for fullt forbehold),
+  bevisst et "første forsøk" brukeren selv ba om. Antisosial personlighetsforstyrrelse har to
+  portvakt-Ja/Nei-ledd (atferdsforstyrrelse <15 år, alder ≥18) som MÅ begge være "Ja" uansett antall
+  oppfylte kriterier. `Scid5PfSkaaringsberegner` grupperer ledd etter TestSideId, sortert etter
+  LAVESTE TestLeddId per gruppe (en strengere robusthetsstandard enn tidligere i natt — stoler ikke
+  på Rekkefolge-sortering på tvers av sider). Verifisert ende-til-ende med et scenario spesifikt
+  designet for å bevise portvakt-logikken: Antisosial 7/7 kriterier oppfylt men portvakt "alder≥18"=
+  Nei → korrekt IKKE diagnostisert, mens Borderline 5/9 (nøyaktig terskel) korrekt ble det. Gjenstår:
+  Mini-Screen 6 og HCR-20 V3 (lisensfølsomme, dokumenteres uten oppdiktet iteminnhold).
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

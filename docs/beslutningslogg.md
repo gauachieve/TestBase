@@ -5454,3 +5454,55 @@ sammen med denne loggføringen.
 **Gjenstår:** SCID-5-PF (samme mekanisme, den mest komplekse — trenger per-ledd-kommentarer OG unike
 cutoffs per personlighetsforstyrrelse), Mini-Screen 6 og HCR-20 V3 (lisensfølsomme, dokumenteres
 uten oppdiktet iteminnhold).
+
+## Natt-økt, del 8: SCID-5-PF — tredje og mest komplekse test på "behandler fyller ut"-mekanismen (2026-09-25, samme natt)
+
+SCID-5-PF (`scid5_pf`) — en kliniker-administrert screening for alle 10 DSM-5 personlighets-
+forstyrrelsene (Section II: paranoid, schizoid, schizotyp, antisosial, emosjonelt ustabil/
+borderline, histrionisk, narsissistisk, unnvikende, avhengig, tvangspreget), inspirert av strukturen
+i det ekte, kommersielt lisensierte SCID-5-PD-intervjuet (First, Williams, Karg & Spitzer). Dette er
+BEVISST brukerens eget "første forsøk"-ønske ("det blir feil uansett, men lettere for meg å
+kommentere enn å beskrive alt for hånd") — se advarselen øverst i `Scid5PfTestSeeder.cs`.
+
+**VIKTIG lisensforbehold**, gjentatt i seeder-XML-doc, rapport-introduksjon og her: hvert av de 79
+kriteriene er en EGEN, klinisk informert PARAFRASE av det offentlig kjente diagnostiske trekket
+(f.eks. "frykt for forlatelse" ved emosjonelt ustabil PF er velkjent fagkunnskap), IKKE et sitat fra
+DSM-5-manualen eller det lisensierte SCID-5-PD-intervjuet (begge opphavsrettslig beskyttet av
+American Psychiatric Association Publishing/APA). Antall kriterier og terskelverdi per forstyrrelse
+(f.eks. "minst 5 av 9" for borderline, "minst 4 av 7" for paranoid) er hentet fra offentlig kjent
+diagnostisk struktur. IKKE et validert diagnostisk verktøy — forventet korrigert av bruker.
+
+**Struktur:** 10 TestSider (én per forstyrrelse), hver med sine egne kriterier skåret
+0=Fraværende/1=Delvis (subklinisk)/2=Tydelig oppfylt. Antisosial personlighetsforstyrrelse har i
+tillegg to portvakt-ledd (atferdsforstyrrelse før 15 år, alder ≥18) FØR sine 7 kriterier — begge må
+være "Ja" for at diagnosen kan telle, uansett hvor mange kriterier som ellers er oppfylt (matcher
+DSM-5s krav om dokumentert barndomsdebut + voksen alder). Totalt 81 ledd.
+
+**Skåringsmotoren** (`Scid5PfSkaaringsberegner`, `ITestSkaaringsberegnerMedLedd`) grupperer ledd
+etter `TestSideId`, men sorterer GRUPPENE etter LAVESTE `TestLeddId` i hver gruppe (en ekte,
+garantert monotont stigende auto-increment-PK) — IKKE etter `Rekkefolge`, som nullstilles til 1 for
+HVER side og derfor ikke gir en pålitelig side-til-side-rekkefølge på tvers av hele testen (dette
+er en litt strengere robusthetsstandard enn de tidligere `Skip(n).Take(m)`-baserte scorerne i natt,
+som stoler på at `HentTestStrukturAsync` sin `OrderBy(Rekkefolge)` tilfeldigvis returnerer riktig
+rekkefølge på tvers av sider — noe som i praksis har fungert hele natten, men ikke er en dokumentert
+SQL-garanti). Portvaktleddene identifiseres via `Svartype == JaNei`, ikke posisjon.
+
+Ingen ny sideinfrastruktur trengtes — samme generiske `FyllForPasient`-side som YGTSS-R og MADRS
+klinikkversjon.
+
+**Verifisert FULLT ende-til-ende i nettleser** med et bevisst konstruert scenario for å teste
+akkurat portvakt-logikken: tildelt til en ekte pasient, fylte ut alle 81 ledd via
+`FyllForPasient/67` — Paranoid/Schizoid/Schizotyp/Histrionisk/Narsissistisk/Unnvikende/Avhengig/
+Tvangspreget alle "Fraværende" (0 kriterier), Emosjonelt ustabil 5/9 "Tydelig oppfylt" (nøyaktig
+terskel), Antisosial 7/7 kriterier "Tydelig oppfylt" (LANGT over terskel 3) MEN portvakt "alder
+≥18" satt til "Nei". Rapporten viste korrekt: Råskår 12/79 (5 borderline + 7 antisosial-kriterier
+talt), "Diagnostisk terskel... er nådd for: Emosjonelt ustabil personlighetsforstyrrelse
+(Borderline)" — Antisosial korrekt IKKE listet til tross for 7/7 kriterier, fordi portvakten
+blokkerte den. Alle 11 rapportsider (10 forstyrrelser + sammendrag) rendret uten feil, kommentarer
+på både et Paranoid-ledd og Antisosial sitt portvaktledd vist korrekt. Build + alle 66 tester grønne
+(3 nye regresjonstester, inkl. én som bevisst stokker om `alleLedd`-listen for å bevise at
+grupperingen er posisjonsuavhengig). Committes og deployes til begge miljøer sammen med denne
+loggføringen.
+
+**Gjenstår:** Mini-Screen 6 og HCR-20 V3 — begge lisensfølsomme, dokumenteres uten oppdiktet
+iteminnhold (neste oppgave).
