@@ -372,8 +372,13 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   LAVESTE TestLeddId per gruppe (en strengere robusthetsstandard enn tidligere i natt — stoler ikke
   på Rekkefolge-sortering på tvers av sider). Verifisert ende-til-ende med et scenario spesifikt
   designet for å bevise portvakt-logikken: Antisosial 7/7 kriterier oppfylt men portvakt "alder≥18"=
-  Nei → korrekt IKKE diagnostisert, mens Borderline 5/9 (nøyaktig terskel) korrekt ble det. Gjenstår:
-  Mini-Screen 6 og HCR-20 V3 (lisensfølsomme, dokumenteres uten oppdiktet iteminnhold).
+  Nei → korrekt IKKE diagnostisert, mens Borderline 5/9 (nøyaktig terskel) korrekt ble det. **Del 9
+  (samme natt, avslutning):** Mini-Screen 6 (sannsynligvis M.I.N.I. 6.0.0 — lisensieres via Harm
+  Research/Medical Outcomes Systems) og HCR-20 V3 (voldsrisikoverktøy, strukturert profesjonelt
+  skjønn IKKE sumskår, krever sertifisering) BEVISST IKKE bygget i noen form — kun dokumentert
+  (hvem som eier rettighetene, hvorfor de skiller seg fra "egen tilpasning"-testene som BSQ-14/
+  SCID-5-PF) i beslutningsloggen "Mini-Screen 6 og HCR-20 V3". Alle andre punkter fra brukerens
+  opprinnelige natte-liste er nå bygget, testet og deployet til live+beta.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

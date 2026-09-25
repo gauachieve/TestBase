@@ -5506,3 +5506,47 @@ loggføringen.
 
 **Gjenstår:** Mini-Screen 6 og HCR-20 V3 — begge lisensfølsomme, dokumenteres uten oppdiktet
 iteminnhold (neste oppgave).
+
+## Natt-økt, del 9: Mini-Screen 6 og HCR-20 V3 — IKKE bygget, kun dokumentert (lisensfølsomme) (2026-09-25, samme natt)
+
+Brukeren ba eksplisitt om at disse to IKKE skulle bygges med oppdiktet iteminnhold — for Mini-Screen
+6 spesifikt: "hvis du kan finne den, det er for å kunne få tillatelse av de som eier den nyeste."
+Begge er reelle, navngitte, kommersielt lisensierte kliniske instrumenter. Å gjengi eller parafrasere
+det faktiske spørsmålsinnholdet uten tillatelse fra rettighetshaver ville vært et opphavsretts- og
+lisensbrudd, ikke bare en kvalitetsrisiko som for de "egen tilpasning"-testene bygget tidligere i
+natt (BSQ-14/EDE-Q/CORE-OM/SIPP-118-inspirert/SCID-5-PF) — de tillates fordi de er EGNE
+formuleringer av offentlig kjente kliniske konsepter, ikke gjengivelser av et konkret, selgbart
+spørsmålshefte. Disse to er derfor BEVISST IKKE bygget i noen form (ingen seeder, ingen
+skåringsberegner, ingen "skjelett" med tomme spørsmål) — kun dokumentert her, slik brukeren ba om.
+
+**Mini-Screen 6 — sannsynligvis M.I.N.I. 6.0.0 (Mini International Neuropsychiatric Interview,
+versjon 6)**, utviklet av Sheehan & Lecrubier, et strukturert diagnostisk intervju for de
+vanligste DSM-IV/ICD-10-lidelsene (depresjon, mani, angstlidelser, rusmisbruk, psykose, spiseforstyrrelser,
+antisosial PF m.fl.), administrert av kliniker, med JA/NEI-spørsmål som følger diagnostiske
+algoritmer per modul. Distribueres/lisensieres i dag via Harm Research/Medical Outcomes Systems
+(Sheehan-familiens lisensieringsorgan for M.I.N.I.-familien) — det er dette organet ("de som eier
+den nyeste") bruker selv må kontakte for lisens/tillatelse til bruk og eventuell norsk oversettelse
+i et kommersielt system som TestBase. Vi har IKKE undersøkt eksakt pris/vilkår for en slik lisens
+denne runden — kun identifisert hvem som eier rettighetene.
+
+**HCR-20 V3 (Historical, Clinical, Risk Management-20, versjon 3)** — Douglas, Hart, Webster &
+Belfrage, et strukturert profesjonelt skjønn-verktøy (SPJ) for vurdering av voldsrisiko, IKKE et
+sumskår-spørreskjema: 20 faktorer fordelt på tre domener (Historiske H1-H10, Kliniske C1-C5,
+Risikohåndtering R1-R5), hver vurdert av en sertifisert kliniker som Lav/Moderat/Høy relevans PLUSS
+en overordnet strukturert skjønnsmessig konklusjon (ikke en automatisk sum-til-kategori-omregning
+slik de fleste andre testene i systemet vårt fungerer). Publiseres/lisensieres kommersielt gjennom
+utgiveren (i dag typisk via Mental Health, Law, and Policy Institute/tilknyttede forlag) og krever
+normalt dokumentert opplæring/sertifisering for å bruke korrekt — et godt stykke unna alle andre
+tester i TestBase, som ikke krever noen slik forhåndssertifisering. HVIS lisens skaffes: den
+strukturelle formen (Lav/Moderat/Høy per faktor + fritekst-begrunnelse + en overordnet skjønnsmessig
+konklusjon, IKKE en cutoff-sum) ligner mer på CORE-A sin "ikke et sumskår-verktøy"-tilnærming enn på
+de fleste andre skåringsberegnerne i systemet, og ville naturlig bygges som en fjerde test på
+"behandler fyller ut"-mekanismen (samme mønster som YGTSS-R/MADRS klinikkversjon/SCID-5-PF) —
+men KUN når/hvis reelt lisensiert iteminnhold foreligger.
+
+**Konklusjon for natte-økten:** alle andre punkter på brukerens opprinnelige liste (ASRS, YGTSS-R,
+MADRS klinikkversjon, PHQ-9 (fantes allerede), SCL-25, CORE×3, "SIPP-118"-inspirert, SCID-5-PF,
+AUDIT, DUDIT, BSQ-14, EDE-Q, TRAPS-II, SDQ-20) er nå bygget, testet og deployet til både live og
+beta. HCR-20 V3 gjenstår som eneste ubygde punkt fra den opprinnelige listen (Mini-Screen 6 var ikke
+eksplisitt nummerert til bygging, kun til lisensundersøkelse) — begge venter på reell lisens før
+videre arbeid.
