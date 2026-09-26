@@ -128,6 +128,10 @@ builder.Services.AddScoped<ITestSkaaringsberegner, MadrsKlinikkSkaaringsberegner
 builder.Services.AddScoped<IInnebygdTestSeeder, MadrsKlinikkTestSeeder>();
 builder.Services.AddScoped<ITestSkaaringsberegner, Scid5PfSkaaringsberegner>();
 builder.Services.AddScoped<IInnebygdTestSeeder, Scid5PfTestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, Hcr20V3Skaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, Hcr20V3TestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, MiniStrukturdemoSkaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, MiniStrukturdemoTestSeeder>();
 
 // Admin og Behandlerportal deler nå én samlet innloggingsside (/Konto/LoggInn
 // — BankID finner personen og logger inn på høyeste rolle selv, uten at

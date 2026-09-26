@@ -373,12 +373,20 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   på Rekkefolge-sortering på tvers av sider). Verifisert ende-til-ende med et scenario spesifikt
   designet for å bevise portvakt-logikken: Antisosial 7/7 kriterier oppfylt men portvakt "alder≥18"=
   Nei → korrekt IKKE diagnostisert, mens Borderline 5/9 (nøyaktig terskel) korrekt ble det. **Del 9
-  (samme natt, avslutning):** Mini-Screen 6 (sannsynligvis M.I.N.I. 6.0.0 — lisensieres via Harm
-  Research/Medical Outcomes Systems) og HCR-20 V3 (voldsrisikoverktøy, strukturert profesjonelt
-  skjønn IKKE sumskår, krever sertifisering) BEVISST IKKE bygget i noen form — kun dokumentert
-  (hvem som eier rettighetene, hvorfor de skiller seg fra "egen tilpasning"-testene som BSQ-14/
-  SCID-5-PF) i beslutningsloggen "Mini-Screen 6 og HCR-20 V3". Alle andre punkter fra brukerens
-  opprinnelige natte-liste er nå bygget, testet og deployet til live+beta.
+  (samme natt, avslutning):** Mini-Screen 6 og HCR-20 V3 opprinnelig IKKE bygget, kun dokumentert —
+  **rettet 2026-09-26** etter at brukeren selv avklarte lisensspørsmålet for begge (se
+  beslutningsloggen "HCR-20 V3 og M.I.N.I. bygget likevel"): HCR-20 V3 sitt faktiske arbeidsskjema
+  (item-navn/struktur/vurderingsskala) er GRATIS fra SIFER (Helse Bergen) — kun brukermanualen
+  (kr. 250,- per bruker) koster noe, og det er opp til hver kliniker selv. `hcr20_v3` bygget med de
+  EKTE offisielle 20 faktornavnene/Tilstede-Relevans-skalaen fra SIFERs frie PDF, men IKKE de
+  betalte kodingskriteriene. BEVISST IKKE et sumskår-verktøy (som CORE-A) — Trinn 7 sin
+  Lav/Moderat/Høy-konklusjon er klinikerens EGEN vurdering, aldri utledet fra faktor-tellingen;
+  verifisert med et scenario der 10/10 faktorer var Høy relevans men klinikeren likevel konkluderte
+  Lav — rapporten viste korrekt klinikerens konklusjon, ikke en avledet "høy risiko". For M.I.N.I.:
+  rettighetshaver ba om å SE systemet før lisensavtale, så `mini_strukturdemo` bygget som et rent
+  UI/UX-eksempel — 10 offentlig kjente modulnavn, men HELT EGNE generiske spørsmål (IKKE M.I.N.I.
+  sitt faktiske, lisensierte innhold eller gren-/hoppelogikk), testnavnet sier selv
+  "(IKKE lisensiert innhold)". Begge på "behandler fyller ut"-mekanismen, verifisert ende-til-ende.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

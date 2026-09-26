@@ -663,6 +663,120 @@ public sealed class SkaaringsberegnereTests
         Assert.DoesNotContain("Antisosial", resultat.Fortolkning);
     }
 
+    /// <summary>
+    /// Bygger HCR-20 V3-strukturen: 20 faktorer (Tilstede+Relevans-par) fordelt på 3 sider
+    /// (Historisk 10, Klinisk 5, Risikohåndtering 5), en tom Formulering-side (3 fritekstledd,
+    /// ubesvart), og en Konklusjon-side med 4 Trinn 7-ledd i fast rekkefølge (Fremtidig vold,
+    /// Alvorlig skade, Umiddelbar vold, Annen risiko).
+    /// </summary>
+    private static (List<TestLedd> AlleLedd, List<TestSvar> Svar) Hcr20V3Bygg(
+        int?[] historiskRelevans, int fremtidigVold, int alvorligSkade, int umiddelbarVold, int annenRisiko)
+    {
+        var alleLedd = new List<TestLedd>();
+        var svar = new List<TestSvar>();
+        long nesteId = 1;
+
+        void LeggTilFaktorSide(int sideId, int antallFaktorer, int?[]? relevansOverstyring = null)
+        {
+            for (var i = 0; i < antallFaktorer; i++)
+            {
+                var tilstedeLedd = new TestLedd { Id = nesteId++, TestSideId = sideId, Sporsmalstekst = "tilstede", Svartype = TestSvartype.LikertSkala };
+                var relevansLedd = new TestLedd { Id = nesteId++, TestSideId = sideId, Sporsmalstekst = "relevans", Svartype = TestSvartype.LikertSkala };
+                alleLedd.Add(tilstedeLedd);
+                alleLedd.Add(relevansLedd);
+                svar.Add(new TestSvar { TestLeddId = tilstedeLedd.Id, SvarVerdi = "2" });
+                var relevans = relevansOverstyring is not null && i < relevansOverstyring.Length ? relevansOverstyring[i] : 0;
+                if (relevans is not null)
+                {
+                    svar.Add(new TestSvar { TestLeddId = relevansLedd.Id, SvarVerdi = relevans.Value.ToString() });
+                }
+            }
+        }
+
+        LeggTilFaktorSide(1, 10, historiskRelevans); // Historisk
+        LeggTilFaktorSide(2, 5);                     // Klinisk
+        LeggTilFaktorSide(3, 5);                     // Risikohåndtering
+
+        // Formulering-side: 3 fritekstledd, alle ubesvart
+        for (var i = 0; i < 3; i++)
+        {
+            alleLedd.Add(new TestLedd { Id = nesteId++, TestSideId = 4, Sporsmalstekst = "fritekst", Svartype = TestSvartype.Fritekst });
+        }
+
+        // Konklusjon-side: 4 ledd i fast rekkefølge
+        var konklusjonLedd = new List<TestLedd>();
+        foreach (var _ in Enumerable.Range(0, 4))
+        {
+            var ledd = new TestLedd { Id = nesteId++, TestSideId = 5, Sporsmalstekst = "konklusjon", Svartype = TestSvartype.LikertSkala };
+            konklusjonLedd.Add(ledd);
+            alleLedd.Add(ledd);
+        }
+        svar.Add(new TestSvar { TestLeddId = konklusjonLedd[0].Id, SvarVerdi = fremtidigVold.ToString() });
+        svar.Add(new TestSvar { TestLeddId = konklusjonLedd[1].Id, SvarVerdi = alvorligSkade.ToString() });
+        svar.Add(new TestSvar { TestLeddId = konklusjonLedd[2].Id, SvarVerdi = umiddelbarVold.ToString() });
+        svar.Add(new TestSvar { TestLeddId = konklusjonLedd[3].Id, SvarVerdi = annenRisiko.ToString() });
+
+        return (alleLedd, svar);
+    }
+
+    [Fact]
+    public void Hcr20V3_KonklusjonenErKlinikerensEgenVurderingIkkeEnUtledetSum()
+    {
+        // Historiske faktorer: ALLE 10 vurdert Høy relevans (verdi 3) -- ville gitt "høy risiko" i et
+        // sumskår-verktøy -- men kliniker konkluderer likevel Lav/Lav/Lav/Nei i Trinn 7. Rapporten
+        // skal vise klinikerens EGEN konklusjon, ikke noe utledet fra de 10 høy-relevans-faktorene.
+        var alleHoye = Enumerable.Repeat(3, 10).Select(v => (int?)v).ToArray();
+        var (alleLedd, svar) = Hcr20V3Bygg(alleHoye, fremtidigVold: 0, alvorligSkade: 0, umiddelbarVold: 0, annenRisiko: 0);
+
+        var resultat = new Hcr20V3Skaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Fremtidig vold/prioritering" && i.Verdi == "Lav" && i.Positiv);
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Annen risiko" && i.Verdi == "Nei" && i.Positiv);
+        Assert.Equal(10, resultat.RaaSkaar); // deskriptivt: 10 historiske faktorer med Høy relevans
+        Assert.Contains("IKKE grunnlaget for konklusjonen", resultat.Fortolkning);
+    }
+
+    [Fact]
+    public void Hcr20V3_HoyKonklusjonVisesKorrekt()
+    {
+        var ingenRelevante = Enumerable.Repeat(0, 10).Select(v => (int?)v).ToArray();
+        var (alleLedd, svar) = Hcr20V3Bygg(ingenRelevante, fremtidigVold: 2, alvorligSkade: 2, umiddelbarVold: 1, annenRisiko: 2);
+
+        var resultat = new Hcr20V3Skaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Fremtidig vold/prioritering" && i.Verdi == "Høy" && !i.Positiv);
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Umiddelbar vold" && i.Verdi == "Moderat" && !i.Positiv);
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Annen risiko" && i.Verdi == "Ja" && !i.Positiv);
+        Assert.Equal(0, resultat.RaaSkaar);
+    }
+
+    [Fact]
+    public void MiniStrukturdemo_TellerJaPerModulOgFlaggerKunModulerMedMinstEttJa()
+    {
+        // Modul 1 (2 ledd): ett "Ja" -> flagget. Modul 2 (2 ledd): begge "Nei" -> ikke flagget.
+        var alleLedd = new List<TestLedd>
+        {
+            new() { Id = 1, TestSideId = 10, Sporsmalstekst = "s1", Svartype = TestSvartype.JaNei },
+            new() { Id = 2, TestSideId = 10, Sporsmalstekst = "s2", Svartype = TestSvartype.JaNei },
+            new() { Id = 3, TestSideId = 20, Sporsmalstekst = "s3", Svartype = TestSvartype.JaNei },
+            new() { Id = 4, TestSideId = 20, Sporsmalstekst = "s4", Svartype = TestSvartype.JaNei }
+        };
+        var svar = new List<TestSvar>
+        {
+            new() { TestLeddId = 1, SvarVerdi = "Ja" },
+            new() { TestLeddId = 2, SvarVerdi = "Nei" },
+            new() { TestLeddId = 3, SvarVerdi = "Nei" },
+            new() { TestLeddId = 4, SvarVerdi = "Nei" }
+        };
+
+        var resultat = new MiniStrukturdemoSkaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Depressivt episode" && i.Verdi == "1/2 \"Ja\"" && !i.Positiv);
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Suicidalitet" && i.Verdi == "0/2 \"Ja\"" && i.Positiv);
+        Assert.Equal(1, resultat.RaaSkaar);
+        Assert.Equal(4, resultat.RaaSkaarMaks);
+    }
+
     [Fact]
     public void Scid5Pf_GrupperingErRobustMotUsortertLeddrekkefolge()
     {

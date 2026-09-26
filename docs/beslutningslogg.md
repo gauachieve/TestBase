@@ -5544,9 +5544,57 @@ de fleste andre skåringsberegnerne i systemet, og ville naturlig bygges som en 
 "behandler fyller ut"-mekanismen (samme mønster som YGTSS-R/MADRS klinikkversjon/SCID-5-PF) —
 men KUN når/hvis reelt lisensiert iteminnhold foreligger.
 
-**Konklusjon for natte-økten:** alle andre punkter på brukerens opprinnelige liste (ASRS, YGTSS-R,
-MADRS klinikkversjon, PHQ-9 (fantes allerede), SCL-25, CORE×3, "SIPP-118"-inspirert, SCID-5-PF,
-AUDIT, DUDIT, BSQ-14, EDE-Q, TRAPS-II, SDQ-20) er nå bygget, testet og deployet til både live og
-beta. HCR-20 V3 gjenstår som eneste ubygde punkt fra den opprinnelige listen (Mini-Screen 6 var ikke
-eksplisitt nummerert til bygging, kun til lisensundersøkelse) — begge venter på reell lisens før
-videre arbeid.
+**Konklusjon for natte-økten (opprinnelig):** alle andre punkter på brukerens opprinnelige liste
+(ASRS, YGTSS-R, MADRS klinikkversjon, PHQ-9 (fantes allerede), SCL-25, CORE×3, "SIPP-118"-inspirert,
+SCID-5-PF, AUDIT, DUDIT, BSQ-14, EDE-Q, TRAPS-II, SDQ-20) var bygget, testet og deployet til både
+live og beta. HCR-20 V3 og Mini-Screen 6 sto ubygde, se oppfølging under fra 2026-09-26 hvor
+brukeren avklarte lisensspørsmålet for begge.
+
+## HCR-20 V3 og M.I.N.I. bygget likevel — brukeren avklarte lisensspørsmålet (2026-09-26)
+
+Brukeren undersøkte selv videre og korrigerte forrige antakelse: **HCR-20 V3** sitt faktiske
+arbeidsskjema (item-navn, struktur, vurderingsskala) er GRATIS og fritt tilgjengelig — utgitt av
+SIFER (Nasjonalt kompetansenettverk for sikkerhets-, fengsels- og rettspsykiatri, Helse Bergen),
+lenket fra Helsebiblioteket. Det er KUN brukermanualen (kr. 250,- per bruker, kjøpt individuelt av
+hver kliniker hos SIFER — "opp til brukeren", ikke noe TestBase selv må betale/lisensiere) som
+koster penger. Verifisert direkte: hentet og leste SIFERs eget frie PDF-"Arbeidsskjema til
+HCR-20v3" (sifer.no/verktoy) — inneholder de offisielle norske navnene på alle 20 faktorer
+(H1-H10/C1-C5/R1-R5) med a/b/c-underpunkter, den faktiske Tilstede (Ukjent/Nei/Delvis/Ja)- og
+Relevans (Ukjent/Lav/Moderat/Høy)-vurderingsskalaen, og Trinn 7 sin Lav/Moderat/Høy-konklusjons-
+struktur. For **M.I.N.I.**: brukeren har vært i dialog med rettighetshaver, som ba om å SE hvordan
+systemet ville presentere et strukturert intervju FØR de tar stilling til lisens — altså et
+"vis meg" i stedet for et avslag.
+
+**HCR-20 V3** (`hcr20_v3`, "Vold, selvmord og risikovurdering") bygget med de EKTE offisielle
+faktornavnene/strukturen/vurderingsskalaen fra SIFERs frie skjema — men IKKE de detaljerte
+kodingskriteriene per ledd (hva som konkret teller som "Ja" vs. "Delvis"), som ligger i den betalte
+manualen og IKKE er gjengitt. BEVISST IKKE et sumskår-verktøy (samme prinsipp som CORE-A): Trinn 7
+sin konklusjon (Fremtidig vold/prioritering, Alvorlig fysisk skade, Umiddelbar vold, hver
+Lav/Moderat/Høy, pluss Annen risiko Nei/Mulig/Ja) er klinikerens EGEN strukturerte vurdering, ALDRI
+utledet fra en sum av de 20 faktorenes Tilstede/Relevans-koding. Trinn 4-6 (risikoformulering,
+voldsscenarier, håndteringsstrategier — flerkolonne-tabeller i det ekte skjemaet) forenklet til tre
+fritekstfelt, siden dagens generiske testmotor ikke støtter tabellformat. Bruker
+`ITestSkaaringsberegnerMedLedd` (gruppert etter TestSideId, sortert etter laveste TestLeddId per
+gruppe — samme robusthetsmønster som SCID-5-PF). **Verifisert FULLT ende-til-ende i nettleser** med
+et scenario spesifikt designet for å bevise "ikke sumskår"-prinsippet: ALLE 10 historiske faktorer
+satt til Ja/Høy relevans (10/10, ville sett ut som "høy risiko" i et sumskår-verktøy), men kliniker
+konkluderte likevel Lav/Lav/Lav/Nei i Trinn 7 — rapporten viste korrekt klinikerens EGEN
+Lav/Lav/Lav/Nei-konklusjon, med "10/20 faktorer... REN KONTEKST, IKKE grunnlaget for konklusjonen"
+eksplisitt i fortolkningsteksten.
+
+**M.I.N.I. — strukturdemo** (`mini_strukturdemo`, "Diagnostikk, tverrgående og øvrige verktøy")
+BEVISST IKKE det ekte, lisensierte instrumentet — testnavnet sier selv "(IKKE lisensiert innhold)".
+10 moduler med offentlig kjente diagnostiske navn (Depressivt episode, Suicidalitet, (Hypo)manisk
+episode, Panikklidelse, Sosial fobi, Tvangslidelse/OCD, PTSD, Rusmiddelbruk, Generalisert
+angstlidelse, Psykotiske symptomer), men med 2-3 HELT EGNE, generiske screeningspørsmål per modul —
+IKKE M.I.N.I. sine faktiske, lisensierte spørsmål eller det proprietære gren-/hoppelogikk-treet som
+utgjør instrumentets faktiske diagnostiske verdi. Bygget SPESIFIKT som et UI/UX-eksempel for
+rettighetshaveren å vurdere før en lisensavtale, IKKE til klinisk bruk — skal erstattes med reelt
+lisensiert innhold den dagen en avtale er på plass. Skåringen er en ren opptelling av "Ja"-svar per
+modul (`ITestSkaaringsberegnerMedLedd`), eksplisitt IKKE et forsøk på å etterligne den ekte
+diagnostiske algoritmen. Verifisert ende-til-ende: 1 av 10 moduler korrekt flagget med "1/3 Ja"
+synlig i rapporten.
+
+Begge testene bruker "behandler fyller ut"-mekanismen (se "Natt-økt, del 6"). Build + alle 69 tester
+grønne (4 nye regresjonstester). Committes og deployes til begge miljøer sammen med denne
+loggføringen.
