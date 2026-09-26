@@ -746,7 +746,19 @@ public sealed class TestService
         var test = await _db.Tester.AsNoTracking().FirstAsync(t => t.Id == testId, cancellationToken);
         var sider = await _db.TestSider.AsNoTracking().Where(s => s.TestId == testId).OrderBy(s => s.Rekkefolge).ToListAsync(cancellationToken);
         var sideIder = sider.Select(s => s.Id).ToList();
-        var alleLedd = await _db.TestLedd.AsNoTracking().Where(l => sideIder.Contains(l.TestSideId)).OrderBy(l => l.Rekkefolge).ToListAsync(cancellationToken);
+        var sideRekkefolgePerId = sider.ToDictionary(s => s.Id, s => s.Rekkefolge);
+        // MÅ sorteres på (side.Rekkefolge, ledd.Rekkefolge) — IKKE ledd.Rekkefolge alene.
+        // Rekkefolge nullstilles til 1 for HVER side (se LeggTilLeddAsync), så en test med
+        // FLERE sider (f.eks. EDE-Q: 10+13+5 ledd på 3 sider) får ellers ledd fra ulike sider
+        // med SAMME Rekkefolge-verdi — et rått "ORDER BY Rekkefolge" uten denne sekundære
+        // sorteringsnøkkelen er ikke garantert å holde sidene samlet ved slike likheter (MySQL
+        // gir ingen rekkefølgegaranti for uavgjorte ORDER BY-verdier). Skjedde reelt: EDE-Q sine
+        // 5 ikke-skårede fritekstledd (siste side) havnet midt inni listen i stedet for til
+        // slutt, som fikk EdeqSkaaringsberegner sin posisjonsbaserte delskala-inndeling til å
+        // plukke opp et fritekst-svar som en tallskåret verdi -> FormatException ved
+        // rapportvisning/-godkjenning (se docs/beslutningslogg.md "Reell 500-feil i EDE-Q").
+        var alleLedd = await _db.TestLedd.AsNoTracking().Where(l => sideIder.Contains(l.TestSideId)).ToListAsync(cancellationToken);
+        alleLedd = alleLedd.OrderBy(l => sideRekkefolgePerId.GetValueOrDefault(l.TestSideId)).ThenBy(l => l.Rekkefolge).ToList();
 
         var resultat = (test, sider, alleLedd);
         _cache.Set(cacheNokkel, resultat, TestStrukturCacheTid);
