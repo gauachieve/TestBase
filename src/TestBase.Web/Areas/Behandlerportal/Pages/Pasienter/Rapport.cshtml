@@ -73,13 +73,16 @@ else
                         <strong>Gyldighetsadvarsel:</strong> @Model.Skaaring.GyldighetsAdvarsel
                     </div>
                 }
-                <div class="rapport-skaarboks">
-                    <div class="rapport-skaartall">@Model.Skaaring.ProsentSkaar %</div>
-                    <div class="rapport-fremdrift">
-                        <div class="rapport-fremdrift-fyll" style="width: @(Model.Skaaring.ProsentSkaar)%;"></div>
+                @if (!Model.Skaaring.SkjulProsent)
+                {
+                    <div class="rapport-skaarboks">
+                        <div class="rapport-skaartall">@Model.Skaaring.ProsentSkaar %</div>
+                        <div class="rapport-fremdrift">
+                            <div class="rapport-fremdrift-fyll" style="width: @(Model.Skaaring.ProsentSkaar)%;"></div>
+                        </div>
                     </div>
-                </div>
-                <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong></p>
+                    <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong></p>
+                }
                 @if (Model.Skaaring.Indikatorer is { Count: > 0 })
                 {
                     <div class="rapport-indikatorer">
@@ -225,9 +228,12 @@ else if (Model.Tildeling?.RapportGodkjentUtc is not null)
                         <strong>Gyldighetsadvarsel:</strong> @Model.Skaaring.GyldighetsAdvarsel
                     </div>
                 }
-                <div style="font-size: 14px; margin-bottom: 6px;">
-                    <strong>@Model.Skaaring.ProsentSkaar %</strong> (råskår @Model.Skaaring.RaaSkaar/@Model.Skaaring.RaaSkaarMaks)
-                </div>
+                @if (!Model.Skaaring.SkjulProsent)
+                {
+                    <div style="font-size: 14px; margin-bottom: 6px;">
+                        <strong>@Model.Skaaring.ProsentSkaar %</strong> (råskår @Model.Skaaring.RaaSkaar/@Model.Skaaring.RaaSkaarMaks)
+                    </div>
+                }
                 @if (Model.Skaaring.Indikatorer is { Count: > 0 })
                 {
                     <div style="margin-bottom: 6px;">

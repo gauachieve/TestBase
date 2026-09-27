@@ -33,8 +33,12 @@ public sealed class MiniStrukturdemoSkaaringsberegner : ITestSkaaringsberegnerMe
             .Select(g => g.OrderBy(l => l.Id).ToList())
             .ToList();
 
+        // Kun de FLAGGEDE modulene blir egne indikatorer (2026-09-27, etter brukerønske om å
+        // "isolere de diagnosene som faktisk er trigget" i stedet for å vise alle 10 moduler —
+        // de fleste med "0/N" — som like fremtredende badges. Navn+telling kombinert i selve
+        // Verdi-strengen ("Depressivt episode (1/3)"), siden den kompakte badge-visningen i
+        // Rapport.cshtml kun rendrer Indikator.Verdi, ikke Navn.
         var indikatorer = new List<TestSkaaringIndikator>();
-        var flaggedeModuler = new List<string>();
         var totaltJa = 0;
         var totaltSporsmal = 0;
 
@@ -46,23 +50,20 @@ public sealed class MiniStrukturdemoSkaaringsberegner : ITestSkaaringsberegnerMe
             totaltSporsmal += modul.Count;
 
             var modulNavn = i < ModulNavn.Length ? ModulNavn[i] : $"Modul {i + 1}";
-            var flagget = antallJa > 0;
-            if (flagget)
+            if (antallJa > 0)
             {
-                flaggedeModuler.Add(modulNavn);
+                indikatorer.Add(new TestSkaaringIndikator(modulNavn, $"{modulNavn} ({antallJa}/{modul.Count})", false));
             }
-
-            indikatorer.Add(new TestSkaaringIndikator(modulNavn, $"{antallJa}/{modul.Count} \"Ja\"", !flagget));
         }
 
         var prosentSkaar = totaltSporsmal == 0 ? 0 : (int)Math.Round(totaltJa * 100m / totaltSporsmal);
 
-        var fortolkning = flaggedeModuler.Count > 0
-            ? $"{flaggedeModuler.Count} av {moduler.Count} moduler har minst ett \"Ja\"-svar (ren opptelling, IKKE en diagnose eller " +
-              "det ekte M.I.N.I. sin diagnostiske algoritme). I en lisensiert versjon ville dette utløst modulens fulle " +
-              "oppfølgingsspørsmål/skip-logic. Dette er en strukturdemo — ikke klinisk gyldig."
+        var fortolkning = indikatorer.Count > 0
+            ? $"{indikatorer.Count} av {moduler.Count} moduler har minst ett \"Ja\"-svar, listet over (ren opptelling, IKKE en " +
+              "diagnose eller det ekte M.I.N.I. sin diagnostiske algoritme). I en lisensiert versjon ville dette utløst " +
+              "modulens fulle oppfølgingsspørsmål/skip-logic. Dette er en strukturdemo — ikke klinisk gyldig."
             : "Ingen moduler har noe \"Ja\"-svar i denne strukturdemoen (ren opptelling, ikke en diagnostisk konklusjon).";
 
-        return new TestSkaaring(totaltJa, totaltSporsmal, prosentSkaar, fortolkning, indikatorer);
+        return new TestSkaaring(totaltJa, totaltSporsmal, prosentSkaar, fortolkning, indikatorer, SkjulProsent: true);
     }
 }

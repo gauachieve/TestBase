@@ -41,13 +41,16 @@ else
             {
                 <div class="rapport-seksjon">
                     <span class="rapport-seksjon-tittel">Resultat</span>
-                    <div class="rapport-skaarboks">
-                        <div class="rapport-skaartall">@Model.Skaaring.ProsentSkaar %</div>
-                        <div class="rapport-fremdrift">
-                            <div class="rapport-fremdrift-fyll" style="width: @(Model.Skaaring.ProsentSkaar)%;"></div>
+                    @if (!Model.Skaaring.SkjulProsent)
+                    {
+                        <div class="rapport-skaarboks">
+                            <div class="rapport-skaartall">@Model.Skaaring.ProsentSkaar %</div>
+                            <div class="rapport-fremdrift">
+                                <div class="rapport-fremdrift-fyll" style="width: @(Model.Skaaring.ProsentSkaar)%;"></div>
+                            </div>
                         </div>
-                    </div>
-                    <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong></p>
+                        <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong></p>
+                    }
                     @if (Model.Skaaring.Indikatorer is { Count: > 0 })
                     {
                         <div class="rapport-indikatorer">

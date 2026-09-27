@@ -419,6 +419,12 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   regenerere SCID-5-PF med: riktig SCID-5-PD-modulrekkefølge (Antisosial SIST, ikke fjerde som
   første versjon hadde), tallprefiks i skala-teksten ("0. Fraværende" osv.), og et eget
   eksempel/veiledning-notat per kriterium (alle 79). Se docs/beslutningslogg.md "Natt-økt, del 13".
+- **M.I.N.I.-rapporten uten meningsløs prosent (2026-09-27, samme runde):** ny
+  `TestSkaaring.SkjulProsent` (standard usann) lar en skåringsberegner be individrapporten (begge
+  Areas + "Kopier alt"-malen) skjule prosent/råskår-linjen helt — satt sann for
+  `MiniStrukturdemoSkaaringsberegner`, som nå kun bygger Indikatorer for FLAGGEDE moduler, formatert
+  "{modulnavn} ({antall}/{totalt})" i selve Verdi-strengen. Se docs/beslutningslogg.md
+  "Natt-økt, del 14".
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

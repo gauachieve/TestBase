@@ -5749,4 +5749,24 @@ boks med eksempeltekst; fokus på kommentarfeltet fremhevet boksen korrekt (`cla
 ('aktiv') === true`); skriving av 6 linjer i kommentarfeltet økte høyden fra 70px til 170px
 (auto-vekst bekreftet); side 10 av 10 viste korrekt "Antisosial personlighetsforstyrrelse" med
 portvaktleddet og dets veiledningstekst. Build + alle 69 tester grønne. Committes og deployes til
-begge miljøer (HUSK å fjerne engangs-regenereringslinjen i Program.cs etter denne deployen).
+begge miljøer (HUSK å fjerne engangs-regenereringslinjen i Program.cs etter denne deployen). Selve
+engangslinjen ble fjernet og deployet på nytt til begge miljøer rett etter — se `git log`.
+
+**Sjekket, men IKKE endret:** "Kopier alt til utklippstavlen"-mekanismen (`#rapportKopierMal` i
+Behandlerportal/Pasienter/Rapport.cshtml) itererer allerede over ALLE `Model.Sider` (alle
+rapportsider) og inkluderer `BehandlerKommentar` per svar — koden var allerede korrekt før denne
+runden, ingen endring nødvendig. Nevnt her siden brukeren eksplisitt etterspurte det.
+
+## Natt-økt, del 14: M.I.N.I.-rapporten uten meningsløs prosent (2026-09-27, samme runde)
+
+Brukeren påpekte at M.I.N.I.-strukturdemoens rapport viste en total-PROSENT (sum av "Ja"-svar på
+tvers av 10 helt usammenlignbare diagnostiske moduler) — meningsløst, siden modulene måler
+forskjellige ting. Ny `TestSkaaring.SkjulProsent` (valgfritt felt, standard usann — ingen eksisterende
+skåringsberegner påvirket) lar en skåringsberegner be BEGGE individrapport-visningene (Admin og
+Behandlerportal Rapport.cshtml, inkl. "Kopier alt"-malen) om å skjule prosent-/råskår-linjen helt.
+`MiniStrukturdemoSkaaringsberegner` setter denne til sann, og bygger nå Indikatorer KUN for de
+FLAGGEDE modulene (ikke lenger alle 10, hvorav de fleste uansett viste "0/N") — hver formatert som
+"{modulnavn} ({antall}/{totalt})" i selve Verdi-strengen, siden rapportens kompakte badge-visning
+kun rendrer `Indikator.Verdi`, ikke `Navn`. Verifisert i nettleser: rapporten for en tidligere
+fullført M.I.N.I.-besvarelse viste nå KUN "Depressivt episode (1/3)" som resultat, ingen prosent
+noe sted. Build + alle 69 tester grønne (1 eksisterende test oppdatert til ny indikator-oppførsel).

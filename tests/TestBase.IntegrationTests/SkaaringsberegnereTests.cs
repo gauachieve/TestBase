@@ -778,8 +778,12 @@ public sealed class SkaaringsberegnereTests
 
         var resultat = new MiniStrukturdemoSkaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
 
-        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Depressivt episode" && i.Verdi == "1/2 \"Ja\"" && !i.Positiv);
-        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Suicidalitet" && i.Verdi == "0/2 \"Ja\"" && i.Positiv);
+        // Kun FLAGGEDE moduler blir egne indikatorer (2026-09-27) — "Suicidalitet" (0/2 Ja) skal
+        // IKKE lenger dukke opp som en egen indikator i det hele tatt.
+        Assert.Single(resultat.Indikatorer!);
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Depressivt episode" && i.Verdi == "Depressivt episode (1/2)" && !i.Positiv);
+        Assert.DoesNotContain(resultat.Indikatorer!, i => i.Navn == "Suicidalitet");
+        Assert.True(resultat.SkjulProsent);
         Assert.Equal(1, resultat.RaaSkaar);
         Assert.Equal(4, resultat.RaaSkaarMaks);
     }
