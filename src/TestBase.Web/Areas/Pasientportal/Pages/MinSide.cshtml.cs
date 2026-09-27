@@ -53,7 +53,7 @@ public sealed class MinSideModel : PageModel
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         var pasientId = HentPasientId();
-        var tildelinger = await _testService.HentTildelingerForPasientAsync(pasientId, cancellationToken);
+        var tildelinger = await _testService.HentPasientSynligeTildelingerAsync(pasientId, cancellationToken);
 
         var testIder = tildelinger.Select(t => t.TestId).Distinct().ToList();
         var testNavn = await _db.Tester.Where(t => testIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Navn, cancellationToken);

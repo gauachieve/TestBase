@@ -681,6 +681,33 @@ public sealed class TestService
         _db.TestTildelinger.Where(t => t.PasientId == pasientId).OrderByDescending(t => t.TildeltUtc).ToListAsync(cancellationToken);
 
     /// <summary>
+    /// Samme som <see cref="HentTildelingerForPasientAsync"/>, men EKSKLUDERER enhver tildeling av
+    /// en behandler-utfylt test (Test.FyllesUtAvBehandler) — pasienten skal ALDRI se, telle eller
+    /// kunne navigere til en slik tildeling (den er ikke deres å fylle ut). Bruk denne i ALL
+    /// pasientvendt kode (Pasientportal/MinSide, "neste test"-navigasjon, badge-tellingen i
+    /// _Layout) — behandler-/admin-vendt kode som skal se HELE pasientens historikk (f.eks.
+    /// Behandlerportal/Pasienter/Detaljer) bruker fortsatt den rå
+    /// <see cref="HentTildelingerForPasientAsync"/>. Selve utfyllingssiden (Pasientportal/Tester/
+    /// Fyll.cshtml.cs) har i tillegg sin EGEN, uavhengige sperre — denne listefiltreringen er et
+    /// UX-supplement, ikke selve sikkerhetsgrensen (se docs/beslutningslogg.md).
+    /// </summary>
+    public async Task<List<TestTildeling>> HentPasientSynligeTildelingerAsync(long pasientId, CancellationToken cancellationToken = default)
+    {
+        var behandlerUtfylteTestIder = await _db.Tester.Where(t => t.FyllesUtAvBehandler).Select(t => t.Id).ToListAsync(cancellationToken);
+        return await _db.TestTildelinger
+            .Where(t => t.PasientId == pasientId && !behandlerUtfylteTestIder.Contains(t.TestId))
+            .OrderByDescending(t => t.TildeltUtc)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>Testens navn for én tildeling — brukt til å navngi "neste test"-knappen (se Pasientportal/Tester/Fyll).</summary>
+    public async Task<string?> HentTestNavnForTildelingAsync(long tildelingId, CancellationToken cancellationToken = default)
+    {
+        var testId = await _db.TestTildelinger.Where(t => t.Id == tildelingId).Select(t => t.TestId).FirstOrDefaultAsync(cancellationToken);
+        return testId == 0 ? null : await _db.Tester.Where(t => t.Id == testId).Select(t => t.Navn).FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Godkjente rapporter for én pasient — til den samlede "Godkjente rapporter"-listen
     /// (bugliste 2026-09-15). <paramref name="kunSynligForPasient"/> skiller pasientens
     /// egen (kun det behandler aktivt har delt) fra behandler/admin sin (alt godkjent,

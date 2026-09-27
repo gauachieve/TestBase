@@ -23,11 +23,14 @@ else if (Model.ErFullfort)
     {
         <p><a class="btn-accent" href="/Pasientportal/Tester/Rapport/@Model.Innhold.Tildeling.Id">Se rapporten din</a></p>
     }
-    @if (Model.NesteIkkeFullforteTildelingId is not null)
-    {
-        <p><a class="btn-accent" href="/Pasientportal/Tester/Fyll/@Model.NesteIkkeFullforteTildelingId">Ferdigstill og videre til neste test</a></p>
-    }
-    <p><a href="/Pasientportal/MinSide">Tilbake til min side</a></p>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem;">
+        @if (Model.NesteIkkeFullforteTildelingId is not null)
+        {
+            var nesteTekst = "Ferdigstill og videre til " + (Model.NesteIkkeFullforteTestNavn ?? "neste test");
+            <a class="btn-accent" href="/Pasientportal/Tester/Fyll/@Model.NesteIkkeFullforteTildelingId">@nesteTekst</a>
+        }
+        <a class="btn-accent" href="/Pasientportal/MinSide">Ferdigstill og tilbake til Min Side</a>
+    </div>
 }
 else
 {
@@ -138,7 +141,10 @@ else
                 }
                 else
                 {
-                    <button type="submit" name="Handling" value="Ferdig">Ferdig</button>
+                    var fullforTekst = Model.NesteIkkeFullforteTildelingId is not null
+                        ? "Fullfør og gå videre til " + (Model.NesteIkkeFullforteTestNavn ?? "neste test")
+                        : "Fullfør og gå til Min Side";
+                    <button type="submit" name="Handling" value="Ferdig" class="btn-accent">@fullforTekst</button>
                 }
             </div>
         </form>

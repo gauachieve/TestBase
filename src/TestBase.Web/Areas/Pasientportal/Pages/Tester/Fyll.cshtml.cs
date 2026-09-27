@@ -41,6 +41,9 @@ public sealed class FyllModel : PageModel
     /// <summary>Neste ikke-fullførte tildeling for samme pasient — se bugliste 2026-09-13 punkt 8 ("Ferdigstill og videre til neste test").</summary>
     public long? NesteIkkeFullforteTildelingId { get; private set; }
 
+    /// <summary>Navn på testen i <see cref="NesteIkkeFullforteTildelingId"/> — vist i knappeteksten i stedet for et generisk "neste test".</summary>
+    public string? NesteIkkeFullforteTestNavn { get; private set; }
+
     /// <summary>
     /// Satt (2026-09-23) når for mange ledd sto ubesvart, se
     /// Test.MaksUbesvartProsent/TestService.BeregnSkaaringAsync — vist som en
@@ -57,7 +60,7 @@ public sealed class FyllModel : PageModel
     public async Task<IActionResult> OnGetAsync(long id, int? side, CancellationToken cancellationToken)
     {
         var innhold = await _testService.HentTildelingMedInnholdAsync(id, cancellationToken);
-        if (innhold is null || innhold.Tildeling.PasientId != HentPasientId())
+        if (innhold is null || innhold.Tildeling.PasientId != HentPasientId() || innhold.Test.FyllesUtAvBehandler)
         {
             return NotFound();
         }
@@ -87,23 +90,34 @@ public sealed class FyllModel : PageModel
         }
 
         GjeldendeSideNummer = innhold.Sider.Count == 0 ? 1 : Math.Clamp(side ?? 1, 1, innhold.Sider.Count);
+        if (GjeldendeSideNummer == innhold.Sider.Count)
+        {
+            // På siste side, FØR innsending: hent hva "neste steg" faktisk blir, slik at
+            // selve fullfør-knappen kan navngi det direkte i stedet for et generisk "Ferdig".
+            await LastNesteIkkeFullforteAsync(id, cancellationToken);
+        }
         return Page();
     }
 
     private async Task LastNesteIkkeFullforteAsync(long gjeldendeTildelingId, CancellationToken cancellationToken)
     {
-        var alle = await _testService.HentTildelingerForPasientAsync(HentPasientId(), cancellationToken);
+        var alle = await _testService.HentPasientSynligeTildelingerAsync(HentPasientId(), cancellationToken);
         NesteIkkeFullforteTildelingId = alle
             .Where(t => t.Id != gjeldendeTildelingId && t.Status != TestTildelingStatus.Fullfort)
             .OrderBy(t => t.TildeltUtc)
             .Select(t => (long?)t.Id)
             .FirstOrDefault();
+
+        if (NesteIkkeFullforteTildelingId is not null)
+        {
+            NesteIkkeFullforteTestNavn = await _testService.HentTestNavnForTildelingAsync(NesteIkkeFullforteTildelingId.Value, cancellationToken);
+        }
     }
 
     public async Task<IActionResult> OnPostAsync(long id, int? side, CancellationToken cancellationToken)
     {
         var innhold = await _testService.HentTildelingMedInnholdAsync(id, cancellationToken);
-        if (innhold is null || innhold.Tildeling.PasientId != HentPasientId())
+        if (innhold is null || innhold.Tildeling.PasientId != HentPasientId() || innhold.Test.FyllesUtAvBehandler)
         {
             return NotFound();
         }

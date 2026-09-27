@@ -5648,3 +5648,59 @@ tester med Histogramgrenser, SIPP radar-graf (5 domener, IKKE de 16 ekte SIPP-11
 denne testen bevisst ikke måler dem — kilde: brukerens lenke
 https://pmc.ncbi.nlm.nih.gov/articles/PMC12287623/ bekreftet fasettstrukturen og at radaren i
 litteraturen er PER RESPONDENT, ikke over tid), TRAPS II mer detaljert rapport.
+
+## Natt-økt, del 11: reelt sikkerhetshull — pasient kunne fylle ut SCID-5-PF (2026-09-26/27)
+
+Brukeren rapporterte at en pasient fikk tilgang til SCID-5-PF, en test som ALDRI skal sendes til
+pasienten (`Test.FyllesUtAvBehandler`). Undersøkelse viste et REELT, todelt hull:
+
+1. **`Pasientportal/Tester/Fyll.cshtml.cs`** (både `OnGetAsync` og `OnPostAsync`) sjekket KUN
+   eierskap (`Tildeling.PasientId == pasientens egen id`) — ALDRI om testen faktisk var
+   `FyllesUtAvBehandler`. En pasient med riktig tildeling-ID (uansett hvordan den ble kjent — via
+   den delte tildelingsflytens "neste test"-lenke, se punkt 2, eller en gjettet/lekket URL) kunne
+   dermed fylle ut en klinikertest fullt ut.
+2. **`TestService.HentTildelingerForPasientAsync`** (brukt av `Pasientportal/MinSide`, "neste
+   test"-navigasjonen i `Fyll.cshtml.cs`, OG uleste-tester-tallet i `_Layout.cshtml`) returnerte
+   ALLE tildelinger uansett `FyllesUtAvBehandler` — en pasient som fullførte én test i en blandet
+   batch (klinikertest + pasienttest tildelt sammen) kunne bli SENDT DIREKTE til klinikertesten via
+   "neste test"-lenken, og testen dukket uansett opp i pasientens egen "Min side"-liste og
+   badge-telling.
+
+**Fiks — sperren i seg selv (punkt 1) er selve sikkerhetsgrensen:** `Fyll.cshtml.cs` sjekker nå
+eksplisitt `innhold.Test.FyllesUtAvBehandler` i BEGGE handlere og returnerer `NotFound()` —
+uavhengig av hvordan pasienten fikk tak i tildeling-ID-en. **Listefiltreringen (punkt 2) er et
+UX-supplement, ikke sikkerhetsgrensen selv** — ny `TestService.HentPasientSynligeTildelingerAsync`
+ekskluderer enhver `FyllesUtAvBehandler`-tildeling, brukt i `Pasientportal/MinSide.cshtml.cs`,
+`Fyll.cshtml.cs` sin "neste test"-oppslag, og badge-telleren i `_Layout.cshtml`.
+`Behandlerportal/Pasienter/Detaljer.cshtml.cs` (behandler ser HELE pasientens historikk) bruker
+fortsatt den rå, ufiltrerte `HentTildelingerForPasientAsync` — helt bevisst, behandler skal se alt.
+
+**Verifisert ende-til-ende lokalt:** tildelte SCID-5-PF + WHO-5 sammen til samme pasient (Vipps
+Demo) → logget inn SOM den pasienten (personnummer-override) → bekreftet SCID-5-PF IKKE vises i Min
+side-listen eller badge-tallet (6, ikke 7) → bekreftet en direkte `fetch` mot
+`/Pasientportal/Tester/Fyll/{scid5pf-tildeling-id}` gir `404`, IKKE 200 → fullførte WHO-5 og
+bekreftet "neste test"-lenken pekte til pasientens NESTE EKTE pasienttest, ikke klinikertesten.
+
+## Natt-økt, del 12: "Ferdigstill og videre"/"tilbake til Min Side"-knappene fikset (samme runde)
+
+Samtidig ba brukeren om en rekke UI-fikser på nøyaktig denne "Ferdig!"-siden (`Pasientportal/
+Tester/Fyll.cshtml`) og siste-side-knappen som førte dit:
+
+- Begge knappene er nå ekte `btn-accent`-knapper (oransje) i SAMME rad (flex-container) —
+  "Tilbake til min side" manglet tidligere HELT `btn-accent`-klassen (ren `<a>` uten stil).
+  "Min Side" er nå stor forbokstav på S, konsekvent.
+  - **"Ferdigstill og tilbake til Min Side"** erstatter det gamle "Tilbake til min side".
+- **"Ferdigstill og videre til {testnavn}"** navngir nå det FAKTISKE neste testnavnet (ny
+  `TestService.HentTestNavnForTildelingAsync`), ikke en generisk "neste test".
+- Selve siste-side-SUBMIT-knappen (tidligere en bar "Ferdig") er nå navngitt PÅ FORHÅND ut fra
+  samme oppslag — "Fullfør og gå videre til {testnavn}" eller "Fullfør og gå til Min Side" —
+  beregnet i `OnGetAsync` når man laster siste side (ikke bare i `OnPostAsync`/etter innsending),
+  slik at brukeren ser hva som skjer FØR de klikker, ikke bare etterpå. Selve submit-kontrakten
+  (`Handling=Ferdig`) er UENDRET.
+- Verifisert i nettleser: siste-side-knappen viste korrekt "Fullfør og gå videre til WHO-5 (5
+  spørsmål om trivsel og velvære)" (pasienten hadde reelt TO separate WHO-5-tildelinger — riktig,
+  ikke en feil), og "Ferdig!"-siden viste begge knappene korrekt style/rad/tekst (se skjermbilde
+  under verifisering).
+
+Build + alle 69 tester grønne (ingen scoringsendringer i denne batchen). Committes og deployes til
+begge miljøer.

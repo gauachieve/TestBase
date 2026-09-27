@@ -22,7 +22,7 @@
 
     var antallUlesteMeldinger = erBehandler ? await MeldingService.TellUlesteAsync(BrukerId()) : 0;
     var antallUbesvarteTester = erPasient
-        ? (await TestService.HentTildelingerForPasientAsync(BrukerId())).Count(t => t.Status != TestTildelingStatus.Fullfort)
+        ? (await TestService.HentPasientSynligeTildelingerAsync(BrukerId())).Count(t => t.Status != TestTildelingStatus.Fullfort)
         : 0;
 
     // Fargeskjema per rolle (bugliste 2026-09-13 punkt 2) — se site.css sine

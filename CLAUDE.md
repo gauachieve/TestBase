@@ -400,6 +400,16 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   krasj ved tilfeldig MySQL-radrekkefølge, ikke ved design. CORE-A viste seg IKKE berørt (én side).
   Se docs/beslutningslogg.md "Natt-økt, del 10" for full analyse — starten på en stor
   brukerfeedback-runde med mange gjenstående UI/rapport-fikser.
+- **Reelt sikkerhetshull rettet: pasient kunne fylle ut SCID-5-PF (2026-09-26/27):**
+  `Pasientportal/Tester/Fyll.cshtml.cs` sjekket KUN eierskap, aldri `Test.FyllesUtAvBehandler` —
+  en pasient med riktig tildeling-ID kunne fylle ut en klinikertest. Fikset med en eksplisitt
+  `NotFound()`-sperre i BEGGE handlere (selve sikkerhetsgrensen), pluss en ny
+  `TestService.HentPasientSynligeTildelingerAsync` (ekskluderer FyllesUtAvBehandler) brukt i
+  `Pasientportal/MinSide`, "neste test"-navigasjonen, og `_Layout` sin badge-teller (UX-supplement,
+  ikke selve grensen — `Behandlerportal/Pasienter/Detaljer` bruker fortsatt den ufiltrerte listen
+  med vilje). Samtidig fikset "Ferdigstill og videre til {testnavn}"/"Ferdigstill og tilbake til
+  Min Side"-knappene (proper `btn-accent`, samme rad, dynamisk testnavn, riktig "Min Side"-
+  kapitalisering) — se docs/beslutningslogg.md "Natt-økt, del 11/12" for full verifisering.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
