@@ -687,13 +687,6 @@ if (app.Environment.IsDevelopment())
 
     var testService = scope.ServiceProvider.GetRequiredService<TestService>();
 
-    // ENGANGS-regenerering av SCID-5-PF (rekkefølge/etiketter/veiledning endret strukturelt
-    // 2026-09-27, se docs/beslutningslogg.md "Natt-økt, del 13") — sletter testen HELT (kun
-    // egne test-/prøvedata-besvarelser finnes, ingen ekte pasientdata) slik at seederen under
-    // bygger den fullstendig på nytt med ny struktur. FJERN denne linjen etter NESTE deploy —
-    // den skal IKKE stå igjen permanent (ville slettet testen på hver eneste appstart).
-    await testService.SlettTestHeltForRegenereringAsync("scid5_pf");
-
     // Regenerer innebygde tester (WHO-5 m.fl.) — samme idempotente mekanisme
     // som også er tilgjengelig via en admin-knapp i alle miljøer, se
     // Areas/Admin/Pages/Tester/Index.cshtml.cs.
