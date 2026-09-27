@@ -5598,3 +5598,53 @@ synlig i rapporten.
 Begge testene bruker "behandler fyller ut"-mekanismen (se "Natt-økt, del 6"). Build + alle 69 tester
 grønne (4 nye regresjonstester). Committes og deployes til begge miljøer sammen med denne
 loggføringen.
+
+## Natt-økt, del 10: stor brukerfeedback-runde — start med to reelle 500-krasjer på live (2026-09-26/27)
+
+Brukeren rapporterte en lang liste med UI/UX-fikser og to nye krasjer ("crash of live" ved
+godkjenning av en EDE-Q-rapport + "Core-A crasher også"). Undersøkte via `az webapp log download`
+(faktiske docker-stdout-logger, ikke bare `log tail`) og reproduserte begge direkte på LIVE (innlogget
+som behandleren 23077041185, kun lesing/godkjenning av EGET test-/prøvedata — pasienten involvert
+het "PsyTest Pasient", ikke ekte data).
+
+**Rotårsak funnet: `TestService.HentTestStrukturAsync` sorterte KUN på `TestLedd.Rekkefolge`,** som
+nullstilles til 1 for HVER `TestSide` (se `LeggTilLeddAsync`). For en test med FLERE sider (EDE-Q:
+10+13+5 ledd på 3 sider) betyr det at ledd fra ulike sider har SAMME Rekkefolge-verdi — et rått
+`ORDER BY Rekkefolge` uten sekundær sorteringsnøkkel gir INGEN rekkefølgegaranti for slike uavgjorte
+verdier i MySQL. EDE-Q sine 5 ikke-skårede fritekstledd (siste side) havnet dermed innimellom de
+skårede leddene i stedet for til slutt — fikk `EdeqSkaaringsberegner` sin posisjonsbaserte
+delskala-inndeling (`.Take/.Skip`) til å plukke opp et fritekst-svar ("fda", skrevet i et av de
+ikke-skårede atferdsfeltene) som om det var en tallskåret verdi → `FormatException` ved BÅDE
+rapportvisning (`HentSkaaringHistorikkAsync`) OG godkjenning. Dette er SAMME bug-KLASSE som
+GADIT-krasjen (2026-09-23) og TRAPS II-bugen (natt-økt del 2) — men denne gangen i selve
+DATAUTHENTINGEN (`HentTestStrukturAsync`), ikke i én enkelt skåringsberegner, og rammet dermed
+potensielt flere fler-sides tester (CORE-OM 4 sider, SIPP-118-inspirert 5 sider, TRAPS II 6 sider,
+YGTSS-R 3 sider — de tre sistnevnte var kun beskyttet fra dette ved flaks/tilfeldig MySQL-
+radrekkefølge under egen verifisering, ikke ved design). **CORE-A viste seg IKKE å være berørt**
+(én enkelt side, 8 ledd, `int.TryParse` uansett) — brukerens "Core-A krasjer også" var etter
+verifisering samme EDE-Q-krasj sett i samme Min Side-liste, forvekslet i farten.
+
+**Fiks:** `HentTestStrukturAsync` bygger nå en `sideRekkefolgePerId`-oppslagstabell og sorterer
+eksplisitt på `(side.Rekkefolge, ledd.Rekkefolge)` i minnet etter henting — samme prinsipp
+`BeregnSkaaringAsync` sin egen spørring allerede fulgte riktig. Dette er en ROT-fiks som dekker
+`HentTildelingMedInnholdAsync` (brukt av ALLE utfyllings- og rapportsider) og
+`HentSkaaringHistorikkAsync` samtidig, ikke bare EDE-Q. Verifisert direkte på LIVE: den EKSAKTE
+tildelingen som krasjet (id 119) viste korrekt rapport (globalskår 3,45/6) og ble godkjent uten feil
+etter fiksen — ingen datamigrasjon nødvendig, kun spørringslogikken var feil. Deployet umiddelbart
+til både live og beta, FØR resten av brukerens ønskeliste ble påbegynt, per eksplisitt prioritet.
+
+**Ikke gjort ennå i denne runden (defensiv herding):** CoreOm/Sipp118/TrapsIi/YgtssR sine egne
+skåringsberegnere bruker fortsatt rå `.Skip/.Take` uten egen `GroupBy(TestSideId)`-sortering (i
+motsetning til Scid5Pf/Hcr20V3/MiniStrukturdemo, som ble bygget med denne mer robuste stilen fra
+start). Siden selve datakilden nå er fikset, er dette ikke lenger en aktiv bug — men bør vurderes
+oppgradert til samme mønster som en fremtidig herding, se åpne punkter.
+
+**Resten av brukerens liste (stor) — påbegynnes fortløpende, se egne seksjoner under etter hvert som
+de fullføres:** patient fikk tilgang til SCID-5-PF (klinikerens-only, alvorlig — under arbeid),
+knapperad-fikser på flertest-fullføring, utvidbare/auto-voksende kommentarfelt +
+forklaringspanel for kliniker-tester, SCID-5-PF-rekkefølge/nummerering/referansetekst +
+stolpediagram-rapport, MINI-rapport uten prosent, cutoff-linjer i individuell rapport for alle
+tester med Histogramgrenser, SIPP radar-graf (5 domener, IKKE de 16 ekte SIPP-118-fasettene siden
+denne testen bevisst ikke måler dem — kilde: brukerens lenke
+https://pmc.ncbi.nlm.nih.gov/articles/PMC12287623/ bekreftet fasettstrukturen og at radaren i
+litteraturen er PER RESPONDENT, ikke over tid), TRAPS II mer detaljert rapport.

@@ -387,6 +387,19 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   UI/UX-eksempel — 10 offentlig kjente modulnavn, men HELT EGNE generiske spørsmål (IKKE M.I.N.I.
   sitt faktiske, lisensierte innhold eller gren-/hoppelogikk), testnavnet sier selv
   "(IKKE lisensiert innhold)". Begge på "behandler fyller ut"-mekanismen, verifisert ende-til-ende.
+- **Reell 500-krasj rettet: EDE-Q (og potensielt ethvert fler-sides test) (2026-09-26/27):**
+  `TestService.HentTestStrukturAsync` sorterte ledd KUN på `Rekkefolge` (nullstilles per side) —
+  for en test med FLERE sider (EDE-Q: 3 sider) ga MySQL ingen garanti om at ledd fra ulike sider med
+  SAMME Rekkefolge-verdi ble holdt sammen. EDE-Q sine 5 ikke-skårede fritekstledd havnet dermed
+  innimellom de skårede leddene, fikk `EdeqSkaaringsberegner` sin posisjonsbaserte delskala-
+  inndeling til å plukke opp et fritekst-svar som tallverdi → `FormatException` ved rapportvisning/
+  godkjenning på LIVE (reprodusert og fikset direkte der). Fikset ved å eksplisitt sortere på
+  `(side.Rekkefolge, ledd.Rekkefolge)` — samme prinsipp `BeregnSkaaringAsync` allerede fulgte riktig.
+  Dekker `HentTildelingMedInnholdAsync` OG `HentSkaaringHistorikkAsync` samtidig — potensielt
+  relevant for CORE-OM/SIPP-118-inspirert/TRAPS II/YGTSS-R også (alle fler-sides), som kun unngikk
+  krasj ved tilfeldig MySQL-radrekkefølge, ikke ved design. CORE-A viste seg IKKE berørt (én side).
+  Se docs/beslutningslogg.md "Natt-økt, del 10" for full analyse — starten på en stor
+  brukerfeedback-runde med mange gjenstående UI/rapport-fikser.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
