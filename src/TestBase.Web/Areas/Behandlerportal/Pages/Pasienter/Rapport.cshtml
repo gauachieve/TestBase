@@ -79,8 +79,21 @@ else
                         <div class="rapport-skaartall">@Model.Skaaring.ProsentSkaar %</div>
                         <div class="rapport-fremdrift">
                             <div class="rapport-fremdrift-fyll" style="width: @(Model.Skaaring.ProsentSkaar)%;"></div>
+                            @foreach (var cutoff in Model.Cutoffs)
+                            {
+                                <div class="rapport-cutoff-linje" style="left: @(cutoff.PosisjonProsent.ToString(System.Globalization.CultureInfo.InvariantCulture))%;" title="@cutoff.Navn"></div>
+                            }
                         </div>
                     </div>
+                    @if (Model.Cutoffs.Count > 0)
+                    {
+                        <p class="rapport-cutoff-forklaring">
+                            @foreach (var cutoff in Model.Cutoffs)
+                            {
+                                <span class="rapport-cutoff-label">▼ @cutoff.Navn</span>
+                            }
+                        </p>
+                    }
                     <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong></p>
                 }
                 @if (Model.Skaaring.Indikatorer is { Count: > 0 })
@@ -233,6 +246,12 @@ else if (Model.Tildeling?.RapportGodkjentUtc is not null)
                     <div style="font-size: 14px; margin-bottom: 6px;">
                         <strong>@Model.Skaaring.ProsentSkaar %</strong> (råskår @Model.Skaaring.RaaSkaar/@Model.Skaaring.RaaSkaarMaks)
                     </div>
+                    @if (Model.RaaCutoffs.Count > 0)
+                    {
+                        <div style="font-size: 12px; color: #6b7280; margin-bottom: 6px;">
+                            Grenseverdier: @string.Join(" · ", Model.RaaCutoffs.Select(g => $"{g.Navn} ved {g.Verdi}"))
+                        </div>
+                    }
                 }
                 @if (Model.Skaaring.Indikatorer is { Count: > 0 })
                 {

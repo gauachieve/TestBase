@@ -47,10 +47,20 @@ public sealed class RapportModel : PageModel
     public sealed record SvarRad(string Sporsmal, string SvarLabel, string? BehandlerKommentar = null);
     public sealed record SideMedSvar(TestSide Side, IReadOnlyList<SvarRad> Svar);
 
+    /// <summary>Én cutoff-linje til å tegne over resultat-fremdriftsbaren — Posisjon er allerede
+    /// omregnet til 0-100% av baren (råskår-cutoffs skaleres mot RaaSkaarMaks, se LastInnAsync).</summary>
+    public sealed record CutoffMarkering(string Navn, decimal PosisjonProsent);
+
     public Pasient? Pasient { get; private set; }
     public Test? Test { get; private set; }
     public TestTildeling? Tildeling { get; private set; }
     public TestSkaaring? Skaaring { get; private set; }
+    public IReadOnlyList<CutoffMarkering> Cutoffs { get; private set; } = Array.Empty<CutoffMarkering>();
+
+    /// <summary>Samme grenser som <see cref="Cutoffs"/>, men i RÅ enhet (ikke prosent-skalert) —
+    /// brukt i "Kopier alt"-malen der en tekstlig "grenseverdi X" er mer nyttig enn en visuell
+    /// strek på en fremdriftsbar som ikke overlever inn i et journalsystem.</summary>
+    public IReadOnlyList<TestSkaaringGrenseverdi> RaaCutoffs { get; private set; } = Array.Empty<TestSkaaringGrenseverdi>();
     public List<SideMedSvar> Sider { get; private set; } = new();
     public IReadOnlyList<SkaaringHistorikkPunkt> Historikk { get; private set; } = Array.Empty<SkaaringHistorikkPunkt>();
 
@@ -179,6 +189,20 @@ public sealed class RapportModel : PageModel
         if (Skaaring is null)
         {
             return false;
+        }
+
+        // Cutoff-linjer på resultat-fremdriftsbaren (2026-09-27, samme prinsipp som
+        // Grupper/Aggregert sitt histogram) — Histogramgrenser er enten allerede i prosent
+        // (VisSomProsentIHistogram, kun WHO-5/WHO-5 VAS) eller i råskår og må skaleres mot
+        // RaaSkaarMaks for å plasseres riktig på en 0-100%-bar. Ikke vist når SkjulProsent er
+        // satt (se TestSkaaring), siden det ikke finnes noen fremdriftsbar å tegne linjer over da.
+        if (!Skaaring.SkjulProsent && Skaaring.RaaSkaarMaks > 0)
+        {
+            RaaCutoffs = _testService.HentHistogramgrenser(Test.Kode);
+            var visSomProsent = _testService.VisSomProsentIHistogram(Test.Kode);
+            Cutoffs = RaaCutoffs
+                .Select(g => new CutoffMarkering(g.Navn, visSomProsent ? g.Verdi : g.Verdi * 100m / Skaaring.RaaSkaarMaks))
+                .ToList();
         }
 
         // Kun behandler-utfylte tester (se Test.FyllesUtAvBehandler) har noensinne en

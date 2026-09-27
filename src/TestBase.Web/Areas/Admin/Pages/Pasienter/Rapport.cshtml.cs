@@ -29,10 +29,15 @@ public sealed class RapportModel : PageModel
     public sealed record SvarRad(string Sporsmal, string SvarLabel, string? BehandlerKommentar = null);
     public sealed record SideMedSvar(TestSide Side, IReadOnlyList<SvarRad> Svar);
 
+    /// <summary>Én cutoff-linje til å tegne over resultat-fremdriftsbaren — Posisjon er allerede
+    /// omregnet til 0-100% av baren (råskår-cutoffs skaleres mot RaaSkaarMaks, se OnGetAsync).</summary>
+    public sealed record CutoffMarkering(string Navn, decimal PosisjonProsent);
+
     public Pasient? Pasient { get; private set; }
     public Test? Test { get; private set; }
     public TestTildeling? Tildeling { get; private set; }
     public TestSkaaring? Skaaring { get; private set; }
+    public IReadOnlyList<CutoffMarkering> Cutoffs { get; private set; } = Array.Empty<CutoffMarkering>();
     public List<SideMedSvar> Sider { get; private set; } = new();
     public bool IkkeGodkjentEnna { get; private set; }
 
@@ -57,6 +62,14 @@ public sealed class RapportModel : PageModel
         }
 
         Skaaring = await _testService.BeregnSkaaringAsync(id, cancellationToken);
+
+        if (Skaaring is not null && !Skaaring.SkjulProsent && Skaaring.RaaSkaarMaks > 0)
+        {
+            var visSomProsent = _testService.VisSomProsentIHistogram(Test.Kode);
+            Cutoffs = _testService.HentHistogramgrenser(Test.Kode)
+                .Select(g => new CutoffMarkering(g.Navn, visSomProsent ? g.Verdi : g.Verdi * 100m / Skaaring.RaaSkaarMaks))
+                .ToList();
+        }
 
         var kommentarPerLeddId = await _db.TestSvar
             .Where(s => s.TestTildelingId == id && s.BehandlerKommentar != null)

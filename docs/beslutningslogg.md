@@ -5770,3 +5770,31 @@ FLAGGEDE modulene (ikke lenger alle 10, hvorav de fleste uansett viste "0/N") �
 kun rendrer `Indikator.Verdi`, ikke `Navn`. Verifisert i nettleser: rapporten for en tidligere
 fullført M.I.N.I.-besvarelse viste nå KUN "Depressivt episode (1/3)" som resultat, ingen prosent
 noe sted. Build + alle 69 tester grønne (1 eksisterende test oppdatert til ny indikator-oppførsel).
+
+## Natt-økt, del 15: cutoff-linjer på INDIVIDRAPPORTEN, ikke bare gruppehistogrammet (2026-09-27)
+
+Brukeren ba om cutoff-linjer "i alle tester, når det er en cutoff (eller to)" — CORE-10 nevnt som
+eksempel. Cutoff-linjer fantes fra før KUN i grupperapportens histogram
+(`Grupper/Aggregert.cshtml`, `ITestSkaaringsberegner.Histogramgrenser`); INDIVIDrapporten
+(`Rapport.cshtml`, begge Areas) viste kun en ren prosent-fremdriftsbar uten noen markering av hvor
+den kliniske grensen faktisk ligger.
+
+Ny `RapportModel.Cutoffs` (begge Areas, samme `CutoffMarkering(Navn, PosisjonProsent)`-record) —
+henter `TestService.HentHistogramgrenser(Test.Kode)` og `VisSomProsentIHistogram(Test.Kode)`,
+skalerer råskår-cutoffs til 0-100% av fremdriftsbaren (`Verdi * 100 / RaaSkaarMaks`), eller bruker
+verdien direkte for de få prosent-native testene (WHO-5/WHO-5 VAS). Tegnes som en tynn vertikal
+strek (`.rapport-cutoff-linje`, absolutt posisjonert over `.rapport-fremdrift`, som fikk
+`position: relative` og mistet sin `overflow: hidden` — kompensert med `border-radius` flyttet til
+selve fyll-elementet slik at det avrundede utseendet er uendret) pluss en "▼ {navn}"-tekstlabel
+under baren. Ingenting vises for tester med `SkjulProsent` (ingen bar å tegne over) eller uten
+registrerte `Histogramgrenser` (de fleste tester — INGEN visuell endring for dem).
+
+"Kopier alt til utklippstavlen"-malen fikk en TEKSTLIG variant i stedet (`RaaCutoffs`, rå enhet,
+ikke skalert) — en visuell strek gir ingen mening limt inn i et journalsystem, så cutoffs listes i
+stedet som "Grenseverdi: {navn} ved {verdi}".
+
+Verifisert i nettleser: tildelte CORE-10 til en ekte pasient, besvarte med et sumskår på 26/40
+(65%, godt over CORE-10 sin kliniske grense på 11), godkjente rapporten som behandler — cutoff-
+streken vises korrekt omtrent 1/4 inn på baren (11/40 = 27,5%) med "▼ Klinisk grense"-label under,
+og eksisterende risiko-indikatorer (ledd 3/10) vises uendret ved siden av. Build + alle 69 tester
+grønne (ingen scoringsendringer, kun visning). Committes og deployes til begge miljøer.

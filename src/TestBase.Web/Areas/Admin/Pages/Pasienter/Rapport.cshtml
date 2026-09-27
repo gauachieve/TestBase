@@ -47,8 +47,21 @@ else
                             <div class="rapport-skaartall">@Model.Skaaring.ProsentSkaar %</div>
                             <div class="rapport-fremdrift">
                                 <div class="rapport-fremdrift-fyll" style="width: @(Model.Skaaring.ProsentSkaar)%;"></div>
+                                @foreach (var cutoff in Model.Cutoffs)
+                                {
+                                    <div class="rapport-cutoff-linje" style="left: @(cutoff.PosisjonProsent.ToString(System.Globalization.CultureInfo.InvariantCulture))%;" title="@cutoff.Navn"></div>
+                                }
                             </div>
                         </div>
+                        @if (Model.Cutoffs.Count > 0)
+                        {
+                            <p class="rapport-cutoff-forklaring">
+                                @foreach (var cutoff in Model.Cutoffs)
+                                {
+                                    <span class="rapport-cutoff-label">▼ @cutoff.Navn</span>
+                                }
+                            </p>
+                        }
                         <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong></p>
                     }
                     @if (Model.Skaaring.Indikatorer is { Count: > 0 })

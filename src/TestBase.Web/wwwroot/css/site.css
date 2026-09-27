@@ -1231,9 +1231,22 @@ dialog#oppsummeringDialog::backdrop, dialog#grupperapportDialog::backdrop { back
 
 .rapport-skaarboks { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 0.75rem; }
 .rapport-skaartall { font-size: 2.2rem; font-weight: 800; color: var(--accent-dark); white-space: nowrap; }
-.rapport-fremdrift { flex: 1; height: 0.6rem; border-radius: 999px; background: var(--bg-soft); overflow: hidden; }
-.rapport-fremdrift-fyll { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-dark)); }
+.rapport-fremdrift { flex: 1; height: 0.6rem; border-radius: 999px; background: var(--bg-soft); position: relative; }
+.rapport-fremdrift-fyll { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--accent-dark)); }
 .rapport-fortolkning { font-size: 0.96rem; }
+
+/* Cutoff-linjer over resultat-fremdriftsbaren (ITestSkaaringsberegner.Histogramgrenser,
+   samme prinsipp som Grupper/Aggregert sitt histogram) — se Rapport.cshtml.cs (begge Areas). */
+.rapport-cutoff-linje {
+  position: absolute;
+  top: -0.2rem;
+  bottom: -0.2rem;
+  width: 2px;
+  background: var(--ink);
+  transform: translateX(-1px);
+}
+.rapport-cutoff-forklaring { margin: 0.3rem 0 0; font-size: 0.82rem; color: var(--ink-muted, #666); }
+.rapport-cutoff-label { margin-right: 1rem; white-space: nowrap; }
 
 /* Navngitte kategoriske indikatorer (f.eks. WHO-5s "Velvære"/"Depresjon") —
    skal stå tydelig ut fra vanlig tekst: fylt bakgrunn, farge og understrek. */

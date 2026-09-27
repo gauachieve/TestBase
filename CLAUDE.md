@@ -425,6 +425,13 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   `MiniStrukturdemoSkaaringsberegner`, som nå kun bygger Indikatorer for FLAGGEDE moduler, formatert
   "{modulnavn} ({antall}/{totalt})" i selve Verdi-strengen. Se docs/beslutningslogg.md
   "Natt-økt, del 14".
+- **Cutoff-linjer på individrapporten, ikke bare gruppehistogrammet (2026-09-27):** ny
+  `RapportModel.Cutoffs` (begge Areas) tegner `ITestSkaaringsberegner.Histogramgrenser` som en
+  vertikal strek + "▼ {navn}"-label over resultat-fremdriftsbaren i `Rapport.cshtml`, skalert til
+  0-100% av baren for råskår-cutoffs. "Kopier alt"-malen får en tekstlig variant ("Grenseverdi:
+  {navn} ved {verdi}") i stedet for en visuell strek. Ingen endring for tester uten
+  `Histogramgrenser` (de fleste) eller med `SkjulProsent`. Se docs/beslutningslogg.md
+  "Natt-økt, del 15".
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
