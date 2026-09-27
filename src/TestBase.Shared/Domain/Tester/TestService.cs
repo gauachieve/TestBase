@@ -1017,6 +1017,51 @@ public sealed class TestService
         return true;
     }
 
+    /// <summary>
+    /// Sletter en test HELT (alle sider/ledd/tildelinger/svar/betalinger/meldinger) slik at neste
+    /// kjøring av samme <see cref="IInnebygdTestSeeder"/> bygger den fullstendig på nytt — BEVISST
+    /// mer destruktivt enn den vanlige idempotente "hvis finnes, bare oppdater kategori/intro og
+    /// returner"-oppførselen til <see cref="IInnebygdTestSeeder.SeedAsync"/>. Skal KUN kalles for
+    /// tester som er under AKTIV strukturell iterasjon rett etter førstegangsbygging (f.eks.
+    /// SCID-5-PF sin rekkefølge-/etikett-/veiledningsoppdatering, se docs/beslutningslogg.md) —
+    /// ALDRI for en test som allerede har reelle pasientbesvarelser man vil beholde. Rydder i
+    /// Gruppe-/Partner-tilknytninger og tilgangsforespørsler også, siden en fullstendig sletting av
+    /// selve Test-raden ellers ville etterlatt disse pekende på en TestId som ikke lenger finnes.
+    /// </summary>
+    public async Task SlettTestHeltForRegenereringAsync(string testKode, CancellationToken cancellationToken = default)
+    {
+        var test = await _db.Tester.FirstOrDefaultAsync(t => t.Kode == testKode, cancellationToken);
+        if (test is null)
+        {
+            return;
+        }
+
+        var tildelingIder = await _db.TestTildelinger.Where(t => t.TestId == test.Id).Select(t => t.Id).ToListAsync(cancellationToken);
+        _db.TestTildelingBetalinger.RemoveRange(_db.TestTildelingBetalinger.Where(b => tildelingIder.Contains(b.TestTildelingId)));
+        _db.Pengebevegelser.RemoveRange(_db.Pengebevegelser.Where(p => p.TestTildelingId != null && tildelingIder.Contains(p.TestTildelingId.Value)));
+        _db.BehandlerMeldinger.RemoveRange(_db.BehandlerMeldinger.Where(m => tildelingIder.Contains(m.TestTildelingId)));
+        _db.TestSvar.RemoveRange(_db.TestSvar.Where(s => tildelingIder.Contains(s.TestTildelingId)));
+        await _db.SaveChangesAsync(cancellationToken);
+
+        _db.TestTildelinger.RemoveRange(_db.TestTildelinger.Where(t => t.TestId == test.Id));
+        _db.TestKategoriKoblinger.RemoveRange(_db.TestKategoriKoblinger.Where(k => k.TestId == test.Id));
+        _db.GruppeTestTilordninger.RemoveRange(_db.GruppeTestTilordninger.Where(g => g.TestId == test.Id));
+        _db.PartnerTestTilganger.RemoveRange(_db.PartnerTestTilganger.Where(p => p.TestId == test.Id));
+        _db.PartnerTestAndeler.RemoveRange(_db.PartnerTestAndeler.Where(p => p.TestId == test.Id));
+        _db.TestTilgangForesporsler.RemoveRange(_db.TestTilgangForesporsler.Where(f => f.TestId == test.Id));
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var sideIder = await _db.TestSider.Where(s => s.TestId == test.Id).Select(s => s.Id).ToListAsync(cancellationToken);
+        _db.TestLedd.RemoveRange(_db.TestLedd.Where(l => sideIder.Contains(l.TestSideId)));
+        await _db.SaveChangesAsync(cancellationToken);
+
+        _db.TestSider.RemoveRange(_db.TestSider.Where(s => s.TestId == test.Id));
+        await _db.SaveChangesAsync(cancellationToken);
+
+        _db.Tester.Remove(test);
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
     private async Task<IReadOnlyList<TildelingMedTestOgPasient>> BerikMedTestOgPasientAsync(
         List<TestTildeling> tildelinger, CancellationToken cancellationToken)
     {

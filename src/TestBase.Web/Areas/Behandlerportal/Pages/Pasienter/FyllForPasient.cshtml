@@ -46,12 +46,9 @@ else
             {
                 var eksisterende = Model.Innhold.EksisterendeSvar.GetValueOrDefault(ledd.Id);
                 var eksisterendeKommentar = Model.KommentarPerLeddId.GetValueOrDefault(ledd.Id);
-                <div style="margin-bottom: 1.5rem; border-bottom: 1px solid #eee; padding-bottom: 1rem;">
+                <div class="ledd-med-forklaring" style="margin-bottom: 1.5rem; border-bottom: 1px solid #eee; padding-bottom: 1rem;">
+                <div class="ledd-innhold">
                     <p><strong>@ledd.Sporsmalstekst</strong></p>
-                    @if (!string.IsNullOrWhiteSpace(ledd.Instruksjon))
-                    {
-                        <p><em>@ledd.Instruksjon</em></p>
-                    }
 
                     @if (ledd.Svartype == TestSvartype.LikertSkala)
                     {
@@ -99,8 +96,20 @@ else
 
                     <p style="margin-top: 0.5rem;">
                         <label style="font-size: 0.9em; color: #555;">Din kommentar til dette spørsmålet (valgfritt, vises i rapporten):</label><br />
-                        <textarea name="Kommentar_@ledd.Id" rows="2" cols="60" placeholder="Klinisk begrunnelse, observasjon, eksempel …">@eksisterendeKommentar</textarea>
+                        <textarea class="kommentarfelt" name="Kommentar_@ledd.Id" rows="2" placeholder="Klinisk begrunnelse, observasjon, eksempel …">@eksisterendeKommentar</textarea>
                     </p>
+                </div>
+                <div class="ledd-forklaring">
+                    <p class="ledd-forklaring-tittel">Veiledning</p>
+                    @if (!string.IsNullOrWhiteSpace(ledd.Instruksjon))
+                    {
+                        <p>@ledd.Instruksjon</p>
+                    }
+                    else
+                    {
+                        <p class="ledd-forklaring-tom">Ingen ekstra veiledning registrert for dette leddet.</p>
+                    }
+                </div>
                 </div>
             }
 
@@ -119,5 +128,15 @@ else
                 }
             </div>
         </form>
+
+        <script src="~/js/autogrow.js" asp-append-version="true"></script>
+        <script>
+            document.querySelectorAll('.kommentarfelt').forEach(function (felt) {
+                var panel = felt.closest('.ledd-med-forklaring')?.querySelector('.ledd-forklaring');
+                if (!panel) return;
+                felt.addEventListener('focus', function () { panel.classList.add('aktiv'); });
+                felt.addEventListener('blur', function () { panel.classList.remove('aktiv'); });
+            });
+        </script>
     }
 }

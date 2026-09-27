@@ -589,14 +589,17 @@ public sealed class SkaaringsberegnereTests
 
     /// <summary>
     /// Bygger SCID-5-PF-strukturen (10 "sider", én per forstyrrelse, i samme rekkefølge og med
-    /// samme kriterieantall som Scid5PfTestSeeder — Antisosial har i tillegg 2 JaNei-portvaktledd
-    /// FØR sine 7 kriterier). kriterieSvar[i] gir svarverdi ("0"/"1"/"2") for hvert kriterium i
-    /// forstyrrelse nr. i — for kort array fylles resten ubesvart (null).
+    /// samme kriterieantall som Scid5PfTestSeeder — Unnvikende, Avhengig, Tvangspreget, Paranoid,
+    /// Schizotyp, Schizoid, Histrionisk, Narsissistisk, Borderline, Antisosial SIST (rettet
+    /// 2026-09-27 til SCID-5-PD sin faktiske modulrekkefølge). Antisosial (siste side) har i
+    /// tillegg 2 JaNei-portvaktledd FØR sine 7 kriterier. kriterieSvar[i] gir svarverdi
+    /// ("0"/"1"/"2") for hvert kriterium i forstyrrelse nr. i — for kort array fylles resten
+    /// ubesvart (null).
     /// </summary>
     private static (List<TestLedd> AlleLedd, List<TestSvar> Svar) Scid5PfBygg(
         string?[][] kriterieSvar, string? antisosialGate1 = "Nei", string? antisosialGate2 = "Nei")
     {
-        var antallKriterier = new[] { 7, 7, 9, 7, 9, 8, 9, 7, 8, 8 };
+        var antallKriterier = new[] { 7, 8, 8, 7, 9, 7, 8, 9, 9, 7 };
         var alleLedd = new List<TestLedd>();
         var svar = new List<TestSvar>();
         long nesteId = 1;
@@ -604,7 +607,7 @@ public sealed class SkaaringsberegnereTests
         for (var side = 0; side < antallKriterier.Length; side++)
         {
             var sideId = side + 1;
-            if (side == 3) // Antisosial: 2 portvaktledd FØR kriteriene
+            if (side == 9) // Antisosial (siste side): 2 portvaktledd FØR kriteriene
             {
                 var gate1 = new TestLedd { Id = nesteId++, TestSideId = sideId, Sporsmalstekst = "gate1", Svartype = TestSvartype.JaNei };
                 var gate2 = new TestLedd { Id = nesteId++, TestSideId = sideId, Sporsmalstekst = "gate2", Svartype = TestSvartype.JaNei };
@@ -632,9 +635,12 @@ public sealed class SkaaringsberegnereTests
     [Fact]
     public void Scid5Pf_ForstyrrelseFlaggesNaarAntallOppfylteKriterierNaarEgenTerskel()
     {
-        // Paranoid (terskel 4 av 7): 4 kriterier "Tydelig oppfylt" (verdi 2), 3 "Fraværende" (0).
+        // Paranoid (nå 4. side, terskel 4 av 7): 4 kriterier "Tydelig oppfylt" (verdi 2), 3 "Fraværende" (0).
         var paranoid = new[] { "2", "2", "2", "2", "0", "0", "0" };
-        var (alleLedd, svar) = Scid5PfBygg(new[] { paranoid });
+        var kriterieSvar = new string?[10][];
+        for (var i = 0; i < 10; i++) { kriterieSvar[i] = Array.Empty<string?>(); }
+        kriterieSvar[3] = paranoid;
+        var (alleLedd, svar) = Scid5PfBygg(kriterieSvar!);
 
         var resultat = new Scid5PfSkaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
 
@@ -646,13 +652,14 @@ public sealed class SkaaringsberegnereTests
     public void Scid5Pf_AntisosialKreverBeggePortvakterJaIkkeBareKriterieterskel()
     {
         // Alle 7 antisosial-kriterier "Tydelig oppfylt" (langt over terskel 3), men portvakt 2
-        // ("18 år eller eldre?") er "Nei" -> forstyrrelsen skal IKKE flagges likevel.
+        // ("18 år eller eldre?") er "Nei" -> forstyrrelsen skal IKKE flagges likevel. Antisosial
+        // er nå SISTE side (indeks 9), i tråd med SCID-5-PD sin faktiske modulrekkefølge.
         var antisosialKriterier = new[] { "2", "2", "2", "2", "2", "2", "2" };
         var kriterieSvar = new string?[10][];
-        kriterieSvar[3] = antisosialKriterier;
+        kriterieSvar[9] = antisosialKriterier;
         for (var i = 0; i < 10; i++)
         {
-            if (i != 3) kriterieSvar[i] = Array.Empty<string?>();
+            if (i != 9) kriterieSvar[i] = Array.Empty<string?>();
         }
         var (alleLedd, svar) = Scid5PfBygg(kriterieSvar!, antisosialGate1: "Ja", antisosialGate2: "Nei");
 
@@ -783,7 +790,10 @@ public sealed class SkaaringsberegnereTests
         // Samme Paranoid-scenario som over, men alleLedd-listen stokkes om FØR den sendes inn —
         // grupperingen skjer via TestSideId + minste ekte TestLeddId, ikke listens rekkefølge.
         var paranoid = new[] { "2", "2", "2", "2", "0", "0", "0" };
-        var (alleLedd, svar) = Scid5PfBygg(new[] { paranoid });
+        var kriterieSvar = new string?[10][];
+        for (var i = 0; i < 10; i++) { kriterieSvar[i] = Array.Empty<string?>(); }
+        kriterieSvar[3] = paranoid;
+        var (alleLedd, svar) = Scid5PfBygg(kriterieSvar!);
         var stokketLedd = alleLedd.OrderByDescending(l => l.Id).ToList();
 
         var resultat = new Scid5PfSkaaringsberegner().BeregnSkaaringMedLedd(svar, stokketLedd);

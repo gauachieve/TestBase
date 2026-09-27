@@ -21,19 +21,20 @@ public sealed class Scid5PfSkaaringsberegner : ITestSkaaringsberegnerMedLedd
 {
     private sealed record ForstyrrelseMeta(string Navn, int Terskel);
 
-    // Rekkefølgen MÅ matche Forstyrrelser-arrayet i Scid5PfTestSeeder (seedet i denne rekkefølgen).
+    // Rekkefølgen MÅ matche Forstyrrelser-arrayet i Scid5PfTestSeeder (seedet i denne rekkefølgen)
+    // — rettet 2026-09-27 til SCID-5-PD sin faktiske modulrekkefølge, Antisosial sist.
     private static readonly ForstyrrelseMeta[] Meta =
     {
-        new("Paranoid personlighetsforstyrrelse", 4),
-        new("Schizoid personlighetsforstyrrelse", 4),
-        new("Schizotyp personlighetsforstyrrelse", 5),
-        new("Antisosial personlighetsforstyrrelse", 3),
-        new("Emosjonelt ustabil personlighetsforstyrrelse (Borderline)", 5),
-        new("Histrionisk personlighetsforstyrrelse", 5),
-        new("Narsissistisk personlighetsforstyrrelse", 5),
         new("Unnvikende personlighetsforstyrrelse", 4),
         new("Avhengig personlighetsforstyrrelse", 5),
-        new("Tvangspreget personlighetsforstyrrelse", 4)
+        new("Tvangspreget personlighetsforstyrrelse", 4),
+        new("Paranoid personlighetsforstyrrelse", 4),
+        new("Schizotyp personlighetsforstyrrelse", 5),
+        new("Schizoid personlighetsforstyrrelse", 4),
+        new("Histrionisk personlighetsforstyrrelse", 5),
+        new("Narsissistisk personlighetsforstyrrelse", 5),
+        new("Emosjonelt ustabil personlighetsforstyrrelse (Borderline)", 5),
+        new("Antisosial personlighetsforstyrrelse", 3)
     };
 
     public string TestKode => "scid5_pf";

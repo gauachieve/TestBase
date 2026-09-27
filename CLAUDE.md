@@ -410,6 +410,15 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   med vilje). Samtidig fikset "Ferdigstill og videre til {testnavn}"/"Ferdigstill og tilbake til
   Min Side"-knappene (proper `btn-accent`, samme rad, dynamisk testnavn, riktig "Min Side"-
   kapitalisering) — se docs/beslutningslogg.md "Natt-økt, del 11/12" for full verifisering.
+- **Kommentarfelt-UX for alle klinikertester + SCID-5-PF strukturfikser (2026-09-27):**
+  `FyllForPasient.cshtml` (delt av alle 5 behandler-utfylte tester) fikk auto-voksende
+  kommentarfelt (`wwwroot/js/autogrow.js`, native `resize: vertical` for PC-drahåndtak) og en ny
+  "Veiledning"-boks til høyre per ledd (viser `TestLedd.Instruksjon`, fremheves ved fokus på
+  kommentarfeltet). Ny BEVISST destruktiv `TestService.SlettTestHeltForRegenereringAsync` — kun for
+  tester under aktiv strukturell iterasjon, IKKE for tester med ekte pasientdata — brukt til å
+  regenerere SCID-5-PF med: riktig SCID-5-PD-modulrekkefølge (Antisosial SIST, ikke fjerde som
+  første versjon hadde), tallprefiks i skala-teksten ("0. Fraværende" osv.), og et eget
+  eksempel/veiledning-notat per kriterium (alle 79). Se docs/beslutningslogg.md "Natt-økt, del 13".
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

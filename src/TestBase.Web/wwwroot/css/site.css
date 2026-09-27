@@ -1378,3 +1378,53 @@ form.skjema-forsokt-sendt :invalid {
   border: 2px solid #c0392b;
   background: #fdecea;
 }
+
+/* Behandler-utfylte tester (FyllForPasient.cshtml): hvert ledd + en egen
+   veiledningsboks til høyre (Test.Kode-avhengig innhold via TestLedd.Instruksjon)
+   som fremheves når kommentarfeltet er fokusert — se autogrow.js/inline-scriptet
+   i selve siden. Stables under hverandre på smale skjermer. */
+.ledd-med-forklaring {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+.ledd-innhold { flex: 1 1 60%; min-width: 0; }
+.ledd-forklaring {
+  flex: 1 1 40%;
+  min-width: 0;
+  background: #f7f7f5;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.9em;
+  color: #555;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.ledd-forklaring-tittel {
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: uppercase;
+  font-size: 0.78em;
+  letter-spacing: 0.03em;
+}
+.ledd-forklaring-tom { font-style: italic; }
+.ledd-forklaring.aktiv {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(242, 153, 74, 0.18);
+  background: #fffdf8;
+}
+@media (max-width: 720px) {
+  .ledd-med-forklaring { flex-direction: column; }
+  .ledd-forklaring { order: 2; }
+}
+
+/* Kommentarfelt på behandler-utfylte tester: synlig dra-i-hjørnet-håndtak på
+   PC (nativ resize: vertical) + auto-vekst forbi synlig høyde på både PC og
+   mobil (se autogrow.js). */
+textarea.kommentarfelt {
+  width: 100%;
+  min-height: 2.6rem;
+  resize: vertical;
+  overflow-y: hidden;
+}

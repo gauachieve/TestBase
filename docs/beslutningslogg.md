@@ -5704,3 +5704,49 @@ Tester/Fyll.cshtml`) og siste-side-knappen som førte dit:
 
 Build + alle 69 tester grønne (ingen scoringsendringer i denne batchen). Committes og deployes til
 begge miljøer.
+
+## Natt-økt, del 13: kommentarfelt-UX for alle klinikertester + SCID-5-PF strukturfikser (2026-09-27)
+
+**Ny generisk mekanisme for ALLE behandler-utfylte tester** (`FyllForPasient.cshtml`, deler alle 5:
+YGTSS-R, MADRS klinikkversjon, SCID-5-PF, HCR-20 V3, M.I.N.I.-demo):
+- Kommentarfeltet (`textarea.kommentarfelt`) er nå `resize: vertical` med ekte nettleser-dra-håndtak
+  på PC, PLUSS et nytt `wwwroot/js/autogrow.js` som gir auto-vekst forbi synlig høyde på BÅDE PC og
+  mobil (native `resize` alene gir ikke auto-vekst, kun manuell drahåndtering).
+- Ny "Veiledning"-boks til høyre for hvert ledd (`.ledd-forklaring`, viser `TestLedd.Instruksjon`) —
+  fremheves med oransje kant/skygge når kommentarfeltet får fokus (`:focus`/`:blur`-lytter, ren
+  CSS-klasse `.aktiv`). Stables under innholdet på smale skjermer (`@media max-width: 720px`).
+  Tidligere ble `Instruksjon` vist som en statisk linje rett under spørsmålet — flyttet HIT i
+  stedet, ikke duplisert.
+
+**Ny, BEVISST destruktiv regenereringsmekanisme** (`TestService.SlettTestHeltForRegenereringAsync`)
+— i motsetning til den vanlige idempotente "hvis finnes, bare oppdater kategori/intro"-oppførselen
+til `IInnebygdTestSeeder.SeedAsync`, sletter denne en test HELT (sider/ledd/tildelinger/svar/
+betalinger/meldinger/gruppe-/partner-tilknytninger) slik at neste seeder-kjøring bygger den
+fullstendig på nytt. Skal KUN brukes for tester under AKTIV strukturell iterasjon rett etter
+førstegangsbygging (aldri for en test med reelle pasientbesvarelser man vil beholde) — trigget denne
+runden via en ENGANGS-kalling i `Program.cs` sitt dev-seed-steg for `"scid5_pf"`, MÅ fjernes igjen
+etter neste deploy (ville ellers slettet testen på hver eneste appstart).
+
+**SCID-5-PF-strukturfikser:**
+- **Rekkefølge rettet** til SCID-5-PD sin faktiske modulrekkefølge — Unnvikende, Avhengig,
+  Tvangspreget, Paranoid, Schizotyp, Schizoid, Histrionisk, Narsissistisk, Emosjonelt ustabil, og
+  Antisosial SIST (krever dokumentert barndomsdebut, undersøkes derfor til slutt i det ekte
+  intervjuet også). Forrige versjon (2026-09-25) hadde Antisosial fjerde — brukeren påpekte at dette
+  ikke stemte med reell klinisk praksis. `Scid5PfSkaaringsberegner` sin `Meta`-array omordnet
+  tilsvarende.
+- **Tallprefiks i selve skala-teksten**: "0. Fraværende", "1. Delvis til stede (subklinisk)",
+  "2. Tydelig oppfylt" — ikke bare tallverdien bak radioknappen.
+- **Veiledning/eksempel per kriterium** (alle 79 kriterier + de 2 antisosial-portvaktleddene) lagt
+  inn i `TestLedd.Instruksjon`, vist i den nye "Veiledning"-boksen — EGNE, korte illustrasjons-
+  eksempler (ikke sitert fra DSM-5/SCID-5-PD), samme forbehold som resten av testen.
+- Tre eksisterende regresjonstester i `SkaaringsberegnereTests.cs` oppdatert til å bygge testdata i
+  RIKTIG ny rekkefølge (antisosial-scenarioet flyttet fra side-indeks 3 til 9).
+
+Verifisert i nettleser: `Admin`-innlogging → `Behandlerportal/Tildel` → SCID-5-PF-tildeling →
+`FyllForPasient` side 1 viser korrekt "Unnvikende personlighetsforstyrrelse" først, med
+"0. Fraværende"/"1. Delvis til stede (subklinisk)"/"2. Tydelig oppfylt"-knapper og en veilednings-
+boks med eksempeltekst; fokus på kommentarfeltet fremhevet boksen korrekt (`classList.contains
+('aktiv') === true`); skriving av 6 linjer i kommentarfeltet økte høyden fra 70px til 170px
+(auto-vekst bekreftet); side 10 av 10 viste korrekt "Antisosial personlighetsforstyrrelse" med
+portvaktleddet og dets veiledningstekst. Build + alle 69 tester grønne. Committes og deployes til
+begge miljøer (HUSK å fjerne engangs-regenereringslinjen i Program.cs etter denne deployen).
