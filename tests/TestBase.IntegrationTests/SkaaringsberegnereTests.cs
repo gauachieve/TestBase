@@ -834,4 +834,51 @@ public sealed class SkaaringsberegnereTests
         var radar = Sipp118RadarBeregner.Beregn(new[] { new TestSkaaringIndikator("Bare én", "1/2", true) });
         Assert.Null(radar);
     }
+
+    [Fact]
+    public void Scid5PfBar_ParanoidOverTerskelFaarKorrektSegmentbreddeOgTerskelNaadd()
+    {
+        // Paranoid (side-indeks 3, terskel 4 av 7): 4 "Tydelig oppfylt" (2), 2 "Delvis" (1), 1 "Fraværende" (0).
+        var paranoid = new[] { "2", "2", "2", "2", "1", "1", "0" };
+        var kriterieSvar = new string?[10][];
+        for (var i = 0; i < 10; i++) { kriterieSvar[i] = Array.Empty<string?>(); }
+        kriterieSvar[3] = paranoid;
+        var (alleLedd, svar) = Scid5PfBygg(kriterieSvar!);
+        var svarPerLeddId = svar.ToDictionary(s => s.TestLeddId, s => s.SvarVerdi);
+
+        var data = Scid5PfBarBeregner.Beregn(alleLedd, svarPerLeddId);
+
+        Assert.NotNull(data);
+        var paranoidStolpe = data!.Stolper.Single(s => s.Navn == "Paranoid personlighetsforstyrrelse");
+        Assert.True(paranoidStolpe.TerskelNaadd);
+        Assert.Equal(4, paranoidStolpe.Antall2);
+        Assert.Equal(2, paranoidStolpe.Antall1);
+        // 4/7 av BarBredde (300) for segment2.
+        Assert.Equal(4.0 / 7 * Scid5PfBarBeregner.BarBredde, paranoidStolpe.Segment2Bredde, precision: 1);
+        Assert.False(data.VurderBlandetPf); // én forstyrrelse NÅDDE sin terskel -> ikke "blandet"
+    }
+
+    [Fact]
+    public void Scid5PfBar_VurderBlandetPfNaarIngenEnkeltForstyrrelseNaarTerskelMenSamletHoyt()
+    {
+        // Tre ulike forstyrrelser med 4 "Tydelig oppfylt" hver, INGEN av dem nok til å nå SIN egen
+        // terskel alene (Unnvikende trenger 4 av 7 -> akkurat 4 NÅR den... juster til 3 hver i stedet
+        // for å garantere at INGEN når egen terskel, men summen (9) er under vår 10-grense — bruk 4
+        // forstyrrelser à 3 for å nå totalt 12 uten at noen treffer sin egen terskel).
+        var kriterieSvar = new string?[10][];
+        for (var i = 0; i < 10; i++) { kriterieSvar[i] = Array.Empty<string?>(); }
+        kriterieSvar[0] = new[] { "2", "2", "2", "0", "0", "0", "0" };           // Unnvikende: 3/7, terskel 4 -> ikke nådd
+        kriterieSvar[1] = new[] { "2", "2", "2", "0", "0", "0", "0", "0" };      // Avhengig: 3/8, terskel 5 -> ikke nådd
+        kriterieSvar[2] = new[] { "2", "2", "2", "0", "0", "0", "0", "0" };      // Tvangspreget: 3/8, terskel 4 -> ikke nådd
+        kriterieSvar[3] = new[] { "2", "2", "2", "0", "0", "0", "0" };           // Paranoid: 3/7, terskel 4 -> ikke nådd
+        var (alleLedd, svar) = Scid5PfBygg(kriterieSvar!);
+        var svarPerLeddId = svar.ToDictionary(s => s.TestLeddId, s => s.SvarVerdi);
+
+        var data = Scid5PfBarBeregner.Beregn(alleLedd, svarPerLeddId);
+
+        Assert.NotNull(data);
+        Assert.DoesNotContain(data!.Stolper, s => s.TerskelNaadd);
+        Assert.Equal(12, data.TotaltAntall2);
+        Assert.True(data.VurderBlandetPf);
+    }
 }

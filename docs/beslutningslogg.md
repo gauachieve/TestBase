@@ -5829,3 +5829,37 @@ Sosial harmoni 18/24 — alle stemte med Fortolkningsteksten), den stiplede cuto
 innenfor dataområdet, og hvert hjørne med et tilgjengelig (`img`-rolle med beskrivende `aria-label`
 per punkt via SVG-tekst) navn+verdi-merke. Build + alle 71 tester grønne (2 nye regresjonstester
 for selve geometriberegningen). Committes og deployes til begge miljøer.
+
+## Natt-økt, del 17: stolpediagram per personlighetsforstyrrelse i SCID-5-PF-rapporten (2026-09-27, avslutning)
+
+Siste punkt fra brukerens lange liste denne runden: "en liste av PF-er med horisontale stolpe-
+diagrammer i 3 farger — lengst til venstre for 2-ere, midten for 1-ere, omriss for resten — en liten
+nedovervendt pil ved cutoff for hver PF, fet skrift for de over cutoff, og en 'Blandet PF'-vurdering
+når ingen enkelt PF når terskel men summen er høy nok."
+
+Ny `Scid5PfBarBeregner` (ren C#, egen selvstendig gruppering — samme prinsipp som
+`Scid5PfSkaaringsberegner`, for å unngå å utvide selve `TestSkaaring`-kontrakten for én enkelt
+tests spesialvisning). For hver av de 10 forstyrrelsene: teller "2"/"1"-svar blant kriterieleddene
+(portvaktledd identifisert via Svartype, samme robusthetsmønster som resten av natten), regner ut
+pikselbredder for et 300px stolpediagram (mørkt segment = antall 2-ere, lyst segment = antall
+1-ere, resten er tom/omrisset), og en cutoff-pil-posisjon (`terskel / totalt * 300px`). Rendret som
+rene HTML/CSS-divs (IKKE SVG `<text>`) — enklere og unngår enhver risiko for den kjente Razor
+`<text>`-fallgruven helt. PD-navnet får `font-weight: 700` når forstyrrelsen når sin egen
+diagnostiske terskel (identisk logikk til den eksisterende Fortolkningsteksten over, inkludert
+antisosial sin portvakt-krav).
+
+**"Blandet personlighetsforstyrrelse"-heuristikken** (`Scid5PfBarData.VurderBlandetPf`): BEVISST
+IKKE en offisiell DSM-5/ICD-11-cutoff — verken DSM-5 sin "Uspesifisert personlighetsforstyrrelse"
+eller ICD-11 sin dimensjonale personlighetsforstyrrelse-modell har noen sitert numerisk terskel for
+dette (undersøkt og bekreftet fraværende, ikke bare antatt). Egen, TYDELIG merket tommelfingerregel
+vist i en advarselsboks: minst 10 "Tydelig oppfylt"-kriterier SAMLET på tvers av alle 10
+forstyrrelser, men INGEN enkelt forstyrrelse når sin egen terskel alene.
+
+Verifisert i nettleser (gjenbrukte en tidligere SCID-5-PF-besvarelse med alle ledd "0. Fraværende"):
+stolpediagrammet viste korrekt 10 tomme stolper med cutoff-pilen presist plassert ved hver
+forstyrrelses EGEN terskel/total-forhold (synlig ulik horisontal posisjon per stolpe siden
+terskel/total varierer per PD — f.eks. Unnvikende 4/7 vs. Antisosial 3/7). Ingen fet skrift (korrekt,
+ingen terskel nådd) og ingen "Blandet PF"-advarsel (korrekt, totalt 0 < 10). Segment- og
+fetskrift-logikken er i tillegg dekket av 2 nye regresjonstester (én med en flagget forstyrrelse med
+korrekte segmentbredder, én som trigger "Blandet PF"-heuristikken). Build + alle 73 tester grønne.
+Committes og deployes til begge miljøer — siste punkt i denne rundens svært lange brukerliste.

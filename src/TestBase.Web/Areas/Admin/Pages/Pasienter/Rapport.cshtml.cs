@@ -41,6 +41,9 @@ public sealed class RapportModel : PageModel
 
     /// <summary>Radar-graf av de 5 SIPP-118-inspirerte domenene — kun satt for Test.Kode == "sipp118" (se Sipp118RadarBeregner).</summary>
     public Sipp118RadarData? Sipp118Radar { get; private set; }
+
+    /// <summary>Stolpediagram per personlighetsforstyrrelse — kun satt for Test.Kode == "scid5_pf" (se Scid5PfBarBeregner).</summary>
+    public Scid5PfBarData? Scid5PfBar { get; private set; }
     public List<SideMedSvar> Sider { get; private set; } = new();
     public bool IkkeGodkjentEnna { get; private set; }
 
@@ -77,6 +80,10 @@ public sealed class RapportModel : PageModel
         if (Test.Kode == "sipp118" && Skaaring is not null)
         {
             Sipp118Radar = Sipp118RadarBeregner.Beregn(Skaaring.Indikatorer);
+        }
+        else if (Test.Kode == "scid5_pf")
+        {
+            Scid5PfBar = Scid5PfBarBeregner.Beregn(innhold.AlleLedd, innhold.EksisterendeSvar);
         }
 
         var kommentarPerLeddId = await _db.TestSvar

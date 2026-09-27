@@ -440,6 +440,15 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   også at det ekte SIPP-118 har 16 fasetter under de 5 domenene, som vår test BEVISST ikke måler,
   så radaren viser kun de 5 domenene. `<text>`-elementer via `Html.Raw` (samme kjente Razor-
   fallgruve/løsning som `_UtviklingsGraf.cshtml`). Se docs/beslutningslogg.md "Natt-økt, del 16".
+- **Stolpediagram per personlighetsforstyrrelse i SCID-5-PF-rapporten (2026-09-27, avslutning på
+  denne rundens liste):** ny `Scid5PfBarBeregner` (egen selvstendig gruppering, samme prinsipp som
+  `Scid5PfSkaaringsberegner`) bygger et 3-fargers horisontalt stolpediagram per forstyrrelse (mørkt
+  = "2"-svar, lyst = "1"-svar, tom rest) + en ▼-cutoff-pil ved terskel/total, rendret som rene
+  HTML/CSS-divs (ikke SVG, unngår `<text>`-fallgruven helt). PD-navn fet skrift når terskel nås.
+  "Blandet personlighetsforstyrrelse"-heuristikken (minst 10 "2"-kriterier samlet, men ingen enkelt
+  PD når egen terskel) er UTTALT IKKE en offisiell DSM-5/ICD-11-cutoff (undersøkt og bekreftet
+  fraværende) — egen, tydelig merket tommelfingerregel. Se docs/beslutningslogg.md
+  "Natt-økt, del 17".
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
