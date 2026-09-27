@@ -461,6 +461,50 @@ public sealed class SkaaringsberegnereTests
     }
 
     [Fact]
+    public void TrapsIi_ListerKlyngeskaarOgBekreftedeTraumeeksponeringerSomIndikatorer()
+    {
+        // Brukerens tilbakemelding 2026-09-27: rapporten var "for forenklet" — ba om
+        // klyngeskår (Re/Av/Th/Ad/Nsc/Dr) og en liste over hvilke traumeeksponeringer
+        // som faktisk ble besvart "Ja" (ikke bare den endelige PTSD/KPTSD-konklusjonen).
+        var alleLedd = new List<TestLedd>();
+        var svar = new List<TestSvar>();
+        void Legg(long id, string tekst, TestSvartype type, string? verdi)
+        {
+            alleLedd.Add(new TestLedd { Id = id, TestSideId = 1, Sporsmalstekst = tekst, Svartype = type });
+            if (verdi is not null) svar.Add(new TestSvar { TestLeddId = id, SvarVerdi = verdi });
+        }
+
+        // Del 1: 14 JaNei-ledd, kun ledd 1 og 3 besvart "Ja", resten "Nei".
+        for (var i = 1; i <= 14; i++)
+        {
+            Legg(i, $"Traume-spørsmål {i}", TestSvartype.JaNei, i is 1 or 3 ? "Ja" : "Nei");
+        }
+        Legg(15, "Annen hendelse, beskrevet", TestSvartype.Fritekst, "Ble utsatt for noe annet");
+        Legg(16, "Om hendelsen: beskrivelse", TestSvartype.Fritekst, null);
+        Legg(17, "Om hendelsen: tidspunkt", TestSvartype.LikertSkala, "3");
+        // PTSD-symptomer (Re/Av/Th alle til stede, skår 3/8 hver)
+        Legg(18, "P1", TestSvartype.LikertSkala, "3"); Legg(19, "P2", TestSvartype.LikertSkala, "0");
+        Legg(20, "P3", TestSvartype.LikertSkala, "3"); Legg(21, "P4", TestSvartype.LikertSkala, "0");
+        Legg(22, "P5", TestSvartype.LikertSkala, "3"); Legg(23, "P6", TestSvartype.LikertSkala, "0");
+        Legg(24, "F1", TestSvartype.LikertSkala, "2"); Legg(25, "F2", TestSvartype.LikertSkala, "0"); Legg(26, "F3", TestSvartype.LikertSkala, "0");
+        // DSO-symptomer: alle 0 -> Ad/Nsc/Dr skal vise 0/8
+        for (var i = 27; i <= 32; i++) Legg(i, $"C{i - 26}", TestSvartype.LikertSkala, "0");
+        Legg(33, "Cf1", TestSvartype.LikertSkala, "0"); Legg(34, "Cf2", TestSvartype.LikertSkala, "0"); Legg(35, "Cf3", TestSvartype.LikertSkala, "0");
+
+        var resultat = new TrapsIiSkaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        Assert.Contains("Gjenopplevelse (Re): 3/8", resultat.Fortolkning);
+        Assert.Contains("Unngåelse (Av): 3/8", resultat.Fortolkning);
+        Assert.Contains("Nåværende trusselfølelse (Th): 3/8", resultat.Fortolkning);
+        Assert.Contains("Affektregulering (Ad): 0/8", resultat.Fortolkning);
+
+        Assert.Contains(resultat.Indikatorer!, i => i.Verdi == "Bekreftet: Traume-spørsmål 1");
+        Assert.Contains(resultat.Indikatorer!, i => i.Verdi == "Bekreftet: Traume-spørsmål 3");
+        Assert.Contains(resultat.Indikatorer!, i => i.Verdi == "Bekreftet (annet): Ble utsatt for noe annet");
+        Assert.DoesNotContain(resultat.Indikatorer!, i => i.Verdi.Contains("Traume-spørsmål 2"));
+    }
+
+    [Fact]
     public void Core10_ReverseSkaarerLeddEnOgFemUavhengigAvHoppetOverLedd()
     {
         // Ledd 2 (indeks 1) hoppes over. Ledd 1 og 5 (positivt formulert) = 0 (verst) -> reverse-skåres til 4 hver.

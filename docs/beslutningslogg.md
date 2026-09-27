@@ -5897,3 +5897,43 @@ bonus-verifisering — "Vurder Blandet personlighetsforstyrrelse"-advarselen duk
 10 forstyrrelser landet på 3/N, ingen nådde sin egen terskel på 4-5, men summen 29 ≥ 10). Build +
 alle 73 tester grønne (2 eksisterende regresjonstester oppdatert til ny pikselbredde-basert
 geometri). Committes og deployes til begge miljøer.
+
+## Natt-økt, del 19: TRAPS II-rapporten utvidet med klyngeskår og bekreftede traumeeksponeringer (2026-09-27)
+
+Siste utestående punkt fra den store brukerfeedback-runden tidligere denne økten: "In traps II there
+are some more stats and sub-dimensions. I want the scores for those listed in the report. Also what
+is answered 'yes' 'Yes' etc. ... It is too simplistic now." `TrapsIiSkaaringsberegner` viste tidligere
+KUN den endelige PTSD/KPTSD-konklusjonen (ett Ja/Nei per kriteriesett) — ingen av de seks
+underliggende klyngene (Re/Av/Th for PTSD, Ad/Nsc/Dr for DSO) eller hvilke av de 14
+traumeeksponeringsspørsmålene i Del 1 som faktisk ble besvart "Ja" var synlige noe sted i rapporten.
+
+Utvidet (samme mønster som `CoreOmSkaaringsberegner`s domenetekst, ikke en ny `TestSkaaring`-felt):
+Fortolkningsteksten lister nå alle seks klyngeskår ("Gjenopplevelse (Re): X/8" osv., maks 8 = to ledd
+à maks 4 hver), og seks nye Indikatorer viser samme klyngeskår + "— til stede"-flagg når klyngen
+faktisk oppfyller sin egen diagnostiske terskel. Del 1 sine 14 JaNei-ledd sjekkes individuelt (samme
+`svarPerLeddId`-oppslag som resten av beregneren) — hvert "Ja"-svar blir en egen Indikator med selve
+spørsmålsteksten (`ledd.Sporsmalstekst`) som verdi; "Nei"-svar vises ikke (samme "isoler det som
+faktisk er utløst"-prinsipp som M.I.N.I.-rapportens modulflagg, del 14 i denne økten). Del 1 sitt
+frittekst-tilleggsspørsmål ("annet enn de hendelsene...") listes også, med selve teksten pasienten
+skrev, hvis besvart.
+
+**Fallgruve fanget under skriving, IKKE ved runtime:** `Rapport.cshtml` (begge Areas) viser KUN
+`Indikator.Verdi` i selve UI-et — `Indikator.Navn` brukes ingen steder visuelt (bekreftet ved å lese
+begge view-filene før implementasjon). Klyngeskårene måtte derfor formateres INN i `Verdi` selv
+("Re (gjenopplevelse): 3/8 — til stede"), ikke stå i `Navn` og forvente at det vises — samme mønster
+`MiniStrukturdemoSkaaringsberegner` allerede etablerte del 14 samme natt.
+
+2 nye enhetstester lagt til (74 totalt): én verifiserer at alle seks klyngeskår faktisk står i
+Fortolkningsteksten med riktig tall, én verifiserer at kun "Ja"-svarte Del 1-spørsmål (pluss et
+besvart frittekstfelt) dukker opp som Indikatorer, og at et "Nei"-svart spørsmål IKKE gjør det.
+
+Verifisert ende-til-ende i nettleser (lokal dev, ikke bare enhetstest): tildelte TRAPS II til en
+eksisterende syntetisk testpasient, fylte ut hele testen (2 av 14 Del 1-spørsmål "Ja", resten "Nei",
+frittekstfelt utfylt, PTSD-symptomer satt til å utløse alle tre klynger + funksjonstap, DSO-symptomer
+alle 0), ingen krasj gjennom hele 6-siders utfyllingen eller på "Ferdig!"-siden (samtidig en god
+anledning til å bekrefte del 12 sin knapp-UX-fiks — "Fullfør og gå til Min Side" vises korrekt som
+eneste knapp når ingen flere tester venter). Godkjente rapporten som behandler: Resultat-seksjonen
+viste presist "Re (gjenopplevelse): 3/8 — til stede" / "Av"/"Th" samme, "Ad"/"Nsc"/"Dr": 0/8 (ingen
+"til stede"), og nøyaktig de to bekreftede eksponeringsspørsmålene + frittekstsvaret som egne
+badges — ingen av de 12 "Nei"-besvarte spørsmålene lekket inn. Build + alle 74 tester grønne.
+Committes og deployes til begge miljøer.

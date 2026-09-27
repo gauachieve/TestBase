@@ -456,6 +456,15 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   har samme oransje farge som "Tydelig oppfylt"-segmentet (var(--accent-dark), ikke lenger rød);
   antall 2-ere/1-ere skrevet som synlig tekst INNI hvert fargede felt. Se docs/beslutningslogg.md
   "Natt-økt, del 18".
+- **TRAPS II-rapporten utvidet med klyngeskår og bekreftede traumeeksponeringer (2026-09-27, siste
+  utestående punkt fra denne rundens brukerfeedback):** `TrapsIiSkaaringsberegner` viste tidligere
+  KUN den endelige PTSD/KPTSD-konklusjonen — Fortolkningsteksten og seks nye Indikatorer lister nå
+  alle seks underliggende klyngeskår (Re/Av/Th for PTSD, Ad/Nsc/Dr for DSO, maks 8 hver), og hvert
+  av de 14 Del 1-traumeeksponeringsspørsmålene besvart "Ja" (pluss frittekst-tillegget hvis besvart)
+  vises som egen Indikator med selve spørsmålsteksten — "Nei"-svar vises ikke (samme "isoler det
+  som faktisk er utløst"-prinsipp som M.I.N.I., del 14). 2 nye regresjonstester (74 totalt),
+  verifisert ende-til-ende i nettleser (full utfylling + behandler-godkjenning). Se
+  docs/beslutningslogg.md "Natt-økt, del 19".
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

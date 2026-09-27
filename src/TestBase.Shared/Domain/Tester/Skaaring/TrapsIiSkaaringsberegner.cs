@@ -10,18 +10,25 @@ namespace TestBase.Shared.Domain.Tester.Skaaring;
 /// påfølgende indekser og gi feil PTSD/DSO-klassifisering, mulig krasj på
 /// int.Parse. Ikke rettet i ITQ selv denne runden (utenfor scope), kun
 /// unngått her ved å bruke det robuste mønsteret fra første seeder-runde.
-/// Ledd-layout (0-indeksert i alleLedd): 0-14 Del 1 (traumeeksponering, ikke
-/// skåret her), 15-16 «Om hendelsen» (ikke skåret), 17-22 PTSD-symptomer
-/// (P1-P6), 23-25 PTSD-funksjon (P7-P9), 26-31 DSO-symptomer (C1-C6), 32-34
-/// DSO-funksjon (C7-C9).
+/// Ledd-layout (0-indeksert i alleLedd): 0-13 Del 1 traumeeksponering (JaNei,
+/// LISTES i rapporten for hvert «Ja»-svar), 14 Del 1 sitt frittekst-tilleggsspørsmål
+/// (listes også hvis besvart), 15-16 «Om hendelsen» (ikke skåret), 17-22
+/// PTSD-symptomer (P1-P6, to og to i klyngene Re/Av/Th), 23-25 PTSD-funksjon
+/// (P7-P9), 26-31 DSO-symptomer (C1-C6, to og to i klyngene Ad/Nsc/Dr), 32-34
+/// DSO-funksjon (C7-C9). 2026-09-27: utvidet fra kun ja/nei-diagnosekonklusjon
+/// til å liste hver klyngeskår (Re/Av/Th/Ad/Nsc/Dr) og hvert bekreftet
+/// traumeeksponeringsspørsmål — brukerens tilbakemelding: "Det er for
+/// forenklet nå", se docs/beslutningslogg.md.
 /// </summary>
 public sealed class TrapsIiSkaaringsberegner : ITestSkaaringsberegnerMedLedd
 {
+    private const int AntallDel1JaNei = 14;
     private const int Del1OgOmAntall = 15 + 2; // 17
     private const int PtsdSymptomAntall = 6;
     private const int PtsdFunksjonAntall = 3;
     private const int DsoSymptomAntall = 6;
     private const int MaksPerCluster = PtsdSymptomAntall * 4; // 24
+    private const int MaksPerDelklynge = 2 * 4; // 8 (to ledd per klynge, maks 4 hver)
     private const int TerskelTilstede = 2;
 
     public string TestKode => "traps_ii";
@@ -44,12 +51,18 @@ public sealed class TrapsIiSkaaringsberegner : ITestSkaaringsberegnerMedLedd
         var dsoSymptomLedd = alleLedd.Skip(Del1OgOmAntall + PtsdSymptomAntall + PtsdFunksjonAntall).Take(DsoSymptomAntall).Select(VerdiForLedd).ToList();
         var dsoFunksjonLedd = alleLedd.Skip(Del1OgOmAntall + PtsdSymptomAntall + PtsdFunksjonAntall + DsoSymptomAntall).Select(VerdiForLedd).ToList();
 
+        var reSkaar = ptsdSymptomLedd[0] + ptsdSymptomLedd[1];
+        var avSkaar = ptsdSymptomLedd[2] + ptsdSymptomLedd[3];
+        var thSkaar = ptsdSymptomLedd[4] + ptsdSymptomLedd[5];
         var reDx = ptsdSymptomLedd[0] >= TerskelTilstede || ptsdSymptomLedd[1] >= TerskelTilstede;
         var avDx = ptsdSymptomLedd[2] >= TerskelTilstede || ptsdSymptomLedd[3] >= TerskelTilstede;
         var thDx = ptsdSymptomLedd[4] >= TerskelTilstede || ptsdSymptomLedd[5] >= TerskelTilstede;
         var ptsdFi = ptsdFunksjonLedd.Any(v => v >= TerskelTilstede);
         var ptsdKriterier = reDx && avDx && thDx && ptsdFi;
 
+        var adSkaar = dsoSymptomLedd[0] + dsoSymptomLedd[1];
+        var nscSkaar = dsoSymptomLedd[2] + dsoSymptomLedd[3];
+        var drSkaar = dsoSymptomLedd[4] + dsoSymptomLedd[5];
         var adDx = dsoSymptomLedd[0] >= TerskelTilstede || dsoSymptomLedd[1] >= TerskelTilstede;
         var nscDx = dsoSymptomLedd[2] >= TerskelTilstede || dsoSymptomLedd[3] >= TerskelTilstede;
         var drDx = dsoSymptomLedd[4] >= TerskelTilstede || dsoSymptomLedd[5] >= TerskelTilstede;
@@ -78,14 +91,43 @@ public sealed class TrapsIiSkaaringsberegner : ITestSkaaringsberegnerMedLedd
 
         var fortolkning = $"{diagnose} PTSD-skåre (gjenopplevelse/unngåelse/fare): {ptsdSkaar}/{MaksPerCluster}. " +
                            $"DSO-skåre (selvorganisering): {dsoSkaar}/{MaksPerCluster}. " +
-                           "Klinisk vurdering skal alltid ha forrang ved uenighet med den automatiske skåren.";
+                           $"Klynger — Gjenopplevelse (Re): {reSkaar}/{MaksPerDelklynge}, Unngåelse (Av): {avSkaar}/{MaksPerDelklynge}, " +
+                           $"Nåværende trusselfølelse (Th): {thSkaar}/{MaksPerDelklynge}, Affektregulering (Ad): {adSkaar}/{MaksPerDelklynge}, " +
+                           $"Negativt selvbilde (Nsc): {nscSkaar}/{MaksPerDelklynge}, Relasjonsvansker (Dr): {drSkaar}/{MaksPerDelklynge}. " +
+                           "Hver klynge krever minst ett ledd besvart «Moderat» eller over for å telle som diagnostisk til stede " +
+                           "(kriteriet nedenfor), i tillegg til funksjonstap. Klinisk vurdering skal alltid ha forrang ved uenighet " +
+                           "med den automatiske skåren.";
 
         var indikatorer = new List<TestSkaaringIndikator>
         {
             new("PTSD-kriterier oppfylt", ptsdKriterier ? "Ja" : "Nei", !ptsdKriterier),
             new("Forstyrrelser i selvorganisering (DSO) oppfylt", dsoKriterier ? "Ja" : "Nei", !dsoKriterier),
-            new("Diagnostisk konklusjon", ptsdKriterier && dsoKriterier ? "KPTSD" : ptsdKriterier ? "PTSD" : "Ingen", !ptsdKriterier)
+            new("Diagnostisk konklusjon", ptsdKriterier && dsoKriterier ? "KPTSD" : ptsdKriterier ? "PTSD" : "Ingen", !ptsdKriterier),
+            new("Gjenopplevelse (Re)", $"Re (gjenopplevelse): {reSkaar}/{MaksPerDelklynge}" + (reDx ? " — til stede" : ""), !reDx),
+            new("Unngåelse (Av)", $"Av (unngåelse): {avSkaar}/{MaksPerDelklynge}" + (avDx ? " — til stede" : ""), !avDx),
+            new("Nåværende trusselfølelse (Th)", $"Th (trusselfølelse): {thSkaar}/{MaksPerDelklynge}" + (thDx ? " — til stede" : ""), !thDx),
+            new("Affektregulering (Ad)", $"Ad (affektregulering): {adSkaar}/{MaksPerDelklynge}" + (adDx ? " — til stede" : ""), !adDx),
+            new("Negativt selvbilde (Nsc)", $"Nsc (negativt selvbilde): {nscSkaar}/{MaksPerDelklynge}" + (nscDx ? " — til stede" : ""), !nscDx),
+            new("Relasjonsvansker (Dr)", $"Dr (relasjonsvansker): {drSkaar}/{MaksPerDelklynge}" + (drDx ? " — til stede" : ""), !drDx)
         };
+
+        // Kun Indikator.Verdi vises i rapport-UI-et (se Rapport.cshtml, begge Areas) — Navn brukes
+        // ikke der, så teksten som skal leses MÅ ligge i Verdi selv (samme mønster som
+        // MiniStrukturdemoSkaaringsberegner).
+        var del1JaLedd = alleLedd.Take(AntallDel1JaNei)
+            .Where(ledd => svarPerLeddId.TryGetValue(ledd.Id, out var v) && v == "Ja")
+            .ToList();
+        foreach (var ledd in del1JaLedd)
+        {
+            indikatorer.Add(new TestSkaaringIndikator("Bekreftet traumeeksponering", $"Bekreftet: {ledd.Sporsmalstekst}", false));
+        }
+
+        if (AntallDel1JaNei < alleLedd.Count &&
+            svarPerLeddId.TryGetValue(alleLedd[AntallDel1JaNei].Id, out var annenHendelseTekst) &&
+            !string.IsNullOrWhiteSpace(annenHendelseTekst))
+        {
+            indikatorer.Add(new TestSkaaringIndikator("Bekreftet traumeeksponering (annet, beskrevet)", $"Bekreftet (annet): {annenHendelseTekst}", false));
+        }
 
         return new TestSkaaring(raaSkaar, maks, prosentSkaar, fortolkning, indikatorer);
     }
