@@ -5863,3 +5863,37 @@ ingen terskel nådd) og ingen "Blandet PF"-advarsel (korrekt, totalt 0 < 10). Se
 fetskrift-logikken er i tillegg dekket av 2 nye regresjonstester (én med en flagget forstyrrelse med
 korrekte segmentbredder, én som trigger "Blandet PF"-heuristikken). Build + alle 73 tester grønne.
 Committes og deployes til begge miljøer — siste punkt i denne rundens svært lange brukerliste.
+
+## Natt-økt, del 18: SCID-5-PF-stolpediagrammet finpusset etter skjermbilde-tilbakemelding (2026-09-27)
+
+Brukeren sendte et skjermbilde (`pf.png`, med rød kryss-markering — lest og deretter slettet siden
+det bare var et midlertidig tilbakemeldingsvedlegg, ikke noe å beholde i repoet) med fire konkrete
+punkter på forrige runde sin stolpediagram-visning:
+
+1. **Fjernet den DOBBELTE informasjonen** — det generiske "Resultat"-blokkens Indikator-badge-liste
+   (10 "0/N kriterier oppfylt"-bokser) og Fortolknings-avsnittet ("Ingen personlighetsforstyrrelse
+   når diagnostisk terskel...") viste EKSAKT samme informasjon som det nye stolpediagrammet under,
+   bare i et dårligere format. Begge deler er nå skjult SPESIFIKT for SCID-5-PF (`Model.Scid5PfBar
+   is null`-sjekk rundt blokken) — uendret for alle andre tester. Råskår/prosent-linjen over
+   beholdes (ikke krysset av i skjermbildet).
+2. **Kortere stolper, proporsjonalt med antall ledd** — stolpen var tidligere en fast 300px for ALLE
+   10 forstyrrelser uansett om de hadde 7 eller 9 kriterier. `Scid5PfBarBeregner` bruker nå en fast
+   PIKSELBREDDE PER KRITERIUM (22px), så en stolpes totale bredde blir `Total * 22px` — Unnvikende
+   (7 kriterier) blir dermed kortere enn Schizotyp (9 kriterier), og cutoff-pilen lander presist på
+   en ekte kriteriegrense i stedet for en brøkdel av en generisk lengde.
+3. **Cutoff-pilen har nå SAMME farge som "Tydelig oppfylt"-segmentet** (`var(--accent-dark)`,
+   tidligere rød `#c0392b`) — for å gjøre sammenhengen mellom pilen (terskelen) og hva den faktisk
+   teller (antall 2-ere) visuelt tydelig.
+4. **Tallene skrives nå INNI hvert farget felt** (hvit fet tekst på det mørke "2"-segmentet, mørk fet
+   tekst på det lyse "1"-segmentet) — brukeren hadde testet med en besvarelse med KUN 0-ere forrige
+   runde og kunne dermed ikke se om fargekodingen fungerte i praksis; tallene gjør dette lesbart
+   uavhengig av skjermstørrelse/fargesyn.
+
+Verifisert i nettleser med en NY besvarelse (denne gangen med en reell blanding av 0/1/2-svar på
+tvers av alle 10 sider, inkl. antisosial sine portvaktledd besvart "Ja") — rapporten viste korrekt:
+ingen duplikatinformasjon øverst, synlig KORTERE og ULIKT lange stolper per forstyrrelse, tallene "3"
+og "2"/"3" tydelig skrevet inni de fargede feltene i SAMME oransje som pilen, og — som en ekte
+bonus-verifisering — "Vurder Blandet personlighetsforstyrrelse"-advarselen dukket korrekt opp (alle
+10 forstyrrelser landet på 3/N, ingen nådde sin egen terskel på 4-5, men summen 29 ≥ 10). Build +
+alle 73 tester grønne (2 eksisterende regresjonstester oppdatert til ny pikselbredde-basert
+geometri). Committes og deployes til begge miljøer.

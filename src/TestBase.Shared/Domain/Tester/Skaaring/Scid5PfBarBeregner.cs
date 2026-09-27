@@ -1,9 +1,9 @@
 namespace TestBase.Shared.Domain.Tester.Skaaring;
 
-/// <summary>Ett stolpe-segment (X/bredde allerede regnet ut i SVG-koordinater) for én personlighetsforstyrrelse.</summary>
+/// <summary>Ett stolpe-segment for én personlighetsforstyrrelse — bredder allerede regnet ut i piksler.</summary>
 public sealed record Scid5PfStolpe(
     string Navn, int Antall2, int Antall1, int Total, int Terskel, bool TerskelNaadd,
-    double Segment2Bredde, double Segment1Bredde, double RestBredde, double CutoffX);
+    double BarBredde, double Segment2Bredde, double Segment1Bredde, double RestBredde, double CutoffX);
 
 /// <summary>Alt SCID-5-PF-rapporten trenger for å tegne "stolpediagram per PD"-seksjonen, inkl. Blandet PF-heuristikken.</summary>
 public sealed record Scid5PfBarData(IReadOnlyList<Scid5PfStolpe> Stolper, bool VurderBlandetPf, int TotaltAntall2);
@@ -11,7 +11,10 @@ public sealed record Scid5PfBarData(IReadOnlyList<Scid5PfStolpe> Stolper, bool V
 /// <summary>
 /// Bygger stolpediagram-geometrien for SCID-5-PF-rapporten: ÉN horisontal stolpe per
 /// personlighetsforstyrrelse, delt i tre segmenter (2-ere lengst til venstre, deretter 1-ere,
-/// resten som en tom/omrisset rest) pluss en nedovervendt pil ved kriterieterskelen. Egen,
+/// resten som en tom/omrisset rest) pluss en nedovervendt pil ved kriterieterskelen. Hver
+/// forstyrrelses stolpe er BEVISST kun så lang som dens EGET antall kriterier tilsier
+/// (<see cref="PikslerPerKriterium"/> per ledd — 2026-09-27, etter brukerønske om en kortere
+/// stolpe som faktisk reflekterer antall ledd, ikke en generisk fast bredde for alle 10). Egen,
 /// SELVSTENDIG grupperingslogikk (samme prinsipp som Scid5PfSkaaringsberegner — gruppert etter
 /// TestSideId sortert på laveste TestLeddId, portvaktledd identifisert via Svartype) fremfor å
 /// endre TestSkaaring-kontrakten, siden dette er en rapport-spesifikk visning kun for denne ene
@@ -23,7 +26,9 @@ public sealed record Scid5PfBarData(IReadOnlyList<Scid5PfStolpe> Stolper, bool V
 /// </summary>
 public static class Scid5PfBarBeregner
 {
-    public const double BarBredde = 300;
+    /// <summary>Pikselbredde PER KRITERIUM — én stolpe blir dermed Total*denne bredden, ikke en fast lengde uansett antall ledd.</summary>
+    public const double PikslerPerKriterium = 22;
+
     private const int VurderBlandetPfMinstAntall2 = 10;
 
     private sealed record ForstyrrelseMeta(string Navn, int Terskel);
@@ -83,12 +88,16 @@ public static class Scid5PfBarBeregner
                 noenTerskelNaadd = true;
             }
 
-            var segment2Bredde = total == 0 ? 0 : antall2 / (double)total * BarBredde;
-            var segment1Bredde = total == 0 ? 0 : antall1 / (double)total * BarBredde;
-            var restBredde = Math.Max(0, BarBredde - segment2Bredde - segment1Bredde);
-            var cutoffX = total == 0 ? 0 : Math.Min(meta.Terskel / (double)total * BarBredde, BarBredde);
+            // Bevisst posisjonert på ekte kriterie-GRENSER (antall2 * pikselbredde, ikke en
+            // brøkdel av en fast total) — stolpen blir dermed nøyaktig så lang som antall
+            // kriterier tilsier, og hvert "trinn" tilsvarer ett faktisk kriterium.
+            var barBredde = total * PikslerPerKriterium;
+            var segment2Bredde = antall2 * PikslerPerKriterium;
+            var segment1Bredde = antall1 * PikslerPerKriterium;
+            var restBredde = Math.Max(0, barBredde - segment2Bredde - segment1Bredde);
+            var cutoffX = Math.Min(meta.Terskel * PikslerPerKriterium, barBredde);
 
-            stolper.Add(new Scid5PfStolpe(meta.Navn, antall2, antall1, total, meta.Terskel, terskelNaadd, segment2Bredde, segment1Bredde, restBredde, cutoffX));
+            stolper.Add(new Scid5PfStolpe(meta.Navn, antall2, antall1, total, meta.Terskel, terskelNaadd, barBredde, segment2Bredde, segment1Bredde, restBredde, cutoffX));
         }
 
         var vurderBlandetPf = !noenTerskelNaadd && totaltAntall2 >= VurderBlandetPfMinstAntall2;

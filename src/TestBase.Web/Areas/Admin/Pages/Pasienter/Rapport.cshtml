@@ -65,16 +65,20 @@ else
                         }
                         <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong></p>
                     }
-                    @if (Model.Skaaring.Indikatorer is { Count: > 0 })
+                    @* For SCID-5-PF er dette dobbelt opp med stolpediagrammet under. *@
+                    @if (Model.Scid5PfBar is null)
                     {
-                        <div class="rapport-indikatorer">
-                        @foreach (var indikator in Model.Skaaring.Indikatorer)
+                        @if (Model.Skaaring.Indikatorer is { Count: > 0 })
                         {
-                            <span class="rapport-indikator @(indikator.Positiv ? "rapport-indikator-positiv" : "rapport-indikator-negativ")">@indikator.Verdi</span>
+                            <div class="rapport-indikatorer">
+                            @foreach (var indikator in Model.Skaaring.Indikatorer)
+                            {
+                                <span class="rapport-indikator @(indikator.Positiv ? "rapport-indikator-positiv" : "rapport-indikator-negativ")">@indikator.Verdi</span>
+                            }
+                            </div>
                         }
-                        </div>
+                        <p class="rapport-fortolkning">@Model.Skaaring.Fortolkning</p>
                     }
-                    <p class="rapport-fortolkning">@Model.Skaaring.Fortolkning</p>
                 </div>
             }
 
@@ -121,21 +125,32 @@ else
                             numerisk cutoff for "blandet"/uspesifisert personlighetsforstyrrelse) — klinisk skjønn avgjør.
                         </div>
                     }
+                    @{
+                        var invariant = System.Globalization.CultureInfo.InvariantCulture;
+                        string Px(double tall) => tall.ToString("0.##", invariant) + "px";
+                    }
                     @foreach (var stolpe in Model.Scid5PfBar.Stolper)
                     {
                         <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.4rem;">
-                            <div style="flex: 0 0 260px; font-size: 0.85rem; @(stolpe.TerskelNaadd ? "font-weight: 700;" : "")">@stolpe.Navn</div>
-                            <div style="position: relative; width: @(Scid5PfBarBeregner.BarBredde.ToString(System.Globalization.CultureInfo.InvariantCulture))px; height: 1rem; border: 1px solid var(--border); background: #fff; flex: 0 0 auto;">
-                                <div style="position: absolute; left: 0; top: 0; bottom: 0; width: @(stolpe.Segment2Bredde.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))px; background: var(--accent-dark);"></div>
-                                <div style="position: absolute; left: @(stolpe.Segment2Bredde.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))px; top: 0; bottom: 0; width: @(stolpe.Segment1Bredde.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))px; background: var(--accent); opacity: 0.5;"></div>
-                                <div title="Terskel: @stolpe.Terskel" style="position: absolute; top: -0.9rem; left: @(stolpe.CutoffX.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))px; transform: translateX(-50%); font-size: 0.7rem; color: #c0392b;">▼</div>
+                            <div style="flex: 0 0 220px; font-size: 0.85rem; @(stolpe.TerskelNaadd ? "font-weight: 700;" : "")">@stolpe.Navn</div>
+                            <div style="position: relative; width: @Px(stolpe.BarBredde); height: 1.1rem; border: 1px solid var(--border); background: #fff; flex: 0 0 auto;">
+                                @if (stolpe.Antall2 > 0)
+                                {
+                                    <div style="position: absolute; left: 0; top: 0; bottom: 0; width: @Px(stolpe.Segment2Bredde); background: var(--accent-dark); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.7rem; font-weight: 700;">@stolpe.Antall2</div>
+                                }
+                                @if (stolpe.Antall1 > 0)
+                                {
+                                    <div style="position: absolute; left: @Px(stolpe.Segment2Bredde); top: 0; bottom: 0; width: @Px(stolpe.Segment1Bredde); background: var(--accent); opacity: 0.55; display: flex; align-items: center; justify-content: center; color: var(--ink); font-size: 0.7rem; font-weight: 700;">@stolpe.Antall1</div>
+                                }
+                                <div title="Terskel: @stolpe.Terskel" style="position: absolute; top: -0.9rem; left: @Px(stolpe.CutoffX); transform: translateX(-50%); font-size: 0.75rem; color: var(--accent-dark); font-weight: 700;">▼</div>
                             </div>
                             <div style="flex: 0 0 auto; font-size: 0.8rem; color: #555;">@stolpe.Antall2/@stolpe.Total (terskel @stolpe.Terskel)</div>
                         </div>
                     }
                     <p style="font-size: 0.82rem; color: #666;">
-                        Mørk = "Tydelig oppfylt" (2), lys = "Delvis til stede" (1), hvit = "Fraværende" (0). ▼ markerer
-                        kriterieterskelen. Fet skrift = forstyrrelsen når sin diagnostiske terskel.
+                        Mørk = "Tydelig oppfylt" (2), lys = "Delvis til stede" (1), hvit = "Fraværende" (0) — tallet i hvert
+                        felt er antallet ledd med den verdien. ▼ (samme farge som "Tydelig oppfylt") markerer
+                        kriterieterskelen. Fet skrift på testnavnet = forstyrrelsen når sin diagnostiske terskel.
                     </p>
                 </div>
             }

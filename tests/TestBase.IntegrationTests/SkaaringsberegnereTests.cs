@@ -853,8 +853,10 @@ public sealed class SkaaringsberegnereTests
         Assert.True(paranoidStolpe.TerskelNaadd);
         Assert.Equal(4, paranoidStolpe.Antall2);
         Assert.Equal(2, paranoidStolpe.Antall1);
-        // 4/7 av BarBredde (300) for segment2.
-        Assert.Equal(4.0 / 7 * Scid5PfBarBeregner.BarBredde, paranoidStolpe.Segment2Bredde, precision: 1);
+        // 4 kriterier * pikselbredde per kriterium for segment2 — stolpen er nå PROPORSJONAL med
+        // ekte antall ledd (7), ikke en fast bredde uansett antall kriterier.
+        Assert.Equal(4 * Scid5PfBarBeregner.PikslerPerKriterium, paranoidStolpe.Segment2Bredde, precision: 1);
+        Assert.Equal(7 * Scid5PfBarBeregner.PikslerPerKriterium, paranoidStolpe.BarBredde, precision: 1);
         Assert.False(data.VurderBlandetPf); // én forstyrrelse NÅDDE sin terskel -> ikke "blandet"
     }
 

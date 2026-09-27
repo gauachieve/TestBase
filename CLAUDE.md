@@ -449,6 +449,13 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   PD når egen terskel) er UTTALT IKKE en offisiell DSM-5/ICD-11-cutoff (undersøkt og bekreftet
   fraværende) — egen, tydelig merket tommelfingerregel. Se docs/beslutningslogg.md
   "Natt-økt, del 17".
+- **SCID-5-PF-stolpediagrammet finpusset etter skjermbilde-tilbakemelding (2026-09-27):** fjernet
+  duplikat Indikator-badges/Fortolkning fra "Resultat"-blokken for denne testen (samme info som
+  stolpediagrammet under, bare dårligere format); stolpebredde nå `Total * 22px` PER forstyrrelse
+  (kortere, proporsjonalt med faktisk antall kriterier, ikke en fast 300px for alle); cutoff-pilen
+  har samme oransje farge som "Tydelig oppfylt"-segmentet (var(--accent-dark), ikke lenger rød);
+  antall 2-ere/1-ere skrevet som synlig tekst INNI hvert fargede felt. Se docs/beslutningslogg.md
+  "Natt-økt, del 18".
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
