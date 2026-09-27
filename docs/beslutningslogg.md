@@ -5798,3 +5798,34 @@ Verifisert i nettleser: tildelte CORE-10 til en ekte pasient, besvarte med et su
 streken vises korrekt omtrent 1/4 inn på baren (11/40 = 27,5%) med "▼ Klinisk grense"-label under,
 og eksisterende risiko-indikatorer (ledd 3/10) vises uendret ved siden av. Build + alle 69 tester
 grønne (ingen scoringsendringer, kun visning). Committes og deployes til begge miljøer.
+
+## Natt-økt, del 16: radar-graf for SIPP-118-inspirerte testens 5 domener (2026-09-27)
+
+Brukeren ba om en radar-("spindelvev"-)graf for den forenklede SIPP-118-inspirerte testen, og
+lenket til https://pmc.ncbi.nlm.nih.gov/articles/PMC12287623/ som kilde for de EKTE SIPP-118-
+fasettene. Undersøkte artikkelen: bekreftet de 5 domenenavnene (Self-control, Identity Integration,
+Relational Capacities, Responsibility, Social Concordance) OG at det ekte instrumentet har 16
+LAVERE-ORDNs fasetter under disse, plottet SOM RADAR PER RESPONDENT (rå- vs. T-skår), IKKE over
+tid. Siden vår forenklede test BEVISST kun måler de 5 domenene (ikke de 16 fasettene — se
+Sipp118TestSeeder sitt eksisterende forbehold), bygget radaren for de 5 domenene vi FAKTISK måler,
+ikke en oppdiktet 16-fasett-gjengivelse.
+
+Ny `Sipp118RadarBeregner` (ren C#, samme mønster som `UtviklingsGrafBeregner`) — leser de 5
+domene-indikatorene fra `TestSkaaring.Indikatorer` (format "X/Y" i Verdi, satt av
+`Sipp118Skaaringsberegner`, indikator 0 "Samlet personlighetsfunksjon" hoppes over), regner ut et
+5-akset pentagon (start rett over senter, med klokka), én dataPolygon for DENNE besvarelsen, en
+stiplet cutoff-ring ved den forenklede lavfunksjon-grensen (62,5 % av maks, matcher
+Skaaringsberegnerens 2,5/4), og en ytre ramme. `<text>`-elementer bygges som rå streng +
+`Html.Raw(...)` (IKKE vanlig Razor-markup) — samme kjente fallgruve/løsning som
+`_UtviklingsGraf.cshtml` allerede dokumenterer. Radaren vises KUN for `Test.Kode == "sipp118"`,
+og viser BEVISST kun én besvarelse (ingen "utvikling over tid"-modus finnes, siden hvert domene er
+en egen dimensjon — nettopp det brukeren selv påpekte).
+
+Verifisert i nettleser: tildelte testen til en ekte pasient med BEVISST ULIKE domenesvar (Selvkontroll
+høyt, Identitetsintegrasjon lavt, resten varierende) for å produsere en asymmetrisk pentagonform —
+rapporten viste et korrekt formet, fylt pentagon med riktige tall ved hvert hjørne
+(Selvkontroll 12/24, Identitetsintegrasjon 9/24, Relasjonell kapasitet 17/24, Ansvarlighet 13/24,
+Sosial harmoni 18/24 — alle stemte med Fortolkningsteksten), den stiplede cutoff-ringen synlig
+innenfor dataområdet, og hvert hjørne med et tilgjengelig (`img`-rolle med beskrivende `aria-label`
+per punkt via SVG-tekst) navn+verdi-merke. Build + alle 71 tester grønne (2 nye regresjonstester
+for selve geometriberegningen). Committes og deployes til begge miljøer.

@@ -1,5 +1,6 @@
 @page "{id:long}"
 @model TestBase.Web.Areas.Admin.Pages.Pasienter.RapportModel
+@using TestBase.Shared.Domain.Tester.Skaaring
 @{
     ViewData["Title"] = "Rapport";
     var sidetall = 1;
@@ -74,6 +75,36 @@ else
                         </div>
                     }
                     <p class="rapport-fortolkning">@Model.Skaaring.Fortolkning</p>
+                </div>
+            }
+
+            @if (Model.Sipp118Radar is not null)
+            {
+                <div class="rapport-seksjon">
+                    <span class="rapport-seksjon-tittel">Domeneprofil</span>
+                    @{
+                        var radar = Model.Sipp118Radar;
+                        string F(double tall) => tall.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+                        string TekstTag(double x, double y, string ankerJustering, string innhold) =>
+                            $"<text x=\"{F(x)}\" y=\"{F(y)}\" text-anchor=\"{ankerJustering}\" style=\"font-size: 11px; fill: var(--ink);\">{System.Net.WebUtility.HtmlEncode(innhold)}</text>";
+                    }
+                    <svg viewBox="0 0 @Sipp118RadarBeregner.Bredde @Sipp118RadarBeregner.Hoyde" role="img" aria-label="Domeneprofil (SIPP-118-inspirert)" style="max-width: 360px; display: block; margin: 0 auto;">
+                        <polygon points="@radar.YtreRingPunkter" style="fill: none; stroke: var(--border); stroke-width: 1;" />
+                        <polygon points="@radar.CutoffPolygonPunkter" style="fill: none; stroke: #c0392b; stroke-width: 1; stroke-dasharray: 4 3;" />
+                        @foreach (var p in radar.Punkter)
+                        {
+                            <line x1="@F(radar.Senter)" y1="@F(radar.Senter)" x2="@F(p.X)" y2="@F(p.Y)" style="stroke: var(--border); stroke-width: 1;" />
+                        }
+                        <polygon points="@radar.DataPolygonPunkter" style="fill: var(--accent); fill-opacity: 0.28; stroke: var(--accent-dark); stroke-width: 2;" />
+                        @foreach (var p in radar.Punkter)
+                        {
+                            <circle cx="@F(p.X)" cy="@F(p.Y)" r="3.5" style="fill: var(--accent-dark);" />
+                            @Html.Raw(TekstTag(p.LabelX, p.LabelY, p.LabelAnker, $"{p.Navn} ({p.Verdi}/{p.Maks})"))
+                        }
+                    </svg>
+                    <p style="font-size: 0.82rem; color: #666; text-align: center;">
+                        Stiplet linje = forenklet lavfunksjon-grense (ikke en offisiell SIPP-118-norm). Viser kun DENNE besvarelsen.
+                    </p>
                 </div>
             }
 

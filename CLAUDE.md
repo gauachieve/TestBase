@@ -432,6 +432,14 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   {navn} ved {verdi}") i stedet for en visuell strek. Ingen endring for tester uten
   `Histogramgrenser` (de fleste) eller med `SkjulProsent`. Se docs/beslutningslogg.md
   "Natt-økt, del 15".
+- **Radar-graf for SIPP-118-inspirerte testens 5 domener (2026-09-27):** ny `Sipp118RadarBeregner`
+  (ren C#, samme mønster som `UtviklingsGrafBeregner`) tegner et 5-akset pentagon av de 5
+  domenepoengene DENNE besvarelsen fikk (leser `TestSkaaring.Indikatorer`), med en stiplet cutoff-
+  ring ved den forenklede lavfunksjon-grensen. Kilde for domenestruktur/at radaren i litteraturen
+  er PER RESPONDENT (ikke over tid): https://pmc.ncbi.nlm.nih.gov/articles/PMC12287623/ — bekreftet
+  også at det ekte SIPP-118 har 16 fasetter under de 5 domenene, som vår test BEVISST ikke måler,
+  så radaren viser kun de 5 domenene. `<text>`-elementer via `Html.Raw` (samme kjente Razor-
+  fallgruve/løsning som `_UtviklingsGraf.cshtml`). Se docs/beslutningslogg.md "Natt-økt, del 16".
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

@@ -57,6 +57,9 @@ public sealed class RapportModel : PageModel
     public TestSkaaring? Skaaring { get; private set; }
     public IReadOnlyList<CutoffMarkering> Cutoffs { get; private set; } = Array.Empty<CutoffMarkering>();
 
+    /// <summary>Radar-graf av de 5 SIPP-118-inspirerte domenene — kun satt for Test.Kode == "sipp118" (se Sipp118RadarBeregner).</summary>
+    public Sipp118RadarData? Sipp118Radar { get; private set; }
+
     /// <summary>Samme grenser som <see cref="Cutoffs"/>, men i RÅ enhet (ikke prosent-skalert) —
     /// brukt i "Kopier alt"-malen der en tekstlig "grenseverdi X" er mer nyttig enn en visuell
     /// strek på en fremdriftsbar som ikke overlever inn i et journalsystem.</summary>
@@ -203,6 +206,11 @@ public sealed class RapportModel : PageModel
             Cutoffs = RaaCutoffs
                 .Select(g => new CutoffMarkering(g.Navn, visSomProsent ? g.Verdi : g.Verdi * 100m / Skaaring.RaaSkaarMaks))
                 .ToList();
+        }
+
+        if (Test.Kode == "sipp118")
+        {
+            Sipp118Radar = Sipp118RadarBeregner.Beregn(Skaaring.Indikatorer);
         }
 
         // Kun behandler-utfylte tester (se Test.FyllesUtAvBehandler) har noensinne en

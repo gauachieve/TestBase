@@ -804,4 +804,34 @@ public sealed class SkaaringsberegnereTests
 
         Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Paranoid personlighetsforstyrrelse" && !i.Positiv);
     }
+
+    [Fact]
+    public void Sipp118Radar_ForsteAksenPlassertRettOverSenterVedMaksVerdi()
+    {
+        // Indikator 0 er "Samlet..." (hoppes over). Domene 0 (Selvkontroll) = 24/24 (maks) ->
+        // skal plasseres RETT OVER senteret (start på -90°/toppen), med full radius.
+        var indikatorer = new List<TestSkaaringIndikator>
+        {
+            new("Samlet personlighetsfunksjon", "Innenfor forventet område", true),
+            new("Selvkontroll", "24/24", true),
+            new("Identitetsintegrasjon", "12/24", true),
+            new("Relasjonell kapasitet", "12/24", true),
+            new("Ansvarlighet", "12/24", true),
+            new("Sosial harmoni", "12/24", true)
+        };
+
+        var radar = Sipp118RadarBeregner.Beregn(indikatorer);
+
+        Assert.NotNull(radar);
+        var selvkontroll = radar!.Punkter[0];
+        Assert.Equal(radar.Senter, selvkontroll.X, precision: 1);
+        Assert.Equal(radar.Senter - radar.MaksRadius, selvkontroll.Y, precision: 1);
+    }
+
+    [Fact]
+    public void Sipp118Radar_ReturnererNullNaarIkkeFemDomeneIndikatorer()
+    {
+        var radar = Sipp118RadarBeregner.Beregn(new[] { new TestSkaaringIndikator("Bare én", "1/2", true) });
+        Assert.Null(radar);
+    }
 }

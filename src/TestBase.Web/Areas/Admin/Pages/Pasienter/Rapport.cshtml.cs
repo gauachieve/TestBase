@@ -38,6 +38,9 @@ public sealed class RapportModel : PageModel
     public TestTildeling? Tildeling { get; private set; }
     public TestSkaaring? Skaaring { get; private set; }
     public IReadOnlyList<CutoffMarkering> Cutoffs { get; private set; } = Array.Empty<CutoffMarkering>();
+
+    /// <summary>Radar-graf av de 5 SIPP-118-inspirerte domenene — kun satt for Test.Kode == "sipp118" (se Sipp118RadarBeregner).</summary>
+    public Sipp118RadarData? Sipp118Radar { get; private set; }
     public List<SideMedSvar> Sider { get; private set; } = new();
     public bool IkkeGodkjentEnna { get; private set; }
 
@@ -69,6 +72,11 @@ public sealed class RapportModel : PageModel
             Cutoffs = _testService.HentHistogramgrenser(Test.Kode)
                 .Select(g => new CutoffMarkering(g.Navn, visSomProsent ? g.Verdi : g.Verdi * 100m / Skaaring.RaaSkaarMaks))
                 .ToList();
+        }
+
+        if (Test.Kode == "sipp118" && Skaaring is not null)
+        {
+            Sipp118Radar = Sipp118RadarBeregner.Beregn(Skaaring.Indikatorer);
         }
 
         var kommentarPerLeddId = await _db.TestSvar
