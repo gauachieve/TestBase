@@ -14,6 +14,10 @@ param mysqlAdministratorLogin string
 @secure()
 param stagingGateAccessKey string = ''
 
+@description('Delt nøkkel for tilbakemeldings-agentens API — tom verdi deaktiverer /api/agent/*, se main.bicep')
+@secure()
+param tilbakemeldingAgentNokkel string = ''
+
 @description('SMS-avsendernavn — tom verdi gir MockSmsSender, se main.bicep')
 param smsSenderId string = ''
 
@@ -516,6 +520,11 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           // provision (skjedde 2026-09-02, se docs/beslutningslogg.md).
           name: 'StagingGate__AccessKey'
           value: stagingGateAccessKey
+        }
+        {
+          // Samme "må stå i denne listen"-begrunnelse som StagingGate__AccessKey over.
+          name: 'Tilbakemelding__AgentNokkel'
+          value: tilbakemeldingAgentNokkel
         }
         {
           name: 'Sms__SenderId'

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Domain.Tester;
+using TestBase.Shared.Domain.Tilbakemeldinger;
 using TestBase.Shared.Security;
 
 namespace TestBase.Shared.Data;
@@ -52,6 +53,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<TestTilgangForespoersel> TestTilgangForesporsler => Set<TestTilgangForespoersel>();
     public DbSet<PlanlagtTildeling> PlanlagteTildelinger => Set<PlanlagtTildeling>();
     public DbSet<BetaBetalingsinnstilling> BetaBetalingsinnstillinger => Set<BetaBetalingsinnstilling>();
+    public DbSet<Tilbakemelding> Tilbakemeldinger => Set<Tilbakemelding>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -355,6 +357,23 @@ public sealed class AppDbContext : DbContext
             entity.HasIndex(p => p.TestTildelingId);
             entity.HasIndex(p => p.BehandlerId);
             entity.HasIndex(p => p.PartnerId);
+        });
+
+        modelBuilder.Entity<Tilbakemelding>(entity =>
+        {
+            entity.ToTable("tilbakemeldinger");
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.Melding).HasColumnType("text").IsRequired();
+            entity.Property(t => t.Url).HasMaxLength(1000);
+            entity.Property(t => t.BrukerAgent).HasMaxLength(500);
+            entity.Property(t => t.InnloggetRolle).HasMaxLength(32);
+            entity.Property(t => t.TekniskFeilInfo).HasColumnType("text");
+            entity.Property(t => t.ScreenshotDataUrl).HasColumnType("longtext");
+            entity.Property(t => t.Status).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.Property(t => t.Notat).HasColumnType("text");
+            entity.HasIndex(t => t.Status);
+            entity.HasIndex(t => t.OpprettetUtc);
+            entity.HasIndex(t => t.ErKrasjRapport);
         });
     }
 }

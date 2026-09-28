@@ -1,0 +1,108 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Tilbakemeldinger.IndexModel
+@using TestBase.Shared.Domain.Tilbakemeldinger
+@{
+    ViewData["Title"] = "Tilbakemeldinger";
+    var antallNye = Model.Alle.Count(t => t.Status == TilbakemeldingStatus.Ny);
+    var antallKrasj = Model.Alle.Count(t => t.ErKrasjRapport && t.Status != TilbakemeldingStatus.Lost && t.Status != TilbakemeldingStatus.Avvist);
+}
+
+<h1>Tilbakemeldinger</h1>
+<p>Innsendt via tilbakemeldingsknappen nederst til høyre på siden. Skjermbilder kan inneholde det som var synlig på skjermen da avsenderen sendte inn — behandle som du ville behandlet annen pasientdata.</p>
+
+@if (antallKrasj > 0)
+{
+    <p class="rapport-gyldighetsadvarsel" style="border: 1px solid var(--fare); background: var(--fare-lys); padding: 0.6rem 1rem; border-radius: var(--radius); display: inline-block;">
+        <strong>@antallKrasj</strong> ubehandlet krasjrapport@(antallKrasj == 1 ? "" : "er") (teknisk feil automatisk fanget).
+    </p>
+}
+
+<div data-fane-beholder>
+    <div class="fane-rad" role="tablist">
+        <button type="button" class="fane-knapp" data-fane="ny">Ny (@antallNye)</button>
+        <button type="button" class="fane-knapp" data-fane="under-arbeid">Under arbeid (@Model.Alle.Count(t => t.Status == TilbakemeldingStatus.UnderArbeid))</button>
+        <button type="button" class="fane-knapp" data-fane="sett">Sett (@Model.Alle.Count(t => t.Status == TilbakemeldingStatus.Sett))</button>
+        <button type="button" class="fane-knapp" data-fane="lost">Løst (@Model.Alle.Count(t => t.Status == TilbakemeldingStatus.Lost))</button>
+        <button type="button" class="fane-knapp" data-fane="avvist">Avvist (@Model.Alle.Count(t => t.Status == TilbakemeldingStatus.Avvist))</button>
+    </div>
+
+    @foreach (var t in Model.Alle)
+    {
+        var faneKey = t.Status switch
+        {
+            TilbakemeldingStatus.Ny => "ny",
+            TilbakemeldingStatus.UnderArbeid => "under-arbeid",
+            TilbakemeldingStatus.Sett => "sett",
+            TilbakemeldingStatus.Lost => "lost",
+            TilbakemeldingStatus.Avvist => "avvist",
+            _ => "ny"
+        };
+        <div data-fane-rad="@faneKey" class="tilbakemelding-kort" style="border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 0.85rem; @(t.ErKrasjRapport ? "border-left: 4px solid var(--fare);" : "")">
+            <div style="display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                <div>
+                    <strong>@t.OpprettetUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</strong>
+                    @if (t.ErKrasjRapport)
+                    {
+                        <span style="color: var(--fare); font-weight: 700; margin-left: 0.5rem;">⚠ Teknisk feil fanget automatisk</span>
+                    }
+                    <div style="color: var(--muted); font-size: 0.85rem;">
+                        @(t.InnloggetRolle ?? "Ikke innlogget") @(t.InnloggetBrukerId is not null ? $"(bruker-ID {t.InnloggetBrukerId})" : "")
+                        — <a href="@t.Url" target="_blank" rel="noopener">@t.Url</a>
+                    </div>
+                </div>
+            </div>
+
+            <p style="white-space: pre-wrap; margin: 0.75rem 0;">@t.Melding</p>
+
+            @if (!string.IsNullOrWhiteSpace(t.TekniskFeilInfo))
+            {
+                <details style="margin-bottom: 0.5rem;">
+                    <summary style="cursor: pointer; color: var(--fare-dark);">Teknisk feilinfo</summary>
+                    <pre style="white-space: pre-wrap; font-size: 0.8rem; background: #fdf5f4; padding: 0.6rem; border-radius: 6px;">@t.TekniskFeilInfo</pre>
+                </details>
+            }
+
+            <details style="margin-bottom: 0.5rem;">
+                <summary style="cursor: pointer; color: var(--muted);">Teknisk kontekst</summary>
+                <p style="font-size: 0.8rem; color: var(--muted);">
+                    Nettleser: @t.BrukerAgent<br />
+                    Skjerm: @(t.SkjermBredde)×@(t.SkjermHoyde) — Vindu: @(t.VindaugBredde)×@(t.VindaugHoyde)
+                </p>
+            </details>
+
+            @if (!string.IsNullOrEmpty(t.ScreenshotDataUrl))
+            {
+                <details>
+                    <summary style="cursor: pointer; color: var(--muted);">Skjermbilde</summary>
+                    <a href="@t.ScreenshotDataUrl" target="_blank" rel="noopener">
+                        <img src="@t.ScreenshotDataUrl" alt="Skjermbilde vedlagt tilbakemeldingen" style="max-width: 320px; border: 1px solid var(--border); border-radius: 6px; margin-top: 0.5rem;" />
+                    </a>
+                </details>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(t.Notat))
+            {
+                <p style="font-size: 0.85rem; background: var(--bg-soft); padding: 0.5rem 0.75rem; border-radius: 6px;"><strong>Notat:</strong> @t.Notat</p>
+            }
+
+            <form method="post" asp-page-handler="OppdaterStatus" style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.6rem; flex-wrap: wrap;">
+                <input type="hidden" name="id" value="@t.Id" />
+                <select name="status">
+                    @foreach (var s in Enum.GetValues<TilbakemeldingStatus>())
+                    {
+                        <option value="@s" selected="@(s == t.Status)">@s</option>
+                    }
+                </select>
+                <input type="text" name="notat" placeholder="Notat (valgfritt)" value="@t.Notat" style="flex: 1 1 12rem;" />
+                <button type="submit" class="btn btn-outline btn-sm">Oppdater</button>
+            </form>
+        </div>
+    }
+
+    @if (Model.Alle.Count == 0)
+    {
+        <p><em>Ingen tilbakemeldinger ennå.</em></p>
+    }
+</div>
+
+<script src="~/js/faner.js" asp-append-version="true"></script>

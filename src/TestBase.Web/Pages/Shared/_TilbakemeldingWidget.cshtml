@@ -1,0 +1,58 @@
+@* Flytende tilbakemeldingsknapp — se wwwroot/js/tilbakemelding-widget.js for all logikk.
+   Bevisst markup-only her (ingen @@model-avhengighet) slik at den er identisk på alle sider,
+   inkludert offentlige sider uten innlogging. Se docs/beslutningslogg.md "Tilbakemeldingsverktøy". *@
+<div id="tbm-rot">
+    <button type="button" id="tbm-mini" class="tbm-mini" hidden aria-label="Vis tilbakemeldingsknapp">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+    </button>
+
+    <div id="tbm-fab-wrap" class="tbm-fab-wrap">
+        <button type="button" id="tbm-fab" class="tbm-fab" aria-label="Tilbakemelding og hjelp" aria-haspopup="true" aria-expanded="false">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+        </button>
+        <button type="button" id="tbm-skjul" class="tbm-skjul" aria-label="Skjul tilbakemeldingsknapp" title="Skjul">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12h14" /></svg>
+        </button>
+
+        <div id="tbm-meny" class="tbm-meny" hidden role="menu">
+            <button type="button" id="tbm-meny-tilbakemelding" class="tbm-meny-knapp" role="menuitem">
+                <partial name="_Ikon" model="@("tilbakemelding")" />
+                <span>Tilbakemelding</span>
+            </button>
+            <button type="button" class="tbm-meny-knapp" role="menuitem" disabled title="Kommer senere">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4" /><path d="M12 17h.01" /></svg>
+                <span>Hjelp</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="tbm-panel" class="tbm-panel" hidden role="dialog" aria-label="Send tilbakemelding">
+        <div class="tbm-panel-header">
+            <strong>Send tilbakemelding</strong>
+            <button type="button" id="tbm-panel-lukk" class="tbm-panel-lukk" aria-label="Lukk">✕</button>
+        </div>
+        <form id="tbm-skjema">
+            <label for="tbm-melding">Hva skjedde, eller hva foreslår du?</label>
+            <textarea id="tbm-melding" name="melding" rows="5" required placeholder="Beskriv gjerne hva du gjorde rett før, og hva du forventet skulle skje."></textarea>
+
+            <p id="tbm-feil-varsel" class="tbm-feil-varsel" hidden>⚠ Vi fanget opp en teknisk feil like før du åpnet dette skjemaet — den er lagt ved automatisk.</p>
+
+            <p class="tbm-skjermbilde-status">
+                <span id="tbm-skjermbilde-tekst">Tar skjermbilde …</span>
+                <img id="tbm-skjermbilde-forhandsvisning" alt="Forhåndsvisning av skjermbilde" hidden />
+            </p>
+
+            <details class="tbm-teknisk-detaljer">
+                <summary>Hva samles inn automatisk?</summary>
+                <p>Sidens adresse, nettleser/skjermstørrelse, evt. rollen du er innlogget som (uten navn/personnummer), og et skjermbilde av det du ser akkurat nå — kun for å hjelpe oss forstå tilbakemeldingen din.</p>
+            </details>
+
+            <button type="submit" id="tbm-send" class="btn btn-accent">Send inn</button>
+            <p id="tbm-kvittering" class="tbm-kvittering" hidden>Takk for tilbakemeldingen! 🙏</p>
+            <p id="tbm-feilmelding" class="tbm-feilmelding" hidden>Kunne ikke sende inn tilbakemeldingen — prøv igjen om litt.</p>
+        </form>
+    </div>
+</div>
+
+<script src="~/js/vendor/html2canvas.min.js" asp-append-version="true"></script>
+<script src="~/js/tilbakemelding-widget.js" asp-append-version="true"></script>

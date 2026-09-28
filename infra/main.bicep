@@ -16,6 +16,10 @@ param mysqlAdministratorLogin string = 'testbaseadmin'
 @secure()
 param stagingGateAccessKey string = ''
 
+@description('Delt nøkkel for tilbakemeldings-agentens API (se Security/TilbakemeldingApi.cs "/api/agent/*") — tom verdi deaktiverer disse endepunktene (404). Settes via azd-miljøvariabelen TILBAKEMELDING_AGENT_NOKKEL, ALDRI som literal her.')
+@secure()
+param tilbakemeldingAgentNokkel string = ''
+
 @description('SMS-avsendernavn (f.eks. "PsyTest") — tom verdi gir MockSmsSender. Settes via azd-miljøvariabelen SMS_SENDER_ID (se docs/beslutningslogg.md "SMS-integrasjon").')
 param smsSenderId string = ''
 
@@ -166,6 +170,7 @@ module resources 'resources.bicep' = {
     tags: tags
     mysqlAdministratorLogin: mysqlAdministratorLogin
     stagingGateAccessKey: stagingGateAccessKey
+    tilbakemeldingAgentNokkel: tilbakemeldingAgentNokkel
     smsSenderId: smsSenderId
     vonageApiKey: vonageApiKey
     vonageApiSecret: vonageApiSecret

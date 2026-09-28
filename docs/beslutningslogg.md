@@ -5937,3 +5937,125 @@ viste presist "Re (gjenopplevelse): 3/8 — til stede" / "Av"/"Th" samme, "Ad"/"
 "til stede"), og nøyaktig de to bekreftede eksponeringsspørsmålene + frittekstsvaret som egne
 badges — ingen av de 12 "Nei"-besvarte spørsmålene lekket inn. Build + alle 74 tester grønne.
 Committes og deployes til begge miljøer.
+
+## Tilbakemeldingsverktøy (2026-09-28)
+
+Brukeren nærmer seg testing med eksterne personer og ba om et flytende tilbakemeldingsverktøy —
+senere planlagt utvidet til et hjelpeverktøy, men "kun feedback for nå". Spesifikasjon: liten,
+flyttbar, ganske stor ikon-knapp nederst til høyre (default ikke helt i hjørnet), som kan minimeres
+til en pil og gjenåpnes; klikk åpner en rollup-meny med "Tilbakemelding" (aktiv) og "Hjelp" (grået
+ut); "Tilbakemelding" åpner et skjema (norsk) som alltid prøver å ta et skjermbilde, samler inn
+nyttig teknisk data automatisk, og har en Send-knapp som lagrer i databasen. Pluss: en daglig agent
+som rapporterer saker+forslag, og som ved krasj automatisk fikser og publiserer på egen hånd.
+
+Spurte brukeren eksplisitt om to ting FØR bygging, siden konsekvensene er reelle: (1) hvor autonom
+krasj-fiks-og-deploy-agenten skal være — brukeren valgte **"Fullt autonomt til live"** (ikke
+beta-først-med-godkjenning, som var anbefalt gitt appens historikk med reelle live-krasj denne
+økten alene); (2) leveringskanal for den daglige rapporten — brukeren valgte **e-post via appens
+egen avsender** (gjenbruker AzureEmailSender, ikke ny infrastruktur).
+
+**Del 1: selve widgeten + lagring (bygget og verifisert denne runden):**
+
+Ny `Tilbakemelding`-entitet (`TestBase.Shared/Domain/Tilbakemeldinger/`) — melding, URL,
+brukeragent, skjerm-/vindusstørrelse, innlogget rolle/bruker-ID (hvis noen), teknisk feilinfo,
+skjermbilde (data-URL, `longtext`), status (Ny/Sett/UnderArbeid/Lost/Avvist), notat. BEVISST ikke
+personnummer-kryptert som resten av appen (feltene er tekniske, ikke i seg selv en
+identifikator) — men klassedokumentasjonen flagger eksplisitt at et skjermbilde KAN inneholde
+pasientdata hvis avsenderen hadde det på skjermen, og tilgangen til `Admin/Tilbakemeldinger` er
+derfor AdminOmrade, samme nivå som resten av pasientdata.
+
+Widgeten (`_TilbakemeldingWidget.cshtml` + `wwwroot/js/tilbakemelding-widget.js`, inkludert i
+`_Layout.cshtml` — ÉN delt layout for hele appen, se Prosjektstruktur, så den vises på BOKSTAVELIG
+TALT alle sider, innlogget eller ikke) — ren vanilla JS, ingen avhengighet til resten av appens
+skript. Dra-og-slipp via Pointer Events (mus+touch), posisjon+minimert-tilstand husket i
+`localStorage` (per nettleser, ikke server-side). Skjermbilde via `html2canvas` — BEVISST VENDORET
+LOKALT (`wwwroot/js/vendor/html2canvas.min.js`, hentet én gang via curl, IKKE lastet fra en CDN ved
+kjøretid) — en helsedata-app bør ikke hente kjørbar tredjeparts-JS fra et eksternt CDN ved hver
+sidelasting (supply chain-risiko + unødvendig ekstern nettverksavhengighet), samme forsiktighets-
+prinsipp som resten av appens "mock lokalt, ekte kun via eksplisitt konfigurasjon"-mønster. Fanger
+automatisk siste JS-feil (`window.onerror`/`unhandledrejection`, 10 minutters gyldighet) OG
+gjenkjenner når man står på selve `/Error`-siden (500-feil) — begge legges automatisk ved som
+"krasjrapport" i skjemaet, synlig markert til avsenderen FØR innsending.
+
+**Reell CSS-fallgruve funnet og fikset før commit** (samme klasse som tidligere kjente Razor-
+fallgruver, men denne er en CSS-spesifisitets-fallgruve, ikke en Razor-en): en unqualified
+`.tbm-meny { display: flex }`/`.tbm-mini { display: flex }`-regel har SAMME spesifisitet som
+nettleserens innebygde `[hidden] { display: none }`-regel, og siden forfatterens CSS kommer etter
+UA-stilarket i kaskaden, VANT `display:flex` — menyen og den minimerte pilen var derfor BEGGE
+synlige samtidig med hovedknappen ved SIDELASTING, før noe klikk i det hele tatt skjedde. Fanget
+umiddelbart via et skjermbilde under lokal Playwright-verifisering (ikke synlig ved kun å lese
+CSS-kilden). Fikset med en eksplisitt `.tbm-mini[hidden], .tbm-meny[hidden], .tbm-panel[hidden] {
+display: none; }`-regel — samme mønster som allerede fantes for `.cookie-banner[hidden]`, bare ikke
+fulgt konsekvent for den nye widgeten. **Ny fallgruve for CLAUDE.md-lista.**
+
+Innsending går til `POST /api/tilbakemelding` — et NYTT minimal-API-endepunkt
+(`Security/TilbakemeldingApi.cs`, samme "IKKE Razor Pages"-begrunnelse som `PaymentWebhooks.cs`:
+ingen antiforgery-cookie å validere mot for en fetch()-basert JSON-POST), helt offentlig (ingen
+`[Authorize]` — skal virke uinnlogget også), leser `ICurrentUserContext` for å auto-fylle
+rolle/bruker-ID når avsenderen faktisk er innlogget.
+
+Ny admin-side `Admin/Tilbakemeldinger` (AdminOmrade-policy, lagt til i BÅDE Program.cs sin
+`AuthorizeAreaFolder`-liste OG `_Layout.cshtml` sin nav — lærdom fra en tidligere kjent fallgruve om
+glemte autorisasjonsmapper er ikke gjentatt her) — faner (gjenbruker `faner.js`) per status, viser
+melding/teknisk info/skjermbilde (kollapsbare `<details>`), statusoppdatering.
+
+**Del 2: agent-API for den daglige rapporten (bygget denne runden, IKKE ennå koblet til en faktisk
+planlagt jobb — se "gjenstår" under):**
+
+Tre nye, delt-nøkkel-beskyttede endepunkter under `/api/agent/*` (samme fil) — `GET
+/api/agent/tilbakemeldinger?siden=` (JSON-digest av ny tilbakemelding siden et tidspunkt, IKKE med
+skjermbilder — for store/kostbare å sende ukritisk), `GET /api/agent/tilbakemelding/{id}/skjermbilde`
+(ett skjermbilde om gangen, om agenten faktisk trenger å se det), `POST /api/agent/rapport` (sender
+den ferdigskrevne rapporten via appens EGEN `IEmailSender` — gjenbruker `AzureEmailSender`, ingen ny
+e-postinfrastruktur). Aktiveres KUN når `Tilbakemelding:AgentNokkel` er satt (samme
+"fraværende = av"-mønster som `StagingGate:AccessKey`/Vipps/Vonage/ACS) — `FixedTimeEquals`-
+sammenligning, samme forsiktighetsnivå som resten av appens delte-nøkkel-mønstre. Lagt til i
+`StagingGate.cs` sin unntaksliste for `/api/agent/*` (beta) — samme begrunnelse som
+betalings-webhookene: agenten har ingen nettleser-cookie å sende. Selve
+`/api/tilbakemelding`-innsendingsendepunktet trenger IKKE unntas, siden det alltid kalles fra en
+side nettleseren allerede har lastet (og dermed allerede har evt. StagingGate-cookie for).
+
+Ny Bicep-parameter `tilbakemeldingAgentNokkel` (`@secure()`, samme mønster som
+`stagingGateAccessKey` — direkte appSetting-verdi, ikke en egen Key Vault-hemmelighet, siden dette
+er en app-intern delt nøkkel, ikke et tredjeparts-API-credential) lagt til i `main.bicep`/
+`resources.bicep`/`main.parameters.json`, satt via `azd env set TILBAKEMELDING_AGENT_NOKKEL <verdi>`
+på BEGGE miljøer (samme tilfeldig genererte 40-tegns nøkkel på begge — agenten trenger bare én
+credential å huske). Rapport-mottaker-e-post er IKKE en egen Bicep-parameter — C#-koden faller
+tilbake til `gauteg@gmail.com` (samme adresse som allerede står i footer-markupen, ikke en ny
+eksponering) hvis `Tilbakemelding:RapportMottakerEpost` ikke er satt, så ingen infra-endring var
+nødvendig for å få dette til å virke.
+
+**Verifisert lokalt i nettleser (Playwright) FØR deploy:** standard-plassering nederst til høyre
+uten å henge i hjørnet, rollup-meny med ikon+tekst på begge knapper og "Hjelp" korrekt grået ut,
+skjema åpner med automatisk "Tar skjermbilde …" → forhåndsvisning (widgeten skjuler seg selv under
+selve capture-øyeblikket, så skjermbildet viser SIDEN, ikke widgetens eget panel oppå den),
+innsending lagret korrekt i databasen og synlig i `Admin/Tilbakemeldinger` med riktig fane-telling;
+en simulert JS-feil (`throw` i en `setTimeout`) fanget automatisk og vist som advarsel FØR
+innsending, og landet korrekt merket "Teknisk feil fanget automatisk" med rød kant i admin-visningen
+og en egen krasjrapport-varselboks øverst på siden; minimer/gjenåpne verifisert. Build + alle 74
+tester grønne (ingen nye enhetstester denne runden — funksjonaliteten er UI/HTTP-tung, dekket av
+Playwright-verifiseringen i stedet, samme avveining som tidligere rene UI-fikser i natt-økten).
+
+**Reell deploy-fallgruve truffet på LIVE (ikke beta) under denne rundens utrulling:** `azd deploy`
+rapporterte `SUCCESS` og selve app-innstillingen (`Tilbakemelding__AgentNokkel`) var korrekt satt
+via `azd provision`, men den KJØRENDE koden var likevel den GAMLE versjonen — widget-markup
+manglet fullstendig fra utlevert HTML, og agent-API-et ga 404 selv med riktig nøkkel. Dette ER
+akkurat den kjente, allerede dokumenterte fallgruven ("azd deploy kan rapportere SUCCESS uten at
+koden faktisk endret seg") — bekreftet ved at et enkelt `azd deploy` nummer to umiddelbart rettet
+det (widget-markup + fungerende agent-API begge verifisert etterpå). Interessant nok viste IKKE
+denne kjøringen den vanlige "azd observed no App Service deployment status change"-advarselen i
+loggen (den dukket derimot opp på BETA sin første deploy denne runden, som virket å ha lykkes med
+én gang) — advarselen er altså ikke en pålitelig indikator i seg selv; en funksjonell sjekk (som
+agent-API-et sin 404-vs-200) er det som faktisk avdekket problemet her.
+
+**Gjenstår (IKKE gjort ennå, neste steg i denne funksjonen):**
+- Den faktiske daglige planlagte jobben (Claude Code "schedule"-rutine) som kaller
+  `/api/agent/tilbakemeldinger`, skriver en rapport med saker+forslag, og poster den til
+  `/api/agent/rapport`.
+- Krasj-fiks-og-deploy-pipelinen brukeren ba om (fullt autonom til live, brukerens eget valg) —
+  krever en GitHub Actions-arbeidsflyt autentisert med en egen Azure-tjenesteprinsipal (routine-
+  miljøet har IKKE tilgang til brukerens lokale `az`/`azd`-innlogging), siden en ekstern skyagent
+  ikke kan gjenbruke en interaktiv lokal økt. Repoet har allerede en GitHub-remote og en `gh`-CLI
+  med `repo`+`workflow`-scope, men INGEN eksisterende arbeidsflyt ennå. Denne tjenesteprinsipal-
+  opprettelsen er en egen, eksplisitt kommunisert handling (gir en autonom agent reelle
+  deploy-rettigheter på produksjon) — ikke gjort stille som en del av denne rundens arbeid.

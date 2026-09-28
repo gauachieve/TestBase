@@ -1441,3 +1441,159 @@ textarea.kommentarfelt {
   resize: vertical;
   overflow-y: hidden;
 }
+
+/* ---------- Flytende tilbakemeldingsknapp (se _TilbakemeldingWidget.cshtml +
+   js/tilbakemelding-widget.js) ---------- */
+.tbm-mini[hidden], .tbm-meny[hidden], .tbm-panel[hidden] { display: none; }
+
+.tbm-mini {
+  position: fixed;
+  right: 0;
+  bottom: 110px;
+  z-index: 9999;
+  width: 30px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  background: var(--rolle-accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: -2px 2px 10px rgba(20, 22, 31, 0.18);
+}
+
+.tbm-fab-wrap {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 9999;
+}
+
+.tbm-fab {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: none;
+  background: var(--rolle-accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 24px -6px rgba(20, 22, 31, 0.4);
+  touch-action: none;
+}
+.tbm-fab:hover { background: var(--rolle-accent-dark); }
+
+.tbm-skjul {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(20, 22, 31, 0.25);
+  padding: 0;
+}
+
+.tbm-meny {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  min-width: 190px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.tbm-meny-knapp {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.92rem;
+  color: var(--ink);
+  text-align: left;
+}
+.tbm-meny-knapp:hover:not(:disabled) { background: var(--bg-soft); }
+.tbm-meny-knapp:disabled { color: var(--muted); cursor: not-allowed; opacity: 0.55; }
+
+.tbm-panel {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 10000;
+  width: min(380px, calc(100vw - 2rem));
+  max-height: min(580px, calc(100vh - 2rem));
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem;
+}
+.tbm-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.7rem; }
+.tbm-panel-lukk { background: none; border: none; font-size: 1.1rem; cursor: pointer; color: var(--muted); line-height: 1; }
+
+#tbm-skjema label { display: block; font-weight: 600; margin-bottom: 0.3rem; font-size: 0.88rem; }
+#tbm-melding {
+  width: 100%;
+  resize: vertical;
+  min-height: 5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+  font-family: inherit;
+  font-size: 0.92rem;
+}
+
+.tbm-feil-varsel {
+  color: var(--fare-dark);
+  background: var(--fare-lys);
+  padding: 0.5rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  margin: 0.6rem 0;
+}
+
+.tbm-skjermbilde-status { font-size: 0.8rem; color: var(--muted); margin: 0.6rem 0; }
+#tbm-skjermbilde-forhandsvisning {
+  display: block;
+  max-width: 100%;
+  max-height: 90px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-top: 0.4rem;
+}
+
+.tbm-teknisk-detaljer { font-size: 0.78rem; color: var(--muted); margin: 0.5rem 0; }
+.tbm-teknisk-detaljer summary { cursor: pointer; }
+
+#tbm-send { width: 100%; margin-top: 0.5rem; }
+.tbm-kvittering { color: var(--success-dark); font-weight: 600; margin-top: 0.5rem; text-align: center; }
+.tbm-feilmelding { color: var(--fare-dark); font-weight: 600; margin-top: 0.5rem; text-align: center; }
+
+@media (max-width: 420px) {
+  .tbm-fab { width: 54px; height: 54px; }
+  .tbm-fab-wrap { right: 16px; bottom: 16px; }
+  .tbm-panel { right: 16px; bottom: 16px; left: 16px; width: auto; }
+}

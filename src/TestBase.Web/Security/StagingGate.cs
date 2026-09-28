@@ -64,6 +64,14 @@ public static class StagingGate
         PaymentWebhooks.StripeWebhookSti
     ];
 
+    // Den daglige tilbakemeldings-rapport-agenten (se TilbakemeldingApi.cs) kjører som en
+    // planlagt, ekstern jobb UTEN noen nettleser-cookie å sende — samme resonnement som
+    // betalings-webhookene over. Den reelle sikkerheten er den delte AgentNokkel-headeren
+    // inni selve handleren, ikke StagingGate. Selve widget-innsendingen (/api/tilbakemelding)
+    // trenger IKKE stå her — den kalles via fetch() fra en side nettleseren allerede har
+    // lastet (og dermed allerede har StagingGate-cookien for, om noen).
+    private static readonly string[] AgentApiStier = [TilbakemeldingApi.AgentDigestSti, TilbakemeldingApi.AgentSkjermbildeSti, TilbakemeldingApi.AgentRapportSti];
+
     public static void UseStagingGate(this WebApplication app)
     {
         var tilgangsnokkel = app.Configuration["StagingGate:AccessKey"];
@@ -95,6 +103,7 @@ public static class StagingGate
         {
             if (BankIdCallbackStier.Any(sti => context.Request.Path.StartsWithSegments(sti)) ||
                 BetalingsWebhookStier.Any(sti => context.Request.Path.StartsWithSegments(sti)) ||
+                AgentApiStier.Any(sti => context.Request.Path.StartsWithSegments(sti)) ||
                 OffentligeSelvregistreringsStier.Any(sti => context.Request.Path.StartsWithSegments(sti)) ||
                 HarGyldigCookie(context, beskytter) ||
                 (basicAuthAktiv && HarGyldigBasicAuth(context, basicAuthBrukernavn!, basicAuthPassord!)))
