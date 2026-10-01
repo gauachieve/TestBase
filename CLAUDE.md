@@ -483,6 +483,20 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   gjenstår. Verifisert lokalt i nettleser FØR deploy (inkl. en reell CSS-spesifisitets-fallgruve
   funnet og fikset, se fallgruve-listen), deployet til begge miljøer (traff underveis den kjente
   `azd deploy`-stale-kode-fallgruven på LIVE, løst med en ny `azd deploy`).
+- **Tilbakemeldingsverktøy — del 3: daglig rutine + fullt autonom CI/CD-pipeline FERDIG
+  (2026-10-01/02):** en ekte, varig Claude Code "routine" (`trig_01WnY5ug8qJegu3DbTub5hC4`, 05:00
+  UTC daglig) henter tilbakemeldinger+åpne krasjrapporter, e-poster en norsk rapport, og åpner en
+  PR (ALDRI push til master) for krasjrapporter den er trygg nok på å fikse selv. En ny GitHub
+  Actions-arbeidsflyt (`.github/workflows/deploy.yml`, Azure-tjenesteprinsipal med OIDC-føderasjon,
+  Contributor KUN på de to resource groupene) bygger+tester+deployer til beta, helsesjekker, og KUN
+  hvis den består, deployer til live — dette er den faktiske "fullt autonomt til live"-mekanismen
+  brukeren valgte, implementert som en deterministisk CI/CD-pipeline (ikke ved å gi selve LLM-
+  agenten stående Azure-legitimasjon). Fem reelle, tidligere usette feil funnet og rettet under
+  verifisering i en ekte kjøring (ikke bare lest i kildekoden) — se docs/beslutningslogg.md
+  "Tilbakemeldingsverktøy, del 3" for alle fem, inkl. en NY fallgruve (MSYS-sti-konvertering
+  rammer også `az`-CLI-en, ikke bare `curl`) lagt til i fallgruve-lista under, og at `azd auth
+  login` IKKE dekker en separat `az`-CLI-innlogging i samme jobb. Verifisert med en fullstendig
+  grønn CI-kjøring PLUSS en uavhengig sjekk utenfor selve pipelinen etterpå.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
@@ -733,6 +747,8 @@ dotnet watch run
 - Et bokstav-tegn UMIDDELBART etterfulgt av `@variabel` uten mellomrom, inni HTML-elementinnhold (f.eks. `<div>Gjennomsnitt@maksSuffiks</div>`), tolkes IKKE pålitelig som en Razor-kodeovergang — renderer bokstavelig `"Gjennomsnitt@maksSuffiks"`, INKLUDERT selve `@`-tegnet, i stedet for å interpolere variabelens verdi. Ingen kompilatorfeil, ingen runtime-feil, bare feil tekst på skjermen (bekreftet via skjermbilde i `Grupper/Aggregert.cshtml`, 2026-09-23, se "Histogrammet byttet fra alltid-prosent til råskår-som-standard" i beslutningsloggen). Et EKSPLISITT uttrykk rett før `@` (`@(uttrykk)@variabel`, parentes-tegn) er IKKE rammet — kun bokstav-rett-før-`@` er det. Løsning: bygg hele strengen som en frittstående C#-variabel FØRST (`var etikett = "Gjennomsnitt" + maksSuffiks;`), og referer den som et frittstående `@etikett`-uttrykk med ingen tilstøtende bokstavtekst.
 - En unqualified CSS-regel som `.mittElement { display: flex }` har SAMME spesifisitet (0,1,0) som nettleserens innebygde `[hidden] { display: none }`-regel — siden forfatter-CSS alltid kommer etter UA-stilarket i kaskaden, VINNER `display:flex` over `[hidden]` uansett rekkefølge i egen fil, så et element med `hidden`-attributtet er likevel SYNLIG hvis noen egen klasse på det unconditionally setter `display`. Ingen konsollfeil, bare et element som vises når det ikke skal (skjedde reelt med `.tbm-meny`/`.tbm-mini` i tilbakemeldingswidgeten, 2026-09-28 — begge synlige samtidig med hovedknappen ved ren sidelasting, før noe klikk). Løsning: en eksplisitt `.mittElement[hidden] { display: none; }`-regel (høyere spesifisitet, 0,2,0) — samme mønster som allerede fantes for `.cookie-banner[hidden]` men ikke fulgt konsekvent for den nye widgeten. Sjekk ALLTID i nettleser (skjermbilde), ikke bare ved å lese CSS-kilden — bugen er usynlig fra koden alene.
 - `azd deploy` sin kjente "rapporterer SUCCESS uten at koden faktisk endret seg"-fallgruve (se lenger opp i denne lista) viser IKKE alltid den forventede "azd observed no App Service deployment status change"-advarselen i loggen — en kjøring uten den advarselen kan likevel ha latt den GAMLE koden bli stående (skjedde reelt på LIVE 2026-09-28, mens BETA sin kjøring SAMME dag viste advarselen men faktisk hadde lykkes). Advarselen er altså ikke en pålitelig indikator i seg selv. Stol i stedet på en FUNKSJONELL sjekk av noe som kun finnes i den nye koden (f.eks. et nytt API-endepunkt som skal returnere 200, ikke 404) — ikke bare fravær/nærvær av advarselen, og ikke bare en generisk helse-sjekk som fortsatt ville returnert 200 fra den gamle koden.
+- Git Bash (MSYS) sin kjente automatisk-konverter-en-innledende-skråstrek-til-en-Windows-sti-fallgruve (dokumentert lenger opp for `curl`) rammer OGSÅ `az`-CLI-en — `az role assignment create --scope "/subscriptions/..."` ga en kryptisk `MissingSubscription`-feil fra Azure sin REST-API i stedet for noe som pekte mot MSYS. `--debug` avslørte at den faktiske forespørselen gikk til `https://management.azure.com/C:/Program Files/Git/subscriptions/...` — altså at `/subscriptions/...`-argumentet ble konvertert til en Windows-sti FØR `az` i det hele tatt så det (2026-10-01/02, se docs/beslutningslogg.md "Tilbakemeldingsverktøy, del 3"). Samme løsning som for `curl`: prefiks med `MSYS_NO_PATHCONV=1`. Gjelder trolig ethvert kommandolinjeverktøy som mottar et argument med innledende `/`, ikke bare disse to.
+- `azd auth login` autentiserer KUN `azd` selv — en separat `az`-CLI-kommando i SAMME jobb/skript (f.eks. i en GitHub Actions-steg) har en HELT ANNEN credential-store og er fortsatt helt uinnlogget, selv rett etter en vellykket `azd auth login`. Et `az`-kall feiler da stille med en autentiseringsfeil som lett tolkes som noe annet hvis stderr undertrykkes (skjedde reelt i `.github/workflows/deploy.yml` sin helsesjekk, som brukte `az webapp show` etter kun `azd auth login` — løst med en egen `azure/login@v2`-innlogging for `az`-CLI-en ved siden av). Trenger man BEGGE verktøyene i samme jobb, må begge logges inn eksplisitt og separat, selv med samme OIDC-legitimasjon.
 
 ## Hvordan jobbe videre
 

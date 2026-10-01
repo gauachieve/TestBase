@@ -6048,14 +6048,86 @@ loggen (den dukket derimot opp på BETA sin første deploy denne runden, som vir
 én gang) — advarselen er altså ikke en pålitelig indikator i seg selv; en funksjonell sjekk (som
 agent-API-et sin 404-vs-200) er det som faktisk avdekket problemet her.
 
-**Gjenstår (IKKE gjort ennå, neste steg i denne funksjonen):**
-- Den faktiske daglige planlagte jobben (Claude Code "schedule"-rutine) som kaller
-  `/api/agent/tilbakemeldinger`, skriver en rapport med saker+forslag, og poster den til
-  `/api/agent/rapport`.
-- Krasj-fiks-og-deploy-pipelinen brukeren ba om (fullt autonom til live, brukerens eget valg) —
-  krever en GitHub Actions-arbeidsflyt autentisert med en egen Azure-tjenesteprinsipal (routine-
-  miljøet har IKKE tilgang til brukerens lokale `az`/`azd`-innlogging), siden en ekstern skyagent
-  ikke kan gjenbruke en interaktiv lokal økt. Repoet har allerede en GitHub-remote og en `gh`-CLI
-  med `repo`+`workflow`-scope, men INGEN eksisterende arbeidsflyt ennå. Denne tjenesteprinsipal-
-  opprettelsen er en egen, eksplisitt kommunisert handling (gir en autonom agent reelle
-  deploy-rettigheter på produksjon) — ikke gjort stille som en del av denne rundens arbeid.
+**Del 3: den daglige rutinen + den fullt autonome deploy-pipelinen, begge nå FERDIG og
+verifisert ende-til-ende (2026-10-01/02, samme dag som del 1/2 over):**
+
+Daglig Claude Code "routine" (IKKE en session-only CronCreate-jobb som tidligere natt-økter i
+dette prosjektet — en ekte, varig skyplanlagt agent): `trig_01WnY5ug8qJegu3DbTub5hC4`, kjører
+05:00 UTC (07:00 Oslo-tid i sommertid — OBS: glir til 06:00 Oslo etter vintertid-overgangen 25.
+oktober siden cron er UTC-fast, må evt. justeres med `RemoteTrigger action: update` da). Henter
+`/api/agent/tilbakemeldinger` (siste døgn) OG `/api/agent/krasjrapporter` (ALLE ubehandlede,
+uansett alder — lagt til nettopp for at rutinen ikke skal miste en sak hvis en kjøring feiler),
+undersøker krasjrapporter mot CLAUDE.md sine kjente fallgruver, skriver en norsk HTML-e-postrapport
+sendt via `/api/agent/rapport` (som bruker appens EGEN `IEmailSender`), og for krasjrapporter den
+er trygg nok på: lager en EGEN BRANCH (`agent/fix-tilbakemelding-{id}`) + åpner en PR — bevisst
+IKKE direkte push til `master` i denne første versjonen av prompten (se hvorfor under).
+
+**Brukerens eksplisitte valg fra forrige runde var "fullt autonomt til live"** — det er nå reelt
+bygget, men via en SEPARAT GitHub Actions-pipeline (`.github/workflows/deploy.yml`), ikke ved at
+selve rutinen får Azure-legitimasjon direkte. Årsak: en skybasert rutine kan ikke gjenbruke
+brukerens lokale `az`/`azd`-innlogging, og å gi en LLM-agent stående Azure-produksjonslegitimasjon
+direkte er en annen risikoklasse enn å la den pushe kode til en branch som en DETERMINISTISK,
+ikke-LLM-styrt CI/CD-pipeline så bygger+tester+deployer. Rutinens prompt sier derfor eksplisitt:
+aldri push til master, aldri kjør azd, aldri rør Azure — kun branch+PR. Når/hvis brukeren vil
+lukke sløyfen helt (rutinen pusher rett til master), er det en bevisst fremtidig endring av
+PROMPTEN, ikke noe som skjedde stille nå.
+
+**`.github/workflows/deploy.yml`:** push til `master` → bygg+test → deploy beta → helsesjekk →
+KUN hvis den består, deploy live → helsesjekk. Ingen `azd provision` noe sted (kun `azd deploy` —
+infrastrukturendringer forblir en manuell handling). Autentisert med en ny Azure-tjenesteprinsipal
+("TestBase-GitHubActions-Deploy", appId `c6d96201-93f1-447d-bb68-f63763ffaa5c`) via OIDC-føderasjon
+(ingen lagret hemmelighet/client secret) — Contributor-rolle KUN på `rg-testbase-beta` og
+`rg-testbase-test`, ikke hele abonnementet.
+
+**Fire reelle, uforutsette feil ble funnet og rettet under selve verifiseringen i nettleser/CI
+(ingen av disse var synlige før en faktisk kjøring):**
+1. CI-jobben manglet en MySQL-tjenestecontainer — `TestBaseWebApplicationFactory` kobler til en
+   ekte database (samme mønster som lokal dev via docker-compose), og ALLE integrasjonstester
+   feilet umiddelbart med "Unable to connect to any of the specified MySQL hosts" FØR noe deploy
+   i det hele tatt ble forsøkt. Fikset med en `services: mysql:` i `build-og-test`-jobben, samme
+   image/root-passord som `docker-compose.yml`.
+2. Den faktiske OIDC-subjectstrengen GitHub presenterer for DENNE organisasjonskontoen er
+   `repo:gauachieve@116502827/TestBase@1344243141:ref:refs/heads/master` — MED eier-ID og repo-ID
+   innbakt, IKKE den enklere `repo:gauachieve/TestBase:ref:refs/heads/master` fra standard-
+   dokumentasjonen. Den opprinnelige federated credentialen matchet derfor aldri, og
+   `azd auth login` feilet med `AADSTS700213`. Rettet ved å observere den faktiske feilmeldingens
+   presenterte subject og oppdatere federated credentialen til å matche eksakt.
+3. **MSYS/Git Bash-sti-konverteringsfallgruven (allerede kjent fra `curl`, se CLAUDE.md) rammer
+   også `az`-CLI-en**: `az role assignment create --scope "/subscriptions/...` ga en kryptisk
+   `MissingSubscription`-feil fra Azure sin REST-API — `--debug` avslørte at den faktiske
+   forespørselen gikk til `https://management.azure.com/C:/Program Files/Git/subscriptions/...`,
+   altså at MSYS konverterte `/subscriptions/...`-argumentet til en Windows-sti FØR `az` noensinne
+   så det. Løst med samme `MSYS_NO_PATHCONV=1`-prefiks som allerede er dokumentert for `curl`.
+4. Begge App Services hadde en EKSISTERENDE, tydelig bevisst IP-restriksjon på SCM(Kudu)/deploy-
+   endepunktet (kun eierens egen IP tillatt — live sin regel het reflektert nok
+   `"AllowGauteOnlyScm"`), satt opp FØR denne økten, utenfor noe Claude Code har gjort. Dette
+   blokkerte `azd deploy` sitt zip-opplastingskall med `403 Ip Forbidden` UANSETT hvor godt
+   autentisert kallet var (nettverksnivå-restriksjon, ikke identitetssjekk). Siden navnet så
+   bevisst ut, ble IKKE dette fjernet stille — brukeren ble eksplisitt spurt, og valgte å åpne
+   KUN SCM-restriksjonen (ikke selve hovedsiden) og stole på den allerede skalerte-ned
+   tjenesteprinsipalens RBAC-tilgang som reell sikkerhetsgrense i stedet. Betas HOVEDSIDE forble
+   urørt (fortsatt kun eierens IP) — det betyr at CI sin helsesjekk for beta IKKE kan bruke en
+   offentlig `curl` (ville fått Azures egen 403, ikke appens StagingGate-401) og i stedet sjekker
+   `az webapp show --query state` — som i sin tur avdekket en FEMTE, mindre feil: `azd auth login`
+   autentiserer KUN `azd` selv, ikke den separate `az`-CLI-en brukt i denne helsesjekken, som
+   trengte sin egen `azure/login@v2`-innlogging.
+
+**Underveis ble også en konkret brukerfeil fanget og rettet pragmatisk**: brukeren kjørte det
+first gitte kommandosettet med bokstavelig `<APP_ID>` i stedet for den faktiske app-ID-en fra
+`az ad app create` sin output — alt etter `az ad sp create` feilet dermed stille/synlig som
+brukerens innrapporterte feil. Diagnostisert ved å lese faktisk Azure-tilstand direkte
+(`az ad app list`/`az ad sp show`/`az role assignment list`/`az ad app federated-credential list`)
+i stedet for å gjette, fullført med riktig app-ID, og GitHub-hemmelighetene satt på nytt for
+sikkerhets skyld (kan ikke lese tilbake en allerede satt hemmelighets VERDI for å bekrefte den var
+riktig — tryggest å bare sette den på nytt).
+
+**Verifisert ende-til-ende**: en fullstendig grønn CI-kjøring (bygg+test → deploy beta → helsesjekk
+→ deploy live → helsesjekk), etterfulgt av en uavhengig kontroll utenfor selve pipelinen
+(`curl .../health` → 200, `curl .../api/agent/tilbakemeldinger` med nøkkel → 200) for å bekrefte at
+live faktisk kjører ny kode, ikke bare at CI selv rapporterte suksess.
+
+**Gjenstår (bevisst, ikke en glipp):**
+- Rutinen pusher i dag til en branch+PR for krasjrapporter, ALDRI direkte til `master` — selve
+  "lukk sløyfen helt"-steget (fullt autonomt UTEN en PR-godkjenning) er en bevisst utsatt,
+  fremtidig promptendring, ikke bygget stille nå.
+- DST-glidningen i cron-tidspunktet (nevnt over) er ikke håndtert automatisk.
