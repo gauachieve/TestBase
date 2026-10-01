@@ -61,15 +61,15 @@ jobs:
       - name: Opprett lokal miljøreferanse til eksisterende beta-ressurser
         run: azd env new testbase-beta --subscription "$AZURE_SUBSCRIPTION_ID" --location "$AZURE_LOCATION"
       - run: azd deploy
-      - name: Helsesjekk beta (StagingGate gjør at roten svarer 401, ikke 200, når appen faktisk kjører)
+      - name: Helsesjekk beta (via Azure, IKKE curl mot offentlig URL — betas HOVEDSIDE er bevisst IP-låst til kun eierens egen maskin, kun SCM ble åpnet for denne pipelinen)
         run: |
           for i in 1 2 3 4 5 6; do
-            kode=$(curl -s -o /dev/null -w "%{http_code}" "https://beta.psytest.no/" || echo "000")
-            if [ "$kode" = "401" ]; then echo "Beta svarer (StagingGate, $kode) — anses friskt."; exit 0; fi
-            echo "Forsøk $i: fikk $kode, prøver igjen om 15s …"
+            tilstand=$(az webapp show --name app-testbase-uonprpnwr4eum --resource-group rg-testbase-beta --query "state" -o tsv 2>/dev/null || echo "Ukjent")
+            if [ "$tilstand" = "Running" ]; then echo "Beta kjører (state=$tilstand) — anses friskt."; exit 0; fi
+            echo "Forsøk $i: state=$tilstand, prøver igjen om 15s …"
             sleep 15
           done
-          echo "Beta svarte ikke som forventet etter deploy — stopper FØR live."
+          echo "Beta kom ikke i Running-tilstand etter deploy — stopper FØR live."
           exit 1
 
   deploy-live:
