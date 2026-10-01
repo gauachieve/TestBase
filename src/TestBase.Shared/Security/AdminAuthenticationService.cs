@@ -58,6 +58,24 @@ public sealed class AdminAuthenticationService
         return administratorer.FirstOrDefault(a => a.Personnummer == personnummer);
     }
 
+    /// <summary>
+    /// BankIdSubjekt er IKKE kryptert (se Administrator.BankIdSubjekt) — trygt å
+    /// slå opp direkte i SQL, i motsetning til FinnVedPersonnummerAsync over.
+    /// </summary>
+    public Task<Administrator?> FinnVedBankIdSubjektAsync(string bankIdSubjekt, CancellationToken cancellationToken = default) =>
+        _db.Administratorer.FirstOrDefaultAsync(a => !a.ErArkivert && a.BankIdSubjekt == bankIdSubjekt, cancellationToken);
+
+    /// <summary>Se Pages/Konto/BankIdKobleKonto — kalles ÉN gang per konto, første gang en ekte BankID-identitet kobles til.</summary>
+    public async Task KoblBankIdSubjektAsync(long administratorId, string bankIdSubjekt, CancellationToken cancellationToken = default)
+    {
+        var administrator = await _db.Administratorer.FirstOrDefaultAsync(a => a.Id == administratorId, cancellationToken);
+        if (administrator is not null)
+        {
+            administrator.BankIdSubjekt = bankIdSubjekt;
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+    }
+
     public Task<ToFaktorStartResultat> StartToFaktorAsync(Administrator administrator, CancellationToken cancellationToken = default) =>
         _toFaktor.StartAsync(ToFaktorPrincipalType.Administrator, administrator.Id, administrator.MobilNr, cancellationToken);
 

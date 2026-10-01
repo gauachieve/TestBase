@@ -97,6 +97,8 @@ public sealed class AppDbContext : DbContext
             entity.Property(a => a.Personnummer).HasConversion(personnummerConverter).HasMaxLength(500).IsRequired();
             entity.Property(a => a.HprNr).HasMaxLength(32).IsRequired();
             entity.Property(a => a.PasswordHash).HasMaxLength(512);
+            entity.Property(a => a.BankIdSubjekt).HasMaxLength(128);
+            entity.HasIndex(a => a.BankIdSubjekt).IsUnique();
         });
 
         modelBuilder.Entity<Behandler>(entity =>
@@ -115,8 +117,10 @@ public sealed class AppDbContext : DbContext
             entity.Property(b => b.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
             entity.Property(b => b.PaaminnelseKanal).HasConversion<string>().HasMaxLength(16).IsRequired();
             entity.Property(b => b.PasientInviteQrToken).HasMaxLength(64);
+            entity.Property(b => b.BankIdSubjekt).HasMaxLength(128);
             entity.HasIndex(b => b.PartnerId);
             entity.HasIndex(b => b.PasientInviteQrToken).IsUnique();
+            entity.HasIndex(b => b.BankIdSubjekt).IsUnique();
             entity.Ignore(b => b.Visningsnavn);
         });
 

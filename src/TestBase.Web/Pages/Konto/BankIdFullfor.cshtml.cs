@@ -24,7 +24,7 @@ public sealed class BankIdFullforModel : PageModel
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
-        if (TempData["EktBankIdPersonnummer"] is not string personnummer)
+        if (TempData["EktBankIdSubjekt"] is not string bankIdSubjekt)
         {
             TempData["BankIdFeilmelding"] = "Fant ingen BankID-identitet å fortsette med. Prøv å logge inn på nytt.";
             return RedirectToPage("LoggInn");
@@ -33,7 +33,7 @@ public sealed class BankIdFullforModel : PageModel
         var huskMeg = TempData["EktBankIdHuskMeg"] as string == bool.TrueString;
         var returnUrl = TempData["EktBankIdReturnUrl"] as string;
 
-        var resultat = await _profesjonellInnlogging.FullforAsync(personnummer, huskMeg, returnUrl, "Ekte BankID (Idura)", HttpContext, cancellationToken);
+        var resultat = await _profesjonellInnlogging.FullforMedBankIdSubjektAsync(bankIdSubjekt, huskMeg, returnUrl, "Ekte BankID (Idura)", HttpContext, cancellationToken);
         if (resultat.ErFerdig)
         {
             return resultat.FerdigResultat!;
@@ -51,6 +51,14 @@ public sealed class BankIdFullforModel : PageModel
             TempData["ToFaktorReturnUrl"] = resultat.ToFaktorReturnUrl;
             TempData["ToFaktorSmsFeilet"] = resultat.ToFaktorSmsFeilet;
             return RedirectToPage("BekreftKode");
+        }
+
+        if (resultat.TrengerKoblingFlagg)
+        {
+            TempData["KoblBankIdSubjekt"] = resultat.KoblingBankIdSubjekt;
+            TempData["KoblHuskMeg"] = resultat.KoblingHuskMeg.ToString();
+            TempData["KoblReturnUrl"] = resultat.KoblingReturnUrl;
+            return RedirectToPage("BankIdKobleKonto");
         }
 
         TempData["BankIdFeilmelding"] = resultat.Feilmelding;

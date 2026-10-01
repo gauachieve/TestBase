@@ -96,4 +96,7 @@ public sealed class Behandler
     /// automatisk. Kan regenereres (invaliderer forrige QR-kode/lenke).
     /// </summary>
     public string? PasientInviteQrToken { get; set; }
+
+    /// <summary>Se Administrator.BankIdSubjekt — identisk begrunnelse/mønster, samme kobling-flyt.</summary>
+    public string? BankIdSubjekt { get; set; }
 }

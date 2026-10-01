@@ -41,4 +41,19 @@ public sealed class Administrator
     /// </summary>
     public bool ErSlettet { get; set; }
     public DateTimeOffset? SlettetUtc { get; set; }
+
+    /// <summary>
+    /// Ekte BankID (Idura) sin "sub"-claim — IKKE personnummer (se
+    /// docs/beslutningslogg.md "STØ avviste fødselsnummer-bestilling" og
+    /// "Tilbakemeldingsverktøy, del 3"/ekte BankID-aktivering): foretaket er
+    /// kun godkjent for openid+profile, ALDRI nnin/nnin_altsub, så BankID gir
+    /// oss aldri personnummeret tilbake. Null inntil kontoen er koblet én gang
+    /// via Pages/Konto/BankIdKobleKonto (personnummer oppgitt manuelt DER,
+    /// sammenlignet mot <see cref="Personnummer"/> i minnet som vanlig), se
+    /// AdminAuthenticationService.FinnVedBankIdSubjektAsync/KoblBankIdSubjektAsync.
+    /// IKKE kryptert (en ugjennomsiktig, klient-spesifikk Idura-ID er ikke i
+    /// seg selv personopplysninger på samme måte som personnummer) og dermed
+    /// trygt å slå opp direkte i SQL, i motsetning til Personnummer.
+    /// </summary>
+    public string? BankIdSubjekt { get; set; }
 }

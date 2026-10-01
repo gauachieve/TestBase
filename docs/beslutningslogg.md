@@ -6131,3 +6131,73 @@ live faktisk kjører ny kode, ikke bare at CI selv rapporterte suksess.
   "lukk sløyfen helt"-steget (fullt autonomt UTEN en PR-godkjenning) er en bevisst utsatt,
   fremtidig promptendring, ikke bygget stille nå.
 - DST-glidningen i cron-tidspunktet (nevnt over) er ikke håndtert automatisk.
+
+## Ekte BankID for admin/behandler, del 5 — arkitekturendringen bygget, men IKKE aktivert (2026-10-01/02)
+
+Brukeren ble godkjent som Idura/BankID-klient for produksjon, men EKSPLISITT bekreftet (etter
+direkte spørsmål) at godkjenningen er "som en ren klient, ingen personnummer-scope" — altså
+nøyaktig den beslutningen fra "STØ avviste fødselsnummer-bestilling" (åpenid+profile, ALDRI
+nnin/nnin_altsub) som den gangen var besluttet men EKSPLISITT IKKE implementert. Denne runden
+bygget selve arkitekturendringen som gjorde den implementeringen mulig.
+
+**Ny kobling-basert innloggingsmodell** (BankID gir oss aldri personnummeret, kun en stabil, IKKE
+kryptert "sub"-identifikator):
+- Ny `BankIdSubjekt`-kolonne (unik, nullable) på BÅDE `Administrator` og `Behandler` — ny migrasjon.
+- `AdminAuthenticationService`/`BehandlerAuthenticationService` fikk `FinnVedBankIdSubjektAsync`
+  (ekte SQL `WHERE`, siden sub IKKE er kryptert — i motsetning til `FinnVedPersonnummerAsync`) og
+  `KoblBankIdSubjektAsync`.
+- `ProfesjonellInnloggingService` refaktorert: den delte betrodd-enhet/2FA/rolle-logikken trukket ut
+  i to private hjelpemetoder (`FullforForAdministratorAsync`/`FullforForBehandlerAsync`), gjenbrukt
+  av TRE offentlige inngangspunkter nå — `FullforAsync(personnummer)` (uendret, kun mock-BankID-
+  veien), NY `FullforMedBankIdSubjektAsync(sub)` (prøver sub-oppslag først, returnerer en NY
+  `TrengerKobling`-resultattype hvis ukjent), og NY `KoblOgFullforAsync(sub, personnummer)` (matcher
+  via det OPPGITTE personnummeret akkurat som før, kobler sub-en PERMANENT til kontoen, fullfører
+  deretter identisk).
+- NY side `Pages/Konto/BankIdKobleKonto` — vises AUTOMATISK første gang en ekte BankID-sub ikke
+  gjenkjennes: ber om personnummeret brukeren allerede er registrert med (ÉN gang per konto), matcher
+  i minnet (samme krypterte sammenligning som alltid), kobler, fortsetter til vanlig 2FA/innlogging.
+  Verdiene (sub/huskMeg/returnUrl) bæres via skjulte skjemafelt, IKKE TempData på tvers av GET/POST
+  (TempData overlever ikke pålitelig mer enn én lesing, se kjent fallgruve).
+- `Program.cs` sitt `BankIdInnlogging`-OIDC-schema: scope endret fra `openid+ssn` til `openid+profile`
+  — `OnTokenValidated` leser nå `sub` (med en `ClaimTypes.NameIdentifier`-fallback, siden
+  `JwtSecurityTokenHandler` sin DEFAULT inbound-claim-mapping kan omdøpe akkurat "sub", i motsetning
+  til "ssn" som ikke var i mappingtabellen — ny fallgruve, se under).
+- 5 nye regresjonstester (`BankIdKoblingTests.cs`, 79 totalt) — dekker sub-oppslag før/etter kobling
+  for begge roller, `TrengerKobling` for ukjent sub, og `KoblOgFullforAsync` sin vellykkede/mislykkede
+  personnummer-match. Konstruert en EGEN frittstående `DefaultHttpContext` (ikke en full HTTP-
+  rundtur) for å teste `ProfesjonellInnloggingService` direkte — enklere enn å simulere en hel
+  OIDC-utveksling, og dekker den nye logikken som faktisk er ny her.
+
+**REELT, UAVKLART FUNN under verifisering mot Idura sin EGEN TEST-sandkasse (ikke ekte BankID,
+"DEMO"-merket Idura Test-miljø — trygt, ingen ekte identitetsbekreftelse involvert):** selve
+autorisasjons-URL-en nettleseren ble sendt til viste `scope=openid+profile+sub_nnin+sub_bankid` —
+IKKE bare `openid+profile` som koden ber om. Idura/BankID sin faktiske oppstrøms-forespørsel
+inkluderer altså `sub_nnin`/`sub_bankid` UANSETT hva klienten (vår kode) spør om i sin egen
+`scope`-parameter — dette er nesten helt sikkert en konfigurasjon på IDURA-ANVENDELSE-nivå (i deres
+eget dashbord/klientoppsett for akkurat denne test-klienten, `urn:my:application:identifier:465078`),
+ikke noe `options.Scope.Add(...)` i vår kode kan styre. **Dette er testTENANTEN, ikke
+produksjonstenanten (`urn:my:application:identifier:8821`)** — ukjent om samme utvidelse skjer der,
+og dette er nøyaktig det brukeren MÅ avklare (enten ved å se selve den faktiske produksjons-
+autorisasjons-URL-en ved første ekte forsøk, eller direkte med Idura/Stø) FØR
+`Miljo:EktBankIdProfesjonell` skrus på for live — ellers er hele poenget med denne runden sin
+arkitekturendring (aldri be om personnummeret) illusorisk hvis broker-nivået sender det uansett.
+Kunne ikke fullføre en ende-til-ende-verifisering i selve Idura-sandkassen: feltet avviste BÅDE
+prosjektets egne faste mock-personnummer OG et egenhendig beregnet, kontrollsiffer-GYLDIG norsk
+fødselsnummer som "Invalid Identity Number" — Idura sin testsandkasse ser ut til å kreve et
+spesifikt, FORHÅNDSREGISTRERT testidentitetsnummer (ikke dokumentert noe sted i dette prosjektet
+fra før), ikke en hvilken som helst gyldig konstruert en. Uavklart, ikke forsøkt videre.
+
+**Ny fallgruve for CLAUDE.md-lista:** `JwtSecurityTokenHandler` sin DEFAULT inbound-claim-mapping
+(`MapInboundClaims=true`) omdøper standard OIDC-claimet "sub" til `ClaimTypes.NameIdentifier` FØR
+koden ser `ClaimsPrincipal`-en — i motsetning til et ikke-standard claim-navn som "ssn", som forblir
+bokstavelig. Kode som leser "sub" direkte via `FindFirst("sub")` kan derfor få `null` selv om claimet
+faktisk kom tilbake. Løst defensivt (prøv begge navn), IKKE bekreftet med en reell suksessfull
+innlogging ennå (se funnet over).
+
+**STATUS: bygget, testet (enhetsnivå), deployet som KODE til begge miljøer, men `Miljo:
+EktBankIdProfesjonell` er FORTSATT `"false"` på live** — IKKE skrudd på. Skal IKKE skrus på før
+scope-spørsmålet over er avklart, siden konsekvensen av å ta feil er at ekte BankID-innlogging for
+administrator/behandler enten feiler helt (hvis Idura avviser den reduserte scope-forespørselen for
+produksjonsklienten) eller at hele "ingen personnummer"-poenget er meningsløst (hvis Idura sender
+det uansett, i hvilket tilfelle koblingssiden aldri trengs og personnummeret kunne vært lest direkte
+som før STØ-avvisningen).

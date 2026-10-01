@@ -42,6 +42,21 @@ public sealed class BehandlerAuthenticationService
         return behandlere.FirstOrDefault(b => b.Personnummer == personnummer);
     }
 
+    /// <summary>Se AdminAuthenticationService.FinnVedBankIdSubjektAsync — identisk begrunnelse/mønster.</summary>
+    public Task<Behandler?> FinnVedBankIdSubjektAsync(string bankIdSubjekt, CancellationToken cancellationToken = default) =>
+        _db.Behandlere.FirstOrDefaultAsync(b => b.Status != BehandlerStatus.Arkivert && b.BankIdSubjekt == bankIdSubjekt, cancellationToken);
+
+    /// <summary>Se Pages/Konto/BankIdKobleKonto — kalles ÉN gang per konto, første gang en ekte BankID-identitet kobles til.</summary>
+    public async Task KoblBankIdSubjektAsync(long behandlerId, string bankIdSubjekt, CancellationToken cancellationToken = default)
+    {
+        var behandler = await _db.Behandlere.FirstOrDefaultAsync(b => b.Id == behandlerId, cancellationToken);
+        if (behandler is not null)
+        {
+            behandler.BankIdSubjekt = bankIdSubjekt;
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+    }
+
     public Task<ToFaktorStartResultat> StartToFaktorAsync(Behandler behandler, CancellationToken cancellationToken = default) =>
         _toFaktor.StartAsync(ToFaktorPrincipalType.Behandler, behandler.Id, behandler.MobilNr, cancellationToken);
 

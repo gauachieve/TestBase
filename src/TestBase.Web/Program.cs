@@ -334,9 +334,15 @@ if (ektBankIdProfesjonellAktiv && !string.IsNullOrWhiteSpace(iduraAuthorityInnlo
         options.ResponseMode = "form_post";
         options.CallbackPath = "/signin-bankid-innlogging";
         options.SaveTokens = false;
+        // BEVISST KUN openid+profile, ALDRI ssn/nnin/nnin_altsub — se docs/beslutningslogg.md
+        // "STØ avviste fødselsnummer-bestilling" og "Tilbakemeldingsverktøy, del 3": foretaket er
+        // godkjent som ren OIDC-klient, IKKE for utlevering av fødselsnummer. BankID gir oss derfor
+        // aldri personnummeret — kun en stabil "sub"-identifikator, matchet via
+        // ProfesjonellInnloggingService.FullforMedBankIdSubjektAsync (kobles til en konto én gang
+        // via Pages/Konto/BankIdKobleKonto, aldri personnummer-oppslag igjen etter det).
         options.Scope.Clear();
         options.Scope.Add("openid");
-        options.Scope.Add("ssn");
+        options.Scope.Add("profile");
 
         // Samme begrunnelse som "BankIdTest"-schemaet over — form_post er en cross-site POST.
         options.CorrelationCookie.SameSite = SameSiteMode.None;
@@ -353,28 +359,30 @@ if (ektBankIdProfesjonellAktiv && !string.IsNullOrWhiteSpace(iduraAuthorityInnlo
             },
             OnTokenValidated = ctx =>
             {
-                // Nøyaktig HVILKEN claim som bærer personnummeret er ikke bekreftet ennå (krever
-                // en reell interaktiv Idura-innlogging å observere, se beslutningsloggen) — prøver
-                // "ssn" (samme navn som scopet vi ber om) først, faller ellers tilbake til en
-                // generisk "11 siffer"-heuristikk (norske fødselsnummer er alltid 11 siffer) blant
-                // ALLE claims som faktisk kom tilbake, i stedet for å anta feil og bare feile.
-                var personnummer = ctx.Principal?.FindFirst("ssn")?.Value
-                    ?? ctx.Principal?.Claims.FirstOrDefault(c => c.Value.Length == 11 && c.Value.All(char.IsDigit))?.Value;
+                // "sub" er obligatorisk i enhver OIDC id_token, men JwtSecurityTokenHandler sin
+                // DEFAULT inbound-claim-mapping (MapInboundClaims=true, aktiv med mindre eksplisitt
+                // skrudd av — se CLAUDE.md) omdøper "sub" til ClaimTypes.NameIdentifier FØR koden
+                // her i det hele tatt ser Principal — i motsetning til "ssn" tidligere, som IKKE var
+                // i den innebygde mappingtabellen og derfor forble bokstavelig. Prøver derfor begge
+                // navn, ikke bare ett, siden ingen av oss har bekreftet eksakt hvilket som faktisk
+                // dukker opp for Idura (krever en reell interaktiv innlogging, se beslutningsloggen).
+                var bankIdSubjekt = ctx.Principal?.FindFirst("sub")?.Value
+                    ?? ctx.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
                 var tempData = ctx.HttpContext.RequestServices
                     .GetRequiredService<ITempDataDictionaryFactory>()
                     .GetTempData(ctx.HttpContext);
 
-                if (personnummer is null)
+                if (bankIdSubjekt is null)
                 {
                     var claimsTekst = string.Join('\n', ctx.Principal?.Claims.Select(c => $"{c.Type}: {c.Value}") ?? []);
-                    tempData["BankIdFeilmelding"] = "Fant ikke personnummer i BankID-svaret. Rå claims (kun synlig for feilsøking): " + claimsTekst;
+                    tempData["BankIdFeilmelding"] = "Fant ikke en 'sub'-identitet i BankID-svaret. Rå claims (kun synlig for feilsøking): " + claimsTekst;
                     ctx.HandleResponse();
                     ctx.Response.Redirect("/Konto/LoggInn");
                     return Task.CompletedTask;
                 }
 
-                tempData["EktBankIdPersonnummer"] = personnummer;
+                tempData["EktBankIdSubjekt"] = bankIdSubjekt;
                 tempData["EktBankIdHuskMeg"] = ctx.Properties is not null && ctx.Properties.Items.TryGetValue("huskMeg", out var huskMegVerdi) ? huskMegVerdi : null;
                 tempData["EktBankIdReturnUrl"] = ctx.Properties is not null && ctx.Properties.Items.TryGetValue("returnUrl", out var returnUrlVerdi) ? returnUrlVerdi : null;
                 tempData.Save();

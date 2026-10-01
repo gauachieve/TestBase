@@ -39,58 +39,125 @@ public sealed class ProfesjonellInnloggingService
         var administrator = await _adminAuth.FinnVedPersonnummerAsync(personnummer, cancellationToken);
         if (administrator is not null)
         {
-            var administratorRolle = administrator.ErSuperadmin ? UserRole.Superadmin : UserRole.Administrator;
-            if (BetroddEnhet.ErBetrodd(httpContext, ToFaktorPrincipalType.Administrator, administrator.Id))
-            {
-                await AuthSignIn.LoggInnAsync(httpContext, "administrator", administrator.Id, administrator.FulltNavn, administratorRolle, huskMeg);
-                await _auditLogger.LogAsync(
-                    administrator.AdminId, administratorRolle.ToString(), "InnloggingOk",
-                    nameof(Administrator), administrator.Id.ToString(), $"{auditlogKilde} (betrodd enhet — 2FA hoppet over)", cancellationToken);
-                return ProfesjonellInnloggingResultat.FerdigInnlogget(MaalEtterInnlogging(returnUrl, "Admin", "/Administratorer/Index"));
-            }
-
-            var toFaktorResultat = await _adminAuth.StartToFaktorAsync(administrator, cancellationToken);
-            return ProfesjonellInnloggingResultat.TrengerToFaktor(
-                administratorRolle, administrator.Id, huskMeg, returnUrl,
-                Miljo.TillatUtviklingsSnarveier(_configuration) ? toFaktorResultat.Kode : null, !toFaktorResultat.SendtSms);
+            return await FullforForAdministratorAsync(administrator, huskMeg, returnUrl, auditlogKilde, httpContext, cancellationToken);
         }
 
         var behandler = await _behandlerAuth.FinnVedPersonnummerAsync(personnummer, cancellationToken);
         if (behandler is not null)
         {
-            switch (behandler.Status)
-            {
-                case BehandlerStatus.Invitert:
-                    return ProfesjonellInnloggingResultat.Feil("Du har ikke fullført registreringen ennå. Bruk invitasjonslenken du mottok på SMS/e-post.");
-                case BehandlerStatus.Fryst:
-                    return ProfesjonellInnloggingResultat.Feil("Kontoen din er fryst. Kontakt administrator.");
-                case BehandlerStatus.Arkivert:
-                    return ProfesjonellInnloggingResultat.Feil("Kontoen din er arkivert.");
-            }
-
-            if (BetroddEnhet.ErBetrodd(httpContext, ToFaktorPrincipalType.Behandler, behandler.Id))
-            {
-                await AuthSignIn.LoggInnAsync(
-                    httpContext, "behandler", behandler.Id, behandler.Visningsnavn ?? "Behandler", UserRole.Behandler, huskMeg,
-                    behandler.PartnerId, behandler.ErPartnerAdministrator);
-                await _auditLogger.LogAsync(
-                    $"behandler:{behandler.Id}", nameof(UserRole.Behandler), "InnloggingOk",
-                    nameof(Behandler), behandler.Id.ToString(), $"{auditlogKilde} (betrodd enhet — 2FA hoppet over)", cancellationToken);
-
-                if (behandler.BrukeravtaleGodkjentVersjon != Brukeravtale.GjeldendeVersjon)
-                {
-                    return ProfesjonellInnloggingResultat.FerdigInnlogget(new RedirectToPageResult("/Konto/GodkjennAvtale", routeValues: new { area = "Behandlerportal" }));
-                }
-                return ProfesjonellInnloggingResultat.FerdigInnlogget(MaalEtterInnlogging(returnUrl, "Behandlerportal", "/Pasienter/Index"));
-            }
-
-            var toFaktorResultat = await _behandlerAuth.StartToFaktorAsync(behandler, cancellationToken);
-            return ProfesjonellInnloggingResultat.TrengerToFaktor(
-                UserRole.Behandler, behandler.Id, huskMeg, returnUrl,
-                Miljo.TillatUtviklingsSnarveier(_configuration) ? toFaktorResultat.Kode : null, !toFaktorResultat.SendtSms);
+            return await FullforForBehandlerAsync(behandler, huskMeg, returnUrl, auditlogKilde, httpContext, cancellationToken);
         }
 
         return ProfesjonellInnloggingResultat.Feil("Fant ingen administrator- eller behandlerkonto for denne BankID-personen.");
+    }
+
+    /// <summary>
+    /// Ekte BankID (Idura) sin vei, etter STØ-avvisningen av fødselsnummer-scope
+    /// (se docs/beslutningslogg.md "STØ avviste fødselsnummer-bestilling" og
+    /// "Tilbakemeldingsverktøy, del 3"): BankID gir oss ALDRI personnummeret,
+    /// kun en stabil, ugjennomsiktig "sub"-identifikator. Finnes ingen konto
+    /// koblet til den ennå, må brukeren først gjennom Pages/Konto/
+    /// BankIdKobleKonto (se KoblOgFullforAsync) — EN gang per konto.
+    /// </summary>
+    public async Task<ProfesjonellInnloggingResultat> FullforMedBankIdSubjektAsync(
+        string bankIdSubjekt, bool huskMeg, string? returnUrl, string auditlogKilde, HttpContext httpContext, CancellationToken cancellationToken)
+    {
+        var administrator = await _adminAuth.FinnVedBankIdSubjektAsync(bankIdSubjekt, cancellationToken);
+        if (administrator is not null)
+        {
+            return await FullforForAdministratorAsync(administrator, huskMeg, returnUrl, auditlogKilde, httpContext, cancellationToken);
+        }
+
+        var behandler = await _behandlerAuth.FinnVedBankIdSubjektAsync(bankIdSubjekt, cancellationToken);
+        if (behandler is not null)
+        {
+            return await FullforForBehandlerAsync(behandler, huskMeg, returnUrl, auditlogKilde, httpContext, cancellationToken);
+        }
+
+        return ProfesjonellInnloggingResultat.TrengerKobling(bankIdSubjekt, huskMeg, returnUrl);
+    }
+
+    /// <summary>
+    /// Kalles fra Pages/Konto/BankIdKobleKonto sin POST-handler: brukeren har
+    /// nettopp bekreftet identiteten sin med et EKTE BankID-oppslag (sub), men
+    /// er ikke koblet til noen konto ennå — matcher via det oppgitte
+    /// personnummeret (samme krypterte i-minnet-sammenligning som alltid),
+    /// kobler sub-en til kontoen PERMANENT (aldri personnummer-oppslag igjen
+    /// for denne kontoen via BankID), og fullfører innlogging identisk med
+    /// enhver annen vei.
+    /// </summary>
+    public async Task<ProfesjonellInnloggingResultat> KoblOgFullforAsync(
+        string bankIdSubjekt, string personnummer, bool huskMeg, string? returnUrl, string auditlogKilde, HttpContext httpContext, CancellationToken cancellationToken)
+    {
+        var administrator = await _adminAuth.FinnVedPersonnummerAsync(personnummer, cancellationToken);
+        if (administrator is not null)
+        {
+            await _adminAuth.KoblBankIdSubjektAsync(administrator.Id, bankIdSubjekt, cancellationToken);
+            return await FullforForAdministratorAsync(administrator, huskMeg, returnUrl, auditlogKilde, httpContext, cancellationToken);
+        }
+
+        var behandler = await _behandlerAuth.FinnVedPersonnummerAsync(personnummer, cancellationToken);
+        if (behandler is not null)
+        {
+            await _behandlerAuth.KoblBankIdSubjektAsync(behandler.Id, bankIdSubjekt, cancellationToken);
+            return await FullforForBehandlerAsync(behandler, huskMeg, returnUrl, auditlogKilde, httpContext, cancellationToken);
+        }
+
+        return ProfesjonellInnloggingResultat.Feil("Fant ingen administrator- eller behandlerkonto med dette personnummeret.");
+    }
+
+    private async Task<ProfesjonellInnloggingResultat> FullforForAdministratorAsync(
+        Administrator administrator, bool huskMeg, string? returnUrl, string auditlogKilde, HttpContext httpContext, CancellationToken cancellationToken)
+    {
+        var administratorRolle = administrator.ErSuperadmin ? UserRole.Superadmin : UserRole.Administrator;
+        if (BetroddEnhet.ErBetrodd(httpContext, ToFaktorPrincipalType.Administrator, administrator.Id))
+        {
+            await AuthSignIn.LoggInnAsync(httpContext, "administrator", administrator.Id, administrator.FulltNavn, administratorRolle, huskMeg);
+            await _auditLogger.LogAsync(
+                administrator.AdminId, administratorRolle.ToString(), "InnloggingOk",
+                nameof(Administrator), administrator.Id.ToString(), $"{auditlogKilde} (betrodd enhet — 2FA hoppet over)", cancellationToken);
+            return ProfesjonellInnloggingResultat.FerdigInnlogget(MaalEtterInnlogging(returnUrl, "Admin", "/Administratorer/Index"));
+        }
+
+        var toFaktorResultat = await _adminAuth.StartToFaktorAsync(administrator, cancellationToken);
+        return ProfesjonellInnloggingResultat.TrengerToFaktor(
+            administratorRolle, administrator.Id, huskMeg, returnUrl,
+            Miljo.TillatUtviklingsSnarveier(_configuration) ? toFaktorResultat.Kode : null, !toFaktorResultat.SendtSms);
+    }
+
+    private async Task<ProfesjonellInnloggingResultat> FullforForBehandlerAsync(
+        Behandler behandler, bool huskMeg, string? returnUrl, string auditlogKilde, HttpContext httpContext, CancellationToken cancellationToken)
+    {
+        switch (behandler.Status)
+        {
+            case BehandlerStatus.Invitert:
+                return ProfesjonellInnloggingResultat.Feil("Du har ikke fullført registreringen ennå. Bruk invitasjonslenken du mottok på SMS/e-post.");
+            case BehandlerStatus.Fryst:
+                return ProfesjonellInnloggingResultat.Feil("Kontoen din er fryst. Kontakt administrator.");
+            case BehandlerStatus.Arkivert:
+                return ProfesjonellInnloggingResultat.Feil("Kontoen din er arkivert.");
+        }
+
+        if (BetroddEnhet.ErBetrodd(httpContext, ToFaktorPrincipalType.Behandler, behandler.Id))
+        {
+            await AuthSignIn.LoggInnAsync(
+                httpContext, "behandler", behandler.Id, behandler.Visningsnavn ?? "Behandler", UserRole.Behandler, huskMeg,
+                behandler.PartnerId, behandler.ErPartnerAdministrator);
+            await _auditLogger.LogAsync(
+                $"behandler:{behandler.Id}", nameof(UserRole.Behandler), "InnloggingOk",
+                nameof(Behandler), behandler.Id.ToString(), $"{auditlogKilde} (betrodd enhet — 2FA hoppet over)", cancellationToken);
+
+            if (behandler.BrukeravtaleGodkjentVersjon != Brukeravtale.GjeldendeVersjon)
+            {
+                return ProfesjonellInnloggingResultat.FerdigInnlogget(new RedirectToPageResult("/Konto/GodkjennAvtale", routeValues: new { area = "Behandlerportal" }));
+            }
+            return ProfesjonellInnloggingResultat.FerdigInnlogget(MaalEtterInnlogging(returnUrl, "Behandlerportal", "/Pasienter/Index"));
+        }
+
+        var toFaktorResultat = await _behandlerAuth.StartToFaktorAsync(behandler, cancellationToken);
+        return ProfesjonellInnloggingResultat.TrengerToFaktor(
+            UserRole.Behandler, behandler.Id, huskMeg, returnUrl,
+            Miljo.TillatUtviklingsSnarveier(_configuration) ? toFaktorResultat.Kode : null, !toFaktorResultat.SendtSms);
     }
 
     private static IActionResult MaalEtterInnlogging(string? returnUrl, string fallbackArea, string fallbackPage) =>
@@ -122,6 +189,12 @@ public sealed class ProfesjonellInnloggingResultat
 
     public string? Feilmelding { get; private init; }
 
+    /// <summary>Se ProfesjonellInnloggingService.FullforMedBankIdSubjektAsync — ingen konto koblet til denne BankID-identiteten ennå.</summary>
+    public bool TrengerKoblingFlagg { get; private init; }
+    public string? KoblingBankIdSubjekt { get; private init; }
+    public bool KoblingHuskMeg { get; private init; }
+    public string? KoblingReturnUrl { get; private init; }
+
     public static ProfesjonellInnloggingResultat FerdigInnlogget(IActionResult resultat) =>
         new() { ErFerdig = true, FerdigResultat = resultat };
 
@@ -131,6 +204,9 @@ public sealed class ProfesjonellInnloggingResultat
             TrengerToFaktorFlagg = true, ToFaktorRolle = rolle, ToFaktorId = id,
             ToFaktorHuskMeg = huskMeg, ToFaktorReturnUrl = returnUrl, DevToFaktorKode = devKode, ToFaktorSmsFeilet = smsFeilet
         };
+
+    public static ProfesjonellInnloggingResultat TrengerKobling(string bankIdSubjekt, bool huskMeg, string? returnUrl) =>
+        new() { TrengerKoblingFlagg = true, KoblingBankIdSubjekt = bankIdSubjekt, KoblingHuskMeg = huskMeg, KoblingReturnUrl = returnUrl };
 
     public static ProfesjonellInnloggingResultat Feil(string melding) => new() { Feilmelding = melding };
 }

@@ -1,0 +1,33 @@
+@page
+@model TestBase.Web.Pages.Konto.BankIdKobleKontoModel
+@{
+    ViewData["Title"] = "Bekreft kontoen din";
+}
+
+<h1>Bekreft kontoen din</h1>
+<p>
+    Dette er første gang du logger inn med BankID her. Vi kjenner ikke igjen denne BankID-identiteten
+    ennå — oppgi personnummeret du er registrert med, så kobler vi dem sammen. Dette trenger du kun
+    gjøre én gang.
+</p>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<form method="post" data-disable-on-submit="Bekrefter …">
+    <input type="hidden" asp-for="BankIdSubjekt" />
+    <input type="hidden" asp-for="HuskMeg" />
+    <input type="hidden" asp-for="ReturnUrl" />
+    <div>
+        <label>Personnummer (11 siffer)</label><br />
+        <input asp-for="Personnummer" autocomplete="off" inputmode="numeric" maxlength="11" />
+    </div>
+    <div>
+        <label>@Model.CaptchaSporsmal</label><br />
+        <input asp-for="CaptchaSvar" autocomplete="off" inputmode="numeric" />
+        <input type="hidden" asp-for="CaptchaSignertFasit" />
+    </div>
+    <button type="submit">Bekreft og fortsett</button>
+</form>

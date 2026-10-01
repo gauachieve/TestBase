@@ -497,6 +497,22 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   rammer også `az`-CLI-en, ikke bare `curl`) lagt til i fallgruve-lista under, og at `azd auth
   login` IKKE dekker en separat `az`-CLI-innlogging i samme jobb. Verifisert med en fullstendig
   grønn CI-kjøring PLUSS en uavhengig sjekk utenfor selve pipelinen etterpå.
+- **Ekte BankID for admin/behandler, del 5 — koblingsbasert innlogging bygget, IKKE aktivert
+  (2026-10-01/02):** brukeren ble godkjent av Idura for produksjon, men EKSPLISITT kun som "ren
+  klient, ingen personnummer-scope" — nøyaktig scenarioet "STØ avviste fødselsnummer-bestilling"
+  forutså. Bygget: ny `BankIdSubjekt`-kolonne (ukryptert, unik) på Administrator/Behandler, nye
+  `FinnVedBankIdSubjektAsync`/`KoblBankIdSubjektAsync`, `ProfesjonellInnloggingService` refaktorert
+  med tre inngangspunkter (personnummer/mock, sub-oppslag, kobl-og-fullfør), ny side
+  `Pages/Konto/BankIdKobleKonto` (vises automatisk FØRSTE gang en ukjent BankID-sub dukker opp, ber
+  om personnummeret brukeren allerede er registrert med, kobler PERMANENT). `BankIdInnlogging`-
+  schemaet ber nå kun om `openid+profile` (ikke `ssn`). 5 nye tester (79 totalt). **IKKE aktivert**
+  (`Miljo:EktBankIdProfesjonell` fortsatt `"false"` på live) — et REELT, uavklart funn under
+  verifisering mot Idura sin TEST-sandkasse viste at den faktiske utgående scope-forespørselen til
+  BankID inkluderte `sub_nnin`/`sub_bankid` UANSETT hva koden ber om, trolig konfigurert på Idura-
+  klient-nivå, ukjent om samme gjelder produksjonsklienten — MÅ avklares (se docs/beslutningslogg.md
+  "Ekte BankID for admin/behandler, del 5" for full analyse) før bryteren skrus på. To nye
+  fallgruver lagt til under (JWT "sub"-claim-remapping, og at en brokers scope-forespørsel ikke
+  nødvendigvis er klientens egen).
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
@@ -749,6 +765,8 @@ dotnet watch run
 - `azd deploy` sin kjente "rapporterer SUCCESS uten at koden faktisk endret seg"-fallgruve (se lenger opp i denne lista) viser IKKE alltid den forventede "azd observed no App Service deployment status change"-advarselen i loggen — en kjøring uten den advarselen kan likevel ha latt den GAMLE koden bli stående (skjedde reelt på LIVE 2026-09-28, mens BETA sin kjøring SAMME dag viste advarselen men faktisk hadde lykkes). Advarselen er altså ikke en pålitelig indikator i seg selv. Stol i stedet på en FUNKSJONELL sjekk av noe som kun finnes i den nye koden (f.eks. et nytt API-endepunkt som skal returnere 200, ikke 404) — ikke bare fravær/nærvær av advarselen, og ikke bare en generisk helse-sjekk som fortsatt ville returnert 200 fra den gamle koden.
 - Git Bash (MSYS) sin kjente automatisk-konverter-en-innledende-skråstrek-til-en-Windows-sti-fallgruve (dokumentert lenger opp for `curl`) rammer OGSÅ `az`-CLI-en — `az role assignment create --scope "/subscriptions/..."` ga en kryptisk `MissingSubscription`-feil fra Azure sin REST-API i stedet for noe som pekte mot MSYS. `--debug` avslørte at den faktiske forespørselen gikk til `https://management.azure.com/C:/Program Files/Git/subscriptions/...` — altså at `/subscriptions/...`-argumentet ble konvertert til en Windows-sti FØR `az` i det hele tatt så det (2026-10-01/02, se docs/beslutningslogg.md "Tilbakemeldingsverktøy, del 3"). Samme løsning som for `curl`: prefiks med `MSYS_NO_PATHCONV=1`. Gjelder trolig ethvert kommandolinjeverktøy som mottar et argument med innledende `/`, ikke bare disse to.
 - `azd auth login` autentiserer KUN `azd` selv — en separat `az`-CLI-kommando i SAMME jobb/skript (f.eks. i en GitHub Actions-steg) har en HELT ANNEN credential-store og er fortsatt helt uinnlogget, selv rett etter en vellykket `azd auth login`. Et `az`-kall feiler da stille med en autentiseringsfeil som lett tolkes som noe annet hvis stderr undertrykkes (skjedde reelt i `.github/workflows/deploy.yml` sin helsesjekk, som brukte `az webapp show` etter kun `azd auth login` — løst med en egen `azure/login@v2`-innlogging for `az`-CLI-en ved siden av). Trenger man BEGGE verktøyene i samme jobb, må begge logges inn eksplisitt og separat, selv med samme OIDC-legitimasjon.
+- `Microsoft.AspNetCore.Authentication.OpenIdConnect` sin `JwtSecurityTokenHandler`-baserte token-validering har DEFAULT inbound-claim-mapping (`MapInboundClaims=true`) som omdøper enkelte STANDARD OIDC-claims (bl.a. "sub" → `ClaimTypes.NameIdentifier`) FØR koden i `OnTokenValidated` i det hele tatt ser `ClaimsPrincipal`-en — men et IKKE-standard claim-navn (som "ssn", brukt tidligere i dette prosjektet) rammes IKKE av denne mappingen og forblir bokstavelig. Kode som leser et standard claim-navn direkte via `FindFirst("sub")` kan derfor stille få `null` selv om claimet faktisk kom tilbake i tokenet (oppdaget 2026-10-01/02 ved ekte BankID-aktivering, se docs/beslutningslogg.md "Ekte BankID for admin/behandler, del 5"). Prøv ALLTID begge navn (det bokstavelige claim-navnet OG dets `ClaimTypes.*`-ekvivalent) for ethvert STANDARD OIDC/JWT-claim lest i en `OnTokenValidated`-handler, ikke bare det ene — et egendefinert/ikke-standard claim-navn trenger ikke denne defensive sjekken.
+- En OIDC-klients `scope`-parameter i selve autorisasjonsforespørselen er IKKE nødvendigvis det den faktiske oppstrøms-identitetsleverandøren mottar — en BROKER (som Idura foran ekte BankID) kan være konfigurert PER KLIENT-ID (i brokerens eget dashbord/klientoppsett) til å alltid legge til egne scopes oppå det klienten ber om. Bekreftet reelt 2026-10-01/02: koden ber kun om `openid profile`, men den faktiske utgående autorisasjons-URL-en til BankID viste `scope=openid+profile+sub_nnin+sub_bankid` — `options.Scope.Add(...)` i vår egen kode styrer altså IKKE nødvendigvis hva som faktisk forhandles med den underliggende identitetsleverandøren. Anta ALDRI at en klients scope-forespørsel er den fulle sannheten for en brokered OIDC-integrasjon — observer den FAKTISKE utgående URL-en (eller spør brokerens støtteapparat) for å vite hva som egentlig blir bedt om, spesielt når en spesifikk scope bevisst UNNGÅS av en etterlevelsesgrunn (se "Ekte BankID for admin/behandler, del 5").
 
 ## Hvordan jobbe videre
 
