@@ -1,0 +1,85 @@
+name: Deploy TestBase
+
+# Bygger + tester hver push til master, deployer deretter til beta FØRST, og
+# til live KUN hvis beta sin helsesjekk består etterpå — samme sekvens som
+# hver manuelle deploy i prosjektets historie (se CLAUDE.md/beslutningsloggen),
+# nå automatisert. Deployer ALDRI infrastruktur (ingen "azd provision" her) —
+# kun applikasjonskode til allerede eksisterende ressurser. Krever de tre
+# AZURE_*-hemmelighetene (service-prinsipal med OIDC-føderasjon, se
+# docs/beslutningslogg.md "Tilbakemeldingsverktøy") satt som GitHub-hemmeligheter.
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - "**.md"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_LOCATION: swedencentral
+
+jobs:
+  build-og-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - run: dotnet build TestBase.sln -c Release
+      - run: dotnet test tests/TestBase.IntegrationTests/TestBase.IntegrationTests.csproj -c Release --no-build
+
+  deploy-beta:
+    needs: build-og-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Azure/setup-azd@v2
+      - name: Logg inn i Azure (OIDC, ingen lagret hemmelighet)
+        run: |
+          azd auth login \
+            --client-id "${{ secrets.AZURE_CLIENT_ID }}" \
+            --federated-credential-provider github \
+            --tenant-id "${{ secrets.AZURE_TENANT_ID }}"
+      - name: Opprett lokal miljøreferanse til eksisterende beta-ressurser
+        run: azd env new testbase-beta --subscription "$AZURE_SUBSCRIPTION_ID" --location "$AZURE_LOCATION"
+      - run: azd deploy
+      - name: Helsesjekk beta (StagingGate gjør at roten svarer 401, ikke 200, når appen faktisk kjører)
+        run: |
+          for i in 1 2 3 4 5 6; do
+            kode=$(curl -s -o /dev/null -w "%{http_code}" "https://beta.psytest.no/" || echo "000")
+            if [ "$kode" = "401" ]; then echo "Beta svarer (StagingGate, $kode) — anses friskt."; exit 0; fi
+            echo "Forsøk $i: fikk $kode, prøver igjen om 15s …"
+            sleep 15
+          done
+          echo "Beta svarte ikke som forventet etter deploy — stopper FØR live."
+          exit 1
+
+  deploy-live:
+    needs: deploy-beta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Azure/setup-azd@v2
+      - name: Logg inn i Azure (OIDC, ingen lagret hemmelighet)
+        run: |
+          azd auth login \
+            --client-id "${{ secrets.AZURE_CLIENT_ID }}" \
+            --federated-credential-provider github \
+            --tenant-id "${{ secrets.AZURE_TENANT_ID }}"
+      - name: Opprett lokal miljøreferanse til eksisterende live-ressurser
+        run: azd env new testbase-test --subscription "$AZURE_SUBSCRIPTION_ID" --location "$AZURE_LOCATION"
+      - run: azd deploy
+      - name: Helsesjekk live
+        run: |
+          for i in 1 2 3 4 5 6; do
+            kode=$(curl -s -o /dev/null -w "%{http_code}" "https://www.psytest.no/health" || echo "000")
+            if [ "$kode" = "200" ]; then echo "Live er friskt."; exit 0; fi
+            echo "Forsøk $i: fikk $kode, prøver igjen om 15s …"
+            sleep 15
+          done
+          echo "Live svarte ikke 200 på /health etter deploy."
+          exit 1
