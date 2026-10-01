@@ -61,6 +61,14 @@ jobs:
       - name: Opprett lokal miljøreferanse til eksisterende beta-ressurser
         run: azd env new testbase-beta --subscription "$AZURE_SUBSCRIPTION_ID" --location "$AZURE_LOCATION"
       - run: azd deploy
+      # azd auth login over autentiserer KUN azd selv — den bare "az"-CLI-en brukt i
+      # helsesjekken under har en helt separat credential-store og trenger sin egen
+      # OIDC-innlogging, ellers feiler "az webapp show" stille (tolkes som "Ukjent").
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Helsesjekk beta (via Azure, IKKE curl mot offentlig URL — betas HOVEDSIDE er bevisst IP-låst til kun eierens egen maskin, kun SCM ble åpnet for denne pipelinen)
         run: |
           for i in 1 2 3 4 5 6; do
