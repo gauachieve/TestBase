@@ -24,6 +24,20 @@ env:
 jobs:
   build-og-test:
     runs-on: ubuntu-latest
+    # Integrasjonstestene (TestBaseWebApplicationFactory) kjører mot en EKTE MySQL —
+    # samme image/root-passord som docker-compose.yml sin lokale dev-container, se der.
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword_ikke_bruk_i_prod
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -prootpassword_ikke_bruk_i_prod"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
