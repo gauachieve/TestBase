@@ -70,7 +70,7 @@ public static class StagingGate
     // inni selve handleren, ikke StagingGate. Selve widget-innsendingen (/api/tilbakemelding)
     // trenger IKKE stå her — den kalles via fetch() fra en side nettleseren allerede har
     // lastet (og dermed allerede har StagingGate-cookien for, om noen).
-    private static readonly string[] AgentApiStier = [TilbakemeldingApi.AgentDigestSti, TilbakemeldingApi.AgentSkjermbildeSti, TilbakemeldingApi.AgentRapportSti];
+    private static readonly string[] AgentApiStier = [TilbakemeldingApi.AgentDigestSti, TilbakemeldingApi.AgentApneKrasjSti, TilbakemeldingApi.AgentSkjermbildeSti, TilbakemeldingApi.AgentRapportSti];
 
     public static void UseStagingGate(this WebApplication app)
     {

@@ -64,6 +64,18 @@ public sealed class TilbakemeldingService
             .OrderBy(t => t.OpprettetUtc)
             .ToListAsync(cancellationToken);
 
+    /// <summary>
+    /// ALLE ubehandlede krasjrapporter, UANSETT alder — brukt av agenten (se TilbakemeldingApi.cs
+    /// "/api/agent/krasjrapporter") til å plukke opp noe den ikke rakk forrige kjøring, i stedet
+    /// for KUN siste 24t (HentSidenAsync). Status Lost/Avvist/Sett regnes som "ferdig vurdert" og
+    /// ekskluderes — agenten markerer status selv via OppdaterStatusAsync etter å ha sett på en sak.
+    /// </summary>
+    public Task<List<Tilbakemelding>> HentApneKrasjrapporterAsync(CancellationToken cancellationToken = default) =>
+        _db.Tilbakemeldinger
+            .Where(t => t.ErKrasjRapport && (t.Status == TilbakemeldingStatus.Ny || t.Status == TilbakemeldingStatus.UnderArbeid))
+            .OrderBy(t => t.OpprettetUtc)
+            .ToListAsync(cancellationToken);
+
     public Task<List<Tilbakemelding>> HentAlleAsync(CancellationToken cancellationToken = default) =>
         _db.Tilbakemeldinger
             .OrderByDescending(t => t.OpprettetUtc)

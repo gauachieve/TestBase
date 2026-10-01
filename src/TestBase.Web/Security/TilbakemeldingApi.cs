@@ -28,7 +28,9 @@ public static class TilbakemeldingApi
 {
     public const string InnsendingSti = "/api/tilbakemelding";
     public const string AgentDigestSti = "/api/agent/tilbakemeldinger";
+    public const string AgentApneKrasjSti = "/api/agent/krasjrapporter";
     public const string AgentSkjermbildeSti = "/api/agent/tilbakemelding";
+    public const string AgentStatusSti = "/api/agent/tilbakemelding";
     public const string AgentRapportSti = "/api/agent/rapport";
 
     public sealed record InnsendingRequest(
@@ -50,11 +52,15 @@ public static class TilbakemeldingApi
 
     public sealed record RapportRequest(string Emne, string HtmlInnhold);
 
+    public sealed record StatusOppdateringRequest(string Status, string? Notat);
+
     public static void MapTilbakemeldingApi(this WebApplication app)
     {
         app.MapPost(InnsendingSti, HandleInnsendingAsync);
         app.MapGet(AgentDigestSti, HandleAgentDigestAsync);
+        app.MapGet(AgentApneKrasjSti, HandleAgentApneKrasjAsync);
         app.MapGet(AgentSkjermbildeSti + "/{id:long}/skjermbilde", HandleAgentSkjermbildeAsync);
+        app.MapPost(AgentStatusSti + "/{id:long}/status", HandleAgentStatusAsync);
         app.MapPost(AgentRapportSti, HandleAgentRapportAsync);
     }
 
@@ -133,6 +139,41 @@ public static class TilbakemeldingApi
             !string.IsNullOrEmpty(t.ScreenshotDataUrl), t.Status.ToString(), t.Notat));
 
         return Results.Ok(resultat);
+    }
+
+    private static async Task<IResult> HandleAgentApneKrasjAsync(
+        HttpContext context, IConfiguration config, TilbakemeldingService service, CancellationToken ct)
+    {
+        if (!ErGyldigAgentNokkel(context, config))
+        {
+            return Results.NotFound();
+        }
+
+        var liste = await service.HentApneKrasjrapporterAsync(ct);
+        var resultat = liste.Select(t => new TilbakemeldingDigestPost(
+            t.Id, t.OpprettetUtc, t.Melding, t.Url, t.BrukerAgent,
+            t.SkjermBredde, t.SkjermHoyde, t.VindaugBredde, t.VindaugHoyde,
+            t.InnloggetRolle, t.InnloggetBrukerId, t.TekniskFeilInfo, t.ErKrasjRapport,
+            !string.IsNullOrEmpty(t.ScreenshotDataUrl), t.Status.ToString(), t.Notat));
+
+        return Results.Ok(resultat);
+    }
+
+    private static async Task<IResult> HandleAgentStatusAsync(
+        long id, StatusOppdateringRequest body, HttpContext context, IConfiguration config, TilbakemeldingService service, CancellationToken ct)
+    {
+        if (!ErGyldigAgentNokkel(context, config))
+        {
+            return Results.NotFound();
+        }
+
+        if (!Enum.TryParse<TilbakemeldingStatus>(body.Status, ignoreCase: true, out var status))
+        {
+            return Results.BadRequest(new { feil = "Ukjent status. Gyldige verdier: Ny, Sett, UnderArbeid, Lost, Avvist." });
+        }
+
+        await service.OppdaterStatusAsync(id, status, body.Notat, ct);
+        return Results.Ok();
     }
 
     private static async Task<IResult> HandleAgentSkjermbildeAsync(
