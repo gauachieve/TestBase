@@ -8,8 +8,9 @@ namespace TestBase.Shared.Domain.Tester.InnebygdeTester;
 /// (se docs/beslutningslogg.md), sendes ALDRI til pasienten.
 ///
 /// KILDE OG LISENS (viktig, les før bruk): de 20 faktornavnene, deres a/b/c-underpunkter, og selve
-/// vurderingsskalaen (Tilstede: Ukjent/Nei/Delvis/Ja — Relevans: Ukjent/Lav/Moderat/Høy — samt
-/// Trinn 7 sin Lav/Moderat/Høy-konklusjon) er hentet fra SIFERs EGET, FRITT NEDLASTBARE norske
+/// vurderingsskalaen (opprinnelig Tilstede: Ukjent/Nei/Delvis/Ja + separat Relevans: Ukjent/Lav/
+/// Moderat/Høy — samt Trinn 7 sin Lav/Moderat/Høy-konklusjon) er hentet fra SIFERs EGET, FRITT
+/// NEDLASTBARE norske
 /// "Arbeidsskjema til HCR-20v3" (sifer.no/verktoy, lenket fra Helsebiblioteket), IKKE fra det
 /// betalte brukermanual-heftet. Brukeren har selv verifisert at selve arbeidsskjemaet/strukturen er
 /// fritt tilgjengelig og fritt til bruk, og at det er BRUKERMANUALEN (kr. 250,- per bruker, kjøpes
@@ -18,6 +19,13 @@ namespace TestBase.Shared.Domain.Tester.InnebygdeTester;
 /// vi IKKE har og IKKE gjengir her. Denne testen er derfor et arbeidsverktøy som følger den ekte,
 /// fritt distribuerte strukturen — men klinikeren som fyller den ut MÅ ha egen kompetanse/manual for
 /// å kode hvert ledd forsvarlig, akkurat som ved utfylling av papirskjemaet.
+///
+/// RETTET 2026-10-02 (brukerens beslutning): de 20 faktorene ble opprinnelig seedet som TO separate
+/// ledd hver (Tilstede + Relevans, hver sin skala) — slått sammen til ÉN kombinert "Tilstede og
+/// relevans for fremtidig risiko"-vurdering per faktor (kun Relevans-skalaen Ukjent/Lav/Moderat/Høy
+/// beholdt), siden verktøyet uansett ikke summerer — en bevisst forenkling av dataregistreringen, på
+/// bekostning av å ikke lenger kunne registrere "faktoren var historisk til stede MEN er ikke lenger
+/// relevant" (eller omvendt) som to atskilte svar. Se Hcr20V3Skaaringsberegner for tilsvarende endring.
 ///
 /// BEVISST IKKE et sumskår-verktøy (samme prinsipp som CORE-A): den faktiske risikokonklusjonen er
 /// klinikerens EGEN strukturerte skjønnsmessige vurdering i Trinn 7 (tre uavhengige Lav/Moderat/Høy-
@@ -31,7 +39,6 @@ public sealed class Hcr20V3TestSeeder : IInnebygdTestSeeder
 {
     public string Kode => "hcr20_v3";
 
-    private const string TilstedeSkala = "0:Ukjent,1:Nei,2:Delvis,3:Ja";
     private const string RelevansSkala = "0:Ukjent,1:Lav,2:Moderat,3:Høy";
     private const string Trinn7Skala = "0:Lav,1:Moderat,2:Høy";
     private const string AnnenRisikoSkala = "0:Nei,1:Mulig,2:Ja";
@@ -103,24 +110,21 @@ public sealed class Hcr20V3TestSeeder : IInnebygdTestSeeder
         foreach (var f in HistoriskeFaktorer)
         {
             var instruksjon = f.Underpunkter is null ? null : $"Omfatter: {f.Underpunkter}";
-            await testService.LeggTilLeddAsync(sideH.Id, $"{f.Kode}. {f.Navn} — Tilstede", instruksjon, TestSvartype.LikertSkala, TilstedeSkala, cancellationToken);
-            await testService.LeggTilLeddAsync(sideH.Id, $"{f.Kode}. {f.Navn} — Relevans for fremtidig risiko", instruksjon, TestSvartype.LikertSkala, RelevansSkala, cancellationToken);
+            await testService.LeggTilLeddAsync(sideH.Id, $"{f.Kode}. {f.Navn} — Tilstede og relevans for fremtidig risiko", instruksjon, TestSvartype.LikertSkala, RelevansSkala, cancellationToken);
         }
 
         var sideC = await testService.LeggTilSideAsync(test.Id, "Kliniske faktorer", "Nylige problemer med…", cancellationToken);
         foreach (var f in KliniskeFaktorer)
         {
             var instruksjon = f.Underpunkter is null ? null : $"Omfatter: {f.Underpunkter}";
-            await testService.LeggTilLeddAsync(sideC.Id, $"{f.Kode}. {f.Navn} — Tilstede", instruksjon, TestSvartype.LikertSkala, TilstedeSkala, cancellationToken);
-            await testService.LeggTilLeddAsync(sideC.Id, $"{f.Kode}. {f.Navn} — Relevans for fremtidig risiko", instruksjon, TestSvartype.LikertSkala, RelevansSkala, cancellationToken);
+            await testService.LeggTilLeddAsync(sideC.Id, $"{f.Kode}. {f.Navn} — Tilstede og relevans for fremtidig risiko", instruksjon, TestSvartype.LikertSkala, RelevansSkala, cancellationToken);
         }
 
         var sideR = await testService.LeggTilSideAsync(test.Id, "Risikohåndteringsfaktorer", "Fremtidige problemer med…", cancellationToken);
         foreach (var f in RisikohandteringsFaktorer)
         {
             var instruksjon = f.Underpunkter is null ? null : $"Omfatter: {f.Underpunkter}";
-            await testService.LeggTilLeddAsync(sideR.Id, $"{f.Kode}. {f.Navn} — Tilstede", instruksjon, TestSvartype.LikertSkala, TilstedeSkala, cancellationToken);
-            await testService.LeggTilLeddAsync(sideR.Id, $"{f.Kode}. {f.Navn} — Relevans for fremtidig risiko", instruksjon, TestSvartype.LikertSkala, RelevansSkala, cancellationToken);
+            await testService.LeggTilLeddAsync(sideR.Id, $"{f.Kode}. {f.Navn} — Tilstede og relevans for fremtidig risiko", instruksjon, TestSvartype.LikertSkala, RelevansSkala, cancellationToken);
         }
 
         var sideFormulering = await testService.LeggTilSideAsync(

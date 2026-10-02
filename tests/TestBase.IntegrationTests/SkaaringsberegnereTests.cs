@@ -715,10 +715,11 @@ public sealed class SkaaringsberegnereTests
     }
 
     /// <summary>
-    /// Bygger HCR-20 V3-strukturen: 20 faktorer (Tilstede+Relevans-par) fordelt på 3 sider
-    /// (Historisk 10, Klinisk 5, Risikohåndtering 5), en tom Formulering-side (3 fritekstledd,
-    /// ubesvart), og en Konklusjon-side med 4 Trinn 7-ledd i fast rekkefølge (Fremtidig vold,
-    /// Alvorlig skade, Umiddelbar vold, Annen risiko).
+    /// Bygger HCR-20 V3-strukturen: 20 faktorer (ÉN kombinert Tilstede+Relevans-ledd hver, se
+    /// RETTET 2026-10-02 i Hcr20V3TestSeeder) fordelt på 3 sider (Historisk 10, Klinisk 5,
+    /// Risikohåndtering 5), en tom Formulering-side (3 fritekstledd, ubesvart), og en
+    /// Konklusjon-side med 4 Trinn 7-ledd i fast rekkefølge (Fremtidig vold, Alvorlig skade,
+    /// Umiddelbar vold, Annen risiko).
     /// </summary>
     private static (List<TestLedd> AlleLedd, List<TestSvar> Svar) Hcr20V3Bygg(
         int?[] historiskRelevans, int fremtidigVold, int alvorligSkade, int umiddelbarVold, int annenRisiko)
@@ -731,15 +732,12 @@ public sealed class SkaaringsberegnereTests
         {
             for (var i = 0; i < antallFaktorer; i++)
             {
-                var tilstedeLedd = new TestLedd { Id = nesteId++, TestSideId = sideId, Sporsmalstekst = "tilstede", Svartype = TestSvartype.LikertSkala };
-                var relevansLedd = new TestLedd { Id = nesteId++, TestSideId = sideId, Sporsmalstekst = "relevans", Svartype = TestSvartype.LikertSkala };
-                alleLedd.Add(tilstedeLedd);
-                alleLedd.Add(relevansLedd);
-                svar.Add(new TestSvar { TestLeddId = tilstedeLedd.Id, SvarVerdi = "2" });
+                var faktorLedd = new TestLedd { Id = nesteId++, TestSideId = sideId, Sporsmalstekst = "tilstede og relevans", Svartype = TestSvartype.LikertSkala };
+                alleLedd.Add(faktorLedd);
                 var relevans = relevansOverstyring is not null && i < relevansOverstyring.Length ? relevansOverstyring[i] : 0;
                 if (relevans is not null)
                 {
-                    svar.Add(new TestSvar { TestLeddId = relevansLedd.Id, SvarVerdi = relevans.Value.ToString() });
+                    svar.Add(new TestSvar { TestLeddId = faktorLedd.Id, SvarVerdi = relevans.Value.ToString() });
                 }
             }
         }

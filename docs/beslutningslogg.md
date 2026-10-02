@@ -6261,3 +6261,68 @@ hovedknappen" for å unngå at en fremtidig feilkonfigurasjon låser ALLE ute ig
 **STATUS: rettet, IKKE verifisert ende-til-ende ennå** (ingen fullført ekte BankID-innlogging har
 skjedd — kun helt frem til selve Idura-autorisasjonssiden). `Miljo:EktBankIdProfesjonell` er
 `"false"` på live igjen. Neste steg: brukeren prøver på nytt med den rettede acr_values.
+
+## Ekte BankID for admin/behandler, del 7 — acr_values-fiksen var IKKE nok, problemet isolert til
+## Idura↔Stø/BankID-leddet, eskalert til Stø support (2026-10-02, samme dag)
+
+Brukeren prøvde på nytt etter del 6-fiksen (`urn:grn:authn:no:bankid`) — SAMME 401 på Iduras egen
+`/oauth2/authorize`, fortsatt før noen BankID-interaksjon. Systematisk utelukket, i rekkefølge:
+
+1. **Callback-URL** i Idura sin applikasjonskonfigurasjon ("OpenID Connect"-fanen) — brukeren
+   bekreftet/oppdaterte denne, ingen endring i feilen.
+2. **PKCE/PAR-krav** — skjermbilde av applikasjonens OIDC-innstillinger viste "Require PKCE" og
+   "Require PAR" BEGGE av — ingen av delene tvinger en avvisning.
+3. **Client ID/Secret** — brukeren sendte SMS-en med klienthemmeligheten til PC for eksakt
+   copy-paste (ikke manuell retyping) — fortsatt samme feil, skriverklareringer utelukket.
+4. **Identity Providers → NO BankID**-siden (selve Idura↔BankID-koblingen, ATSKILT fra applikasjons-
+   nivået) viste "Configured"/"ready for production", riktig standard assurance-nivå (High, matcher
+   det ukvalifiserte acr_value), "Require SSN" korrekt AV. Stø sin bekreftelses-e-post (client_id
+   `psytestno_25eb8adf-bankid-prod`, miljø = BankID sin faktiske PROD-realm, redirect-URIer til
+   Iduras egne broker-endepunkter) stemte overens med det som faktisk står i Idura-dashbordet — ingen
+   mismatch funnet.
+5. **AVGJØRENDE funn**: Iduras EGEN innebygde test-innlogging for denne klienten feiler IDENTISK —
+   dette skjer altså UTEN at vår applikasjon er involvert i det hele tatt, noe som isolerer
+   problemet entydig til noe på Idura↔Stø/BankID-siden av koblingen for akkurat denne klienten,
+   IKKE noe i vår OIDC-klientkonfigurasjon.
+
+**Konklusjon: ingen flere kodeendringer eller dashbord-innstillinger er diagnostiserbare fra vår
+side.** Verken Idura sin dokumentasjon (sjekket via WebFetch/WebSearch: ingen omtale av et
+aktivitets-/forespørselslogg i dashbordet) eller noe vi kan se i applikasjonskonfigurasjonen peker
+på en konkret årsak. Saken er eskalert til Stø support (via deres kundeportal, IKKE e-post-svar —
+Stø sin egen e-post ber eksplisitt om dette) med full teknisk kontekst: client_id, nøyaktig
+feilmelding og -sted, at Iduras eget testverktøy feiler likt, og hva som er utelukket. Mulige
+gjenstående årsaker utenfor vår kontroll: en ikke-signert brukeravtale ("Usage agreement"-fanen,
+ikke bekreftet sjekket), IP-hvitelisting av Iduras broker-infrastruktur hos Stø, eller at kontoen
+ikke faktisk er aktivert på Stø sin backend til tross for bekreftelses-e-posten.
+
+`Miljo:EktBankIdProfesjonell` satt tilbake til `"false"` på live. **Ingen videre handling mulig før
+svar fra Stø support.**
+
+## HCR-20 V3: Tilstede+Relevans slått sammen til ett ledd per faktor (2026-10-02, samme dag)
+
+Brukerens beslutning: de 20 risikofaktorene (H1-H10/C1-C5/R1-R5) hadde opprinnelig to separate ledd
+hver (Tilstede: Ukjent/Nei/Delvis/Ja, og Relevans for fremtidig risiko: Ukjent/Lav/Moderat/Høy) —
+slått sammen til ÉT ledd per faktor, "{Kode}. {Navn} — Tilstede og relevans for fremtidig risiko",
+med KUN Relevans-skalaen beholdt (Ukjent/Lav/Moderat/Høy). Begrunnelse: verktøyet er BEVISST IKKE et
+sumskår-verktøy (ren strukturert-skjønn-støtte til klinikeren), så den ekstra oppdelingen i to
+separate avkrysninger ga lite verdi utover datainnsamling. Avveining flagget til brukeren FØR
+implementering: det ekte SIFER-skjemaet behandler "var faktoren til stede" og "er den relevant
+fremover" som reelt atskilte kliniske spørsmål (en faktor kan være historisk sterkt til stede men nå
+lite relevant etter vellykket behandling, eller omvendt) — denne sammenslåingen gjør at disse to
+vurderingene ikke lenger kan registreres uavhengig av hverandre. Brukeren hadde allerede vurdert
+dette og ønsket forenklingen likevel.
+
+Endret: `Hcr20V3TestSeeder` (fjernet `TilstedeSkala`-konstanten, halverte antall ledd per faktor-side
+fra 20 til 10/5/5), `Hcr20V3Skaaringsberegner` (løkken over hver faktor-side leser nå HVERT ledd
+direkte i stedet for Tilstede/Relevans-par — `for (i; i+1 < count; i += 2)` → enkel `foreach`),
+`SkaaringsberegnereTests.cs` sin `Hcr20V3Bygg`-testhjelper (bygger nå ett kombinert ledd per faktor
+i stedet for et par). Ingen migrasjon nødvendig (ren seeder-/skåringslogikk, ingen skjemaendring).
+Alle 51 skåringsberegner-tester (inkl. de 2 HCR-20-spesifikke) grønne etter endringen.
+
+**MERK**: `IInnebygdTestSeeder.SeedAsync` sin `if (eksisterende is not null) { ... return; }`-vakt
+betyr at denne kodeendringen IKKE automatisk oppdaterer strukturen til en allerede seedet HCR-20 V3-
+test i noen database (lokal/beta/live) — kun NYE databaser får den nye strukturen direkte. En
+eksisterende instans må slettes helt (samme `TestService.SlettTestHeltForRegenereringAsync`-mønster
+som SCID-5-PF-restruktureringen, "Natt-økt, del 13") og re-seedes for å få den nye strukturen — IKKE
+gjort i denne runden, da det ikke er bekreftet om HCR-20 V3 allerede er seedet noe sted med ekte
+vurderinger. Sjekk dette FØR regenerering hvis/når testen faktisk skal brukes.

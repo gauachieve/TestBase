@@ -12,9 +12,9 @@ namespace TestBase.Shared.Domain.Tester.Skaaring;
 /// Leddene identifiseres ved å gruppere etter TestSideId (5 sider: Historisk, Klinisk,
 /// Risikohåndtering, Formulering/scenarier/håndtering, Konklusjon) sortert etter LAVESTE
 /// TestLeddId per gruppe (ekte, monotont stigende PK) — samme robusthetsmønster som
-/// Scid5PfSkaaringsberegner. Innenfor Historisk/Klinisk/Risikohåndtering-sidene er leddene seedet i
-/// par (Tilstede, Relevans) per faktor — partall-indeks (0,2,4…) er alltid Tilstede, oddetall-
-/// indeks (1,3,5…) er alltid Relevans.
+/// Scid5PfSkaaringsberegner. Innenfor Historisk/Klinisk/Risikohåndtering-sidene er leddene seedet
+/// ÉN PER FAKTOR (kombinert "Tilstede og relevans for fremtidig risiko", se RETTET 2026-10-02 i
+/// Hcr20V3TestSeeder) — hvert ledd leses direkte, ikke lenger i Tilstede/Relevans-par.
 /// </summary>
 public sealed class Hcr20V3Skaaringsberegner : ITestSkaaringsberegnerMedLedd
 {
@@ -41,10 +41,10 @@ public sealed class Hcr20V3Skaaringsberegner : ITestSkaaringsberegnerMedLedd
 
         foreach (var side in faktorSider)
         {
-            for (var i = 0; i + 1 < side.Count; i += 2)
+            foreach (var ledd in side)
             {
                 totaltAntallFaktorer++;
-                var relevansVerdi = Verdi(side[i + 1]);
+                var relevansVerdi = Verdi(ledd);
                 if (relevansVerdi is >= 2) // 2=Moderat, 3=Høy
                 {
                     relevanteFaktorer++;

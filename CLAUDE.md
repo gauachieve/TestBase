@@ -526,6 +526,26 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   admin/behandler, del 6" for full analyse og en foreslått fremtidig "test i eget vindu"-mekanisme.
   IKKE verifisert ende-til-ende ennå (ingen fullført ekte innlogging), flagget satt tilbake til
   `"false"` på live i mellomtiden.
+- **Ekte BankID for admin/behandler, del 7 — acr_values-fiksen var ikke nok, eskalert til Stø
+  support (2026-10-02, samme dag):** retest viste SAMME 401 som del 6. Systematisk utelukket:
+  callback-URL, PKCE/PAR-krav (begge av i Idura), client ID/secret (SMS-til-PC copy-paste,
+  bekreftet riktig), Identity Provider-koblingen mot BankID (ser korrekt konfigurert ut, matcher
+  Stø sin bekreftelses-e-post). AVGJØRENDE: Iduras EGEN innebygde testinnlogging for denne klienten
+  feiler identisk, UTEN vår app involvert — isolerer problemet entydig til Idura↔Stø-siden. Ingen
+  flere kodeendringer mulig fra vår side; eskalert til Stø support via deres kundeportal. Se
+  docs/beslutningslogg.md "Ekte BankID for admin/behandler, del 7" for full utelukkelsesrekkefølge.
+  `Miljo:EktBankIdProfesjonell` fortsatt `"false"` på live — venter på Stø.
+- **HCR-20 V3: Tilstede+Relevans slått sammen til ett ledd per faktor (2026-10-02, samme dag):**
+  brukerens beslutning — de 20 faktorene hadde to separate ledd hver (Tilstede/Relevans), nå ett
+  kombinert ledd ("Tilstede og relevans for fremtidig risiko") med kun Relevans-skalaen beholdt,
+  siden verktøyet uansett ikke summerer. Bevisst avveining: mister evnen til å registrere at en
+  faktor var historisk til stede MEN ikke lenger relevant (eller omvendt) som to atskilte svar —
+  brukeren vurderte dette og ønsket forenklingen likevel. `Hcr20V3TestSeeder`/
+  `Hcr20V3Skaaringsberegner`/testhjelperen i `SkaaringsberegnereTests.cs` oppdatert, alle 51
+  skåringstester grønne. Ingen migrasjon (ren seeder-/skåringslogikk). MERK: en allerede seedet
+  HCR-20 V3-test i en database oppdateres IKKE automatisk — krever full sletting+re-seeding (samme
+  mønster som SCID-5-PF-restruktureringen), ikke gjort i denne runden. Se docs/beslutningslogg.md
+  "HCR-20 V3: Tilstede+Relevans slått sammen" for detaljer.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
