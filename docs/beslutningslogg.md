@@ -6201,3 +6201,63 @@ administrator/behandler enten feiler helt (hvis Idura avviser den reduserte scop
 produksjonsklienten) eller at hele "ingen personnummer"-poenget er meningsløst (hvis Idura sender
 det uansett, i hvilket tilfelle koblingssiden aldri trengs og personnummeret kunne vært lest direkte
 som før STØ-avvisningen).
+
+## Ekte BankID for admin/behandler, del 6 — scope-spørsmålet avklart POSITIVT, men et EKTE
+## feilkonfigurert acr_values fantes (2026-10-02, samme dag)
+
+Brukeren skrudde på `Miljo:EktBankIdProfesjonell` på LIVE for første gang og gjorde et ekte forsøk.
+
+**Scope-spørsmålet fra del 5 er nå AVKLART, og godt nytt:** den faktiske utgående autorisasjons-URL-
+en til produksjonsklienten (`urn:my:application:identifier:8821`) viste `scope=openid+profile` —
+PRESIS det koden ber om, INGEN automatisk tillegg av `sub_nnin`/`sub_bankid` slik test-tenanten
+(del 5) viste. Produksjonsklienten er altså korrekt konfigurert hos Idura for "ren klient"-
+godkjenningen — hele kobling-basert-innlogging-arkitekturen fra del 5 er dermed den RIKTIGE
+løsningen, ikke et unødvendig omvei.
+
+**Men selve innloggingsforsøket feilet likevel — med "Got HTTP Status code from upstream:
+Unauthorized" på selve Idura-domenet (`psytest-no.idura.broker`), FØR noen BankID-interaksjon i det
+hele tatt** (ingen app-prompt på telefonen). Diagnostisert ved å: (1) sjekke
+`az webapp auth show` — EasyAuth (App Service sin egen plattform-autentisering) er IKKE aktivert,
+ikke årsaken; (2) streame `az webapp log tail` + laste ned en full loggpakke via
+`az webapp log download` MENS brukeren gjorde et nytt forsøk — INGEN spor av selve
+`/signin-bankid-innlogging`-kallet noe sted i appens egne logger, som bekrefter at forespørselen
+ALDRI nådde vår applikasjon i det hele tatt. Feilen skjer altså hos IDURA SELV, på deres EGEN
+`/oauth2/authorize`-endepunkt, før noen redirect videre til faktisk BankID.
+
+**Rotårsak funnet av BRUKEREN i Iduras eget dashbord**, ikke av kode-analyse: dashbordet viste en
+liste over eID-metoder med deres tilhørende `acr_values` — "For no bankid" (vanlig BankID,
+PIN-kode) er den UKVALIFISERTE `urn:grn:authn:no:bankid`, mens "for bankid biometrics" (en EGEN,
+STRENGERE eID-metode som krever fingeravtrykk/ansiktsgjenkjenning aktivert) er
+`urn:grn:authn:no:bankid:substantial`. Koden sin produksjonsdefault (satt under "Ekte BankID for
+admin/behandler, del 4" tidligere i prosjektet) var nettopp `substantial` — valgt den gangen ut fra
+en antakelse om at "substantial = har en aktivert BankID-app" (basert på at "substantial" feilet på
+TEST-tenanten med en "du må aktivere BankID-appen"-feilmelding, og at en EKTE bruker naturligvis
+HAR dette). **Denne antakelsen var feil**: "substantial" er en EGEN, strengere eID-metode
+(biometri), ikke bare en indikator på "ekte bruker med aktivert app" — en helt vanlig BankID-bruker
+UTEN biometri konfigurert (svært vanlig) ville ALDRI kunne bruke "substantial", og Idura avviser
+forespørselen umiddelbart med 401 FØR brukeren i det hele tatt får sjansen til å prøve, nøyaktig
+det observerte symptomet.
+
+**Fikset**: `src/TestBase.Web/Program.cs` sin produksjonsdefault endret fra
+`urn:grn:authn:no:bankid:substantial` til `urn:grn:authn:no:bankid` (vanlig BankID, ingen
+biometri-krav) — fortsatt overstyrbar per miljø via `BankId:IduraProduksjon:AcrValues` om en
+fremtidig variant (f.eks. kreve biometri for en spesifikk rolle) skulle bli aktuelt. Build grønn,
+deployet.
+
+**Reelt funn underveis — en driftshendelse på LIVE, selvpåført og selv-rettet samme økt**: mens
+`Miljo:EktBankIdProfesjonell=true` sto på (for å teste), var admin/behandler-innlogging på LIVE
+HELT UTILGJENGELIG for ALLE — ikke bare den ekte BankID-veien (som feilet som beskrevet over), men
+OGSÅ mock-BankID-veien, siden `LoggInn.cshtml.cs` sin `OnPostAsync` sjekker
+`HarEktBankIdAsync()` FØRST og UBETINGET omdirigerer til den ekte OIDC-flyten når schemaet er
+registrert — og AdminId+passord-unntaket er allerede separat deaktivert på live
+(`Miljo:TillatUtviklingsSnarveier=false`). Altså: null fungerende innloggingsvei for administrator/
+behandler på live i hele vinduet flagget sto på. Oppdaget og rettet (flagget satt tilbake til
+`"false"` + ny `azd provision`) så snart feilen ble bekreftet — ingen reell bruker rapportert
+rammet, men dette er en konkret advarsel: `Miljo:EktBankIdProfesjonell=true` bør ALDRI stå på uten
+at den faktiske BankID-flyten er bekreftet fungerende, siden det IKKE finnes noen fallback-vei
+igjen på live når den er aktiv. Vurder en fremtidig "test ekte BankID i et eget vindu, ikke
+hovedknappen" for å unngå at en fremtidig feilkonfigurasjon låser ALLE ute igjen.
+
+**STATUS: rettet, IKKE verifisert ende-til-ende ennå** (ingen fullført ekte BankID-innlogging har
+skjedd — kun helt frem til selve Idura-autorisasjonssiden). `Miljo:EktBankIdProfesjonell` er
+`"false"` på live igjen. Neste steg: brukeren prøver på nytt med den rettede acr_values.

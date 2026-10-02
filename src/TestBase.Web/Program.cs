@@ -316,14 +316,18 @@ var iduraClientSecretInnlogging = iduraProduksjonKonfigurert ? iduraProduksjonCl
 var ektBankIdProfesjonellAktiv = builder.Configuration["Miljo:EktBankIdProfesjonell"] == "true";
 if (ektBankIdProfesjonellAktiv && !string.IsNullOrWhiteSpace(iduraAuthorityInnlogging) && !string.IsNullOrWhiteSpace(iduraClientIdInnlogging) && !string.IsNullOrWhiteSpace(iduraClientSecretInnlogging))
 {
-    // "high" (godtar engangskode+passord, ingen app) er RIKTIG for test-tenanten — en ekte
-    // produksjonsbruker har derimot en aktivert BankID-app, så "substantial" er default for
-    // produksjon (se docs/beslutningslogg.md "BankID-testintegrasjon via Idura":
-    // "substantial" feilet FOR TEST med "You must activate the BankID app" — nettopp det en ekte
-    // bruker HAR). Overstyrbar per miljø via BankId:IduraProduksjon:AcrValues om dette skulle vise
-    // seg feil — IKKE verifisert ende-til-ende ennå, se beslutningsloggen.
+    // "high" (godtar engangskode+passord, ingen app) er RIKTIG for test-tenanten.
+    // RETTET 2026-10-02 (se docs/beslutningslogg.md "Ekte BankID for admin/behandler, del 6"):
+    // tidligere stod "substantial" som produksjonsdefault, ut fra en feilaktig antakelse om at det
+    // betydde "har BankID-app" — brukerens eget Idura-dashbord viser at "substantial" spesifikt
+    // betyr BIOMETRISK BankID (fingeravtrykk/ansiktsgjenkjenning), en EGEN eID-metode, ikke bare
+    // "har appen". Vanlig BankID (PIN-kode, ingen biometri) er den UKVALIFISERTE
+    // "urn:grn:authn:no:bankid" — bekreftet reelt: "substantial" ga et øyeblikkelig 401 fra selve
+    // Iduras /oauth2/authorize (FØR noen BankID-interaksjon i det hele tatt), konsistent med en
+    // eID-metode som ikke er aktivert/gyldig for klienten. Overstyrbar per miljø via
+    // BankId:IduraProduksjon:AcrValues om nødvendig.
     var iduraAcrValuesInnlogging = iduraProduksjonKonfigurert
-        ? (builder.Configuration["BankId:IduraProduksjon:AcrValues"] ?? "urn:grn:authn:no:bankid:substantial")
+        ? (builder.Configuration["BankId:IduraProduksjon:AcrValues"] ?? "urn:grn:authn:no:bankid")
         : (builder.Configuration["BankId:Idura:AcrValues"] ?? "urn:grn:authn:no:bankid:high");
     builder.Services.AddAuthentication().AddOpenIdConnect("BankIdInnlogging", options =>
     {

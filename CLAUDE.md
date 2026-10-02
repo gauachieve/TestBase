@@ -513,6 +513,19 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   "Ekte BankID for admin/behandler, del 5" for full analyse) før bryteren skrus på. To nye
   fallgruver lagt til under (JWT "sub"-claim-remapping, og at en brokers scope-forespørsel ikke
   nødvendigvis er klientens egen).
+- **Ekte BankID for admin/behandler, del 6 — scope OK, men feil acr_values (2026-10-02, samme
+  dag):** brukeren gjorde et ekte forsøk på live. Scope-spørsmålet fra del 5 ble AVKLART POSITIVT —
+  produksjonsklienten ber faktisk kun om `openid profile`, ingen automatisk tillegg. Selve
+  innloggingen feilet likevel, med 401 på Iduras EGEN `/oauth2/authorize` FØR noen BankID-
+  interaksjon — rotårsak funnet av brukeren i Iduras eget dashbord: koden sin produksjonsdefault
+  `urn:grn:authn:no:bankid:substantial` betyr spesifikt BIOMETRISK BankID (en egen, strengere
+  eID-metode), ikke "har BankID-appen" som tidligere antatt — rettet til den ukvalifiserte
+  `urn:grn:authn:no:bankid`. Samtidig oppdaget og rettet en SELVPÅFØRT driftshendelse: mens flagget
+  sto på for testing, var ALL admin/behandler-innlogging på live utilgjengelig (ingen fallback-vei
+  igjen når ekte BankID er aktiv og feiler) — se docs/beslutningslogg.md "Ekte BankID for
+  admin/behandler, del 6" for full analyse og en foreslått fremtidig "test i eget vindu"-mekanisme.
+  IKKE verifisert ende-til-ende ennå (ingen fullført ekte innlogging), flagget satt tilbake til
+  `"false"` på live i mellomtiden.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
