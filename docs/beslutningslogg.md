@@ -6326,3 +6326,57 @@ eksisterende instans må slettes helt (samme `TestService.SlettTestHeltForRegene
 som SCID-5-PF-restruktureringen, "Natt-økt, del 13") og re-seedes for å få den nye strukturen — IKKE
 gjort i denne runden, da det ikke er bekreftet om HCR-20 V3 allerede er seedet noe sted med ekte
 vurderinger. Sjekk dette FØR regenerering hvis/når testen faktisk skal brukes.
+
+## Forenkling av Tildel/Tester (2026-10-02, samme dag)
+
+Brukerens tilbakemelding: med stadig flere innebygde tester ble `Behandlerportal/Tildel/Tester`
+uoversiktlig — pris-/kostnads-/utfyllingsdimensjonene var ikke synlige nok, og honorar-feltene
+inline i testlisten tok mye plass. Tre endringer, alle KUN på Behandlerportal-siden (brukeren
+nevnte kun denne URL-en — Admin/Tildel/Tester er en nesten identisk søstersside, IKKE endret i
+denne runden, se egen vurdering under):
+
+1. **"Ditt honorar" flyttet til en egen "Sett honorar"-dialog** FØR oppsummeringsdialogen (og før
+   planleggingsdialogen, når den finnes) — kun vist når minst én VALGT test faktisk har prising
+   (`StorstePrisKr > 0`). Selve `<input name="HonorarKr[...]">`-feltene er FYSISK FLYTTET inn i
+   denne nye dialogen (fortsatt inni `<form>`, så modellbinding er uendret) i stedet for inline i
+   hver test-`<li>`. `wwwroot/js/tildel.js` fikk en ny felles `gaTilPlanleggingEllerOppsummering()`-
+   funksjon (samme logikk som før lå direkte i `apneKnapp`-lytteren) kalt BÅDE fra
+   "Gå til oppsummering" (når ingen honorar trengs) og fra den nye "Neste"-knappen i
+   honorardialogen.
+2. **Ny `Test.HarKostnadPerGjennomforing`-kolonne** (bool, default false, ny migrasjon
+   `LeggTilKostnadPerGjennomforing`) — ATSKILT fra `StorstePrisKr` (pasientens pris): markerer at
+   testen påfører PRAKSISEN en reell kostnad per gjennomføring (f.eks. en fremtidig lisensavgift).
+   Satt sann KUN for `mini_strukturdemo` (M.I.N.I.-strukturdemoen) foreløpig — samme
+   "seeder-satt, ingen admin-UI ennå"-mønster som `IcdElleveKlar`/`FyllesUtAvBehandler`.
+3. **Tre nye ikoner** i `_Ikon.cshtml` ("pluss", "dollar", "klinikk") + en forklaringslinje øverst
+   på siden som viser alle tre med tekst. Per test i listen: "+" når `StorstePrisKr > 0` (pasienten
+   kan belastes), "$" når `HarKostnadPerGjennomforing` (koster praksisen noe per gjennomføring),
+   klinikk-ikon + UNDERSTREKET testnavn når `FyllesUtAvBehandler` (fylles ut av behandler, ikke
+   pasient) — alle tre kan vises samtidig på samme test.
+
+**Docker Desktop-avhengighet under utvikling, OPPDATERT**: migrasjonen ble først HÅNDSKREVET (ikke
+generert via `dotnet ef migrations add`) siden Docker Desktop ikke svarte i denne økten — årsaken
+viste seg å være ganske enkelt at brukeren selv ikke hadde startet Docker Desktop (ikke et reelt
+teknisk problem). `cmd.exe /c start` klarte IKKE å faktisk starte appen (ingen prosess, ingen feil —
+stille mislyktes, trolig fordi denne CLI-økten ikke har en interaktiv skrivebordsøkt GUI-apper kan
+feste seg til), men PowerShell sin `Start-Process` LYKTES (fem `Docker Desktop`-prosesser observert
+rett etter). Migrasjonen ble deretter RE-VERIFISERT med en ekte lokal MySQL: `dotnet ef database
+update` kjørte den håndskrevne migrasjonen problemfritt, og en etterfølgende kontroll-migrasjon
+(`dotnet ef migrations add ZZZ_...`, deretter fjernet) genererte en TOM `Up`/`Down`-kropp — beviser
+at `AppDbContextModelSnapshot.cs` sin manuelle oppdatering var eksakt riktig, ingen avvik fra
+modellen. Alle 79 integrasjonstester (ikke bare de 51 DB-uavhengige skåringstestene) grønne mot ekte
+database. Hele Tildel/Tester-flyten verifisert ende-til-ende i en ekte nettleser (Playwright, dev-
+admin → Behandler-rolle via Bytt modus): alle tre ikoner render tydelig og korrekt differensiert
+("+" som et pluss-tegn, "$" som et dollar-tegn, en stetoskop-lignende klinikerikon) på EKSAKT de
+riktige testene (bekreftet via tilgjengelighets-treets `title`-attributter, ingen falske positiver/
+negativer), klinikerutfylte tester vises understreket, og hele "Sett honorar → Planlegging →
+Oppsummering"-kjeden fungerer korrekt (honorardialogen viste KUN den prisede testen av to valgte,
+beløpet forplantet seg riktig til slutt-oppsummeringen). Full verifisering, ikke lenger avhengig av
+CI som eneste sannhetskilde.
+
+**Vurdering — Admin/Tildel/Tester IKKE endret**: admin-siden mangler all prisings-infrastruktur
+(`tildel.js` sin egen kommentar: "Admin-tildeling er alltid 'IkkePåkrevd'") og admin ser uansett
+ALLE tester uavhengig av partner-tilgang, så "+"/honorar-dialogen ville vært meningsløs der —
+men "$" (kostnad per gjennomføring) og klinikk-ikon+understrek er relevante uavhengig av prising.
+Ikke gjort i denne runden siden brukeren kun ba om Behandlerportal-siden; bør vurderes som en
+liten oppfølging hvis admin trenger samme oversikt.

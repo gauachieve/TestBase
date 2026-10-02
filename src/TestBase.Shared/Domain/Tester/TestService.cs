@@ -324,6 +324,20 @@ public sealed class TestService
         return true;
     }
 
+    /// <summary>Se Test.HarKostnadPerGjennomforing — samme mønster som SettIcdElleveKlarAsync.</summary>
+    public async Task<bool> SettHarKostnadPerGjennomforingAsync(long testId, bool harKostnadPerGjennomforing, CancellationToken cancellationToken = default)
+    {
+        var test = await _db.Tester.FirstOrDefaultAsync(t => t.Id == testId, cancellationToken);
+        if (test is null)
+        {
+            return false;
+        }
+
+        test.HarKostnadPerGjennomforing = harKostnadPerGjennomforing;
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     /// <summary>
     /// Samme mønster/begrunnelse som SettRapportIntroduksjonAsync — lar en
     /// seeders "allerede finnes"-gren oppdatere et testnavn (f.eks. en

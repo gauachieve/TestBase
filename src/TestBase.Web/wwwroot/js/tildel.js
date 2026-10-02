@@ -31,6 +31,15 @@
     // testvalg og oppsummerings-dialogen: "Gå til oppsummering" åpner nå
     // planDialog FØRST, og planNeste tar deg videre til den eksisterende
     // oppsummeringDialog. Se Pages/Shared/_PlanleggingDialog.cshtml.
+    // "Sett honorar"-steget (2026-10-02, se docs/beslutningslogg.md "Forenkling av
+    // Tildel/Tester") — et NYTT steg FØR planlegging/oppsummering, kun vist når minst
+    // én VALGT test faktisk har prising. Selve <input>-feltene flyttet hit fra
+    // testlisten, men beholder samme id/name/klasse, så oppdaterOppsummering() under
+    // trenger ingen endring.
+    var honorarDialog = document.getElementById('honorarDialog');
+    var honorarNeste = document.getElementById('honorarNeste');
+    var honorarAvbryt = document.getElementById('honorarAvbryt');
+
     var planDialog = document.getElementById('planleggingDialog');
     var planNeste = document.getElementById('planNeste');
     var planAvbryt = document.getElementById('planAvbryt');
@@ -226,24 +235,64 @@
         }
     }
 
+    // Felles "neste steg etter testvalg"-logikk — kalt direkte fra apneKnapp når
+    // ingen honorar-innputt trengs, og fra honorarNeste når det honorarsteget er
+    // unnagjort. Planleggingssteget kommer FØR oppsummeringen når det finnes på
+    // siden (begge Tildel/Tester-sidene har det, se _PlanleggingDialog.cshtml) —
+    // planNeste-lytteren over tar seg av å åpne oppsummeringDialog etterpå.
+    function gaTilPlanleggingEllerOppsummering() {
+        if (planDialog) {
+            planDialog.showModal();
+            return;
+        }
+
+        oppdaterOppsummering();
+        dialog.showModal();
+    }
+
     if (apneKnapp && dialog && testeListe) {
         apneKnapp.addEventListener('click', function () {
-            var noeValgt = document.querySelectorAll('.tildel-test-checkbox:checked').length > 0;
-            if (!noeValgt) {
+            var valgteCheckboxer = document.querySelectorAll('.tildel-test-checkbox:checked');
+            if (valgteCheckboxer.length === 0) {
                 alert('Velg minst én test før du går videre.');
                 return;
             }
 
-            // Planleggingssteget kommer FØR oppsummeringen når det finnes på siden
-            // (begge Tildel/Tester-sidene har det, se _PlanleggingDialog.cshtml) —
-            // planNeste-lytteren over tar seg av å åpne oppsummeringDialog etterpå.
-            if (planDialog) {
-                planDialog.showModal();
-                return;
+            if (honorarDialog) {
+                var valgteTestIder = {};
+                valgteCheckboxer.forEach(function (checkbox) {
+                    valgteTestIder[checkbox.getAttribute('data-test-id')] = true;
+                });
+
+                var noenRadVises = false;
+                document.querySelectorAll('.tildel-honorar-rad').forEach(function (rad) {
+                    var vis = !!valgteTestIder[rad.getAttribute('data-honorar-test-id')];
+                    rad.hidden = !vis;
+                    if (vis) {
+                        noenRadVises = true;
+                    }
+                });
+
+                if (noenRadVises) {
+                    honorarDialog.showModal();
+                    return;
+                }
             }
 
-            oppdaterOppsummering();
-            dialog.showModal();
+            gaTilPlanleggingEllerOppsummering();
+        });
+    }
+
+    if (honorarAvbryt && honorarDialog) {
+        honorarAvbryt.addEventListener('click', function () {
+            honorarDialog.close();
+        });
+    }
+
+    if (honorarNeste && honorarDialog) {
+        honorarNeste.addEventListener('click', function () {
+            honorarDialog.close();
+            gaTilPlanleggingEllerOppsummering();
         });
     }
 

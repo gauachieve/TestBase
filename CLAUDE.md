@@ -546,6 +546,19 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   HCR-20 V3-test i en database oppdateres IKKE automatisk — krever full sletting+re-seeding (samme
   mønster som SCID-5-PF-restruktureringen), ikke gjort i denne runden. Se docs/beslutningslogg.md
   "HCR-20 V3: Tilstede+Relevans slått sammen" for detaljer.
+- **Forenkling av Tildel/Tester (2026-10-02, samme dag):** på `Behandlerportal/Tildel/Tester` KUN
+  (Admin/Tildel/Tester ikke endret) — "Ditt honorar" flyttet fra inline i testlisten til en egen
+  "Sett honorar"-dialog FØR oppsummeringsdialogen (kun vist når noen valgt test faktisk har
+  prising); ny `Test.HarKostnadPerGjennomforing`-kolonne (satt sann kun for `mini_strukturdemo`
+  foreløpig) markerer tester som koster PRAKSISEN noe per gjennomføring, atskilt fra pasientens
+  `StorstePrisKr`; tre nye ikoner ("+"=pasienten kan belastes, "$"=koster praksisen noe,
+  klinikk-ikon+understreket navn=fylles ut av behandler) vises per test + en forklaringslinje
+  øverst. Migrasjonen ble først HÅNDSKREVET (Docker Desktop startet ikke — viste seg å bare ikke
+  være startet av brukeren; `Start-Process` i PowerShell løste det der `cmd.exe /c start` stille
+  feilet), deretter FULLT VERIFISERT mot en ekte lokal database (alle 79 integrasjonstester grønne,
+  en tom kontroll-migrasjon bekreftet snapshot-nøyaktighet) og ende-til-ende i nettleser
+  (Playwright) — alle tre ikoner, understreking og hele "Sett honorar"-dialogkjeden fungerer
+  korrekt. Se docs/beslutningslogg.md "Forenkling av Tildel/Tester" for full detalj.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

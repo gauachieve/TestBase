@@ -99,6 +99,7 @@ public sealed class MiniStrukturdemoTestSeeder : IInnebygdTestSeeder
         {
             await testService.KoblTestTilKategoriAsync(eksisterende.Id, Kategori, cancellationToken);
             await testService.SettRapportIntroduksjonAsync(eksisterende.Id, RapportIntroduksjonTekst, cancellationToken);
+            await testService.SettHarKostnadPerGjennomforingAsync(eksisterende.Id, true, cancellationToken);
             return;
         }
 
@@ -109,6 +110,7 @@ public sealed class MiniStrukturdemoTestSeeder : IInnebygdTestSeeder
             kode: Kode,
             cancellationToken: cancellationToken);
         await testService.SettFyllesUtAvBehandlerAsync(test.Id, true, cancellationToken);
+        await testService.SettHarKostnadPerGjennomforingAsync(test.Id, true, cancellationToken);
 
         foreach (var modul in Moduler)
         {

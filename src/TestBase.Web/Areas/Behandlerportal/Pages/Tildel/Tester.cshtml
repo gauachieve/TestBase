@@ -57,6 +57,12 @@ else if (Model.ValgtePasienter.Any())
 {
     <p>Tildeler til: <strong>@string.Join(", ", Model.ValgtePasienter.Select(p => p.Pasient.Navn ?? "(ikke fullført)"))</strong></p>
 
+    <p class="tildel-test-forklaring">
+        <span><partial name="_Ikon" model="@("pluss")" /> Pasienten kan belastes for denne testen</span>
+        <span><partial name="_Ikon" model="@("dollar")" /> Koster praksisen noe per gjennomføring</span>
+        <span><partial name="_Ikon" model="@("klinikk")" /> <span class="tildel-test-klinikerutfylt">Fylles ut av deg (behandler), ikke pasienten</span></span>
+    </p>
+
     <form method="post" asp-page-handler="Send" id="tildelForm"
           data-dekket-av-abonnement="@Model.Prisingskontekst.DekketAvAbonnement.ToString().ToLowerInvariant()"
           data-sms-gebyr-kr="@Model.Prisingskontekst.SmsGebyrKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
@@ -86,7 +92,7 @@ else if (Model.ValgtePasienter.Any())
                     {
                         var visningsnavn = test.Navn + (string.IsNullOrEmpty(test.OversettelseNotat) ? "" : $" ({test.OversettelseNotat})");
                         <li data-sok="@visningsnavn.ToLowerInvariant()">
-                            <label>
+                            <label class="@(test.FyllesUtAvBehandler ? "tildel-test-klinikerutfylt" : "")">
                                 <input type="checkbox" name="TestIder" value="@test.Id" class="tildel-test-checkbox" data-test-id="@test.Id"
                                        data-test-navn="@visningsnavn"
                                        data-beskrivelse="@test.Beskrivelse"
@@ -104,12 +110,15 @@ else if (Model.ValgtePasienter.Any())
                             </label>
                             @if (test.StorstePrisKr > 0)
                             {
-                                <label>
-                                    Ditt honorar (NOK, maks @test.StorstePrisKr.ToString("0.00")):
-                                    <input type="number" step="0.01" min="0" max="@test.StorstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input tildel-honorar-input"
-                                           id="honorar-@test.Id" data-test-id="@test.Id"
-                                           name="HonorarKr[@test.Id]" value="@Model.SistBrukteHonorarPerTestId.GetValueOrDefault(test.Id).ToString(System.Globalization.CultureInfo.InvariantCulture)" />
-                                </label>
+                                <span class="tildel-ikon" title="Pasienten kan belastes for denne testen"><partial name="_Ikon" model="@("pluss")" /></span>
+                            }
+                            @if (test.HarKostnadPerGjennomforing)
+                            {
+                                <span class="tildel-ikon" title="Koster praksisen noe per gjennomføring"><partial name="_Ikon" model="@("dollar")" /></span>
+                            }
+                            @if (test.FyllesUtAvBehandler)
+                            {
+                                <span class="tildel-ikon" title="Fylles ut av deg (behandler), ikke pasienten"><partial name="_Ikon" model="@("klinikk")" /></span>
                             }
                         </li>
                     }
@@ -122,6 +131,30 @@ else if (Model.ValgtePasienter.Any())
         </div>
 
         <button type="button" id="apneOppsummering" class="btn btn-accent">Gå til oppsummering</button>
+
+        @{
+            var prisedeTester = Model.KategoriTre.SelectMany(k => k.Tester).Where(t => t.StorstePrisKr > 0)
+                .GroupBy(t => t.Id).Select(g => g.First()).ToList();
+        }
+        <dialog id="honorarDialog">
+            <h2>Sett honorar</h2>
+            <p>Angi ditt honorar for de prisede testene du har valgt. Stå tomt for å bruke ditt vanlige honorar.</p>
+            <div id="honorarInnhold">
+            @foreach (var test in prisedeTester)
+            {
+                <div class="tildel-honorar-rad" data-honorar-test-id="@test.Id" hidden>
+                    <label>
+                        @test.Navn — ditt honorar (NOK, maks @test.StorstePrisKr.ToString("0.00")):<br />
+                        <input type="number" step="0.01" min="0" max="@test.StorstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input tildel-honorar-input"
+                               id="honorar-@test.Id" data-test-id="@test.Id"
+                               name="HonorarKr[@test.Id]" value="@Model.SistBrukteHonorarPerTestId.GetValueOrDefault(test.Id).ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                    </label>
+                </div>
+            }
+            </div>
+            <button type="button" id="honorarAvbryt" class="btn btn-muted">Tilbake</button>
+            <button type="button" id="honorarNeste" class="btn btn-accent">Neste</button>
+        </dialog>
 
         <partial name="_PlanleggingDialog" />
 

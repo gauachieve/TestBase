@@ -102,4 +102,16 @@ public sealed class Test
     /// "Behandler-utfylte tester". Standard false for ALLE eksisterende tester.
     /// </summary>
     public bool FyllesUtAvBehandler { get; set; }
+
+    /// <summary>
+    /// Sant for tester som påfører PRAKSISEN/behandleren en reell kostnad per
+    /// gjennomføring (f.eks. en lisensavgift til testens rettighetshaver) —
+    /// ATSKILT fra <see cref="StorstePrisKr"/>, som er PASIENTENS pris. Rent
+    /// visningsfelt (dollar-ikon i tildelingsflyten, se
+    /// docs/beslutningslogg.md "Forenkling av Tildel/Tester") — per 2026-10-02
+    /// kun satt sann for M.I.N.I.-strukturdemoen. Standard false for ALLE
+    /// eksisterende tester. Ingen admin-UI ennå, samme mønster som
+    /// RapportIntroduksjon — kun satt av innebygde testers seedere foreløpig.
+    /// </summary>
+    public bool HarKostnadPerGjennomforing { get; set; }
 }

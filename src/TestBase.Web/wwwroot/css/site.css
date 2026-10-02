@@ -976,7 +976,22 @@ main.page form#tildelForm { max-width: 760px; }
 .tildel-kanal-ikon { opacity: 0.3; margin-right: 0.3rem; }
 .tildel-kanal-ikon.tilgjengelig { opacity: 1; color: var(--accent-dark); }
 
-dialog#oppsummeringDialog, dialog#grupperapportDialog {
+/* Forklaringsikoner i testlisten (pris/kostnad/klinikerutfylling) — se docs/beslutningslogg.md
+   "Forenkling av Tildel/Tester". */
+.tildel-test-forklaring {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1.2rem;
+  font-size: 0.9rem;
+  color: var(--muted, #666);
+  margin: 0.4rem 0 1rem;
+  align-items: center;
+}
+.tildel-test-forklaring span { display: inline-flex; align-items: center; gap: 0.3rem; }
+.tildel-ikon { display: inline-flex; align-items: center; margin-left: 0.3rem; color: var(--accent-dark); vertical-align: middle; }
+.tildel-test-klinikerutfylt { text-decoration: underline; text-decoration-color: var(--accent-dark); text-underline-offset: 3px; }
+
+dialog#oppsummeringDialog, dialog#grupperapportDialog, dialog#honorarDialog {
   border: none;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -984,7 +999,8 @@ dialog#oppsummeringDialog, dialog#grupperapportDialog {
   max-width: 480px;
   width: 90%;
 }
-dialog#oppsummeringDialog::backdrop, dialog#grupperapportDialog::backdrop { background: rgba(22, 24, 31, 0.5); }
+dialog#oppsummeringDialog::backdrop, dialog#grupperapportDialog::backdrop, dialog#honorarDialog::backdrop { background: rgba(22, 24, 31, 0.5); }
+.tildel-honorar-rad { margin-bottom: 0.8rem; }
 
 /* ---------- Testutfylling: Likert-skala/Ja-Nei som moderne knapperad ---------- */
 /* Erstatter små radio-sirkler med hele, klikkbare "piller" på én horisontal
