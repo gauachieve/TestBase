@@ -30,6 +30,7 @@ public sealed class LoggInnModel : PageModel
     private readonly IAuditLogger _auditLogger;
     private readonly IConfiguration _configuration;
     private readonly IAuthenticationSchemeProvider _schemes;
+    private readonly EktBankIdInnstillingService _ektBankIdInnstillinger;
 
     public LoggInnModel(
         AdminAuthenticationService adminAuth,
@@ -38,7 +39,8 @@ public sealed class LoggInnModel : PageModel
         ICaptchaProvider captcha,
         IAuditLogger auditLogger,
         IConfiguration configuration,
-        IAuthenticationSchemeProvider schemes)
+        IAuthenticationSchemeProvider schemes,
+        EktBankIdInnstillingService ektBankIdInnstillinger)
     {
         _adminAuth = adminAuth;
         _behandlerAuth = behandlerAuth;
@@ -47,6 +49,7 @@ public sealed class LoggInnModel : PageModel
         _auditLogger = auditLogger;
         _configuration = configuration;
         _schemes = schemes;
+        _ektBankIdInnstillinger = ektBankIdInnstillinger;
     }
 
     /// <summary>Styrer AdminId+passord-skjemaet (view og handler) — se Security/Miljo.cs.</summary>
@@ -63,14 +66,28 @@ public sealed class LoggInnModel : PageModel
     public bool VisPersonnummerOverride => Miljo.TillatPersonnummerOverride(_configuration) && !ErEktBankIdAktiv;
 
     /// <summary>
-    /// Cachet FØR rendring (se OnGetAsync/OnPostAsync) — KUN sant når ekte BankID
-    /// (Program.cs "BankIdInnlogging"-schema) er registrert. Når sant, bytter
-    /// OnPostAsync sin BankID-knapp fra MockBankIdProvider til en ekte Idura-redirect.
-    /// Se docs/beslutningslogg.md "Ekte BankID for admin/behandler (beta)".
+    /// Cachet FØR rendring (se OnGetAsync/OnPostAsync) — sant KUN når BÅDE ekte BankID
+    /// (Program.cs "BankIdInnlogging"-schema) er registrert OG EktBankIdInnstilling
+    /// sin ENE rad sier den er aktiv akkurat nå. Sistnevnte er en Superadmin/Utvikler-
+    /// styrbar database-bryter (Admin/MinSide) som kan slås av/på UTEN redeploy/omstart
+    /// (2026-10-02, se docs/beslutningslogg.md "Ekte BankID — driftsbryter uten
+    /// redeploy") — selve schema-registreringen trenger fortsatt en omstart for å
+    /// slås PÅ første gang per miljø, men når den finnes kan BRUKEN av den veksles
+    /// momentant. Når sant, bytter OnPostAsync sin BankID-knapp fra
+    /// MockBankIdProvider til en ekte Idura-redirect.
     /// </summary>
     public bool ErEktBankIdAktiv { get; private set; }
 
-    private async Task<bool> HarEktBankIdAsync() => await _schemes.GetSchemeAsync("BankIdInnlogging") is not null;
+    private async Task<bool> HarEktBankIdAsync()
+    {
+        if (await _schemes.GetSchemeAsync("BankIdInnlogging") is null)
+        {
+            return false;
+        }
+
+        var innstilling = await _ektBankIdInnstillinger.HentAsync();
+        return innstilling.ErAktiv;
+    }
 
     [BindProperty]
     public string? AdminId { get; set; }

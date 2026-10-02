@@ -454,6 +454,11 @@ var stripeKonfigurert = !string.IsNullOrWhiteSpace(stripeSecretKey);
 // live/lokal dev: den styrer ALDRI hvilken IVippsClient/IStripeClient som faktisk velges der.
 builder.Services.AddScoped<BetaInnstillingService>();
 
+// Alltid registrert, samme begrunnelse som BetaInnstillingService over — se
+// EktBankIdInnstilling for hvordan denne raden erstatter behovet for en
+// redeploy ved hver av/på-veksling av ekte BankID.
+builder.Services.AddScoped<EktBankIdInnstillingService>();
+
 if (erBeta)
 {
     var vippsBetaTestClientId = builder.Configuration["Vipps:BetaTest:ClientId"];

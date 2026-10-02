@@ -53,6 +53,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<TestTilgangForespoersel> TestTilgangForesporsler => Set<TestTilgangForespoersel>();
     public DbSet<PlanlagtTildeling> PlanlagteTildelinger => Set<PlanlagtTildeling>();
     public DbSet<BetaBetalingsinnstilling> BetaBetalingsinnstillinger => Set<BetaBetalingsinnstilling>();
+    public DbSet<EktBankIdInnstilling> EktBankIdInnstillinger => Set<EktBankIdInnstilling>();
     public DbSet<Tilbakemelding> Tilbakemeldinger => Set<Tilbakemelding>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

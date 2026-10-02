@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -25,17 +26,22 @@ public sealed class MinSideModel : PageModel
     private readonly AppDbContext _db;
     private readonly TestService _testService;
     private readonly BetaInnstillingService _betaInnstillinger;
+    private readonly EktBankIdInnstillingService _ektBankIdInnstillinger;
+    private readonly IAuthenticationSchemeProvider _schemes;
     private readonly IConfiguration _configuration;
     private readonly IAuditLogger _auditLogger;
     private readonly ICurrentUserContext _currentUser;
 
     public MinSideModel(
-        AppDbContext db, TestService testService, BetaInnstillingService betaInnstillinger, IConfiguration configuration,
+        AppDbContext db, TestService testService, BetaInnstillingService betaInnstillinger,
+        EktBankIdInnstillingService ektBankIdInnstillinger, IAuthenticationSchemeProvider schemes, IConfiguration configuration,
         IAuditLogger auditLogger, ICurrentUserContext currentUser)
     {
         _db = db;
         _testService = testService;
         _betaInnstillinger = betaInnstillinger;
+        _ektBankIdInnstillinger = ektBankIdInnstillinger;
+        _schemes = schemes;
         _configuration = configuration;
         _auditLogger = auditLogger;
         _currentUser = currentUser;
@@ -52,6 +58,17 @@ public sealed class MinSideModel : PageModel
     public bool VippsProduksjonKonfigurert => !string.IsNullOrWhiteSpace(_configuration["Vipps:ClientId"]);
     public bool StripeTestKonfigurert => !string.IsNullOrWhiteSpace(_configuration["Stripe:SecretKey"]);
 
+    /// <summary>
+    /// I MOTSETNING TIL betalingsmodus-bryteren over, IKKE begrenset til beta — ekte
+    /// BankID gjelder for live akkurat som beta. Vist KUN når "BankIdInnlogging"-
+    /// schemaet faktisk er registrert (dvs. Idura-nøkler er satt i dette miljøet,
+    /// se Program.cs) — ellers ville bryteren vært virkningsløs uansett stilling.
+    /// Se EktBankIdInnstilling/EktBankIdInnstillingService og
+    /// docs/beslutningslogg.md "Ekte BankID — driftsbryter uten redeploy".
+    /// </summary>
+    public bool VisEktBankIdBryter { get; private set; }
+    public bool EktBankIdAktiv { get; private set; }
+
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         await LastOppgaverAsync(cancellationToken);
@@ -60,6 +77,13 @@ public sealed class MinSideModel : PageModel
             var innstilling = await _betaInnstillinger.HentAsync(cancellationToken);
             VippsModus = innstilling.VippsModus;
             StripeModus = innstilling.StripeModus;
+        }
+
+        VisEktBankIdBryter = _currentUser.Role is UserRole.Superadmin or UserRole.Utvikler
+            && await _schemes.GetSchemeAsync("BankIdInnlogging") is not null;
+        if (VisEktBankIdBryter)
+        {
+            EktBankIdAktiv = (await _ektBankIdInnstillinger.HentAsync(cancellationToken)).ErAktiv;
         }
     }
 
@@ -83,6 +107,31 @@ public sealed class MinSideModel : PageModel
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "EndreBetaBetalingsmodus",
             nameof(BetaBetalingsinnstilling), "1", $"Vipps={vippsModus}, Stripe={stripeModus}", cancellationToken);
+
+        return RedirectToPage();
+    }
+
+    /// <summary>
+    /// Slår ekte BankID for admin/behandler-innlogging av/på med UMIDDELBAR virkning,
+    /// uten redeploy/omstart — se EktBankIdInnstilling. Auditlogget eksplisitt, samme
+    /// begrunnelse som betalingsmodus-bryteren over: en sikkerhetssensitiv bryter, ikke
+    /// en vanlig CRUD-handling. Sjekker autorisasjon FERSKT her (ikke bare via
+    /// OnGetAsync sin cachede VisEktBankIdBryter, som aldri kjører på en ren POST).
+    /// </summary>
+    public async Task<IActionResult> OnPostSettEktBankIdAsync(bool erAktiv, CancellationToken cancellationToken)
+    {
+        if (_currentUser.Role is not (UserRole.Superadmin or UserRole.Utvikler) ||
+            await _schemes.GetSchemeAsync("BankIdInnlogging") is null)
+        {
+            return Forbid();
+        }
+
+        var userId = long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var uid) ? uid : 0;
+        await _ektBankIdInnstillinger.SettErAktivAsync(erAktiv, userId, cancellationToken);
+
+        await _auditLogger.LogAsync(
+            _currentUser.UserId, _currentUser.Role.ToString(), "EndreEktBankIdAktiv",
+            nameof(EktBankIdInnstilling), "1", $"ErAktiv={erAktiv}", cancellationToken);
 
         return RedirectToPage();
     }

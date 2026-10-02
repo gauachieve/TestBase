@@ -43,6 +43,24 @@
     </form>
 }
 
+@if (Model.VisEktBankIdBryter)
+{
+    <h2>BankID-innlogging (admin/behandler)</h2>
+    <p style="color: darkred;">
+        <strong>OBS:</strong> "Ekte BankID" krever at administrator/behandler faktisk bekrefter identiteten
+        sin via BankID-appen ved hver innlogging — "Mock" bruker et fast, fiktivt test-personnummer uten
+        noen reell identitetssjekk. Trer i kraft UMIDDELBART, ingen omstart nødvendig.
+    </p>
+    <form method="post" asp-page-handler="SettEktBankId" data-disable-on-submit="Lagrer …">
+        <fieldset>
+            <legend>Innloggingsmetode</legend>
+            <label><input type="radio" name="erAktiv" value="false" checked="@(!Model.EktBankIdAktiv)" /> Mock BankID</label>
+            <label><input type="radio" name="erAktiv" value="true" checked="@Model.EktBankIdAktiv" /> Ekte BankID</label>
+        </fieldset>
+        <p><button type="submit" class="btn-accent">Lagre innloggingsmetode</button></p>
+    </form>
+}
+
 @if (antallOppgaver == 0)
 {
     <p>Ingen oppgaver akkurat nå.</p>

@@ -568,6 +568,20 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   (3) personnummer bekreftet en 3. gang etter innlogging — IKKE en bug, dette ER den bevisste
   engangskoblingen fra del 5 (`BankIdKobleKonto`), skal aldri vises igjen for samme konto. Se
   docs/beslutningslogg.md "Ekte BankID for admin/behandler, del 8" for detaljer.
+- **Ekte BankID — driftsbryter uten redeploy (2026-10-02, samme dag):** ny radioknapp-bryter på
+  `Admin/MinSide` ("BankID-innlogging (admin/behandler)", Superadmin/Utvikler-only, IKKE begrenset
+  til `Miljo:ErBeta` siden dette gjelder live også) slår ekte BankID av/på MOMENTANT, uten
+  `azd provision`/omstart. Ny `EktBankIdInnstilling`-singleton-rad (mønster lånt fra
+  `BetaInnstillingService`), lest FERSKT av `LoggInnModel` ved hvert innloggingsforsøk.
+  `Miljo:EktBankIdProfesjonell` beholdes uendret som den grovere "kan dette miljøet i det hele tatt
+  registrere schemaet"-bryteren (krever fortsatt omstart FØRSTE gang per miljø) — den nye raden er
+  den finere "er det aktivt akkurat nå"-bryteren. `ErAktiv` defaulter `true` (unngår en
+  overraskende regresjon til mock ved første deploy, siden ekte BankID allerede var ønsket aktivt
+  på live). Fullt verifisert lokalt (midlertidige fiktive Idura-nøkler tvang frem scheme-
+  registrering for testformål) — bekreftet at toggelen styrer FAKTISK oppførsel (mock ga riktig
+  "fant ingen konto", ekte-modus ga en forventet 500 fra et mislykket discovery-kall mot den
+  fiktive testautoriteten), ikke bare visningsteksten. Se docs/beslutningslogg.md
+  "Ekte BankID — driftsbryter uten redeploy" for full detalj.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

@@ -6411,3 +6411,48 @@ reelle UX-problemer rapportert fra selve den vellykkede innloggingen, alle under
    lagret (`BankIdSubjekt`-kolonnen). Forklart til brukeren, ingen kodeendring.
 
 Build grønn, alle 79 integrasjonstester grønne. Punkt 1 og 2 deployet; punkt 3 er ren forklaring.
+
+## Ekte BankID — driftsbryter uten redeploy (2026-10-02, samme dag)
+
+Brukerens spørsmål: kan ekte BankID slås av/på på live med en radioknapp, uten `azd provision`/
+omstart, nå som de vil bruke ekte BankID på live mens de selv fortsatt er i dev lokalt? Svaret FØR
+denne endringen var nei — `Miljo:EktBankIdProfesjonell` ble lest ÉN GANG ved oppstart i Program.cs
+for å avgjøre om selve OIDC-schemaet ("BankIdInnlogging") i det hele tatt registreres, og en
+ASP.NET Core-autentiseringsscheme kan ikke legges til dynamisk uten omstart.
+
+**Løsning, mønster lånt fra `BetaInnstillingService`/`BetaSwitchingVippsClient`** (se "Beta-miljø"):
+ny `EktBankIdInnstilling` (singleton-rad, Id=1, samme "lat opprettelse"-mønster) +
+`EktBankIdInnstillingService`, lest FERSKT (ikke cachet) av `LoggInnModel.HarEktBankIdAsync()` ved
+HVERT innloggingsforsøk. `Miljo:EktBankIdProfesjonell` BEHOLDES uendret som den grovere
+"kan dette miljøet i det hele tatt registrere schemaet"-bryteren (fortsatt krever omstart å slå PÅ
+første gang per miljø — ingen endring i infra/Bicep) — den nye databaseraden er den FINERE
+"er det faktisk aktivt akkurat nå"-bryteren, togglbar momentant.
+
+Ny radioknapp-bryter i `Admin/MinSide` ("BankID-innlogging (admin/behandler)"), Superadmin/
+Utvikler-only (SAMME rolletilgang som betalingsmodus-bryteren, men BEVISST IKKE begrenset til
+`Miljo:ErBeta` slik betalingsbryteren er — ekte BankID gjelder live akkurat som beta, ikke bare
+beta). Vises KUN når "BankIdInnlogging"-schemaet faktisk er registrert i miljøet (ellers
+virkningsløs uansett stilling). `ErAktiv` defaulter til `true` (motsatt av betalingsbryterens
+Mock-first-prinsipp) — BEVISST, siden raden introduseres mens ekte BankID allerede var aktivt og
+ønsket på live; en `false`-default ville gitt en overraskende regresjon til mock ved første deploy
+av denne funksjonen. Auditlogget eksplisitt (`EndreEktBankIdAktiv`), samme begrunnelse som
+betalingsmodus-bryteren — en sikkerhetssensitiv bryter, ikke vanlig CRUD.
+
+`LoggInn.cshtml.cs` sin personnummer-felt-synlighet og forklaringstekst (se forrige seksjon,
+"del 8") reagerer nå korrekt på DENNE raden, ikke bare scheme-registrering.
+
+**Verifisert fullt ende-til-ende lokalt** (siden lokal dev normalt ALDRI har
+`BankId:IduraProduksjon:*`-nøkler satt, og dermed aldri registrerer schemaet i det hele tatt):
+startet en lokal økt med MIDLERTIDIGE, FIKTIVE Idura-nøkler (`https://example-test.idura.broker` +
+dummy client-id/secret) kun for å tvinge frem scheme-registrering til testformål — ingen ekte
+Idura-konto involvert. Bekreftet i nettleser: (1) bryteren vises korrekt for Superadmin, starter på
+"Ekte BankID" (matcher default); (2) bytte til "Mock BankID" + lagre endrer UMIDDELBART
+`Pages/Konto/LoggInn` sin tekst/felt UTEN noen serverrestart; (3) selve innloggingsforsøket i
+mock-modus ga den forventede "Fant ingen administrator- eller behandlerkonto"-meldingen (beviser at
+POST-handleren faktisk tok mock-grenen, ikke bare at teksten så riktig ut); (4) bytte tilbake til
+"Ekte BankID" + et nytt innloggingsforsøk ga en 500-feil FRA et mislykket OIDC-discovery-kall mot
+den fiktive testautoriteten — nettopp det forventede resultatet når ekte-BankID-grenen faktisk
+forsøker en reell redirect mot en adresse som ikke finnes, og dermed beviser at toggelen styrer den
+FAKTISKE koden, ikke bare visningen. Build grønn, alle 79 integrasjonstester grønne, ny migrasjon
+(`LeggTilEktBankIdInnstilling`) generert normalt via `dotnet ef migrations add` (Docker fungerte nå)
+og anvendt lokalt.
