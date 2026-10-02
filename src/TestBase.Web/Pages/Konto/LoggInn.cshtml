@@ -30,11 +30,22 @@
     <button type="submit">Logg inn med BankID</button>
 </form>
 
-<p>
-    Administrator og behandler logger inn med BankID + SMS-kode (mock — ingen ekte BankID/SMS
-    kontaktes i dev). Har du som behandler ikke fullført registreringen ennå, bruk
-    invitasjonslenken du mottok.
-</p>
+@if (Model.ErEktBankIdAktiv)
+{
+    <p>
+        Administrator og behandler logger inn med BankID. Du bekrefter identiteten din i BankID-appen
+        etter å ha trykket "Logg inn med BankID" — ikke her på siden. Har du som behandler ikke
+        fullført registreringen ennå, bruk invitasjonslenken du mottok.
+    </p>
+}
+else
+{
+    <p>
+        Administrator og behandler logger inn med BankID + SMS-kode (mock — ingen ekte BankID/SMS
+        kontaktes i dev). Har du som behandler ikke fullført registreringen ennå, bruk
+        invitasjonslenken du mottok.
+    </p>
+}
 
 @if (Model.VisUtviklingsSnarveier)
 {

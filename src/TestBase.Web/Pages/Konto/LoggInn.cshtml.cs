@@ -52,17 +52,25 @@ public sealed class LoggInnModel : PageModel
     /// <summary>Styrer AdminId+passord-skjemaet (view og handler) — se Security/Miljo.cs.</summary>
     public bool VisUtviklingsSnarveier => Miljo.TillatUtviklingsSnarveier(_configuration);
 
-    /// <summary>Styrer PersonnummerOverride-feltet (view og handler) — snevrere enn VisUtviklingsSnarveier over, se Security/Miljo.cs.</summary>
-    public bool VisPersonnummerOverride => Miljo.TillatPersonnummerOverride(_configuration);
+    /// <summary>
+    /// Styrer PersonnummerOverride-feltet (view og handler) — snevrere enn
+    /// VisUtviklingsSnarveier over, se Security/Miljo.cs. RETTET 2026-10-02: feltet er
+    /// MENINGSLØST når ekte BankID er aktiv (OnPostAsync leser det aldri i den grenen,
+    /// se HarEktBankIdAsync-sjekken under — brukeren fylte det ut forgjeves og ble
+    /// forvirret over å måtte taste personnummeret på nytt på selve BankID-siden). Vis
+    /// derfor KUN når ekte BankID faktisk IKKE er aktiv for denne innloggingen.
+    /// </summary>
+    public bool VisPersonnummerOverride => Miljo.TillatPersonnummerOverride(_configuration) && !ErEktBankIdAktiv;
 
     /// <summary>
-    /// KUN sant på beta (se Program.cs "BankIdInnlogging"-schema, registrert
-    /// bare når Miljo:ErBeta og Idura-nøklene begge er satt) — når sant,
-    /// bytter OnPostAsync sin BankID-knapp fra MockBankIdProvider til en ekte
-    /// Idura-redirect. Se docs/beslutningslogg.md "Ekte BankID for
-    /// admin/behandler (beta)".
+    /// Cachet FØR rendring (se OnGetAsync/OnPostAsync) — KUN sant når ekte BankID
+    /// (Program.cs "BankIdInnlogging"-schema) er registrert. Når sant, bytter
+    /// OnPostAsync sin BankID-knapp fra MockBankIdProvider til en ekte Idura-redirect.
+    /// Se docs/beslutningslogg.md "Ekte BankID for admin/behandler (beta)".
     /// </summary>
-    public async Task<bool> HarEktBankIdAsync() => await _schemes.GetSchemeAsync("BankIdInnlogging") is not null;
+    public bool ErEktBankIdAktiv { get; private set; }
+
+    private async Task<bool> HarEktBankIdAsync() => await _schemes.GetSchemeAsync("BankIdInnlogging") is not null;
 
     [BindProperty]
     public string? AdminId { get; set; }
@@ -97,8 +105,9 @@ public sealed class LoggInnModel : PageModel
     public string? Feilmelding { get; private set; }
 
     /// <summary>Satt av BankIdFullfor.cshtml.cs når en ekte Idura-innlogging ikke fant noen matchende konto — se der.</summary>
-    public void OnGet()
+    public async Task OnGetAsync()
     {
+        ErEktBankIdAktiv = await HarEktBankIdAsync();
         NyCaptcha();
         if (TempData["BankIdFeilmelding"] is string feil)
         {
@@ -142,7 +151,8 @@ public sealed class LoggInnModel : PageModel
             return Page();
         }
 
-        if (await HarEktBankIdAsync())
+        ErEktBankIdAktiv = await HarEktBankIdAsync();
+        if (ErEktBankIdAktiv)
         {
             var props = new AuthenticationProperties { RedirectUri = "/Konto/BankIdFullfor" };
             props.Items["huskMeg"] = HuskMeg.ToString();

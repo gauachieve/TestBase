@@ -257,6 +257,7 @@ if (!string.IsNullOrWhiteSpace(iduraAuthority) && !string.IsNullOrWhiteSpace(idu
             OnRedirectToIdentityProvider = ctx =>
             {
                 ctx.ProtocolMessage.AcrValues = iduraAcrValues;
+                ctx.ProtocolMessage.UiLocales = "nb";
                 return Task.CompletedTask;
             },
             OnTokenValidated = async ctx =>
@@ -359,6 +360,10 @@ if (ektBankIdProfesjonellAktiv && !string.IsNullOrWhiteSpace(iduraAuthorityInnlo
             OnRedirectToIdentityProvider = ctx =>
             {
                 ctx.ProtocolMessage.AcrValues = iduraAcrValuesInnlogging;
+                // Uten dette viste BankID/Iduras egen autentiseringsside seg på engelsk — standard
+                // OIDC "ui_locales"-parameter, ingen grunn til å anta at IdP-en gjetter norsk uten
+                // at vi ber om det eksplisitt (2026-10-02, brukerens observasjon på live).
+                ctx.ProtocolMessage.UiLocales = "nb";
                 return Task.CompletedTask;
             },
             OnTokenValidated = ctx =>

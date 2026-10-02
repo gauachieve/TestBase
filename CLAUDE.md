@@ -559,6 +559,15 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   en tom kontroll-migrasjon bekreftet snapshot-nøyaktighet) og ende-til-ende i nettleser
   (Playwright) — alle tre ikoner, understreking og hele "Sett honorar"-dialogkjeden fungerer
   korrekt. Se docs/beslutningslogg.md "Forenkling av Tildel/Tester" for full detalj.
+- **Ekte BankID for admin/behandler, del 8 — FUNGERER, tre UX-funn (2026-10-02, samme dag):** Stø
+  sin fiks (del 7) løste det. Tre rapporterte problemer fra selve innloggingen: (1) personnummer
+  tastet to ganger — `PersonnummerOverride`-feltet var dødt kode når ekte BankID er aktiv
+  (`OnPostAsync` leser det aldri i den grenen), nå skjult via ny `LoggInnModel.ErEktBankIdAktiv`
+  når ekte BankID faktisk brukes; (2) BankID-siden på engelsk — manglet `ui_locales`-parameter i
+  OIDC-forespørselen, lagt til (`nb`) på begge BankID-schemaer, IKKE verifisert ende-til-ende ennå;
+  (3) personnummer bekreftet en 3. gang etter innlogging — IKKE en bug, dette ER den bevisste
+  engangskoblingen fra del 5 (`BankIdKobleKonto`), skal aldri vises igjen for samme konto. Se
+  docs/beslutningslogg.md "Ekte BankID for admin/behandler, del 8" for detaljer.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

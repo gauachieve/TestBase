@@ -6380,3 +6380,34 @@ ALLE tester uavhengig av partner-tilgang, så "+"/honorar-dialogen ville vært m
 men "$" (kostnad per gjennomføring) og klinikk-ikon+understrek er relevante uavhengig av prising.
 Ikke gjort i denne runden siden brukeren kun ba om Behandlerportal-siden; bør vurderes som en
 liten oppfølging hvis admin trenger samme oversikt.
+
+## Ekte BankID for admin/behandler, del 8 — FUNGERER, tre UX-funn rettet (2026-10-02, samme dag)
+
+Brukeren fikk bekreftet at BankID-innloggingen faktisk fungerer etter Stø sin fiks (del 7). Tre
+reelle UX-problemer rapportert fra selve den vellykkede innloggingen, alle undersøkt og to rettet:
+
+1. **Personnummer tastes inn to ganger.** `Pages/Konto/LoggInn.cshtml.cs` sin `OnPostAsync` hopper
+   RETT til `Challenge(..., "BankIdInnlogging")` når ekte BankID er aktiv — `PersonnummerOverride`
+   leses ALDRI i denne grenen. Likevel vises feltet fortsatt, siden `VisPersonnummerOverride` kun
+   sjekket `Miljo:TillatPersonnummerOverride`, uavhengig av om ekte BankID faktisk er aktiv for
+   DENNE innloggingen — rent dødt felt som forvirret brukeren til å taste personnummeret unødvendig
+   FØR BankID-appen uansett ber om det på nytt. Fikset: ny `LoggInnModel.ErEktBankIdAktiv`
+   (cachet via `OnGetAsync`/`OnPostAsync`, FØR `HarEktBankIdAsync()` gjøres privat), og
+   `VisPersonnummerOverride` viser nå KUN feltet når ekte BankID IKKE er aktiv. Forklaringsteksten
+   under knappen er også splittet i to grener (ekte BankID vs. mock) slik at den ikke lenger sier
+   "mock" når ekte BankID faktisk kontaktes.
+2. **BankID-siden vises på engelsk.** Verken `"BankIdInnlogging"`- eller det diagnostiske
+   `"BankIdTest"`-schemaet sendte noen gang en `ui_locales`-parameter i
+   `OnRedirectToIdentityProvider` — standard OIDC-parameter for å be om et språk, ikke noe BankID/
+   Idura gjetter selv uten å bli bedt om det. Fikset: `ctx.ProtocolMessage.UiLocales = "nb"` lagt
+   til på BEGGE schemaer. IKKE verifisert ende-til-ende ennå (krever en ny reell innlogging) —
+   avhenger av at BankID/Idura faktisk respekterer parameteren, som er en rimelig antakelse for en
+   standard OIDC-funksjon, men ubekreftet.
+3. **Bekrefter personnummer en tredje gang etter innlogging.** IKKE en bug — dette er
+   `Pages/Konto/BankIdKobleKonto`, den BEVISSTE engangskoblingen fra "Ekte BankID for
+   admin/behandler, del 5": siden foretaket kun er godkjent for `openid+profile` (ikke
+   personnummer-utlevering), må BankID sin anonyme "sub"-identitet kobles til en eksisterende
+   konto via personnummer ÉN gang. Skal ALDRI vises igjen for samme konto etter at koblingen er
+   lagret (`BankIdSubjekt`-kolonnen). Forklart til brukeren, ingen kodeendring.
+
+Build grønn, alle 79 integrasjonstester grønne. Punkt 1 og 2 deployet; punkt 3 er ren forklaring.
