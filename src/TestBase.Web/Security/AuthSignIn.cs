@@ -21,7 +21,8 @@ public static class AuthSignIn
         UserRole rolle,
         bool huskMeg,
         long? partnerId = null,
-        bool erPartnerAdministrator = false)
+        bool erPartnerAdministrator = false,
+        long? ektSuperadminId = null)
     {
         var claims = new List<Claim>
         {
@@ -32,6 +33,14 @@ public static class AuthSignIn
             new(AppClaimTypes.PartnerId, partnerId?.ToString() ?? string.Empty),
             new(AppClaimTypes.ErPartnerAdministrator, erPartnerAdministrator.ToString())
         };
+
+        // Se AppClaimTypes.EktSuperadminId — bevart gjennom Areas/Admin/Pages/Konto/ByttIdentitet
+        // sine re-innlogginger ved at kalleren videresender samme verdi, ikke ved at denne
+        // metoden selv husker noe mellom kall.
+        if (ektSuperadminId is not null)
+        {
+            claims.Add(new Claim(AppClaimTypes.EktSuperadminId, ektSuperadminId.Value.ToString()));
+        }
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
 

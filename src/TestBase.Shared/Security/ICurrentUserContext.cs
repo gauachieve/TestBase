@@ -41,4 +41,7 @@ public interface ICurrentUserContext
 
     /// <summary>Se AppClaimTypes.ErPartnerAdministrator.</summary>
     bool ErPartnerAdministrator { get; }
+
+    /// <summary>Se AppClaimTypes.EktSuperadminId — null med mindre vedkommende ekte logget inn som Superadmin.</summary>
+    long? EktSuperadminId { get; }
 }

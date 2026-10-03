@@ -6712,3 +6712,96 @@ var i ferd med å etablere seg rett etter omstarten over. Brukeren prøvde handl
 IKKE gjort) som en fremtidig robusthetsforbedring: `EnableRetryOnFailure()` på `UseMySql`-
 oppsettet, slik at en slik forbigående tilkoblingsglipp gir et stille automatisk forsøk på nytt i
 stedet for en 500 til brukeren — EF Core sin egen feilmelding anbefaler nettopp dette.
+
+## Superadmin-identitetsbytte (2026-10-03/04)
+
+Brukeren har kun ÉN ekte BankID-identitet (sitt eget personnummer), men trenger å teste HELE
+produksjonsløpet — admin, behandler OG pasient — på beta/live der mock-BankID-override ikke er
+en reell BankID-flyt. Opprinnelig design ("høyeste rolle vinner" ved personnummer-oppslag, se
+"Offentlig design + samlet profesjonell innlogging") logget alltid inn som Administrator/Superadmin
+når personnummeret matchet flere kontoer — brukeren reverserte denne forutsetningen bevisst for sin
+egen konto: "jeg må kunne gi meg selv alle rollene med ett pnr".
+
+**IKKE en gjenbruk av den eksisterende dev-only `ByttModus`** (Areas/Admin/Pages/Konto/ByttModus.cshtml)
+— den mekanismen forfalsker KUN `ClaimTypes.Role`-teksten for Utvikler-kontoen, uten å endre
+`NameIdentifier`. Det er funksjonelt rent kosmetisk: en Behandler-/Pasient-side som slår opp "mine
+data" via UserId ville enten vist tomt eller (verre) en helt annen, tilfeldig behandler/pasient med
+samme Id-tall. Helt uegnet for REELL produksjonsverifisering.
+
+**Ny mekanisme i stedet**: `AppClaimTypes.EktSuperadminId` — satt KUN når en `Administrator` med
+`ErSuperadmin=true` logger inn ekte (BankID/2FA ELLER dagens personnummer-mock, begge går gjennom
+samme `ProfesjonellInnloggingService.FullforForAdministratorAsync`, pluss `BekreftKode.cshtml.cs`
+sin ferske-2FA-gren — to kallsteder patchet). Claimen BEVARES gjennom enhver senere rollebytte (en
+ny, trailing `ektSuperadminId`-parameter på `AuthSignIn.LoggInnAsync`, lagt til SIST i
+signaturen — ikke midt i, se den kjente "ny parameter midt i signaturen knekker positional calls"-
+fallgruven i CLAUDE.md). Ny side `Areas/Admin/Pages/Konto/ByttIdentitet` (bare `[Authorize]` +
+intern claim-sjekk, SAMME mønster som ByttModus — IKKE en rolle-policy på mappenivå, siden
+EktSuperadminId-claimen må være nåbar uansett hvilken rolle man "har på seg" akkurat nå) slår opp
+Administratorens EGEN (allerede desktyptert-på-lesing) `Personnummer`, og finner matchende
+`Behandler`/`Pasient`-rader via de EKSISTERENDE `FinnVedPersonnummerAsync`-metodene (samme
+in-memory-sammenligning som BankID-innlogging alltid har brukt). Å velge en rolle logger REELT inn
+som den raden (ekte `NameIdentifier`, ekte `PartnerId`/`ErPartnerAdministrator` for behandler) —
+ikke en tekst-forfalskning. Mangler en matchende Behandler-/Pasient-rad, viser siden bare en
+forklarende melding og en lenke til der brukeren kan opprette én selv (med sitt eget personnummer)
+— BEVISST ingen auto-provisjonering av fiktive kontoer, for å unngå å bygge en parallell, utestet
+konto-opprettelsesvei ved siden av de allerede virkende (Inviter/Fullfor, BliPasient/
+FullforProfil).
+
+Ny synlig lenke i `_Layout.cshtml` ("Bytt identitet"), vist UANSETT `Miljo:TillatUtviklingsSnarveier`
+(i motsetning til "Bytt modus", som er rent dev-only) — dette MÅ virke på beta OG live, siden hele
+poenget er å teste PRODUKSJONSLØPET.
+
+**Sikkerhetsgrense verifisert i nettleser** (lokalt, med en fersk syntetisk test-Superadmin —
+IKKE brukerens ekte seedede konto, for å unngå å håndtere reelt personnummer i en test-økt): en
+innlogget Utvikler (AdminId+passord, ingen EktSuperadminId-claim) ble korrekt avvist/omdirigert ved
+besøk på `/Admin/Konto/ByttIdentitet`. **Positiv vei verifisert fullt ende-til-ende**: opprettet en
+ny Administrator, satt `ErSuperadmin=1` direkte i dev-databasen (ingen UI for dette — bevisst, se
+dev-seedens egen kommentar "ÉN reell konto"), logget inn via personnummer-mock, fullførte en EKTE
+behandler-invitasjon+registrering med SAMME personnummer, og bekreftet at `ByttIdentitet` fant den
+matchende behandleren og lot en veksle til den — `Behandlerportal/Pasienter` viste korrekt 0
+pasienter (ekte, tomt resultat for den NYE kontoen, ikke en annen brukers data), navigasjonsmenyen
+byttet fullstendig til behandler-fargetema, og "Bytt identitet"-lenken forble synlig. Byttet tilbake
+til Superadmin og bekreftet tilgang til `/Admin/Partnere` (SuperadminOmrade-gatet side) igjen.
+Pasient-benet ble IKKE eksplisitt browser-testet (samme kodesti/symmetri som Behandler-benet, ansett
+tilstrekkelig bevist ved kodelesning) — brukeren bør selv prøve Pasient-benet på beta med sin ekte
+identitet, siden det er nøyaktig det scenarioet funksjonen er bygget for.
+
+Alle 86 tester grønne, ingen migrasjon (ren claims-/sign-in-logikk). Deployet til BETA ALENE (ikke
+pushet til master/live ennå) — se egen seksjon under for hvorfor, og hva brukeren selv må
+verifisere der med sin ekte BankID-identitet før en eventuell push til live.
+
+## Patient ekte BankID og ekte Vipps/kort-betaling: IKKE aktivert denne runden, krever mer enn en bryter
+
+Samme forespørsel som over inkluderte to tilleggsønsker: (1) skru på ekte BankID for PASIENTER på
+live, styrt av samme `EktBankIdInnstilling`-bryter som admin/behandler allerede har, og (2) skru på
+ekte Vipps- og kortbetaling på live. Begge UNDERSØKT, INGEN av dem implementert denne runden —
+årsaker dokumentert her for å unngå å gjenta undersøkelsen senere:
+
+1. **Pasient ekte BankID er IKKE en bryter å skru på — det finnes ENNÅ IKKE NOE Å SKRU PÅ.**
+   Verifisert ved grep: `Pasient`-domenet har INGEN `BankIdSubjekt`-kolonne, INGEN
+   `FinnVedBankIdSubjektAsync`-metode, og `Program.cs` registrerer INGEN OIDC-schema for
+   Pasientportal i det hele tatt (kun `"BankIdInnlogging"` og `"BankIdTest"`, begge admin/behandler-
+   rettet). `EktBankIdInnstilling`-raden/bryteren styrer i dag UTELUKKENDE
+   `ProfesjonellInnloggingService` (admin/behandler sin kode). Å faktisk bygge dette er
+   sammenlignbart i omfang med HELE "Ekte BankID for admin/behandler"-serien (del 1 til 8 i denne
+   loggen — flere uker, flere reelle feilsøkingsrunder med Idura/Stø, et helt nytt
+   konto-koblingskonsept for BankID-sub uten personnummer-scope). IKKE noe som bør hastes gjennom
+   midt i en pågående live-feilsøkingsøkt. Krever egen planlegging når tid tillater — se denne
+   seksjonen igjen når/hvis det tas opp på nytt.
+2. **Ekte Vipps/kortbetaling er en CREDENTIALS-/AVTALE-beslutning, ikke en kodeendring.**
+   `Program.cs` velger ALLEREDE automatisk ekte `VippsPaymentClient`/`StripePaymentClient` FREMFOR
+   mock på live, UTEN noen kodeendring, BARE basert på om `Vipps:ClientId/ClientSecret/
+   SubscriptionKey/MerchantSerialNumber` og `Stripe:SecretKey` faktisk er satt som App
+   Service-innstillinger (se Program.cs sin `vippsProduksjonKonfigurert`/`stripeKonfigurert`-sjekk).
+   Det er med andre ord INGEN kode å skrive for å "skru dette på" — det krever (a) et faktisk signert
+   Vipps-handelsavtale (CLAUDE.md sin arkitekturseksjon sier fortsatt eksplisitt "ingen
+   PRODUKSJONSAVTALE" per siste oppdatering — IKKE bekreftet revurdert i denne økten) og en ekte
+   Stripe LIVE-modus-nøkkel (forskjellig fra en test-modus-nøkkel, som allerede finnes lokalt), og
+   (b) at disse legges inn som ekte hemmeligheter i Bicep/azd-miljøet for live (`azd env set` + ny
+   `azd provision`, se den eksisterende `@secure()`-parameter-konvensjonen). INGEN av disse to tingene
+   er forsøkt her — IKKE trygt å aktivere REELL pengeoverføring for ekte pasienter uten en eksplisitt,
+   separat bekreftelse på at avtalene faktisk finnes OG uten minst én verifisert betalingsrunde på
+   BETA først (aldri gjort før — "Vipps sin ekte ePayment API-integrasjon er kodeklar men uverifisert
+   live" har stått i CLAUDE.md gjennom hele prosjektet). Spør brukeren eksplisitt om de faktisk har
+   signerte avtaler/ekte nøkler klare FØR dette tas videre, og foreslå en BETA-verifisering med en
+   reell, liten betaling FØR noe liknende skrus på for ekte pasienter på live.

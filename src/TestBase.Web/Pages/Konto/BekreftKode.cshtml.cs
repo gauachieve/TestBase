@@ -102,7 +102,8 @@ public sealed class BekreftKodeModel : PageModel
         BetroddEnhet.Marker(HttpContext, ToFaktorPrincipalType.Administrator, administrator.Id, BetroddEnhetLevetid());
 
         var administratorRolle = administrator.ErSuperadmin ? UserRole.Superadmin : UserRole.Administrator;
-        await AuthSignIn.LoggInnAsync(HttpContext, "administrator", administrator.Id, administrator.FulltNavn, administratorRolle, huskMeg);
+        await AuthSignIn.LoggInnAsync(HttpContext, "administrator", administrator.Id, administrator.FulltNavn, administratorRolle, huskMeg,
+            ektSuperadminId: administrator.ErSuperadmin ? administrator.Id : null);
         await _auditLogger.LogAsync(
             administrator.AdminId, administratorRolle.ToString(), "InnloggingOk",
             nameof(Administrator), administrator.Id.ToString(), "BankID+2FA", cancellationToken);

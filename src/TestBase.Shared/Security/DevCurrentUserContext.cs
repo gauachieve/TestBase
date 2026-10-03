@@ -15,4 +15,5 @@ public sealed class DevCurrentUserContext : ICurrentUserContext
     public bool IsAuthenticated => true;
     public long? PartnerId => null;
     public bool ErPartnerAdministrator => false;
+    public long? EktSuperadminId => null;
 }

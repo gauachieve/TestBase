@@ -42,4 +42,9 @@ public sealed class AuthenticatedCurrentUserContext : ICurrentUserContext
 
     public bool ErPartnerAdministrator => IsAuthenticated
         && _principal!.FindFirstValue(AppClaimTypes.ErPartnerAdministrator) == bool.TrueString;
+
+    public long? EktSuperadminId => IsAuthenticated
+        && long.TryParse(_principal!.FindFirstValue(AppClaimTypes.EktSuperadminId), out var id)
+        ? id
+        : null;
 }

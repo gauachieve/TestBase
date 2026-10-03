@@ -630,6 +630,23 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   3 nye regresjonstester (86 totalt), verifisert FULLT ende-til-ende i nettleser lokalt (valgte alle
   35 tester til en testpasient, "Tildeling fullført", bekreftet `EntityId = "batch:35"` i databasen).
   Ingen migrasjon. Se docs/beslutningslogg.md "Reell 500-feil ved bulk-tildeling" for full detalj.
+- **Superadmin-identitetsbytte (2026-10-03/04, samme dag):** ny `AppClaimTypes.EktSuperadminId`
+  (satt KUN ved ekte innlogging som Superadmin, bevart gjennom senere rollebytte) + ny side
+  `Areas/Admin/Pages/Konto/ByttIdentitet` (synlig lenke i `_Layout.cshtml` UANSETT
+  `Miljo:TillatUtviklingsSnarveier` — i motsetning til dev-only `ByttModus`, må virke på beta/live)
+  lar brukerens ENE ekte BankID-identitet (Superadmin) logge REELT inn som en matchende
+  Behandler-/Pasient-konto med samme personnummer — IKKE en kosmetisk rolle-claim-forfalskning som
+  `ByttModus`, men en ekte re-innlogging (ekte NameIdentifier) slik at "mine data"-spørringer
+  fungerer korrekt i hver portal. `AuthSignIn.LoggInnAsync` fikk en ny TRAILING parameter
+  (`ektSuperadminId`, lagt til SIST — ikke midt i signaturen, se fallgruven under). Sikkerhetsgrense
+  OG positiv vei fullt browser-verifisert lokalt (syntetisk test-Superadmin, ikke brukerens ekte
+  konto) — se docs/beslutningslogg.md "Superadmin-identitetsbytte" for full verifisering. 86 tester
+  grønne, ingen migrasjon. Deployet til BETA ALENE (se eget avsnitt der for hvorfor IKKE live ennå).
+  **Samtidig avklart, IKKE implementert:** pasient ekte BankID (finnes ENNÅ IKKE NOE Å SKRU PÅ —
+  ingen OIDC-schema, ingen BankIdSubjekt-kolonne på Pasient, sammenlignbart omfang med HELE
+  admin/behandler-BankID-serien) og ekte Vipps/kortbetaling (en credentials-/avtale-beslutning, IKKE
+  en kodeendring — Program.cs velger allerede automatisk ekte klient fremfor mock så snart ekte
+  nøkler er satt som App Service-innstillinger) — se docs/beslutningslogg.md for full begrunnelse.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

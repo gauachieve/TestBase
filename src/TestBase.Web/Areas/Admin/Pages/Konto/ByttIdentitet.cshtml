@@ -1,0 +1,56 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Konto.ByttIdentitetModel
+@{
+    ViewData["Title"] = "Bytt identitet";
+}
+
+<h1>Bytt identitet (Superadmin-testverktøy)</h1>
+
+<p>
+    Lar deg teste hele produksjonsløpet med din ene ekte BankID-identitet —
+    som Administrator, Behandler eller Pasient, alle koblet til samme
+    personnummer som Superadmin-kontoen din. Gjeldende visning:
+    <strong>@Model.GjeldendeRolle</strong>.
+</p>
+
+@if (Model.Feilmelding is not null)
+{
+    <p><strong>@Model.Feilmelding</strong></p>
+}
+
+<form method="post">
+    <button type="submit" name="nyRolle" value="Superadmin" class="btn btn-accent" style="margin: 0.3rem 0.5rem 0.3rem 0;" disabled="@(Model.GjeldendeRolle == TestBase.Shared.Security.UserRole.Superadmin)">
+        Vis som Superadmin (@Model.Superadministrator.FulltNavn)
+    </button>
+    <br />
+
+    @if (Model.MatchendeBehandler is not null)
+    {
+        <button type="submit" name="nyRolle" value="Behandler" class="btn btn-accent" style="margin: 0.3rem 0.5rem 0.3rem 0;" disabled="@(Model.GjeldendeRolle == TestBase.Shared.Security.UserRole.Behandler)">
+            Vis som Behandler (@Model.MatchendeBehandler.Visningsnavn)
+        </button>
+    }
+    else
+    {
+        <p>Ingen behandlerkonto funnet for ditt personnummer ennå — opprett én under <a href="/Admin/Behandlere">Behandlere</a> (bruk ditt eget personnummer).</p>
+    }
+    <br />
+
+    @if (Model.MatchendePasient is not null)
+    {
+        <button type="submit" name="nyRolle" value="Pasient" class="btn btn-accent" style="margin: 0.3rem 0.5rem 0.3rem 0;" disabled="@(Model.GjeldendeRolle == TestBase.Shared.Security.UserRole.Pasient)">
+            Vis som Pasient (@Model.MatchendePasient.Navn)
+        </button>
+    }
+    else
+    {
+        <p>Ingen pasientkonto funnet for ditt personnummer ennå — registrer deg under <a href="/Pasienter">Er du pasient?</a> (bruk ditt eget personnummer).</p>
+    }
+</form>
+
+<p>
+    Dette logger deg reelt inn som den valgte kontoen (ekte data, ikke bare en
+    annen meny) — du kommer tilbake til Superadmin-visningen ved å besøke
+    denne siden igjen når som helst, uavhengig av hvilken rolle du "har på
+    deg" akkurat nå.
+</p>

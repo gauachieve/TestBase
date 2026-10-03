@@ -91,6 +91,10 @@
                     {
                         <a class="nav-link" href="/Admin/Konto/ByttModus">Bytt modus</a>
                     }
+                    if (CurrentUser.EktSuperadminId is not null)
+                    {
+                        <a class="nav-link" href="/Admin/Konto/ByttIdentitet">Bytt identitet</a>
+                    }
                     <div class="bruker-omrade">
                         <span class="nav-link innlogget-som">Innlogget som: @CurrentUser.DisplayName</span>
                         <a class="btn btn-outline btn-sm" href="/Konto/LoggUt">Logg ut</a>

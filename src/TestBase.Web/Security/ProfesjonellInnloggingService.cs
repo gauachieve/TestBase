@@ -112,7 +112,8 @@ public sealed class ProfesjonellInnloggingService
         var administratorRolle = administrator.ErSuperadmin ? UserRole.Superadmin : UserRole.Administrator;
         if (BetroddEnhet.ErBetrodd(httpContext, ToFaktorPrincipalType.Administrator, administrator.Id))
         {
-            await AuthSignIn.LoggInnAsync(httpContext, "administrator", administrator.Id, administrator.FulltNavn, administratorRolle, huskMeg);
+            await AuthSignIn.LoggInnAsync(httpContext, "administrator", administrator.Id, administrator.FulltNavn, administratorRolle, huskMeg,
+                ektSuperadminId: administrator.ErSuperadmin ? administrator.Id : null);
             await _auditLogger.LogAsync(
                 administrator.AdminId, administratorRolle.ToString(), "InnloggingOk",
                 nameof(Administrator), administrator.Id.ToString(), $"{auditlogKilde} (betrodd enhet — 2FA hoppet over)", cancellationToken);
