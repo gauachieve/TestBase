@@ -60,6 +60,10 @@ public sealed class RapportModel : PageModel
     /// <summary>Radar-graf av de 5 SIPP-118-inspirerte domenene — kun satt for Test.Kode == "sipp118" (se Sipp118RadarBeregner).</summary>
     public Sipp118RadarData? Sipp118Radar { get; private set; }
 
+    /// <summary>To hexagon-radarer (fleksibilitet/rigiditet) — kun satt for Test.Kode == "mpfi_24" (se MpfiRadarBeregner).</summary>
+    public MpfiRadarData? MpfiFleksibilitetRadar { get; private set; }
+    public MpfiRadarData? MpfiRigiditetRadar { get; private set; }
+
     /// <summary>Stolpediagram per personlighetsforstyrrelse — kun satt for Test.Kode == "scid5_pf" (se Scid5PfBarBeregner).</summary>
     public Scid5PfBarData? Scid5PfBar { get; private set; }
 
@@ -218,6 +222,11 @@ public sealed class RapportModel : PageModel
         else if (Test.Kode == "scid5_pf")
         {
             Scid5PfBar = Scid5PfBarBeregner.Beregn(innhold.AlleLedd, innhold.EksisterendeSvar);
+        }
+        else if (Test.Kode == "mpfi_24")
+        {
+            MpfiFleksibilitetRadar = MpfiRadarBeregner.Beregn(Skaaring.Indikatorer, "Fleksibilitet — ");
+            MpfiRigiditetRadar = MpfiRadarBeregner.Beregn(Skaaring.Indikatorer, "Rigiditet — ");
         }
 
         // Kun behandler-utfylte tester (se Test.FyllesUtAvBehandler) har noensinne en

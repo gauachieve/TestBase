@@ -17,9 +17,16 @@ public sealed record PasientMedBehandlernavn(Pasient Pasient, string? BehandlerN
 
 public sealed record TestLenke(long TildelingId, string TestNavn, string Lenke);
 
-/// <summary>Resultatet for én pasient etter en batch-tildeling — se <see cref="TestTildelingsService.TildelOgVarsleAsync"/>.</summary>
+/// <summary>
+/// Resultatet for én pasient etter en batch-tildeling — se <see cref="TestTildelingsService.TildelOgVarsleAsync"/>.
+/// <paramref name="IkkeTildelteTesterGrunnet"/> er null/tom i det vanlige tilfellet — fylt ut KUN
+/// når én eller flere av de valgte testene ble HOPPET OVER for akkurat denne pasienten (per nå:
+/// Test.KreverBiologiskKjonn uten Pasient.BiologiskKjonnVedFodsel satt), slik at behandler/admin
+/// får en tydelig forklaring i stedet for at tildelingen stille forsvinner.
+/// </summary>
 public sealed record TildeltPasientResultat(
-    long PasientId, string? Navn, IReadOnlyList<TestLenke> Lenker, bool SendtSms, bool SendtEpost);
+    long PasientId, string? Navn, IReadOnlyList<TestLenke> Lenker, bool SendtSms, bool SendtEpost,
+    IReadOnlyList<string>? IkkeTildelteTesterGrunnet = null);
 
 /// <summary>
 /// Én behandler-utfylt test (se Test.FyllesUtAvBehandler) opprettet i denne
@@ -202,8 +209,18 @@ public sealed class TestTildelingsService
         foreach (var pasient in pasienter)
         {
             var lenker = new List<TestLenke>();
+            var ikkeTildelteTester = new List<string>();
             foreach (var testId in testIder)
             {
+                var valgtTest = tester.GetValueOrDefault(testId);
+                if (valgtTest is { KreverBiologiskKjonn: true } && pasient.BiologiskKjonnVedFodsel is null)
+                {
+                    ikkeTildelteTester.Add(
+                        $"{valgtTest.Navn}: krever registrert biologisk kjønn (kjønnsspesifikk normering), " +
+                        $"som {(pasient.Navn ?? "denne pasienten")} ikke har satt ennå.");
+                    continue;
+                }
+
                 var tildeling = await _testService.TildelAsync(
                     testId, pasient.Id, behandlerId: behandlerId, administratorId: administratorId,
                     frist: null, varighetMinutter: null, cancellationToken: cancellationToken);
@@ -257,7 +274,9 @@ public sealed class TestTildelingsService
             var (sendtSms, sendtEpost) = lenker.Count == 0
                 ? (false, false)
                 : await VarsleAsync(pasient, BygMelding(lenker), "Nye tester tildelt i PsyTest", varslingsmetode, cancellationToken);
-            perPasient.Add(new TildeltPasientResultat(pasient.Id, pasient.Navn, lenker, sendtSms, sendtEpost));
+            perPasient.Add(new TildeltPasientResultat(
+                pasient.Id, pasient.Navn, lenker, sendtSms, sendtEpost,
+                ikkeTildelteTester.Count > 0 ? ikkeTildelteTester : null));
         }
 
         return new TildelingsBatchResultat(perPasient, behandlerOppgaver);

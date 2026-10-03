@@ -1,3 +1,4 @@
+using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Domain.Tester;
 using TestBase.Shared.Domain.Tester.Skaaring;
 
@@ -924,5 +925,92 @@ public sealed class SkaaringsberegnereTests
         Assert.DoesNotContain(data!.Stolper, s => s.TerskelNaadd);
         Assert.Equal(12, data.TotaltAntall2);
         Assert.True(data.VurderBlandetPf);
+    }
+
+    /// <summary>
+    /// Bygger MPFI-24 sine 24 ledd (ingen sider/sidestruktur å teste her, se
+    /// Mpfi24TestSeeder) med oppgitte svarverdier (1-6). Sorteringen i
+    /// Mpfi24Skaaringsberegner er på TestLedd.Id — IDene settes derfor i stigende
+    /// rekkefølge 1..24, akkurat som EF Core ville generert dem i praksis.
+    /// </summary>
+    private static (List<TestLedd> AlleLedd, List<TestSvar> Svar) Mpfi24Bygg(int[] svarverdier)
+    {
+        Assert.Equal(24, svarverdier.Length);
+        var alleLedd = new List<TestLedd>();
+        var svar = new List<TestSvar>();
+        for (var i = 0; i < 24; i++)
+        {
+            var ledd = new TestLedd { Id = i + 1, TestSideId = 1, Sporsmalstekst = $"ledd{i + 1}", Svartype = TestSvartype.LikertSkala };
+            alleLedd.Add(ledd);
+            svar.Add(new TestSvar { TestLeddId = ledd.Id, SvarVerdi = svarverdier[i].ToString() });
+        }
+        return (alleLedd, svar);
+    }
+
+    [Fact]
+    public void Mpfi24_UtenBiologiskKjonnGirGyldighetsAdvarselIkkeException()
+    {
+        var (alleLedd, svar) = Mpfi24Bygg(Enumerable.Repeat(3, 24).ToArray());
+
+        var resultat = new Mpfi24Skaaringsberegner().BeregnSkaaringMedBiologiskKjonn(svar, alleLedd, null);
+
+        Assert.NotNull(resultat.GyldighetsAdvarsel);
+        Assert.Contains("biologisk kjønn", resultat.GyldighetsAdvarsel);
+        Assert.Null(resultat.Indikatorer);
+    }
+
+    [Fact]
+    public void Mpfi24_BeregnerDelskalaerOgGlobalskaarerKorrektForMann()
+    {
+        // Ledd 1-2 (Aksept) = 6,6 -> snitt 6. Ledd 19-20 (Fusjon) = 1,1 -> snitt 1 — BEVISST
+        // IKKE påvirket av ledd 21 (satt til 6 under), som beviser at Fusjon-delskalaen bruker
+        // KUN ledd 19-20 og ikke regnearkets feilaktige 19-21 (se Mpfi24TestSeeder).
+        var svarverdier = new[]
+        {
+            6, 6, // Aksept (1,2)
+            3, 3, // Nærvær (3,4)
+            3, 3, // Selvet (5,6)
+            3, 3, // Defusjon (7,8)
+            3, 3, // Verdier (9,10)
+            3, 3, // Handling (11,12)
+            3, 3, // Opplevelsesunngåelse (13,14)
+            3, 3, // Ikke til stede (15,16)
+            3, 3, // Begrepsselv (17,18)
+            1, 1, // Fusjon (19,20)
+            6, 3, // Manglende kontakt med verdier (21,22) — ledd 21=6 skal IKKE smitte over i Fusjon
+            3, 3  // Passivitet (23,24)
+        };
+        var (alleLedd, svar) = Mpfi24Bygg(svarverdier);
+
+        var resultat = new Mpfi24Skaaringsberegner().BeregnSkaaringMedBiologiskKjonn(svar, alleLedd, BiologiskKjonn.Mann);
+
+        Assert.NotNull(resultat.Indikatorer);
+        var aksept = resultat.Indikatorer!.Single(i => i.Navn == "Fleksibilitet — Aksept");
+        Assert.Equal("6.00/3.50", aksept.Verdi); // mannsnorm 3.5
+        Assert.True(aksept.Positiv);
+
+        var fusjon = resultat.Indikatorer!.Single(i => i.Navn == "Rigiditet — Fusjon");
+        Assert.Equal("1.00/2.80", fusjon.Verdi); // mannsnorm 2.8 — IKKE påvirket av ledd 21=6
+        Assert.True(fusjon.Positiv); // lavere enn norm er BRA for en rigiditets-delskala
+
+        var manglerKontaktVerdier = resultat.Indikatorer!.Single(i => i.Navn == "Rigiditet — Manglende kontakt med verdier");
+        Assert.Equal("4.50/2.60", manglerKontaktVerdier.Verdi); // (6+3)/2 = 4.5, mannsnorm 2.6
+        Assert.False(manglerKontaktVerdier.Positiv); // høyere enn norm er DÅRLIG for en rigiditets-delskala
+
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Fleksibilitet — global");
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Rigiditet — global");
+        Assert.Null(resultat.GyldighetsAdvarsel);
+        Assert.True(resultat.SkjulProsent);
+    }
+
+    [Fact]
+    public void Mpfi24_BrukerKvinnenormNaarBiologiskKjonnErKvinne()
+    {
+        var (alleLedd, svar) = Mpfi24Bygg(Enumerable.Repeat(4, 24).ToArray());
+
+        var resultat = new Mpfi24Skaaringsberegner().BeregnSkaaringMedBiologiskKjonn(svar, alleLedd, BiologiskKjonn.Kvinne);
+
+        var aksept = resultat.Indikatorer!.Single(i => i.Navn == "Fleksibilitet — Aksept");
+        Assert.Equal("4.00/3.40", aksept.Verdi); // kvinnenorm 3.4, IKKE mannsnormen 3.5
     }
 }

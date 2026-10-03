@@ -338,6 +338,20 @@ public sealed class TestService
         return true;
     }
 
+    /// <summary>Se Test.KreverBiologiskKjonn — samme mønster som SettIcdElleveKlarAsync.</summary>
+    public async Task<bool> SettKreverBiologiskKjonnAsync(long testId, bool kreverBiologiskKjonn, CancellationToken cancellationToken = default)
+    {
+        var test = await _db.Tester.FirstOrDefaultAsync(t => t.Id == testId, cancellationToken);
+        if (test is null)
+        {
+            return false;
+        }
+
+        test.KreverBiologiskKjonn = kreverBiologiskKjonn;
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     /// <summary>
     /// Samme mønster/begrunnelse som SettRapportIntroduksjonAsync — lar en
     /// seeders "allerede finnes"-gren oppdatere et testnavn (f.eks. en
@@ -1168,9 +1182,20 @@ public sealed class TestService
             }
         }
 
-        var skaaring = beregner is ITestSkaaringsberegnerMedLedd beregnerMedLedd
-            ? beregnerMedLedd.BeregnSkaaringMedLedd(fullstendigSvar, alleLedd)
-            : beregner.BeregnSkaaring(fullstendigSvar);
+        TestSkaaring skaaring;
+        if (beregner is ITestSkaaringsberegnerMedBiologiskKjonn beregnerMedKjonn)
+        {
+            var pasientKjonn = (await _db.Pasienter.AsNoTracking().FirstOrDefaultAsync(p => p.Id == tildeling.PasientId, cancellationToken))?.BiologiskKjonnVedFodsel;
+            skaaring = beregnerMedKjonn.BeregnSkaaringMedBiologiskKjonn(fullstendigSvar, alleLedd, pasientKjonn);
+        }
+        else if (beregner is ITestSkaaringsberegnerMedLedd beregnerMedLedd)
+        {
+            skaaring = beregnerMedLedd.BeregnSkaaringMedLedd(fullstendigSvar, alleLedd);
+        }
+        else
+        {
+            skaaring = beregner.BeregnSkaaring(fullstendigSvar);
+        }
 
         if (test.MaksUbesvartProsent is not null && alleLedd.Count > 0)
         {
@@ -1208,13 +1233,28 @@ public sealed class TestService
             .OrderBy(t => t.FullfortUtc)
             .ToListAsync(cancellationToken);
 
+        var pasientKjonn = beregner is ITestSkaaringsberegnerMedBiologiskKjonn
+            ? (await _db.Pasienter.AsNoTracking().FirstOrDefaultAsync(p => p.Id == pasientId, cancellationToken))?.BiologiskKjonnVedFodsel
+            : null;
+
         var punkter = new List<SkaaringHistorikkPunkt>();
         foreach (var tildeling in tildelinger)
         {
             var svar = await _db.TestSvar.Where(s => s.TestTildelingId == tildeling.Id).ToListAsync(cancellationToken);
-            var skaaring = beregner is ITestSkaaringsberegnerMedLedd beregnerMedLedd
-                ? beregnerMedLedd.BeregnSkaaringMedLedd(svar, (await HentTestStrukturAsync(tildeling.TestId, cancellationToken)).AlleLedd)
-                : beregner.BeregnSkaaring(svar);
+            TestSkaaring skaaring;
+            if (beregner is ITestSkaaringsberegnerMedBiologiskKjonn beregnerMedKjonn)
+            {
+                skaaring = beregnerMedKjonn.BeregnSkaaringMedBiologiskKjonn(svar, (await HentTestStrukturAsync(tildeling.TestId, cancellationToken)).AlleLedd, pasientKjonn);
+            }
+            else if (beregner is ITestSkaaringsberegnerMedLedd beregnerMedLedd)
+            {
+                skaaring = beregnerMedLedd.BeregnSkaaringMedLedd(svar, (await HentTestStrukturAsync(tildeling.TestId, cancellationToken)).AlleLedd);
+            }
+            else
+            {
+                skaaring = beregner.BeregnSkaaring(svar);
+            }
+
             punkter.Add(new SkaaringHistorikkPunkt(tildeling, skaaring));
         }
 

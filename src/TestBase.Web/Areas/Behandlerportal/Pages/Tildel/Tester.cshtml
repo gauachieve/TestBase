@@ -34,6 +34,24 @@
         }
         </ul>
     }
+    @if (Model.Resultat.PerPasient.Any(r => r.IkkeTildelteTesterGrunnet is { Count: > 0 }))
+    {
+        <h2 style="color: darkred;">Ikke tildelt</h2>
+        <ul>
+        @foreach (var rad in Model.Resultat.PerPasient.Where(r => r.IkkeTildelteTesterGrunnet is { Count: > 0 }))
+        {
+            <li>
+                <strong>@(rad.Navn ?? "(ikke fullført)")</strong>
+                <ul>
+                @foreach (var grunn in rad.IkkeTildelteTesterGrunnet!)
+                {
+                    <li style="color: darkred;">@grunn</li>
+                }
+                </ul>
+            </li>
+        }
+        </ul>
+    }
     @if (Model.Resultat.BehandlerOppgaver is { Count: > 0 })
     {
         <h2>Tester du skal fylle ut selv</h2>

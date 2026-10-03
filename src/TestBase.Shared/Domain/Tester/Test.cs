@@ -114,4 +114,17 @@ public sealed class Test
     /// RapportIntroduksjon — kun satt av innebygde testers seedere foreløpig.
     /// </summary>
     public bool HarKostnadPerGjennomforing { get; set; }
+
+    /// <summary>
+    /// Sant for tester med KJØNNSSPESIFIKK skåring/normering (f.eks. MPFI-24 —
+    /// se Mpfi24Skaaringsberegner) — krever Pasient.BiologiskKjonnVedFodsel satt
+    /// for å kunne velge riktig normtabell. Håndhevet i
+    /// TestTildelingsService.TildelOgVarsleAsync: en pasient UTEN registrert
+    /// biologisk kjønn (f.eks. en "prøv systemet"-pasient som ikke har fullført
+    /// profilen sin) får IKKE tildelt en slik test i det hele tatt — tildelingen
+    /// hoppes over med en tydelig feilmelding til behandler/admin, i stedet for
+    /// å opprettes og senere feile/gi feil resultat ved skåring. Standard false
+    /// for ALLE eksisterende tester.
+    /// </summary>
+    public bool KreverBiologiskKjonn { get; set; }
 }

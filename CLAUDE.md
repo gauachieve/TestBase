@@ -582,6 +582,24 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   "fant ingen konto", ekte-modus ga en forventet 500 fra et mislykket discovery-kall mot den
   fiktive testautoriteten), ikke bare visningsteksten. Se docs/beslutningslogg.md
   "Ekte BankID — driftsbryter uten redeploy" for full detalj.
+- **MPFI-24 lagt til, med en generell "krever biologisk kjønn"-mekanisme (2026-10-03):** bygget fra
+  to bruker-leverte filer (offisiell norsk oversettelse, tillatelse fra Ronald Rogge — samme
+  "verbatim"-mønster som WHO-5/PHQ-9/MADRS-S), mens brukeren var bortreist ("go with your
+  recommendations" — ingen designvalg bekreftet underveis). 24 ledd, 12 delskalaer à 2 ledd (6
+  fleksibilitet, 6 rigiditet — to UAVHENGIGE akser, `SkjulProsent=true`), kjønnsspesifikk normering.
+  Ny GENERELL mekanisme (ikke MPFI-spesifikk): `Test.KreverBiologiskKjonn` håndhevet i
+  `TestTildelingsService.TildelOgVarsleAsync` FØR tildeling (partiell feil per pasient, ikke en hel
+  batch-avbrytelse — nytt "Ikke tildelt"-avsnitt i begge Tildel/Tester.cshtml), pluss et andre
+  forsvarslag i selve skåringen (`ITestSkaaringsberegnerMedBiologiskKjonn`, degraderer nådig med
+  `GyldighetsAdvarsel`, kaster ALDRI). To nye radar-hexagoner (`MpfiRadarBeregner`, data+norm-
+  polygon samtidig, normen VARIERER per delskala/kjønn i motsetning til Sipp118 sin faste
+  cutoff-ring). Fant og rettet en reell drag-fill-feil i kildearkets Fusjon-delskåre-formel (inkluderte
+  feilaktig ledd 21) FØR noe ble bygget — dekket av egen enhetstest. Fullt verifisert ende-til-ende i
+  nettleser (gender-gate blokkerer korrekt, positiv vei fungerer, rapport+begge radarer rendrer
+  korrekt inkl. presis positiv/negativ-fargekoding). 3 nye enhetstester (82 totalt). IKKE pushet —
+  commitet lokalt, venter på brukerens retur. Se docs/beslutningslogg.md "MPFI-24 lagt til" for full
+  detalj, inkl. en ny fallgruve (DI-registrering kreves eksplisitt for nye test-seedere/-beregnere)
+  lagt til i fallgruve-lista under.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
@@ -836,6 +854,7 @@ dotnet watch run
 - `azd auth login` autentiserer KUN `azd` selv — en separat `az`-CLI-kommando i SAMME jobb/skript (f.eks. i en GitHub Actions-steg) har en HELT ANNEN credential-store og er fortsatt helt uinnlogget, selv rett etter en vellykket `azd auth login`. Et `az`-kall feiler da stille med en autentiseringsfeil som lett tolkes som noe annet hvis stderr undertrykkes (skjedde reelt i `.github/workflows/deploy.yml` sin helsesjekk, som brukte `az webapp show` etter kun `azd auth login` — løst med en egen `azure/login@v2`-innlogging for `az`-CLI-en ved siden av). Trenger man BEGGE verktøyene i samme jobb, må begge logges inn eksplisitt og separat, selv med samme OIDC-legitimasjon.
 - `Microsoft.AspNetCore.Authentication.OpenIdConnect` sin `JwtSecurityTokenHandler`-baserte token-validering har DEFAULT inbound-claim-mapping (`MapInboundClaims=true`) som omdøper enkelte STANDARD OIDC-claims (bl.a. "sub" → `ClaimTypes.NameIdentifier`) FØR koden i `OnTokenValidated` i det hele tatt ser `ClaimsPrincipal`-en — men et IKKE-standard claim-navn (som "ssn", brukt tidligere i dette prosjektet) rammes IKKE av denne mappingen og forblir bokstavelig. Kode som leser et standard claim-navn direkte via `FindFirst("sub")` kan derfor stille få `null` selv om claimet faktisk kom tilbake i tokenet (oppdaget 2026-10-01/02 ved ekte BankID-aktivering, se docs/beslutningslogg.md "Ekte BankID for admin/behandler, del 5"). Prøv ALLTID begge navn (det bokstavelige claim-navnet OG dets `ClaimTypes.*`-ekvivalent) for ethvert STANDARD OIDC/JWT-claim lest i en `OnTokenValidated`-handler, ikke bare det ene — et egendefinert/ikke-standard claim-navn trenger ikke denne defensive sjekken.
 - En OIDC-klients `scope`-parameter i selve autorisasjonsforespørselen er IKKE nødvendigvis det den faktiske oppstrøms-identitetsleverandøren mottar — en BROKER (som Idura foran ekte BankID) kan være konfigurert PER KLIENT-ID (i brokerens eget dashbord/klientoppsett) til å alltid legge til egne scopes oppå det klienten ber om. Bekreftet reelt 2026-10-01/02: koden ber kun om `openid profile`, men den faktiske utgående autorisasjons-URL-en til BankID viste `scope=openid+profile+sub_nnin+sub_bankid` — `options.Scope.Add(...)` i vår egen kode styrer altså IKKE nødvendigvis hva som faktisk forhandles med den underliggende identitetsleverandøren. Anta ALDRI at en klients scope-forespørsel er den fulle sannheten for en brokered OIDC-integrasjon — observer den FAKTISKE utgående URL-en (eller spør brokerens støtteapparat) for å vite hva som egentlig blir bedt om, spesielt når en spesifikk scope bevisst UNNGÅS av en etterlevelsesgrunn (se "Ekte BankID for admin/behandler, del 5").
+- En ny `IInnebygdTestSeeder`- og/eller `ITestSkaaringsberegner`-IMPLEMENTASJON (ny klasse) blir IKKE automatisk tatt i bruk — BEGGE grensesnittene krever et EKSPLISITT `builder.Services.AddScoped<...>(...)`-kall i Program.cs per klasse (ingen reflection/assembly-scan). Glemmer man dette, kjører "Regenerer innebygde tester" (Admin/Tester) stille uten feil og uten å opprette testen i det hele tatt — ingen kompilatorfeil, ingen runtime-advarsel, testen ser bare ut til å "ikke eksistere". Skjedde reelt ved MPFI-24 (2026-10-03, se docs/beslutningslogg.md). Sjekk ALLTID at BEGGE linjene (seeder OG skåringsberegner, hvis testen har en) er lagt til i Program.cs før en ny innebygd test regnes som ferdig, og bekreft ved å faktisk se testen dukke opp i Admin/Tester-listen etter et regenerer-klikk.
 
 ## Hvordan jobbe videre
 

@@ -6456,3 +6456,77 @@ forsøker en reell redirect mot en adresse som ikke finnes, og dermed beviser at
 FAKTISKE koden, ikke bare visningen. Build grønn, alle 79 integrasjonstester grønne, ny migrasjon
 (`LeggTilEktBankIdInnstilling`) generert normalt via `dotnet ef migrations add` (Docker fungerte nå)
 og anvendt lokalt.
+
+## MPFI-24 lagt til, med en generell "krever biologisk kjønn"-mekanisme (2026-10-03)
+
+Brukeren la to filer i prosjektroten ("Norsk MPFI-24 kortversjon.pdf", "MPFI_24 skåring.xlsx") og ba
+om at testen legges til, med et eksplisitt krav om at administrering skal FEILE (ikke bare advare)
+for en pasient uten registrert biologisk kjønn, siden normeringen er kjønnsspesifikk. Bygget mens
+brukeren var bortreist ("go with your recommendations") — alle designvalg under er egne vurderinger,
+ikke bekreftet med brukeren underveis.
+
+**Kilde**: PDF-en er en OFFISIELL norsk oversettelse (Elen/Johansen/Lyby, etter tillatelse fra
+opphavsmann Ronald Rogge 31.01.20, støttet av Stiftelsen CatoSenteret) — SAMME "bruk verbatim
+offisiell oversettelse"-mønster som WHO-5/PHQ-9/MADRS-S, ikke "egenforfattet parafrasering"-mønsteret
+brukt for tester uten slik tillatelse (EDE-Q/TRAPS II/SCID-5-PF). Originalpublikasjon: Rolffs,
+Rogge & Wilson (2018), Assessment 25(4):458-482.
+
+**Struktur**: 24 ledd, 12 delskalaer à 2 ledd (6 FLEKSIBILITET: Aksept/Nærvær/Selvet/Defusjon/
+Verdier/Forpliktende handling — 6 RIGIDITET: Opplevelsesunngåelse/Manglende kontakt med nået/
+Begrepsselv/Fusjon/Manglende kontakt med verdier/Passivitet), 6-punkts Likert (1=Stemte aldri …
+6=Stemte alltid). Delskåre = gjennomsnitt av sine 2 ledd. To globalskårer (gjennomsnitt av de 6
+delskalaene i hver gruppe) — BEVISST IKKE én sumskår på tvers av fleksibilitet+rigiditet, de er to
+uavhengige akser i Hexaflex-modellen (kan begge være høye samtidig), så `SkjulProsent=true` (samme
+prinsipp som CORE-A/M.I.N.I.).
+
+**Reell feil funnet og rettet i kildearket FØR noe ble bygget**: regnearkets "Fusjon"-delskåre-
+formel (`AVERAGE(C30:C32)`) inkluderte ved en drag-fill-feil ledd 21 i tillegg til de tiltenkte
+leddene 19-20 — radens EGEN etikett sier eksplisitt "ledd 19 og 20", og ledd 21 brukes allerede,
+korrekt, i NESTE rad ("Mangel på kontakt med verdier ledd 21 og 22"). Bekreftet mot MPFI sin kjente
+hexaflex-itemstruktur i originalpublikasjonen at 19-20 er riktig. Rettet i vår implementasjon (IKKE
+reprodusert regnearkets feil) — dekket av en egen enhetstest som eksplisitt beviser ledd 21 IKKE
+smitter over i Fusjon-delskåren.
+
+**Kjønnsspesifikk normering — ny generell mekanisme, ikke MPFI-spesifikk hack**:
+1. Ny `Test.KreverBiologiskKjonn`-kolonne (bool, samme "seeder-satt flagg"-mønster som
+   `IcdElleveKlar`/`FyllesUtAvBehandler`).
+2. `TestTildelingsService.TildelOgVarsleAsync` sjekker dette FØR en tildeling opprettes for et
+   (pasient, test)-par — en pasient uten `BiologiskKjonnVedFodsel` (f.eks. en "prøv systemet"-
+   QR-pasient med ufullstendig profil) får IKKE tildelingen, og en ny `TildeltPasientResultat.
+   IkkeTildelteTesterGrunnet`-liste bærer en tydelig feilmelding tilbake. BEVISST en PARTIELL
+   feil (kun de aktuelle testene for akkurat den pasienten hoppes over, resten av batchen
+   fullføres normalt) — IKKE en hard exception som ville avbrutt en hel batch-tildeling til flere
+   pasienter på grunn av én enkelt pasient. Nytt "Ikke tildelt"-avsnitt i BEGGE Tildel/Tester.cshtml
+   (Admin + Behandlerportal) viser disse feilene tydelig for behandler/admin.
+3. Ny `ITestSkaaringsberegnerMedBiologiskKjonn`-grensesnitt (arver `ITestSkaaringsberegnerMedLedd`,
+   samme default-interface-utvidelsesmønster) — et ANNET forsvarslag for selve skåringen (f.eks. en
+   tildeling fra FØR kjønnet evt. ble nullstilt igjen): `TestService.BeregnSkaaringAsync`/
+   `HentSkaaringHistorikkAsync` slår opp pasientens kjønn og sender det inn. En `null` her gir en
+   tydelig `GyldighetsAdvarsel` i returnert `TestSkaaring` — ALDRI en kastet exception (samme
+   "degrader nådig, ikke 500"-prinsipp som EDE-Q/GADIT-fiksene).
+
+**Visualisering**: ny `MpfiRadarBeregner` (samme geometri-mønster som `Sipp118RadarBeregner`, men
+med to hexagon-radarer — én fleksibilitet, én rigiditet — og BEGGE en datapolygon (pasientens skåre)
+OG en normpolygon (kjønnsspesifikk, VARIERER per delskala/kjønn, i motsetning til Sipp118 sin FASTE
+cutoff-ring) tegnet SAMTIDIG. Wired inn i BEGGE Rapport.cshtml/.cshtml.cs (Admin + Behandlerportal),
+samme `Html.Raw`-mønster for SVG `<text>`-elementer som alle tidligere grafer (kjent Razor-
+fallgruve).
+
+**En reell driftsfeil fanget under verifisering, IKKE en kode-feil**: testen vises ALDRI i
+Admin/Tester-listen etter første "Regenerer innebygde tester"-klikk — årsak: `IInnebygdTestSeeder`-
+og `ITestSkaaringsberegner`-implementasjoner krever EKSPLISITT DI-registrering i Program.cs (ett
+`AddScoped<...>`-kall hver, IKKE automatisk sammenstikking/reflection), en lett-å-glemme-detalj for
+enhver FREMTIDIG ny innebygd test — lagt til i fallgruve-listen under.
+
+**Verifisert FULLT ende-til-ende i nettleser** (Docker kjørte denne gangen): (1) gender-gate
+blokkerer korrekt — forsøk på tildeling til en pasient uten kjønn satt ga en tydelig "Ikke tildelt"-
+feilmelding, ingen tildeling opprettet; (2) positiv vei — tildeling til en pasient MED kjønn satt
+(Mann) lyktes normalt; (3) full utfylling som pasient (24 ledd, alle satt til "Stemte av og til" =
+verdi 3) fullførte uten feil; (4) rapportvisning som behandler viste korrekte delskårer (alle
+3.00/norm), korrekt fortolkningstekst med riktig mannsnorm, og BEGGE radar-hexagonene rendret
+korrekt med nøyaktig 6 akser hver og riktige navn — inkludert en presis sjekk av korrekt positiv/
+negativ-fargekoding (3.00/3.00 for Opplevelsesunngåelse — eneste eksakte norm-treff — vist GRØNN,
+alle andre korrekt RØDE siden pasienten skåret lavere enn fleksibilitetsnormene og høyere enn
+rigiditetsnormene). 3 nye enhetstester (82 totalt). Migrasjon (`LeggTilKreverBiologiskKjonn`)
+generert normalt via `dotnet ef migrations add` og anvendt lokalt. IKKE pushet ennå — commitet
+lokalt, venter på brukerens retur for å bekrefte push til live.
