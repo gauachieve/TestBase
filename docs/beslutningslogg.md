@@ -6663,3 +6663,39 @@ pasient-tester + 5 kliniker-tester listet, ingen 500. Bekreftet i databasen: `En
 full liste i `Details`. Se CLAUDE.md sin nye fallgruve-oppføring for mønsteret (enhver
 `string.Join(",", ider)` brukt som et audit-EntityId-argument skal ALDRI gjøres direkte — bruk
 AuditBatch.EntityId).
+
+## Separat driftshendelse: deploy-live hang etter push av bulk-tildeling-fiksen (2026-10-03/04, samme natt)
+
+Umiddelbart etter at commit `18b36c1` (fiksen over) ble pushet, FEILET selve `deploy-live`-jobben i
+CI/CD-pipelinen — ikke på grunn av ny kode, men fordi `azd deploy` sin container ikke klarte å
+starte innenfor helsesjekkens 90-sekunders vindu (6×15s forsøk, se `.github/workflows/deploy.yml`).
+`www.psytest.no` svarte enten med nettverks-timeout eller en RASK Azure-plattform-503 (IKKE appens
+egen feilside) i flere minutter, og appen logget INGENTING i denne perioden ("No new trace in the
+past 1 min") — konsistent med en fastlåst container, ikke en app-nivå-krasj. Azure sin egen
+`state`/`availabilityState` viste fortsatt "Running"/"Normal" gjennom hele hendelsen, så
+plattform-API-et alene ville IKKE avslørt problemet.
+
+**Viktig observasjon**: `build-og-test`-steget (bygg + alle 86 tester) hadde ALLEREDE lyktes for
+nøyaktig denne commiten, og selve fiksen var ren C#-logikk uten migrasjon — pekte bort fra at ny
+kode faktisk krasjet ved oppstart. Fant et nesten identisk, ALLEREDE LOGGET funn fra DAGEN FØR
+(2026-10-02, samme App Service): "Container did not respond to startup probe on port 8080 within
+230s" — indikerer dette er et tilbakevendende, plattform-/oppstartstidsrelatert problem på akkurat
+denne App Service-en, uavhengig av hvilken kode som faktisk deployes.
+
+**Løst med en enkel omstart** (`az webapp restart`) — brukeren godkjente eksplisitt etter å ha blitt
+spurt (handlingen ble først BLOKKERT av en automatisk tillatelses-klassifiserer som "Production
+Deploy", siden `az webapp restart` i utgangspunktet er en produksjonspåvirkende kommando). Live var
+tilbake med `200` på `/health` innen ~20 sekunder etter omstart, bekreftet stabilt med flere
+påfølgende sjekker + at forsiden og innloggingssiden lastet rent. **Brukerens presisering
+etter hendelsen**: denne spesifikke tillatelses-grensen ("Production Deploy" krever eksplisitt
+godkjenning) er ment for en fremtidig AUTONOM selv-fiks-krasjer-agent (se "Tilbakemeldingsverktøy,
+del 3" sin daglige rutine), IKKE for direkte kodede/promptede handlinger i en økt brukeren selv
+styrer — handlinger jeg utfører på brukerens eksplisitte, synkrone instruks i en vanlig økt skal
+ikke nødvendigvis rammes av samme sperre som den autonome bakgrunnsagenten.
+
+**Oppfølgingspunkt, ikke gjort ennå**: vurder å øke `WEBSITES_CONTAINER_START_TIME_LIMIT` (nevnt
+direkte i Azures egen feilmelding) hvis dette gjentar seg — ville gitt containeren mer tid til å
+starte før platformen gir opp og dreper den, i stedet for å måtte oppdage og manuelt restarte etter
+hver forekomst. Ikke endret denne runden siden årsaken til selve TREGHETEN (MySQL-tilkobling? JIT-
+oppvarming? noe annet?) ikke ble videre undersøkt — kun selve symptomet (fastlåst container) ble
+løst med en omstart.
