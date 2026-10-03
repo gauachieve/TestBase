@@ -6699,3 +6699,16 @@ starte før platformen gir opp og dreper den, i stedet for å måtte oppdage og 
 hver forekomst. Ikke endret denne runden siden årsaken til selve TREGHETEN (MySQL-tilkobling? JIT-
 oppvarming? noe annet?) ikke ble videre undersøkt — kun selve symptomet (fastlåst container) ble
 løst med en omstart.
+
+**Oppfølging samme kveld**: ~3 minutter etter omstarten rapporterte brukeren en NY krasj,
+tilsynelatende da de åpnet `Admin/Tildel/Tester` for å teste selve bulk-tildelings-fiksen. Tailet
+live på nytt og fant en HELT ANNEN, ufarlig årsak: én enkelt `MySqlException: Connect Timeout
+expired` i `TestService.HentAntallLeddPerTestAsync` (kalt fra `TesterModel.OnGetAsync`, en vanlig
+lesespørring — ingenting med audit-loggingen eller selve fiksen å gjøre). Kun ÉN forekomst,
+EF Core sin egen feilmelding flagget den eksplisitt som "likely due to a transient failure", og
+siden har ikke noe tilsvarende dukket opp. Konsistent med at tilkoblingspoolen mot MySQL fortsatt
+var i ferd med å etablere seg rett etter omstarten over. Brukeren prøvde handlingen på nytt —
+"worked", ingen gjentakelse. IKKE en kodefeil, ingen fiks nødvendig denne gangen. Foreslått (men
+IKKE gjort) som en fremtidig robusthetsforbedring: `EnableRetryOnFailure()` på `UseMySql`-
+oppsettet, slik at en slik forbigående tilkoblingsglipp gir et stille automatisk forsøk på nytt i
+stedet for en 500 til brukeren — EF Core sin egen feilmelding anbefaler nettopp dette.
