@@ -6530,3 +6530,86 @@ alle andre korrekt RØDE siden pasienten skåret lavere enn fleksibilitetsnormen
 rigiditetsnormene). 3 nye enhetstester (82 totalt). Migrasjon (`LeggTilKreverBiologiskKjonn`)
 generert normalt via `dotnet ef migrations add` og anvendt lokalt. IKKE pushet ennå — commitet
 lokalt, venter på brukerens retur for å bekrefte push til live.
+
+## Hjelpemeny: rolle- og kontekstsensitiv, ikke-modal (2026-10-03)
+
+Brukerens krav (ordrett i praksis): rolle-sensitiv, kontekst-sensitiv ("hjelp med det du driver
+med akkurat nå"), et rollup/popup-vindu på høyre side som IKKE er modalt, full skjerm på mobil,
+søkefunksjon øverst, kun innlogging/generell info når ikke innlogget, en FAQ basert på et
+kvalifisert gjetn om hva folk vil streve med, og "best practice for hjelpesider" generelt.
+
+**Arkitektur — statisk innhold, ingen database** (samme mønster som `IInnebygdTestSeeder`-
+testinnholdet, ikke en admin-redigerbar CMS-løsning — bevisst, for å unngå en hel ny migrasjon/
+CRUD-flate for noe som endrer seg sjelden og helst bør gjennomgås i kode uansett):
+
+- `TestBase.Shared/Domain/Hjelp/HjelpArtikkel.cs` — record: Id, Tittel, HtmlInnhold, Roller
+  (`HjelpRolle[]` — Anonym/Pasient/Behandler/Admin), KontekstPrefikser (URL-sti-prefikser),
+  ErFaq, Kategori.
+- `HjelpInnhold.cs` — den faktiske statiske listen, ca. 29 artikler fordelt Anonym(6)/
+  Pasient(6)/Behandler(10)/Admin(7). Norsk, kort, skrevet ut fra kjente smertepunkter i denne
+  appen spesifikt (dobbel personnummer-følelse ved innlogging, hvorfor rapporten ikke vises med
+  en gang, hva ikonene i Tildel/Tester betyr, hva "prøvedata" er, osv.) — IKKE generisk SaaS-
+  hjelpetekst.
+- `HjelpService.cs` — KUN filtreringslogikk. `TilHjelpRolle(ICurrentUserContext)` er den
+  kritiske metoden: sjekker `IsAuthenticated` FØRST og returnerer `Anonym` uansett hva `Role`
+  skulle si — `AuthenticatedCurrentUserContext.Role` faller ellers tilbake til `UserRole.Pasient`
+  når ikke innlogget (se kjent oppførsel i selve klassen), som ville lekket pasient-hjelp til en
+  helt anonym besøkende hvis `IsAuthenticated` ikke sjekkes separat. Superadmin/Utvikler slås
+  sammen til "Admin" her — de trenger ingen egne hjelpeartikler for det de ser utover en vanlig
+  Administrator. Registrert som Singleton i Program.cs (immutabelt innhold, ingen DB-avhengighet).
+
+**Server-side filtrering, IKKE client-side skjuling**: `Pages/Shared/_HjelpPanel.cshtml` (en ny
+partial, `@inject`-basert, inkludert fra `_TilbakemeldingWidget.cshtml` — se under) gjør ALL
+rolle- og kontekstfiltrering i et Razor-kodeblokk FØR noe sendes til nettleseren. En ikke-innlogget
+besøkende får ALDRI behandler-/admin-hjelpetekst i HTML-kilden i det hele tatt, ikke bare skjult
+med CSS/JS. Kontekstsensitivitet er et enkelt `sti.StartsWith(prefiks)`-sjekk mot
+`Context.Request.Path` for hver artikkels `KontekstPrefikser`, med artikler allerede vist i
+"Hjelp for denne siden" ekskludert fra både FAQ-seksjonen og "Bla i alle emner" (ingen duplikater).
+
+**Søk er client-side, men over allerede rolle-filtrert markup** — ingen egen JSON-nyttelast
+sendes. Hver `<li class="hjelp-artikkel">` bærer et `data-hjelp-sok`-attributt (tittel + HTML-
+innhold med tagger stript via `Regex.Replace("<.*?>", " ")`, lowercased), og `wwwroot/js/
+hjelp-panel.js` filtrerer rent tekstlig på `input`-event. Selve markupen ER datagrunnlaget for
+søket — samme "ingen duplisert rendering-logikk i både C# og JS"-prinsipp.
+
+**Ikke-modal, bevisst**: `.hjelp-panel` (ny CSS i site.css) har INGEN bakgrunns-overlay og ingen
+fokus-felle. Synlighet styres UTELUKKENDE via `transform: translateX(100%)` ↔ `translateX(0)` +
+en CSS-transition — panelet fjernes aldri fra DOM-en og skjules aldri med `[hidden]`, så siden
+under forblir fullt klikkbar/skrollbar mens panelet er åpent. Verifisert i Playwright: et klikk på
+en navigasjonslenke i BAKGRUNNEN mens panelet var åpent gikk gjennom uten at Playwright klagde på
+et "intercepted click" (som ville skjedd med en ekte modal-backdrop). Lukkes med X-knapp eller
+Escape — IKKE ved klikk utenfor (i motsetning til det eksisterende, faktisk modal-lignende
+`tbm-panel` for tilbakemelding) — nettopp fordi "ikke-modal" betyr brukeren skal kunne referere
+til siden mens hjelpeteksten står åpen.
+
+**Gjenbruker eksisterende widget-infrastruktur**: aktiverte den allerede eksisterende, men
+`disabled`/"Kommer senere"-merkede "Hjelp"-knappen i `_TilbakemeldingWidget.cshtml` sin rollup-meny
+(samme knapp som har stått klar siden tilbakemeldingsverktøyet ble bygget) i stedet for en ny,
+andre flytende knapp. `hjelp-panel.js` er en helt selvstendig IIFE (samme mønster som
+`tilbakemelding-widget.js`) — de to delte KUN DOM-id-er som grensesnitt, ingen delt tilstand.
+Et "Ingen treff"-søkeresultat lenker til den eksisterende tilbakemeldingsknappen (lukker Hjelp,
+åpner Tilbakemelding-skjemaet programmatisk via `.click()`) — naturlig fallback når hjelpeteksten
+ikke dekker det brukeren leter etter.
+
+**Én reell bug funnet og fikset FØR commit, under Playwright-verifisering**: artikkelen "Hva er
+PsyTest?" var opprinnelig tagget med kontekst-prefiks `"/"` for å fremheves på forsiden — men
+`sti.StartsWith("/")` er sant for BOKSTAVELIG TALT ALLE stier i appen (alt starter med en
+skråstrek), så artikkelen dukket feilaktig opp under "Hjelp for denne siden" på HVER ENESTE side,
+inkludert `/Konto/LoggInn`. Fikset ved å fjerne kontekst-bindingen helt (artikkelen er uansett
+synlig i FAQ for anonyme brukere) — en eksakt rot-sti-match ville vært riktigere, men unødvendig
+kompleksitet for én artikkel. Ingen fremtidig artikkel bør bruke `"/"` som kontekst-prefiks av
+samme grunn.
+
+**Verifisert i nettleser (Playwright) for alle krav**: (1) anonym besøkende på forsiden —
+kun Anonym-artikler, kontekstuell "Hva er PsyTest?" (etter fiksen) + FAQ; (2) på `/Konto/LoggInn`
+— korrekt kontekstuell artikkel øverst, ingen duplikat i FAQ; (3) søk på "bankid" filtrerer
+korrekt til nøyaktig 3 treff på tvers av seksjoner, skjuler tomme seksjoner; (4) et klikk i
+bakgrunnen mens panelet er åpent går gjennom (ikke-modal bekreftet); (5) mobilvisning (375px)
+— full skjerm, bekreftet med skjermbilde; (6) innlogget som Behandler (via `/Admin/Konto/
+ByttModus`) på `/Behandlerportal/Grupper` — korrekt Behandler-only FAQ, INGEN Admin/Pasient-
+innhold, og 3 kontekstuelle gruppe-relaterte artikler øverst; (7) artikkel-utvidelse (accordion)
+viser formatert HTML-innhold korrekt med roterende chevron-ikon. IKKE testet: Admin- og Pasient-
+rollenes fulle visning enkeltvis (kun Behandler + Anonym ble browser-verifisert; Admin-artikler
+ble bekreftet TIL STEDE i DOM via en Playwright strict-mode-feil under en urelatert interaksjon,
+men ikke et eget skjermbilde). Ingen migrasjon (ingen database involvert). Committet, IKKE pushet
+ennå.

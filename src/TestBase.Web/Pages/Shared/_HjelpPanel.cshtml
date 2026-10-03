@@ -1,0 +1,104 @@
+@using System.Text.RegularExpressions
+@using TestBase.Shared.Domain.Hjelp
+@inject HjelpService Hjelp
+@inject TestBase.Shared.Security.ICurrentUserContext CurrentUser
+@{
+    // Rolle- og kontekstfiltrering skjer HER, server-side — en ikke-innlogget besøkende får
+    // ALDRI behandler-/admin-hjelpetekst i HTML-kilden i det hele tatt (ikke bare skjult med
+    // CSS/JS), se HjelpService.TilHjelpRolle. Søk skjer likevel client-side (se
+    // wwwroot/js/hjelp-panel.js) over denne allerede rolle-filtrerte HTML-en — ingen egen
+    // JSON-nyttelast, selve markupen ER datagrunnlaget.
+    var rolle = HjelpService.TilHjelpRolle(CurrentUser);
+    var forRolle = Hjelp.HentForRolle(rolle);
+    var sti = Context.Request.Path.Value ?? "";
+
+    var kontekstuelle = forRolle.Where(a => a.KontekstPrefikser.Any(p => sti.StartsWith(p, StringComparison.OrdinalIgnoreCase))).ToList();
+    var vist = kontekstuelle.Select(a => a.Id).ToHashSet();
+
+    var faq = forRolle.Where(a => a.ErFaq && !vist.Contains(a.Id)).ToList();
+    foreach (var a in faq) { vist.Add(a.Id); }
+
+    var alleEmnerGruppert = forRolle
+        .Where(a => !vist.Contains(a.Id))
+        .GroupBy(a => a.Kategori)
+        .OrderBy(g => g.Key);
+
+    string SokTekst(HjelpArtikkel a) =>
+        (a.Tittel + " " + Regex.Replace(a.HtmlInnhold, "<.*?>", " ")).ToLowerInvariant();
+}
+<aside id="hjelp-panel" class="hjelp-panel" aria-hidden="true" aria-label="Hjelp">
+    <div class="hjelp-panel-header">
+        <strong>Hjelp</strong>
+        <button type="button" id="hjelp-panel-lukk" class="hjelp-panel-lukk" aria-label="Lukk hjelp">✕</button>
+    </div>
+    <div class="hjelp-sok-wrap">
+        <input type="search" id="hjelp-sok" class="hjelp-sok" placeholder="Søk i hjelp …" aria-label="Søk i hjelp" autocomplete="off" />
+    </div>
+    <div id="hjelp-innhold" class="hjelp-innhold">
+        @if (kontekstuelle.Any())
+        {
+            <section class="hjelp-seksjon" data-hjelp-seksjon>
+                <h3 class="hjelp-seksjon-tittel">Hjelp for denne siden</h3>
+                <ul class="hjelp-liste">
+                    @foreach (var a in kontekstuelle)
+                    {
+                        <li class="hjelp-artikkel" data-hjelp-sok="@SokTekst(a)">
+                            <button type="button" class="hjelp-artikkel-tittel" aria-expanded="false">
+                                <span>@a.Tittel</span>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hjelp-chevron"><path d="M9 18l6-6-6-6" /></svg>
+                            </button>
+                            <div class="hjelp-artikkel-innhold" hidden>@Html.Raw(a.HtmlInnhold)</div>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+        @if (faq.Any())
+        {
+            <section class="hjelp-seksjon" data-hjelp-seksjon>
+                <h3 class="hjelp-seksjon-tittel">Vanlige spørsmål</h3>
+                <ul class="hjelp-liste">
+                    @foreach (var a in faq)
+                    {
+                        <li class="hjelp-artikkel" data-hjelp-sok="@SokTekst(a)">
+                            <button type="button" class="hjelp-artikkel-tittel" aria-expanded="false">
+                                <span>@a.Tittel</span>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hjelp-chevron"><path d="M9 18l6-6-6-6" /></svg>
+                            </button>
+                            <div class="hjelp-artikkel-innhold" hidden>@Html.Raw(a.HtmlInnhold)</div>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+        @if (alleEmnerGruppert.Any())
+        {
+            <details class="hjelp-alle-emner" data-hjelp-seksjon>
+                <summary>Bla i alle emner</summary>
+                @foreach (var gruppe in alleEmnerGruppert)
+                {
+                    <section class="hjelp-seksjon" data-hjelp-seksjon>
+                        <h4 class="hjelp-seksjon-tittel hjelp-seksjon-tittel-liten">@gruppe.Key</h4>
+                        <ul class="hjelp-liste">
+                            @foreach (var a in gruppe)
+                            {
+                                <li class="hjelp-artikkel" data-hjelp-sok="@SokTekst(a)">
+                                    <button type="button" class="hjelp-artikkel-tittel" aria-expanded="false">
+                                        <span>@a.Tittel</span>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hjelp-chevron"><path d="M9 18l6-6-6-6" /></svg>
+                                    </button>
+                                    <div class="hjelp-artikkel-innhold" hidden>@Html.Raw(a.HtmlInnhold)</div>
+                                </li>
+                            }
+                        </ul>
+                    </section>
+                }
+            </details>
+        }
+        <p id="hjelp-ingen-treff" class="hjelp-ingen-treff" hidden>
+            Ingen treff. Prøv et annet søkeord, eller
+            <button type="button" id="hjelp-til-tilbakemelding" class="hjelp-lenke-knapp">send oss en tilbakemelding</button>.
+        </p>
+    </div>
+</aside>
+<script src="~/js/hjelp-panel.js" asp-append-version="true"></script>

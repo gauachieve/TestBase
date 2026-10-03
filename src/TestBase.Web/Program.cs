@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
+using TestBase.Shared.Domain.Hjelp;
 using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Domain.Tester;
 using TestBase.Shared.Domain.Tester.InnebygdeTester;
@@ -460,6 +461,9 @@ builder.Services.AddScoped<BetaInnstillingService>();
 // EktBankIdInnstilling for hvordan denne raden erstatter behovet for en
 // redeploy ved hver av/på-veksling av ekte BankID.
 builder.Services.AddScoped<EktBankIdInnstillingService>();
+
+// Statisk innhold (se HjelpInnhold) — Singleton, ingen DB-avhengighet, immutabelt per prosess.
+builder.Services.AddSingleton<HjelpService>();
 
 if (erBeta)
 {

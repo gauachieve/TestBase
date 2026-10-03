@@ -19,7 +19,7 @@
                 <partial name="_Ikon" model="@("tilbakemelding")" />
                 <span>Tilbakemelding</span>
             </button>
-            <button type="button" class="tbm-meny-knapp" role="menuitem" disabled title="Kommer senere">
+            <button type="button" id="tbm-meny-hjelp" class="tbm-meny-knapp" role="menuitem">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4" /><path d="M12 17h.01" /></svg>
                 <span>Hjelp</span>
             </button>
@@ -53,6 +53,8 @@
         </form>
     </div>
 </div>
+
+<partial name="_HjelpPanel" />
 
 <script src="~/js/vendor/html2canvas.min.js" asp-append-version="true"></script>
 <script src="~/js/tilbakemelding-widget.js" asp-append-version="true"></script>

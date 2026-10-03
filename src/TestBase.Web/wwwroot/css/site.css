@@ -1613,3 +1613,98 @@ textarea.kommentarfelt {
   .tbm-fab-wrap { right: 16px; bottom: 16px; }
   .tbm-panel { right: 16px; bottom: 16px; left: 16px; width: auto; }
 }
+
+/* ---------- Hjelp-panel (se _HjelpPanel.cshtml + js/hjelp-panel.js) ----------
+   Bevisst IKKE modal: ingen bakgrunns-overlay, ingen fokus-felle, siden under
+   forblir klikkbar/skrollbar mens panelet er åpent — kun transform avgjør om
+   det er synlig, det fjernes aldri fra DOM-en eller skjules med [hidden]. */
+.hjelp-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 100vw);
+  max-width: 100vw;
+  background: #fff;
+  box-shadow: -6px 0 28px rgba(20, 22, 31, 0.2);
+  z-index: 10002;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+}
+.hjelp-panel.hjelp-apen { transform: translateX(0); }
+
+.hjelp-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.1rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.hjelp-panel-header strong { font-size: 1.05rem; }
+.hjelp-panel-lukk { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--muted); line-height: 1; }
+
+.hjelp-sok-wrap { padding: 0.8rem 1.1rem; flex: 0 0 auto; }
+.hjelp-sok {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.92rem;
+  font-family: inherit;
+}
+
+.hjelp-innhold { overflow-y: auto; flex: 1 1 auto; padding: 0 1.1rem 1.5rem; }
+
+.hjelp-seksjon { margin-bottom: 1.2rem; }
+.hjelp-seksjon[hidden] { display: none; }
+.hjelp-seksjon-tittel {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 0 0 0.5rem;
+}
+.hjelp-seksjon-tittel-liten { font-size: 0.82rem; text-transform: none; letter-spacing: normal; color: var(--ink-soft); margin-top: 0.9rem; }
+
+.hjelp-liste { list-style: none; margin: 0; padding: 0; }
+.hjelp-artikkel { border-bottom: 1px solid var(--border); }
+.hjelp-artikkel[hidden] { display: none; }
+.hjelp-artikkel-tittel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0.65rem 0.1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+.hjelp-chevron { flex: 0 0 auto; transition: transform 0.15s ease; color: var(--muted); }
+.hjelp-artikkel-apen .hjelp-chevron { transform: rotate(90deg); }
+.hjelp-artikkel-innhold { padding: 0 0.1rem 0.9rem; font-size: 0.88rem; color: var(--ink-soft); }
+.hjelp-artikkel-innhold p { margin: 0 0 0.6rem; }
+.hjelp-artikkel-innhold p:last-child { margin-bottom: 0; }
+
+.hjelp-alle-emner summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.hjelp-ingen-treff { font-size: 0.88rem; color: var(--muted); text-align: center; margin-top: 1.5rem; }
+.hjelp-lenke-knapp { background: none; border: none; padding: 0; color: var(--rolle-accent); text-decoration: underline; cursor: pointer; font-size: inherit; }
+
+@media (max-width: 640px) {
+  .hjelp-panel { width: 100vw; }
+}

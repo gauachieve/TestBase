@@ -600,6 +600,23 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   commitet lokalt, venter på brukerens retur. Se docs/beslutningslogg.md "MPFI-24 lagt til" for full
   detalj, inkl. en ny fallgruve (DI-registrering kreves eksplisitt for nye test-seedere/-beregnere)
   lagt til i fallgruve-lista under.
+- **Hjelpemeny: rolle- og kontekstsensitiv, ikke-modal (2026-10-03, samme dag):** den eksisterende,
+  tidligere `disabled`/"Kommer senere"-"Hjelp"-knappen i tilbakemeldingswidgetens rollup-meny er nå
+  aktiv — åpner et nytt, IKKE-modalt panel som sklir inn fra høyre (full skjerm på mobil, ALDRI en
+  bakgrunns-overlay/fokus-felle — siden under forblir klikkbar/skrollbar, kun CSS-transform avgjør
+  synlighet). Nytt statisk innhold (`TestBase.Shared/Domain/Hjelp/`: `HjelpArtikkel`/`HjelpInnhold`/
+  `HjelpService`, samme "kode fremfor database"-mønster som `IInnebygdTestSeeder`), ~29 artikler
+  fordelt Anonym/Pasient/Behandler/Admin. Rolle- OG kontekstfiltrering (URL-sti-prefiks) skjer
+  SERVER-SIDE i `Pages/Shared/_HjelpPanel.cshtml` — en ikke-innlogget besøkende får aldri behandler-/
+  admin-tekst i HTML-kilden i det hele tatt. Søk er client-side (`wwwroot/js/hjelp-panel.js`) over
+  den allerede rolle-filtrerte markupen (ingen egen JSON-nyttelast). `ICurrentUserContext.
+  IsAuthenticated` MÅ sjekkes FØR `Role` for å skille anonym fra Pasient (se `HjelpService.
+  TilHjelpRolle` og `AuthenticatedCurrentUserContext` sin egen fallback-til-Pasient-oppførsel ved
+  manglende innlogging). Verifisert i nettleser (Playwright) for anonym/Behandler-rolle,
+  kontekstsensitivitet, søk, ikke-modal klikk-gjennom-bakgrunn, og mobil full skjerm — se
+  docs/beslutningslogg.md "Hjelpemeny" for en reell `"/"`-kontekst-prefiks-bug funnet og fikset
+  underveis (matchet ALLE stier via `StartsWith`, ikke bare forsiden). Ingen migrasjon. Committet,
+  IKKE pushet ennå.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
