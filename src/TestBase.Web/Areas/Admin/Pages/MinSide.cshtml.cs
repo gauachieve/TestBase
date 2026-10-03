@@ -161,7 +161,8 @@ public sealed class MinSideModel : PageModel
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(),
             godkjenn ? "GodkjennTestTilgangForesporsler" : "AvvisTestTilgangForesporsler",
-            nameof(TestTilgangForespoersel), string.Join(",", foresporselId), cancellationToken: cancellationToken);
+            nameof(TestTilgangForespoersel), AuditBatch.EntityId(foresporselId),
+            details: $"ForesporselIder {string.Join(",", foresporselId)}", cancellationToken: cancellationToken);
     }
 
     public async Task<IActionResult> OnPostGodkjennHprAsync(long id, CancellationToken cancellationToken)

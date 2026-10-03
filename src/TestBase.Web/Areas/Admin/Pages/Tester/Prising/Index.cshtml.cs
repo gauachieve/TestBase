@@ -77,9 +77,11 @@ public sealed class IndexModel : PageModel
 
         await _db.SaveChangesAsync(cancellationToken);
 
+        var oppdaterteTestIder = Tester.Select(t => t.Id).ToList();
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "OppdaterTestPrising",
-            nameof(Test), string.Join(",", Tester.Select(t => t.Id)), cancellationToken: cancellationToken);
+            nameof(Test), AuditBatch.EntityId(oppdaterteTestIder),
+            details: $"TestIder {string.Join(",", oppdaterteTestIder)}", cancellationToken: cancellationToken);
 
         return RedirectToPage();
     }

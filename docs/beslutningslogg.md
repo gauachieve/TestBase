@@ -6611,5 +6611,55 @@ innhold, og 3 kontekstuelle gruppe-relaterte artikler øverst; (7) artikkel-utvi
 viser formatert HTML-innhold korrekt med roterende chevron-ikon. IKKE testet: Admin- og Pasient-
 rollenes fulle visning enkeltvis (kun Behandler + Anonym ble browser-verifisert; Admin-artikler
 ble bekreftet TIL STEDE i DOM via en Playwright strict-mode-feil under en urelatert interaksjon,
-men ikke et eget skjermbilde). Ingen migrasjon (ingen database involvert). Committet, IKKE pushet
-ennå.
+men ikke et eget skjermbilde). Ingen migrasjon (ingen database involvert). Pushet til master
+samme dag — CI/CD-pipelinen (build-og-test → deploy-beta → deploy-live) kjørte grønt, og en
+uavhengig funksjonell sjekk (`curl` mot `www.psytest.no` etter deploy) bekreftet den NYE
+`#tbm-meny-hjelp`-knappen og `js/hjelp-panel.js` faktisk var live, ikke bare en "SUCCESS" uten
+reell kodeendring (se den kjente `azd deploy`-fallgruven i CLAUDE.md).
+
+## Reell 500-feil ved bulk-tildeling: "velg alle tester" krasjet audit-loggingen (2026-10-03, samme dag)
+
+Brukeren opplevde en krasj på LIVE da hen prøvde å tildele ALLE ~35 tester til én pasient for
+testing (`Admin/Tildel/Tester`). Reprodusert og diagnostisert direkte på live via
+`az webapp log tail` (samme metode som GADIT-/2FA-SMS-krasjene) — fanget en
+`DbUpdateException`/`MySqlConnector.MySqlException: Data too long for column 'EntityId' at row 1`,
+kastet fra `TestBase.Shared.Security.EfAuditLogger.LogAsync`, kalt fra
+`TesterModel.OnPostSendAsync` linje 109.
+
+**Rotårsak**: `_auditLogger.LogAsync(..., entityId: string.Join(",", testIder), ...)` — en rå
+kommaseparert liste av ALLE valgte test-IDer brukt som EntityId. `AuditLogEntry.EntityId` har
+`HasMaxLength(64)` i `AppDbContext` (indeksert sammen med `EntityType` for oppslag på ÉN entitet),
+og med ~35-85 tester i systemet blir denne strengen lett over 64 tegn så snart mer enn en håndfull
+tester velges samtidig — "velg alle" garanterte krasj. Grep over hele kodebasen avdekket SAMME
+mønster i **seks kallsteder totalt**, ikke bare det ene som krasjet:
+`Admin/Tildel/Tester.cshtml.cs` (OnPostSendAsync OG OnPostPlanleggAsync),
+`Behandlerportal/Tildel/Tester.cshtml.cs` (begge motstykkene), `Admin/MinSide.cshtml.cs` sin
+bulk-godkjenning av test-tilgangsforespørsler, og — mest alvorlig av alle, siden den IKKE krever
+noe spesielt brukervalg for å utløses — `Admin/Tester/Prising/Index.cshtml.cs` sin
+"OppdaterTestPrising", som lagrer ALLE tester på siden i ÉN POST hver eneste gang og dermed
+sannsynligvis ALLEREDE var brukket for enhver Superadmin som lagret prising etter at testantallet
+passerte terskelen, uoppdaget inntil nå.
+
+**Fikset på to nivåer** (samme "forsvar i dybden"-prinsipp som `Test.KreverBiologiskKjonn`):
+1. Ny `AuditBatch.EntityId(IReadOnlyCollection<long>)` (`TestBase.Shared/Security/AuditBatch.cs`)
+   — returnerer selve ID-en ved ÉN entitet, ellers en kort `"batch:{antall}"`-streng, ALDRI en
+   uavgrenset liste. Alle seks kallsteder oppdatert til å bruke denne for EntityId, og flytte den
+   fulle ID-listen inn i `details` (2000 tegns grense, mye mer rom, og ikke indeksert — riktig sted
+   for en liste, siden EntityId-indeksen uansett er ment for oppslag på én entitet).
+2. `EfAuditLogger.LogAsync` trunkerer nå DEFENSIVT alle felt mot sine faktiske kolonnegrenser
+   (64/32/64/64/64/2000) rett før innsetting — et sikkerhetsnett som sikrer at en logging-detalj
+   ALDRI kan velte en reell brukerhandling igjen, uansett om et fremtidig syvende kallsted gjør
+   samme feil.
+
+Ingen migrasjon (EntityId sin kolonnebredde er uendret — fiksen er at verdien som sendes inn nå
+alltid er kort, ikke at kolonnen ble gjort bredere). 3 nye regresjonstester
+(`AuditLoggerTests.cs`, 86 totalt): `AuditBatch.EntityId` sin rene logikk, samt et ekte DB-kall som
+gjenskaper nøyaktig scenarioet som krasjet (90 test-IDer) og bekrefter ingen exception + riktig kort
+EntityId + full liste bevart i Details, pluss en test av selve sikkerhetsnettet i `EfAuditLogger`
+uavhengig av `AuditBatch`. Verifisert FULLT ende-til-ende i nettleser lokalt (Playwright): logget inn
+som admin, valgte "Smoke Pasient", krysset av alle 35 tester i kategori-treet via JS (samme antall
+checkbokser som faktisk fins på siden), bekreftet utsending — "Tildeling fullført" med alle 29
+pasient-tester + 5 kliniker-tester listet, ingen 500. Bekreftet i databasen: `EntityId = "batch:35"`,
+full liste i `Details`. Se CLAUDE.md sin nye fallgruve-oppføring for mønsteret (enhver
+`string.Join(",", ider)` brukt som et audit-EntityId-argument skal ALDRI gjøres direkte — bruk
+AuditBatch.EntityId).

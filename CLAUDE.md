@@ -615,8 +615,21 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   manglende innlogging). Verifisert i nettleser (Playwright) for anonym/Behandler-rolle,
   kontekstsensitivitet, søk, ikke-modal klikk-gjennom-bakgrunn, og mobil full skjerm — se
   docs/beslutningslogg.md "Hjelpemeny" for en reell `"/"`-kontekst-prefiks-bug funnet og fikset
-  underveis (matchet ALLE stier via `StartsWith`, ikke bare forsiden). Ingen migrasjon. Committet,
-  IKKE pushet ennå.
+  underveis (matchet ALLE stier via `StartsWith`, ikke bare forsiden). Ingen migrasjon. Pushet til
+  master samme dag, CI/CD-pipelinen grønn, uavhengig `curl`-sjekk mot live bekreftet reell deploy.
+- **Reell 500-feil ved bulk-tildeling: "velg alle tester" krasjet audit-loggingen (2026-10-03,
+  samme dag):** brukeren rapporterte en krasj på live ved å tildele ALLE ~35 tester til én pasient.
+  Diagnostisert direkte på live via `az webapp log tail`: `_auditLogger.LogAsync` ble kalt med
+  `entityId: string.Join(",", testIder)` — `AuditLogEntry.EntityId` har `HasMaxLength(64)`, og med
+  ~35-85 tester i systemet ble denne kommaseparerte listen lett over 64 tegn. SAMME mønster fantes
+  i FEM andre kallsteder (Admin+Behandlerportal Tildel/Tester × 2, MinSide sin bulk-test-tilgang-
+  godkjenning, og — alvorligst — `Admin/Tester/Prising` sin "lagre alle", som trigges av EN VANLIG
+  lagring). Fikset på to nivåer: ny `AuditBatch.EntityId(ider)` (kort `"batch:N"` i stedet for en
+  uavgrenset liste, fulle ID-er flyttet til `details`) på alle seks kallsteder, PLUSS defensiv
+  trunkering i `EfAuditLogger.LogAsync` selv som et sikkerhetsnett mot ethvert fremtidig kallsted.
+  3 nye regresjonstester (86 totalt), verifisert FULLT ende-til-ende i nettleser lokalt (valgte alle
+  35 tester til en testpasient, "Tildeling fullført", bekreftet `EntityId = "batch:35"` i databasen).
+  Ingen migrasjon. Se docs/beslutningslogg.md "Reell 500-feil ved bulk-tildeling" for full detalj.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
@@ -872,6 +885,7 @@ dotnet watch run
 - `Microsoft.AspNetCore.Authentication.OpenIdConnect` sin `JwtSecurityTokenHandler`-baserte token-validering har DEFAULT inbound-claim-mapping (`MapInboundClaims=true`) som omdøper enkelte STANDARD OIDC-claims (bl.a. "sub" → `ClaimTypes.NameIdentifier`) FØR koden i `OnTokenValidated` i det hele tatt ser `ClaimsPrincipal`-en — men et IKKE-standard claim-navn (som "ssn", brukt tidligere i dette prosjektet) rammes IKKE av denne mappingen og forblir bokstavelig. Kode som leser et standard claim-navn direkte via `FindFirst("sub")` kan derfor stille få `null` selv om claimet faktisk kom tilbake i tokenet (oppdaget 2026-10-01/02 ved ekte BankID-aktivering, se docs/beslutningslogg.md "Ekte BankID for admin/behandler, del 5"). Prøv ALLTID begge navn (det bokstavelige claim-navnet OG dets `ClaimTypes.*`-ekvivalent) for ethvert STANDARD OIDC/JWT-claim lest i en `OnTokenValidated`-handler, ikke bare det ene — et egendefinert/ikke-standard claim-navn trenger ikke denne defensive sjekken.
 - En OIDC-klients `scope`-parameter i selve autorisasjonsforespørselen er IKKE nødvendigvis det den faktiske oppstrøms-identitetsleverandøren mottar — en BROKER (som Idura foran ekte BankID) kan være konfigurert PER KLIENT-ID (i brokerens eget dashbord/klientoppsett) til å alltid legge til egne scopes oppå det klienten ber om. Bekreftet reelt 2026-10-01/02: koden ber kun om `openid profile`, men den faktiske utgående autorisasjons-URL-en til BankID viste `scope=openid+profile+sub_nnin+sub_bankid` — `options.Scope.Add(...)` i vår egen kode styrer altså IKKE nødvendigvis hva som faktisk forhandles med den underliggende identitetsleverandøren. Anta ALDRI at en klients scope-forespørsel er den fulle sannheten for en brokered OIDC-integrasjon — observer den FAKTISKE utgående URL-en (eller spør brokerens støtteapparat) for å vite hva som egentlig blir bedt om, spesielt når en spesifikk scope bevisst UNNGÅS av en etterlevelsesgrunn (se "Ekte BankID for admin/behandler, del 5").
 - En ny `IInnebygdTestSeeder`- og/eller `ITestSkaaringsberegner`-IMPLEMENTASJON (ny klasse) blir IKKE automatisk tatt i bruk — BEGGE grensesnittene krever et EKSPLISITT `builder.Services.AddScoped<...>(...)`-kall i Program.cs per klasse (ingen reflection/assembly-scan). Glemmer man dette, kjører "Regenerer innebygde tester" (Admin/Tester) stille uten feil og uten å opprette testen i det hele tatt — ingen kompilatorfeil, ingen runtime-advarsel, testen ser bare ut til å "ikke eksistere". Skjedde reelt ved MPFI-24 (2026-10-03, se docs/beslutningslogg.md). Sjekk ALLTID at BEGGE linjene (seeder OG skåringsberegner, hvis testen har en) er lagt til i Program.cs før en ny innebygd test regnes som ferdig, og bekreft ved å faktisk se testen dukke opp i Admin/Tester-listen etter et regenerer-klikk.
+- En `_auditLogger.LogAsync(...)`-kall med `entityId: string.Join(",", ider)` (en rå kommaseparert liste av FLERE entitet-IDer) kaster `DbUpdateException`/`MySqlException: Data too long for column 'EntityId'` så snart listen blir lang nok — `AuditLogEntry.EntityId` har `HasMaxLength(64)` i AppDbContext, indeksert for oppslag på ÉN entitet, ikke designet for en voksende batch-liste. Skjedde reelt på LIVE ved "velg alle tester"-tildeling (2026-10-03, se docs/beslutningslogg.md "Reell 500-feil ved bulk-tildeling") — og samme mønster fantes i FEM andre kallsteder, inkludert ett (`Admin/Tester/Prising` sin "lagre alle") som trigges av en VANLIG lagring, ikke et spesielt brukervalg. Bruk ALLTID `AuditBatch.EntityId(ider)` (`TestBase.Shared/Security/AuditBatch.cs`) for et audit-kall som dekker flere entiteter — den returnerer enten selve ID-en (ett element) eller en kort `"batch:{antall}"`-streng, og legg heller den fulle listen i `details` (2000 tegns grense, ikke indeksert). `EfAuditLogger.LogAsync` trunkerer nå også defensivt ALLE felt som et sikkerhetsnett, men det er ingen unnskyldning for å ikke bruke AuditBatch ved nye bulk-kallsteder — en silent trunkering gir et ufullstendig/meningsløst audit-spor, selv om den ikke lenger krasjer.
 
 ## Hvordan jobbe videre
 

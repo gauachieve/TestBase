@@ -108,7 +108,8 @@ public sealed class TesterModel : PageModel
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "TildelTesterBatch",
-            nameof(TestTildeling), string.Join(",", testIder), $"PasientIder {string.Join(",", pasientIder)}", cancellationToken);
+            nameof(TestTildeling), AuditBatch.EntityId(testIder),
+            $"TestIder {string.Join(",", testIder)}; PasientIder {string.Join(",", pasientIder)}", cancellationToken);
 
         return Page();
     }
@@ -173,7 +174,8 @@ public sealed class TesterModel : PageModel
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "PlanleggTildelingBatch",
-            nameof(TestTildeling), string.Join(",", testIder), $"PasientIder {string.Join(",", pasientIder)}, planlagt {planlagtUtc:O}", cancellationToken);
+            nameof(TestTildeling), AuditBatch.EntityId(testIder),
+            $"TestIder {string.Join(",", testIder)}; PasientIder {string.Join(",", pasientIder)}, planlagt {planlagtUtc:O}", cancellationToken);
 
         PlanlagtOpprettet = true;
         PlanlagtTidspunktVisning = planlagtUtc;
