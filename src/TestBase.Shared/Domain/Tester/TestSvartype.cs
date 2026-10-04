@@ -12,5 +12,12 @@ public enum TestSvartype
     LikertSkala,
     VisuellAnalogSkala,
     JaNei,
-    Fritekst
+    Fritekst,
+
+    /// <summary>
+    /// Hjemmeoppgaver (2026-10-04): rent visningsinnhold forfatteren (behandleren) legger inn —
+    /// se TestLedd.BildeData/BildeContentType. ALDRI en TestSvar-rad, ALDRI ErPaakrevd=true (kan
+    /// ikke "besvares"). Kun gyldig på en Test.ErHjemmeoppgave-test.
+    /// </summary>
+    Bilde
 }

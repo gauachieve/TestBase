@@ -55,6 +55,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<BetaBetalingsinnstilling> BetaBetalingsinnstillinger => Set<BetaBetalingsinnstilling>();
     public DbSet<EktBankIdInnstilling> EktBankIdInnstillinger => Set<EktBankIdInnstilling>();
     public DbSet<Tilbakemelding> Tilbakemeldinger => Set<Tilbakemelding>();
+    public DbSet<HjemmeoppgaveLiking> HjemmeoppgaveLikinger => Set<HjemmeoppgaveLiking>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -281,6 +282,13 @@ public sealed class AppDbContext : DbContext
             entity.HasKey(m => m.Id);
             entity.HasIndex(m => new { m.BehandlerId, m.LestUtc });
             entity.HasIndex(m => m.TestTildelingId);
+        });
+
+        modelBuilder.Entity<HjemmeoppgaveLiking>(entity =>
+        {
+            entity.ToTable("hjemmeoppgave_likinger");
+            entity.HasKey(l => l.Id);
+            entity.HasIndex(l => new { l.BehandlerId, l.TestId }).IsUnique();
         });
 
         modelBuilder.Entity<Partner>(entity =>

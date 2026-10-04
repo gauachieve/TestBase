@@ -141,9 +141,21 @@ else
     @foreach (var melding in Model.UlesteMeldinger)
     {
         <li>
-            <strong>@(melding.PasientNavn ?? "(ikke fullført registrering)")</strong> fullførte <em>@melding.TestNavn</em>
-            @(melding.Melding.OpprettetUtc.ToString("g")) —
-            <a href="/Behandlerportal/Pasienter/Rapport/@melding.TestTildelingId">Se rapport</a>
+            @if (melding.Fritekst is not null)
+            {
+                @melding.Fritekst
+                <text> — </text>
+                @(melding.Melding.OpprettetUtc.ToString("g"))
+            }
+            else
+            {
+                <strong>@(melding.PasientNavn ?? "(ikke fullført registrering)")</strong>
+                <text> fullførte </text>
+                <em>@melding.TestNavn</em>
+                @(melding.Melding.OpprettetUtc.ToString("g"))
+                <text> — </text>
+                <a href="/Behandlerportal/Pasienter/Rapport/@melding.TestTildelingId">Se rapport</a>
+            }
         </li>
     }
     </ul>

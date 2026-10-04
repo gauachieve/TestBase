@@ -4,8 +4,13 @@ using TestBase.Shared.Domain.Tester;
 
 namespace TestBase.Shared.Domain.Administrasjon;
 
-/// <summary>Én ulest/lest melding, beriket med det som trengs for å vise den i en liste uten ekstra oppslag.</summary>
-public sealed record MeldingMedDetaljer(BehandlerMelding Melding, long TestTildelingId, string TestNavn, long PasientId, string? PasientNavn);
+/// <summary>
+/// Én ulest/lest melding, beriket med det som trengs for å vise den i en liste uten ekstra oppslag.
+/// Nøyaktig ÉN av (TestTildelingId+TestNavn+PasientId) ELLER Fritekst er satt — se
+/// BehandlerMelding sin XML-doc for hvorfor (generalisert 2026-10-04 for program-hendelser).
+/// </summary>
+public sealed record MeldingMedDetaljer(
+    BehandlerMelding Melding, long? TestTildelingId, string? TestNavn, long? PasientId, string? PasientNavn, string? Fritekst);
 
 /// <summary>
 /// Behandlers "innboks" av meldinger om at en pasient har fullført en test —
@@ -27,6 +32,18 @@ public sealed class BehandlerMeldingService
         {
             BehandlerId = behandlerId,
             TestTildelingId = testTildelingId,
+            OpprettetUtc = DateTimeOffset.UtcNow
+        });
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>Hjemmeoppgaver/programmer (2026-10-04): en hendelse UTEN tilknyttet tildeling — f.eks. "xx meldte seg ut av programmet kl. [tid]". Se BehandlerMelding.Fritekst.</summary>
+    public async Task OpprettFritekstAsync(long behandlerId, string fritekst, CancellationToken cancellationToken = default)
+    {
+        _db.BehandlerMeldinger.Add(new BehandlerMelding
+        {
+            BehandlerId = behandlerId,
+            Fritekst = fritekst,
             OpprettetUtc = DateTimeOffset.UtcNow
         });
         await _db.SaveChangesAsync(cancellationToken);
@@ -67,7 +84,10 @@ public sealed class BehandlerMeldingService
 
     private async Task<IReadOnlyList<MeldingMedDetaljer>> BerikAsync(List<BehandlerMelding> meldinger, CancellationToken cancellationToken)
     {
-        var tildelingIder = meldinger.Select(m => m.TestTildelingId).ToList();
+        // Hjemmeoppgaver/programmer (2026-10-04): TestTildelingId er nå NULLABLE (se
+        // BehandlerMelding sin XML-doc) — en fritekst-melding har ingen tildeling å berike med,
+        // og tas med direkte i resultatet uten oppslag.
+        var tildelingIder = meldinger.Where(m => m.TestTildelingId is not null).Select(m => m.TestTildelingId!.Value).ToList();
         var tildelinger = await _db.TestTildelinger.Where(t => tildelingIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, cancellationToken);
 
         var testIder = tildelinger.Values.Select(t => t.TestId).Distinct().ToList();
@@ -76,15 +96,24 @@ public sealed class BehandlerMeldingService
         var pasientIder = tildelinger.Values.Select(t => t.PasientId).Distinct().ToList();
         var pasientNavn = await _db.Pasienter.Where(p => pasientIder.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Navn, cancellationToken);
 
-        return meldinger
-            .Where(m => tildelinger.ContainsKey(m.TestTildelingId))
-            .Select(m =>
+        var resultat = new List<MeldingMedDetaljer>();
+        foreach (var m in meldinger)
+        {
+            if (m.TestTildelingId is null)
             {
-                var tildeling = tildelinger[m.TestTildelingId];
-                return new MeldingMedDetaljer(
-                    m, tildeling.Id, testNavn.GetValueOrDefault(tildeling.TestId, "(ukjent test)"),
-                    tildeling.PasientId, pasientNavn.GetValueOrDefault(tildeling.PasientId));
-            })
-            .ToList();
+                resultat.Add(new MeldingMedDetaljer(m, null, null, null, null, m.Fritekst));
+                continue;
+            }
+
+            if (!tildelinger.TryGetValue(m.TestTildelingId.Value, out var tildeling))
+            {
+                continue;
+            }
+
+            resultat.Add(new MeldingMedDetaljer(
+                m, tildeling.Id, testNavn.GetValueOrDefault(tildeling.TestId, "(ukjent test)"),
+                tildeling.PasientId, pasientNavn.GetValueOrDefault(tildeling.PasientId), null));
+        }
+        return resultat;
     }
 }

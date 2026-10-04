@@ -127,4 +127,30 @@ public sealed class Test
     /// for ALLE eksisterende tester.
     /// </summary>
     public bool KreverBiologiskKjonn { get; set; }
+
+    // --- Hjemmeoppgaver (2026-10-04, se docs/beslutningslogg.md "Hjemmeoppgaver og programmer") ---
+    // En behandler-forfattet test ("egenprodusert"), atskilt fra admin-forfattede tester ved at
+    // den har en eier og KUN gir gruppenivå-rapportering, aldri en TestSkaaring per pasient.
+
+    /// <summary>Sann for en behandler-forfattet "hjemmeoppgave" — ALDRI skåret per pasient (se TestService.BeregnSkaaringAsync, som hopper over slike tester), kun rapportert på gruppenivå. Standard false for alle admin-forfattede tester.</summary>
+    public bool ErHjemmeoppgave { get; set; }
+
+    /// <summary>Behandleren som opprettet denne hjemmeoppgaven — null for enhver admin-forfattet test. Eieren ser testen i sin "Personlig"-liste og kan redigere/slette/dele den.</summary>
+    public long? OpprettetAvBehandlerId { get; set; }
+
+    /// <summary>Sann når eieren har delt hjemmeoppgaven med ALLE behandlere i systemet (deres "Delt"-fane) — uavhengig av partnerskap, se ErDeltMedPartner for den separate partner-only-delingen.</summary>
+    public bool ErDeltMedAlle { get; set; }
+
+    /// <summary>Sann når eieren har delt hjemmeoppgaven med sin egen partners øvrige behandlere (deres "Partner"-fane) — kun meningsfylt når eieren faktisk har en PartnerId, se Behandler.PartnerId.</summary>
+    public bool ErDeltMedPartner { get; set; }
+
+    /// <summary>
+    /// Peker til hjemmeoppgaven denne ble kopiert FRA (ved "Rediger" på en likt/delt rad, eller en
+    /// eksplisitt "Kopier"-handling på egen rad) — rent sporingsfelt, ingen logikk leser den i dag.
+    /// Null for en original, egenforfattet hjemmeoppgave.
+    /// </summary>
+    public long? KopiertFraTestId { get; set; }
+
+    /// <summary>Headline for "takk"-siden som vises etter innsending av en hjemmeoppgave (se Belonningstekst for selve meldingsteksten) — KUN brukt av hjemmeoppgaver, null/ubrukt for admin-forfattede tester.</summary>
+    public string? BelonningsTittel { get; set; }
 }

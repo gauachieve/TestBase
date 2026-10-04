@@ -24,4 +24,29 @@ public sealed class TestLedd
     /// rett og slett ikke til skåren, akkurat som før dette feltet fantes.
     /// </summary>
     public decimal? NormertGjennomsnitt { get; set; }
+
+    /// <summary>
+    /// Hjemmeoppgaver (2026-10-04): sant for et ledd som MÅ besvares før innsending. KUN
+    /// håndhevet av den egne hjemmeoppgave-utfyllingsflyten (se TestService.
+    /// ValiderPaakrevdeLeddForHjemmeoppgaveAsync) — IKKE i den delte TestService.LagreSvarAsync,
+    /// som fortsatt lar ALLE andre tester hoppe stille over ubesvarte ledd (se
+    /// Test.MaksUbesvartProsent/GADIT-fallgruven i CLAUDE.md for hvorfor dette bevisst IKKE ble
+    /// lagt i det delte laget). Alltid false for et Bilde-ledd (rent visningsinnhold, kan ikke
+    /// "besvares") og for ethvert ledd på en ikke-hjemmeoppgave-test.
+    /// </summary>
+    public bool ErPaakrevd { get; set; }
+
+    /// <summary>
+    /// Hjemmeoppgaver (2026-10-04): base64-kodet, klient-squashet bilde for et Bilde-ledd — rent
+    /// visningsinnhold forfatteren (behandleren) legger inn, ALDRI noe pasienten laster opp eller
+    /// svarer på (se ErPaakrevd, alltid false her). Samme pragmatiske "base64 direkte i databasen"-
+    /// mønster som Tilbakemelding.Skjermbilde — ingen egen blob-lagringsinfrastruktur finnes i
+    /// prosjektet. Squashing (nedskalering + JPEG-rekoding) skjer i NETTLESEREN før opplasting
+    /// (wwwroot/js/hjemmeoppgave-editor.js), ikke server-side, slik at en rå mobilbilde-original
+    /// aldri når serveren. Null for ethvert annet ledd.
+    /// </summary>
+    public string? BildeData { get; set; }
+
+    /// <summary>MIME-type for BildeData (alltid "image/jpeg" fra squashing-skriptet i dag) — lagret eksplisitt fremfor å anta, i tilfelle et fremtidig format legges til.</summary>
+    public string? BildeContentType { get; set; }
 }

@@ -669,6 +669,17 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   tester grønne. Se docs/beslutningslogg.md "13-punkts brukerfeedback-runde" for full detalj per
   punkt, inkl. et nytt reelt html2canvas-funn (kan ikke rendre et `<svg>`-rotelement direkte, må
   pakkes i en vanlig HTML-wrapper) lagt til i fallgruve-lista under.
+- **Hjemmeoppgaver og programmer — stor, flerfaset funksjonspakke (2026-10-04, PÅGÅENDE):**
+  behandlere skal kunne forfatte egne "hjemmeoppgave"-tester (delt/likt mellom behandlere, KUN
+  gruppenivå-rapportering) og tidsbaserte "programmer" (ukedag-/vindu-baserte "drops" over tid,
+  tildelt pasient/gruppe, med pause/meld-ut). Bygges autonomt i 6 faser — **Fase 0 (skjema-
+  grunnmur) ferdig**: `Test`/`TestLedd` fikk eierskaps-/delings-/påkrevd-/bilde-felt, ny
+  `TestSvartype.Bilde`, ny `HjemmeoppgaveLiking`-tabell, `BehandlerMelding` generalisert til å
+  dekke hendelser uten tilknyttet tildeling. Se docs/beslutningslogg.md "Hjemmeoppgaver og
+  programmer" for FULL plan, fire ekte brukeravklaringer, og — viktig — et dokumentert
+  prosess-avvik tidligere samme dag (en `fork`-subagent instruert til ren research bygget og
+  committet skjemaendringer uten brukergodkjenning, oppdaget og reversert FØR denne, ekte,
+  brukergodkjente versjonen ble bygget).
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
