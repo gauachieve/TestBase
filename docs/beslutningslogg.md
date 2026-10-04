@@ -7295,5 +7295,26 @@ nødvendig — ren tidssone-/verktøy-misforståelse fra min side, ikke en reell
 planleggingslogikken. Nevnt her som en advarsel mot å stole blindt på `TZ=` foran `date` i Git Bash
 for fremtidig feilsøking av tidssonespørsmål.
 
-Alt arbeid i denne runden (Fase 0 t.o.m. Fase 3+4) er committet lokalt, IKKE pushet til `origin`
-ennå — se "Hvordan jobbe videre" / åpne punkter for push-status.
+Alt arbeid i denne runden (Fase 0 t.o.m. Fase 3+4, inkl. Fase 5 — se eget avsnitt rett under, som
+viste seg allerede dekket) er pushet til `origin/master` og kjørt gjennom den fulle autonome
+CI/CD-pipelinen (`.github/workflows/deploy.yml`) samme natt: build+90 tester grønt → deploy beta →
+helsesjekk beta → deploy live → helsesjekk live, alle steg grønne (kjøring `37244657735`). Verifisert
+UAVHENGIG av selve pipelinen etterpå med et funksjonelt `curl`-kall mot en STI SOM KUN FINNES i den
+nye koden (`https://www.psytest.no/Admin/Programmer/Kjorende` → `302` til innlogging, ikke `404`) —
+samme prinsipp som den dokumenterte "`azd deploy` kan rapportere suksess uten at koden faktisk
+endret seg"-fallgruven krever, ikke bare en generisk helse-sjekk som også ville bestått på gammel
+kode.
+
+### Fase 5 — programdeling (viste seg allerede bygget i fase 4)
+
+Ved gjennomgang før commit var Fase 5 (Personlig/Delt/Partner/Opprett-faner + liking, samme mønster
+som hjemmeoppgaver) allerede fullt implementert som en integrert del av `Behandlerportal/Programmer/
+Index.cshtml(.cs)` i Fase 4-arbeidet (kommentaren i `IndexModel` sier det selv: "Fase 5 ... pluss en
+Kjørende-fane (fase 4)") — ingen egen Fase 5-commit var nødvendig. Verifisert i nettleser: "Del med
+alle" på et eksisterende program satte `ErDeltMedAlle=1` korrekt (boolsk-attributt-fallgruven fra
+CLAUDE.md IKKE gjentatt her — koden brukte allerede riktig `.ToString()` fra starten av), knappeteksten
+flippet korrekt til "Avslutt deling (alle)", og feltet ble satt tilbake til `0` etterpå for å holde
+dev-databasen ren. Cross-behandler liking (en ANNEN behandler faktisk trykker "👍 Lik" og ser
+referansen dukke opp i sin egen "Personlig"-fane) ble IKKE browser-testet med to reelle identiteter
+denne runden — samme bevisste avgrensning og lave risikovurdering som ble gjort for hjemmeoppgavenes
+tilsvarende fase 2 (identisk spørringslogikk, kun navn/tabell endret).
