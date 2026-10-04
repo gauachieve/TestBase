@@ -65,9 +65,15 @@ public sealed class BehandlerMeldingService
         await _db.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Beriker KUN tildelings-baserte meldinger (TestTildelingId satt) — en
+    /// Fritekst-basert program-melding (se BehandlerMelding sin doc) har ingen
+    /// tildeling/rapport å berikes med, og vises derfor ikke via denne
+    /// metoden ennå (egen visning lagt til når programmer bygges, fase 4).
+    /// </summary>
     private async Task<IReadOnlyList<MeldingMedDetaljer>> BerikAsync(List<BehandlerMelding> meldinger, CancellationToken cancellationToken)
     {
-        var tildelingIder = meldinger.Select(m => m.TestTildelingId).ToList();
+        var tildelingIder = meldinger.Where(m => m.TestTildelingId is not null).Select(m => m.TestTildelingId!.Value).ToList();
         var tildelinger = await _db.TestTildelinger.Where(t => tildelingIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, cancellationToken);
 
         var testIder = tildelinger.Values.Select(t => t.TestId).Distinct().ToList();
@@ -77,10 +83,10 @@ public sealed class BehandlerMeldingService
         var pasientNavn = await _db.Pasienter.Where(p => pasientIder.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Navn, cancellationToken);
 
         return meldinger
-            .Where(m => tildelinger.ContainsKey(m.TestTildelingId))
+            .Where(m => m.TestTildelingId is not null && tildelinger.ContainsKey(m.TestTildelingId.Value))
             .Select(m =>
             {
-                var tildeling = tildelinger[m.TestTildelingId];
+                var tildeling = tildelinger[m.TestTildelingId!.Value];
                 return new MeldingMedDetaljer(
                     m, tildeling.Id, testNavn.GetValueOrDefault(tildeling.TestId, "(ukjent test)"),
                     tildeling.PasientId, pasientNavn.GetValueOrDefault(tildeling.PasientId));

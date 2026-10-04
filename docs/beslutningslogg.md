@@ -6938,3 +6938,70 @@ tredje behandler — bekreftet at den opprinnelige eieren DA mister tilgang (404
 override-feltet nå korrekt vinner over `Pasient.BehandlerId`. Full regresjonskjøring: alle 86
 integrasjonstester (inkl. de DB-avhengige `HeleFlytenTests`/`BetalingPipelineTests`) grønne
 etterpå.
+
+## Hjemmeoppgaver og programmer — ny, stor funksjonspakke (2026-10-04, planlagt i faser)
+
+Bruker leverte en omfattende kravspesifikasjon (`homework_program_features.docx`, IKKE i
+kildekontroll) for to store nye funksjonsområder: (1) **Hjemmeoppgaver** — behandlere forfatter
+sine egne tester ("Egenproduserte") for pasienter, med en Personlig/Delt/Partner/Opprett-fanestruktur,
+liking/kopiering mellom behandlere, og KUN gruppenivå-resultater (ingen skåringsberegning per
+pasient); (2) **Programmer** — en tidsbasert leveringsplan av tester/hjemmeoppgaver over flere
+"drops" (ukedag-/vindu-baserte, randomisert tidspunkt, unngå natt), tildelt pasient eller gruppe,
+med pause/meld-ut for pasienten og admin/partner-admin-kontroll over kjørende programmer.
+
+Spurt om avklaringer før bygging (eksplisitt bedt om av bruker: "ask questions for clarifications,
+indicate risks"), fire reelle blokkerende designvalg avklart med bruker (alle «anbefalt»-alternativet
+valgt, pluss "push gjennom autonomt over flere faser" for byggetempo):
+1. Per-pasient-rapport for en hjemmeoppgave: KUN rå svar + start-/sluttidspunkt, ingen beregnet
+   skår/fortolkning (matcher kravets "ingen individuelle beregninger, kun gruppe").
+2. Hjemmeoppgaver støtter FLERE sider/seksjoner (gjenbruker eksisterende TestSide-sidemønster),
+   ikke én lang side.
+3. Bilde-ledd: base64 direkte i databasen (samme pragmatiske mønster som
+   `Tilbakemelding.Skjermbilde` — INGEN blob-lagringsinfrastruktur finnes i prosjektet i dag),
+   rent visningsinnhold, ALDRI påkrevd.
+4. Bygges autonomt over flere faser uten å vente på bekreftelse mellom hver, samme mønster som
+   natt-økten/13-punkts-runden — dokumenteres fortløpende her.
+
+**Planlagte faser** (se også en samtidig, fullstendig overflate-kartlegging av eksisterende
+beslektede subsystemer FØR noe ble bygget — Partner/PartnerId-modellen, `PlanlagtTildeling`+
+`PlanlagtTildelingBakgrunnstjeneste` sitt polling-mønster for utsatte utsendinger,
+`BehandlerMelding` sin tette kobling til ÉN TestTildeling, og at `Admin/Tester/Sider`+`Ledd` er
+Admin-ONLY — en behandler har ikke den tilgangen i dag, så hjemmeoppgave-editoren MÅ bli en egen
+Behandlerportal-overflate, ikke gjenbruk av Admin-sidene):
+
+- **Fase 0 (denne commiten) — grunnmur, KUN skjema, ingen UI.** Nye felt på `Test`
+  (`OpprettetAvBehandlerId`, `ErDeltMedAlle`, `ErDeltMedPartner`, `KopiertFraTestId`) og `TestLedd`
+  (`ErPaakrevd`, `BildeData`), ny `TestSvartype.Bilde` (rent visningsinnhold — ALDRI en
+  `TestSvar`-rad, ALDRI `ErPaakrevd`), ny `HjemmeoppgaveLiking`-tabell (liking ER IKKE en kopi —
+  den likte testen vises i "Personlig" som en REFERANSE til originalen, en kopi ("Kopi av X")
+  opprettes FØRST når behandleren trykker "Rediger" på en likt, ikke-eid rad).
+  `BehandlerMelding.TestTildelingId` generalisert til NULLABLE + nytt `Fritekst`-felt (for en
+  fremtidig program-pause/meld-ut-oppgave som ikke er knyttet til noen tildeling) — `BerikAsync`
+  og to eksisterende `BehandlerMeldinger.RemoveRange(...tildelingIder.Contains(m.TestTildelingId))`
+  kallsteder (`GruppeService`, `TestService`) måtte oppdateres for nullable-sammenligning. Én
+  migrasjon (`HjemmeoppgaverFase0Grunnmur`), 86 tester fortsatt grønne.
+- **Fase 1 (neste) — hjemmeoppgave-editor + utfyllingsflyt.** Ny Behandlerportal-side for å lage/
+  redigere en hjemmeoppgave (tittel/forklaring/sider/ledd inkl. mandatory-avkrysning/takk-popup),
+  en NY mandatory-håndhevingsmetode i `TestService` (bevisst IKKE lagt rett inn i den delte
+  `LagreSvarAsync` — ville påvirket ALLE eksisterende tester/fyllingsflyter; i stedet en egen
+  valideringsmetode kalt FØR lagring, kun fra den nye hjemmeoppgave-utfyllingssiden), patient-
+  utfyllingsendring (takk-popup i stedet for en egen side, blokkert innsending), rapportvisning med
+  rå svar + start/sluttidspunkt (`TestTildeling.StartetUtc`/`FullfortUtc` finnes allerede).
+- **Fase 2 — hjemmeoppgave-lister/faner.** Nytt topp-nav-knapp "Hjemmeoppgaver" (Behandlerportal),
+  4-fanet tabell (Personlig/Delt/Partner/Opprett) med søkefilter, like/kopier/del/slett-knapper,
+  "Egenproduserte" pinnet øverst i den eksisterende test-tildelings-kategoritreet.
+- **Fase 3 — program-datamodell + motor.** Nye `Program`/`ProgramDrop`/`ProgramDropTest`/
+  `ProgramDeltakelse`-entiteter, forfatterside, en NY polling-bakgrunnstjeneste (samme mønster som
+  `PlanlagtTildelingBakgrunnstjeneste`) som fyrer av drops til randomisert tidspunkt innenfor et
+  fra-til-vindu. **Antagelse** (kravet er underspesifisert utover selve starttidspunktet): hver drop
+  er definert som "N dager etter forrige drop" + et daglig tidsvindu + unngå-natt-bryter — IKKE en
+  egen ukedag per drop. Revurderes hvis det viser seg feil når det faktisk kjører.
+- **Fase 4 — program-tildeling + kjørende opplevelse.** Tildel til pasient/gruppe med starttid,
+  gruppe-fan-out, pasientens pause/meld-ut-knapper + forklarende popup, betalingsregel (første drop
+  belastes normalt, resten tvinges 0/IkkePåkrevd — samme mønster som prøvepasient-unntaket i
+  `TildelOgVarsleAsync`), "Kjørende"-fane, admin/superadmin/partner-admin kan pause/fjerne et
+  kjørende program, pause/meld-ut-hendelser som en `BehandlerMelding.Fritekst`-oppgave.
+- **Fase 5 — program-deling.** Samme Personlig/Delt/Partner/Opprett-mønster som hjemmeoppgaver,
+  nytt topp-nav "Programmer".
+- **Fase 6 — full verifisering + deploy.** Nettleser-verifisering av alle flyter, full
+  regresjonskjøring, dokumentasjon, push gjennom CI/CD.

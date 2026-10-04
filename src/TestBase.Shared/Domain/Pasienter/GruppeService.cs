@@ -480,7 +480,7 @@ public sealed class GruppeService
 
         _db.TestSvar.RemoveRange(_db.TestSvar.Where(s => tildelingIder.Contains(s.TestTildelingId)));
         _db.TestTildelingBetalinger.RemoveRange(_db.TestTildelingBetalinger.Where(b => tildelingIder.Contains(b.TestTildelingId)));
-        _db.BehandlerMeldinger.RemoveRange(_db.BehandlerMeldinger.Where(m => tildelingIder.Contains(m.TestTildelingId)));
+        _db.BehandlerMeldinger.RemoveRange(_db.BehandlerMeldinger.Where(m => m.TestTildelingId != null && tildelingIder.Contains(m.TestTildelingId.Value)));
         await _db.SaveChangesAsync(cancellationToken);
 
         _db.TestTildelinger.RemoveRange(_db.TestTildelinger.Where(t => tildelingIder.Contains(t.Id)));

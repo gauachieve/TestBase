@@ -12,5 +12,14 @@ public enum TestSvartype
     LikertSkala,
     VisuellAnalogSkala,
     JaNei,
-    Fritekst
+    Fritekst,
+
+    /// <summary>
+    /// Hjemmeoppgaver (se Test.OpprettetAvBehandlerId): rent illustrativt
+    /// innhold (TestLedd.BildeData), kan "ekspanderes" (vises større) av
+    /// pasienten — IKKE et spørsmål med et svar. Et Bilde-ledd kan derfor
+    /// aldri være TestLedd.ErPaakrevd, og TestService.LagreSvarAsync oppretter
+    /// ALDRI en TestSvar-rad for det (ingenting å lagre et svar om).
+    /// </summary>
+    Bilde
 }
