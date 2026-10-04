@@ -5,21 +5,27 @@
 }
 
 <h1>Hjemmeoppgaver</h1>
-<p><em>Fase 1: kun din egen liste. Delt/Partner-faner og liking kommer i fase 2.</em></p>
 
 @if (Model.Melding is not null)
 {
     <p class="rapport-status-melding">@Model.Melding</p>
 }
 
-<p><a href="/Behandlerportal/Hjemmeoppgaver/Rediger" class="btn-accent">+ Ny hjemmeoppgave</a></p>
+<div data-fane-beholder>
+    <div role="tablist" style="margin-bottom: 1rem;">
+        <button type="button" data-fane="personlig" class="fane-knapp">Personlig (@Model.Personlige.Count)</button>
+        <button type="button" data-fane="delt" class="fane-knapp">Delt (@Model.DeltMedAlle.Count)</button>
+        @if (Model.HarPartner)
+        {
+            <button type="button" data-fane="partner" class="fane-knapp">Partner (@Model.DeltMedPartner.Count)</button>
+        }
+        <button type="button" data-fane="opprett" class="fane-knapp">+ Opprett</button>
+    </div>
+    <div>
+        <label>Søk</label><br />
+        <input type="search" data-fane-sok placeholder="Søk i hjemmeoppgaver …" />
+    </div>
 
-@if (!Model.Personlige.Any())
-{
-    <p>Du har ikke laget noen hjemmeoppgaver ennå.</p>
-}
-else
-{
     <table>
         <thead>
             <tr>
@@ -32,13 +38,29 @@ else
         @foreach (var test in Model.Personlige)
         {
             var erEgen = test.OpprettetAvBehandlerId == Model.EgenBehandlerId;
-            <tr>
-                <td>@test.Navn @(erEgen ? "" : "(likt)")</td>
+            <tr data-fane-rad="personlig" data-sok="@test.Navn.ToLowerInvariant()">
+                <td>@test.Navn @(erEgen ? "" : "(likt — referanse)")</td>
                 <td>@test.OpprettetUtc.ToString("g")</td>
                 <td>
                     @if (erEgen)
                     {
                         <a href="/Behandlerportal/Hjemmeoppgaver/Rediger/@test.Id">Rediger</a>
+
+                        <form method="post" asp-page-handler="DelMedAlle" style="display: inline;">
+                            <input type="hidden" name="testId" value="@test.Id" />
+                            <input type="hidden" name="verdi" value="@((!test.ErDeltMedAlle).ToString())" />
+                            <button type="submit">@(test.ErDeltMedAlle ? "Avslutt deling (alle)" : "Del med alle")</button>
+                        </form>
+
+                        @if (Model.HarPartner)
+                        {
+                            <form method="post" asp-page-handler="DelMedPartner" style="display: inline;">
+                                <input type="hidden" name="testId" value="@test.Id" />
+                                <input type="hidden" name="verdi" value="@((!test.ErDeltMedPartner).ToString())" />
+                                <button type="submit">@(test.ErDeltMedPartner ? "Avslutt deling (partner)" : "Del med partner")</button>
+                            </form>
+                        }
+
                         <form method="post" asp-page-handler="Slett" style="display: inline;" onsubmit="return confirm('Slette denne hjemmeoppgaven?');">
                             <input type="hidden" name="testId" value="@test.Id" />
                             <button type="submit" class="btn-muted">Slett</button>
@@ -50,10 +72,84 @@ else
                             <input type="hidden" name="testId" value="@test.Id" />
                             <button type="submit">Rediger (lager kopi)</button>
                         </form>
+                        <form method="post" asp-page-handler="FjernLiking" style="display: inline;">
+                            <input type="hidden" name="testId" value="@test.Id" />
+                            <button type="submit" class="btn-muted">Fjern fra personlig</button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+        @foreach (var test in Model.DeltMedAlle)
+        {
+            var erLikt = Model.LikteTestIder.Contains(test.Id);
+            <tr data-fane-rad="delt" data-sok="@test.Navn.ToLowerInvariant()">
+                <td>@test.Navn</td>
+                <td>@test.OpprettetUtc.ToString("g")</td>
+                <td>
+                    @if (erLikt)
+                    {
+                        <span>👍 Likt — se i Personlig</span>
+                    }
+                    else
+                    {
+                        <form method="post" asp-page-handler="Lik" style="display: inline;">
+                            <input type="hidden" name="testId" value="@test.Id" />
+                            <button type="submit">👍 Lik</button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+        @foreach (var test in Model.DeltMedPartner)
+        {
+            var erLikt = Model.LikteTestIder.Contains(test.Id);
+            <tr data-fane-rad="partner" data-sok="@test.Navn.ToLowerInvariant()">
+                <td>@test.Navn</td>
+                <td>@test.OpprettetUtc.ToString("g")</td>
+                <td>
+                    @if (erLikt)
+                    {
+                        <span>👍 Likt — se i Personlig</span>
+                    }
+                    else
+                    {
+                        <form method="post" asp-page-handler="Lik" style="display: inline;">
+                            <input type="hidden" name="testId" value="@test.Id" />
+                            <button type="submit">👍 Lik</button>
+                        </form>
                     }
                 </td>
             </tr>
         }
         </tbody>
     </table>
-}
+
+    <div data-fane-rad="personlig" data-sok="" hidden style="margin-top: 1rem;">
+    @if (!Model.Personlige.Any())
+    {
+        <p><em>Du har ikke laget eller likt noen hjemmeoppgaver ennå.</em></p>
+    }
+    </div>
+    <div data-fane-rad="delt" data-sok="" hidden style="margin-top: 1rem;">
+    @if (!Model.DeltMedAlle.Any())
+    {
+        <p><em>Ingen andre behandlere har delt en hjemmeoppgave med alle ennå.</em></p>
+    }
+    </div>
+    @if (Model.HarPartner)
+    {
+        <div data-fane-rad="partner" data-sok="" hidden style="margin-top: 1rem;">
+        @if (!Model.DeltMedPartner.Any())
+        {
+            <p><em>Ingen kolleger i din partner har delt en hjemmeoppgave ennå.</em></p>
+        }
+        </div>
+    }
+
+    <div data-fane-rad="opprett" hidden style="margin-top: 1rem;">
+        <p><a href="/Behandlerportal/Hjemmeoppgaver/Rediger" class="btn-accent">+ Ny hjemmeoppgave</a></p>
+    </div>
+</div>
+
+<script src="~/js/faner.js" asp-append-version="true"></script>

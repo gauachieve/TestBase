@@ -16,16 +16,18 @@ namespace TestBase.Web.Areas.Behandlerportal.Pages.Tildel;
 public sealed class TesterModel : PageModel
 {
     private readonly TestService _testService;
+    private readonly HjemmeoppgaveService _hjemmeoppgaveService;
     private readonly TestTildelingsService _tildelingsService;
     private readonly PlanlagtTildelingService _planlagtTildelingService;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuditLogger _auditLogger;
 
     public TesterModel(
-        TestService testService, TestTildelingsService tildelingsService, PlanlagtTildelingService planlagtTildelingService,
-        ICurrentUserContext currentUser, IAuditLogger auditLogger)
+        TestService testService, HjemmeoppgaveService hjemmeoppgaveService, TestTildelingsService tildelingsService,
+        PlanlagtTildelingService planlagtTildelingService, ICurrentUserContext currentUser, IAuditLogger auditLogger)
     {
         _testService = testService;
+        _hjemmeoppgaveService = hjemmeoppgaveService;
         _tildelingsService = tildelingsService;
         _planlagtTildelingService = planlagtTildelingService;
         _currentUser = currentUser;
@@ -101,9 +103,9 @@ public sealed class TesterModel : PageModel
 
         PasientIderCsv = csv;
         await LastValgtePasienterAsync(csv, cancellationToken);
-        KategoriTre = await _testService.HentKategoriTreAsync(_currentUser.PartnerId, cancellationToken);
-
         var behandlerId = HentBehandlerId();
+        KategoriTre = await LastKategoriTreMedHjemmeoppgaverAsync(behandlerId, cancellationToken);
+
         var alleTester = KategoriTre.SelectMany(k => k.Tester).GroupBy(t => t.Id).Select(g => g.First()).ToList();
         var sisteHonorar = new Dictionary<long, decimal>();
         foreach (var test in alleTester)
@@ -129,7 +131,7 @@ public sealed class TesterModel : PageModel
     {
         HonorarKr = LesHonorarFraSkjema();
         await LastValgtePasienterAsync(PasientIderCsv, cancellationToken);
-        KategoriTre = await _testService.HentKategoriTreAsync(_currentUser.PartnerId, cancellationToken);
+        KategoriTre = await LastKategoriTreMedHjemmeoppgaverAsync(HentBehandlerId(), cancellationToken);
 
         if (!ValgtePasienter.Any())
         {
@@ -169,7 +171,7 @@ public sealed class TesterModel : PageModel
     {
         HonorarKr = LesHonorarFraSkjema();
         await LastValgtePasienterAsync(PasientIderCsv, cancellationToken);
-        KategoriTre = await _testService.HentKategoriTreAsync(_currentUser.PartnerId, cancellationToken);
+        KategoriTre = await LastKategoriTreMedHjemmeoppgaverAsync(HentBehandlerId(), cancellationToken);
 
         if (!ValgtePasienter.Any())
         {
@@ -252,6 +254,19 @@ public sealed class TesterModel : PageModel
 
     private long HentBehandlerId() =>
         long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var id) ? id : 0;
+
+    /// <summary>Fase 2 (hjemmeoppgaver): pinner en "Egenproduserte"-seksjon øverst, foran alle ekte kategorier — se HjemmeoppgaveService.HentTilgjengeligeForTildelingAsync.</summary>
+    private async Task<IReadOnlyList<TestService.KategoriMedTester>> LastKategoriTreMedHjemmeoppgaverAsync(long behandlerId, CancellationToken cancellationToken)
+    {
+        var tre = await _testService.HentKategoriTreAsync(_currentUser.PartnerId, cancellationToken);
+        var hjemmeoppgaver = await _hjemmeoppgaveService.HentTilgjengeligeForTildelingAsync(behandlerId, cancellationToken);
+        if (hjemmeoppgaver.Count == 0)
+        {
+            return tre;
+        }
+        var egenprodusert = new TestKategori { Id = -1, Navn = "Egenproduserte", OpprettetUtc = DateTimeOffset.UtcNow };
+        return new[] { new TestService.KategoriMedTester(egenprodusert, hjemmeoppgaver) }.Concat(tre).ToList();
+    }
 
     private Dictionary<long, decimal?> LesHonorarFraSkjema()
     {

@@ -7123,3 +7123,46 @@ Delt-faner/Partner-faner er heller ikke bygget (fase 2). "Kopier"-knappen og "Re
 kopi)"-knappen for en likt rad finnes i `Index.cshtml` sin kode, men kan ikke browser-testes
 fullt ut før fase 2s liking-UI finnes (en annen behandlers delte hjemmeoppgave kan ikke vises i
 "Personlig" ennå siden ingen UI kan opprette en `HjemmeoppgaveLiking`-rad).
+
+### Fase 2 — hjemmeoppgave-faner + liking/deling + kategoritre-pinning (2026-10-04, samme dag)
+
+`Index.cshtml` utvidet til full fane-struktur (Personlig/Delt/Partner/Opprett — "Partner"-fanen
+vises kun når innlogget behandler faktisk har en `PartnerId`), samme generiske
+fane+søk-mønster (`wwwroot/js/faner.js`) som Grupper/MinSide bruker fra før — "Opprett"-fanen er
+bevisst IKKE en embedded skjema, bare en lenke til den allerede fullverdige `Rediger.cshtml`
+(fase 1). Personlig-fanens rader skiller egne (full rediger/del/slett) fra likte (kun "Rediger
+(lager kopi)"/"Fjern fra personlig") via `Test.OpprettetAvBehandlerId == EgenBehandlerId`.
+
+**Reell bug funnet og fikset under verifisering**: "Del med alle"/"Del med partner"-knappenes
+skjulte `verdi`-felt (`value="@(!test.ErDeltMedAlle)")`) rammet NØYAKTIG den allerede dokumenterte
+Razor-fallgruven i CLAUDE.md om boolske bundne attributter — siden HELE attributtverdien var et
+bool-uttrykk, rendret Razor den MINIMERTE boolske formen (`value="value"`) i stedet for den
+faktiske strengen "True"/"False". Bekreftet ved å faktisk inspisere POST-dataen i nettleseren
+(DevTools/JS, ikke bare lese kilden) — databasen viste `ErDeltMedAlle=0` etter et klikk som skulle
+satt den til 1. Fikset med eksplisitt `.ToString()`: `value="@((!test.ErDeltMedAlle).ToString())"`,
+verifisert på nytt — databasefeltet ble korrekt `1`, og knappeteksten flippet til "Avslutt deling
+(alle)".
+
+**Kategoritre-pinning** (`Tildel/Tester.cshtml.cs`, BEGGE Areas): en ny "Egenproduserte"-seksjon
+pinnes ØVERST, FØR alle ekte kategorier — bygget som en ren in-memory `TestKategori { Id = -1, ... }`
+-sentinel (ALDRI lagret) prependet til resultatet fra `HentKategoriTreAsync`, som selv forblir
+HELT uendret (null risiko for eksisterende kategori-visning). Synlighet er bevisst ASYMMETRISK
+mellom Areas, en egen vurdering (ikke spurt om): Behandlerportal bruker
+`HjemmeoppgaveService.HentTilgjengeligeForTildelingAsync` (egne + likte + delt-med-alle +
+partner-delte — samme samlede synlighet som selve Hjemmeoppgaver-siden sine tre faner), mens
+Admin bruker en EGEN, snevrere `HentDeltMedAlleForAdminAsync` (KUN delt-med-alle) — en
+administrator har ingen eierskap/partnerskap-relasjon til noen behandlers private hjemmeoppgave,
+og skal derfor aldri kunne se eller tildele en som ikke eksplisitt er gjort offentlig.
+
+Verifisert FULLT ende-til-ende i nettleser: delte en hjemmeoppgave "med alle" som én behandler,
+bekreftet databasefeltet satt korrekt, logget inn som administrator og bekreftet
+"Egenproduserte"-seksjonen dukket opp øverst i kategoritreet på `Admin/Tildel/Tester` med nøyaktig
+den delte hjemmeoppgaven synlig og avkrysningsbar. 86 tester fortsatt grønne.
+
+**Bevisst IKKE i fase 2** (uendret fra fase 1s vurdering, utsatt til egen oppfølging ved behov):
+selve liking→kopi-flyten (en ANNEN behandler faktisk trykker "👍 Lik" i "Delt"-fanen, ser referansen
+dukke opp i sin egen "Personlig"-fane, og deretter "Rediger (lager kopi)") ble IKKE browser-testet
+med to reelle, separate behandler-identiteter i denne runden — kun verifisert via kodelesing +
+en direkte databasesjekk av at `ErDeltMedAlle`-flagget faktisk styrer `HentDeltMedAlleAsync`
+korrekt. Samme underliggende spørringslogikk brukes av liking-flyten, så risikoen vurderes lav,
+men er ikke identisk med en fullverdig to-bruker ende-til-ende-verifisering.

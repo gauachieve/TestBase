@@ -287,6 +287,29 @@ public sealed class HjemmeoppgaveService
             .ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Fase 2: alt EN gitt behandler kan tildele (egne + likt + delt-med-alle + partner-delt) —
+    /// samme samlede synlighet som Hjemmeoppgaver-sidens tre faner til sammen, brukt til å pinne
+    /// en "Egenproduserte"-seksjon øverst i Tildel/Tester sin kategoritre (Behandlerportal KUN —
+    /// se HentDeltMedAlleForAdminAsync for Admin sin snevrere variant).
+    /// </summary>
+    public async Task<IReadOnlyList<Test>> HentTilgjengeligeForTildelingAsync(long behandlerId, CancellationToken cancellationToken = default)
+    {
+        var personlig = await HentPersonligAsync(behandlerId, cancellationToken);
+        var deltMedAlle = await HentDeltMedAlleAsync(behandlerId, cancellationToken);
+        var deltMedPartner = await HentDeltMedPartnerAsync(behandlerId, cancellationToken);
+        return personlig.Concat(deltMedAlle).Concat(deltMedPartner)
+            .GroupBy(t => t.Id).Select(g => g.First())
+            .OrderBy(t => t.Navn).ToList();
+    }
+
+    /// <summary>
+    /// Fase 2: Admin er ikke en behandler (ingen eierskap/partnerskap) — ser derfor KUN
+    /// hjemmeoppgaver som er delt med ALLE, aldri andres private/partner-interne hjemmeoppgaver.
+    /// </summary>
+    public Task<List<Test>> HentDeltMedAlleForAdminAsync(CancellationToken cancellationToken = default) =>
+        _db.Tester.Where(t => t.ErHjemmeoppgave && t.ErAktiv && t.ErDeltMedAlle).OrderBy(t => t.Navn).ToListAsync(cancellationToken);
+
     /// <summary>Delt med ALLE, fra enhver ANNEN behandler (ikke egne — de ligger allerede i "Personlig").</summary>
     public Task<List<Test>> HentDeltMedAlleAsync(long behandlerId, CancellationToken cancellationToken = default) =>
         _db.Tester.Where(t => t.ErHjemmeoppgave && t.ErAktiv && t.ErDeltMedAlle && t.OpprettetAvBehandlerId != behandlerId)

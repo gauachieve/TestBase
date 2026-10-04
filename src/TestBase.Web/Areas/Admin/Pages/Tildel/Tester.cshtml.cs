@@ -13,6 +13,7 @@ namespace TestBase.Web.Areas.Admin.Pages.Tildel;
 public sealed class TesterModel : PageModel
 {
     private readonly TestService _testService;
+    private readonly HjemmeoppgaveService _hjemmeoppgaveService;
     private readonly TestTildelingsService _tildelingsService;
     private readonly PlanlagtTildelingService _planlagtTildelingService;
     private readonly ICurrentUserContext _currentUser;
@@ -20,10 +21,11 @@ public sealed class TesterModel : PageModel
     private readonly AppDbContext _db;
 
     public TesterModel(
-        TestService testService, TestTildelingsService tildelingsService, PlanlagtTildelingService planlagtTildelingService,
-        ICurrentUserContext currentUser, IAuditLogger auditLogger, AppDbContext db)
+        TestService testService, HjemmeoppgaveService hjemmeoppgaveService, TestTildelingsService tildelingsService,
+        PlanlagtTildelingService planlagtTildelingService, ICurrentUserContext currentUser, IAuditLogger auditLogger, AppDbContext db)
     {
         _testService = testService;
+        _hjemmeoppgaveService = hjemmeoppgaveService;
         _tildelingsService = tildelingsService;
         _planlagtTildelingService = planlagtTildelingService;
         _currentUser = currentUser;
@@ -91,7 +93,7 @@ public sealed class TesterModel : PageModel
 
         PasientIderCsv = csv;
         await LastValgtePasienterAsync(csv, cancellationToken);
-        KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken: cancellationToken);
+        KategoriTre = await LastKategoriTreMedHjemmeoppgaverAsync(cancellationToken);
         await LastAktiveBehandlereAsync(cancellationToken);
 
         var alleTestIder = KategoriTre.SelectMany(k => k.Tester).Select(t => t.Id).Distinct().ToList();
@@ -102,7 +104,7 @@ public sealed class TesterModel : PageModel
     public async Task<IActionResult> OnPostSendAsync(CancellationToken cancellationToken)
     {
         await LastValgtePasienterAsync(PasientIderCsv, cancellationToken);
-        KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken: cancellationToken);
+        KategoriTre = await LastKategoriTreMedHjemmeoppgaverAsync(cancellationToken);
         await LastAktiveBehandlereAsync(cancellationToken);
 
         if (!ValgtePasienter.Any())
@@ -137,7 +139,7 @@ public sealed class TesterModel : PageModel
     public async Task<IActionResult> OnPostPlanleggAsync(CancellationToken cancellationToken)
     {
         await LastValgtePasienterAsync(PasientIderCsv, cancellationToken);
-        KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken: cancellationToken);
+        KategoriTre = await LastKategoriTreMedHjemmeoppgaverAsync(cancellationToken);
 
         if (!ValgtePasienter.Any())
         {
@@ -226,4 +228,22 @@ public sealed class TesterModel : PageModel
 
     private long HentAdministratorId() =>
         long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var id) ? id : 0;
+
+    /// <summary>
+    /// Fase 2 (hjemmeoppgaver): pinner en "Egenproduserte"-seksjon øverst — Admin er IKKE en
+    /// behandler (ingen eierskap/partnerskap), ser derfor KUN hjemmeoppgaver delt med ALLE, se
+    /// HjemmeoppgaveService.HentDeltMedAlleForAdminAsync (snevrere enn Behandlerportal sin
+    /// motstykke, HentTilgjengeligeForTildelingAsync, som også viser egne/likte/partner-delte).
+    /// </summary>
+    private async Task<IReadOnlyList<TestService.KategoriMedTester>> LastKategoriTreMedHjemmeoppgaverAsync(CancellationToken cancellationToken)
+    {
+        var tre = await _testService.HentKategoriTreAsync(cancellationToken: cancellationToken);
+        var hjemmeoppgaver = await _hjemmeoppgaveService.HentDeltMedAlleForAdminAsync(cancellationToken);
+        if (hjemmeoppgaver.Count == 0)
+        {
+            return tre;
+        }
+        var egenprodusert = new TestKategori { Id = -1, Navn = "Egenproduserte", OpprettetUtc = DateTimeOffset.UtcNow };
+        return new[] { new TestService.KategoriMedTester(egenprodusert, hjemmeoppgaver) }.Concat(tre).ToList();
+    }
 }
