@@ -1,0 +1,155 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.Programmer.IndexModel
+@{
+    ViewData["Title"] = "Programmer";
+}
+
+<h1>Programmer</h1>
+
+@if (Model.Melding is not null)
+{
+    <p class="rapport-status-melding">@Model.Melding</p>
+}
+
+<div data-fane-beholder>
+    <div role="tablist" style="margin-bottom: 1rem;">
+        <button type="button" data-fane="kjorende" class="fane-knapp">Kjørende (@Model.Kjorende.Count)</button>
+        <button type="button" data-fane="personlig" class="fane-knapp">Personlig (@Model.Personlige.Count)</button>
+        <button type="button" data-fane="delt" class="fane-knapp">Delt (@Model.DeltMedAlle.Count)</button>
+        @if (Model.HarPartner)
+        {
+            <button type="button" data-fane="partner" class="fane-knapp">Partner (@Model.DeltMedPartner.Count)</button>
+        }
+        <button type="button" data-fane="opprett" class="fane-knapp">+ Opprett</button>
+    </div>
+    <div>
+        <label>Søk</label><br />
+        <input type="search" data-fane-sok placeholder="Søk …" />
+    </div>
+
+    <table>
+        <thead>
+            <tr><th>Program</th><th>Startet</th><th>Gjenstående drops</th><th>Deltakere</th><th></th></tr>
+        </thead>
+        <tbody>
+        @foreach (var rad in Model.Kjorende)
+        {
+            var visningsnavn = rad.GruppeNavn is not null ? $"{rad.ProgramNavn} ({rad.GruppeNavn})" : $"{rad.ProgramNavn} — {rad.PasientNavn ?? "(ikke fullført)"}";
+            <tr data-fane-rad="kjorende" data-sok="@visningsnavn.ToLowerInvariant()">
+                <td>@visningsnavn</td>
+                <td>@rad.Startet.ToString("g")</td>
+                <td>@rad.AntallGjenstaendeDrops</td>
+                <td>@rad.AntallDeltakere</td>
+                <td>
+                    <form method="post" asp-page-handler="PauseKjorende" style="display: inline;">
+                        @foreach (var id in rad.DeltakelseIder)
+                        {
+                            <input type="hidden" name="deltakelseIder" value="@id" />
+                        }
+                        <button type="submit">Pause</button>
+                    </form>
+                    <form method="post" asp-page-handler="FjernKjorende" style="display: inline;" onsubmit="return confirm('Fjerne alle fra programmet? Fremtidige drops kanselleres.');">
+                        @foreach (var id in rad.DeltakelseIder)
+                        {
+                            <input type="hidden" name="deltakelseIder" value="@id" />
+                        }
+                        <button type="submit" class="btn-muted">Fjern</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        @foreach (var program in Model.Personlige)
+        {
+            var erEgen = program.OpprettetAvBehandlerId == Model.EgenBehandlerId;
+            <tr data-fane-rad="personlig" data-sok="@program.Navn.ToLowerInvariant()">
+                <td colspan="3">@program.Navn @(erEgen ? "" : "(likt — referanse)")</td>
+                <td>@program.OpprettetUtc.ToString("g")</td>
+                <td>
+                    @if (erEgen)
+                    {
+                        <a href="/Behandlerportal/Programmer/Rediger/@program.Id">Rediger</a>
+                        <a href="/Behandlerportal/Programmer/Tildel/@program.Id">Tildel</a>
+                        <form method="post" asp-page-handler="DelMedAlle" style="display: inline;">
+                            <input type="hidden" name="programId" value="@program.Id" />
+                            <input type="hidden" name="verdi" value="@((!program.ErDeltMedAlle).ToString())" />
+                            <button type="submit">@(program.ErDeltMedAlle ? "Avslutt deling (alle)" : "Del med alle")</button>
+                        </form>
+                        @if (Model.HarPartner)
+                        {
+                            <form method="post" asp-page-handler="DelMedPartner" style="display: inline;">
+                                <input type="hidden" name="programId" value="@program.Id" />
+                                <input type="hidden" name="verdi" value="@((!program.ErDeltMedPartner).ToString())" />
+                                <button type="submit">@(program.ErDeltMedPartner ? "Avslutt deling (partner)" : "Del med partner")</button>
+                            </form>
+                        }
+                        <form method="post" asp-page-handler="Slett" style="display: inline;" onsubmit="return confirm('Slette dette programmet?');">
+                            <input type="hidden" name="programId" value="@program.Id" />
+                            <button type="submit" class="btn-muted">Slett</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <a href="/Behandlerportal/Programmer/Tildel/@program.Id">Tildel</a>
+                        <form method="post" asp-page-handler="Kopier" style="display: inline;">
+                            <input type="hidden" name="programId" value="@program.Id" />
+                            <button type="submit">Rediger (lager kopi)</button>
+                        </form>
+                        <form method="post" asp-page-handler="FjernLiking" style="display: inline;">
+                            <input type="hidden" name="programId" value="@program.Id" />
+                            <button type="submit" class="btn-muted">Fjern fra personlig</button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+        @foreach (var program in Model.DeltMedAlle)
+        {
+            var erLikt = Model.LikteProgramIder.Contains(program.Id);
+            <tr data-fane-rad="delt" data-sok="@program.Navn.ToLowerInvariant()">
+                <td colspan="3">@program.Navn</td>
+                <td>@program.OpprettetUtc.ToString("g")</td>
+                <td>
+                    @if (erLikt)
+                    {
+                        <span>👍 Likt — se i Personlig</span>
+                    }
+                    else
+                    {
+                        <form method="post" asp-page-handler="Lik" style="display: inline;">
+                            <input type="hidden" name="programId" value="@program.Id" />
+                            <button type="submit">👍 Lik</button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+        @foreach (var program in Model.DeltMedPartner)
+        {
+            var erLikt = Model.LikteProgramIder.Contains(program.Id);
+            <tr data-fane-rad="partner" data-sok="@program.Navn.ToLowerInvariant()">
+                <td colspan="3">@program.Navn</td>
+                <td>@program.OpprettetUtc.ToString("g")</td>
+                <td>
+                    @if (erLikt)
+                    {
+                        <span>👍 Likt — se i Personlig</span>
+                    }
+                    else
+                    {
+                        <form method="post" asp-page-handler="Lik" style="display: inline;">
+                            <input type="hidden" name="programId" value="@program.Id" />
+                            <button type="submit">👍 Lik</button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+
+    <div data-fane-rad="opprett" hidden style="margin-top: 1rem;">
+        <p><a href="/Behandlerportal/Programmer/Rediger" class="btn-accent">+ Nytt program</a></p>
+    </div>
+</div>
+
+<script src="~/js/faner.js" asp-append-version="true"></script>

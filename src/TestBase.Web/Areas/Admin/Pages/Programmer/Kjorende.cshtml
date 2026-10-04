@@ -1,0 +1,54 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Programmer.KjorendeModel
+@{
+    ViewData["Title"] = "Kjørende programmer";
+}
+
+<h1>Kjørende programmer</h1>
+
+@if (Model.Melding is not null)
+{
+    <p class="rapport-status-melding">@Model.Melding</p>
+}
+
+@if (!Model.Kjorende.Any())
+{
+    <p>Ingen kjørende programmer.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr><th>Program</th><th>Startet</th><th>Gjenstående drops</th><th>Deltakere</th><th></th></tr>
+        </thead>
+        <tbody>
+        @foreach (var rad in Model.Kjorende)
+        {
+            var navn = rad.TreaterNavn is not null ? $"({rad.TreaterNavn}) {rad.ProgramNavn}" : rad.ProgramNavn;
+            var deltakerTekst = rad.GruppeNavn is not null ? $"Gruppe: {rad.GruppeNavn}" : (rad.PasientNavn ?? "(ikke fullført)");
+            <tr>
+                <td>@navn</td>
+                <td>@rad.Startet.ToString("g")</td>
+                <td>@rad.AntallGjenstaendeDrops</td>
+                <td>@deltakerTekst (@rad.AntallDeltakere)</td>
+                <td>
+                    <form method="post" asp-page-handler="Pause" style="display: inline;">
+                        @foreach (var id in rad.DeltakelseIder)
+                        {
+                            <input type="hidden" name="deltakelseIder" value="@id" />
+                        }
+                        <button type="submit">Pause</button>
+                    </form>
+                    <form method="post" asp-page-handler="Fjern" style="display: inline;" onsubmit="return confirm('Fjerne alle fra programmet? Fremtidige drops kanselleres.');">
+                        @foreach (var id in rad.DeltakelseIder)
+                        {
+                            <input type="hidden" name="deltakelseIder" value="@id" />
+                        }
+                        <button type="submit" class="btn-muted">Fjern</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

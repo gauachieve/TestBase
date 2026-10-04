@@ -669,17 +669,40 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   tester grønne. Se docs/beslutningslogg.md "13-punkts brukerfeedback-runde" for full detalj per
   punkt, inkl. et nytt reelt html2canvas-funn (kan ikke rendre et `<svg>`-rotelement direkte, må
   pakkes i en vanlig HTML-wrapper) lagt til i fallgruve-lista under.
-- **Hjemmeoppgaver og programmer — stor, flerfaset funksjonspakke (2026-10-04, PÅGÅENDE):**
-  behandlere skal kunne forfatte egne "hjemmeoppgave"-tester (delt/likt mellom behandlere, KUN
-  gruppenivå-rapportering) og tidsbaserte "programmer" (ukedag-/vindu-baserte "drops" over tid,
-  tildelt pasient/gruppe, med pause/meld-ut). Bygges autonomt i 6 faser — **Fase 0 (skjema-
-  grunnmur) ferdig**: `Test`/`TestLedd` fikk eierskaps-/delings-/påkrevd-/bilde-felt, ny
-  `TestSvartype.Bilde`, ny `HjemmeoppgaveLiking`-tabell, `BehandlerMelding` generalisert til å
-  dekke hendelser uten tilknyttet tildeling. Se docs/beslutningslogg.md "Hjemmeoppgaver og
-  programmer" for FULL plan, fire ekte brukeravklaringer, og — viktig — et dokumentert
-  prosess-avvik tidligere samme dag (en `fork`-subagent instruert til ren research bygget og
-  committet skjemaendringer uten brukergodkjenning, oppdaget og reversert FØR denne, ekte,
-  brukergodkjente versjonen ble bygget).
+- **Hjemmeoppgaver og programmer — stor, flerfaset funksjonspakke (2026-10-04/05, Fase 0-4
+  FERDIG, Fase 5-6 gjenstår):** behandlere kan forfatte egne "hjemmeoppgave"-tester (delt/likt
+  mellom behandlere, KUN gruppenivå-rapportering) og tidsbaserte "programmer" (ukedag-/vindu-
+  baserte "drops" over tid, tildelt pasient/gruppe, med pause/meld-ut). Bygget autonomt over natten
+  (brukerens eksplisitte "push through autonomously... go as far as you can"). **Fase 0** (skjema-
+  grunnmur): `Test`/`TestLedd` fikk eierskaps-/delings-/påkrevd-/bilde-felt, ny
+  `TestSvartype.Bilde`, ny `HjemmeoppgaveLiking`-tabell, `BehandlerMelding` generalisert. **Fase 1**
+  (hjemmeoppgave-editor+utfylling): `HjemmeoppgaveService` (egen klasse, IKKE en utvidelse av
+  `TestService` — starter PRIVAT, ikke auto-delt med alle partnere som admin-forfattede tester),
+  flat ledd-liste m/ mandatory-avkrysning + klient-side bilde-squashing, full belønningsside.
+  **Fase 2** (faner+deling): Personlig/Delt/Partner/Opprett-faner, liking, "Egenproduserte" pinnet
+  øverst i test-tildelings-kategoritreet (asymmetrisk synlighet Behandlerportal vs. Admin — en
+  administrator ser KUN delt-med-alle, aldri en behandlers private egenproduksjon). **Fase 3+4**
+  (program-motor+tildeling): nye `Behandlingsprogram`/`ProgramDrop`/`ProgramDropTest`/
+  `ProgramDeltakelse`/`ProgramTildeling`/`ProgramLiking`-entiteter (hovedentiteten MÅTTE hete
+  `Behandlingsprogram`, ikke `Program` — ville kollidert med .NET sin egen
+  top-level-statements-genererte `Program`-klasse, selvfanget FØR noen build), en ny
+  `ProgramBakgrunnstjeneste` (samme polling-mønster som `PlanlagtTildelingBakgrunnstjeneste`) fyrer
+  drops til et randomisert, unngå-natt-klemt tidspunkt; progressiv "én test om gangen"-kjeding
+  innad i en drop via `HaandterFullfortTestAsync` (kalt FRA `Pasientportal/Tester/Fyll.cshtml.cs`,
+  `TestService` selv er HELT uvitende om Programmer, samme eksternt-kall-prinsipp som
+  hjemmeoppgavenes mandatory-validering); betalingsregel "kun aller første test i aller første drop
+  kan koste noe, resten alltid 0kr" (pluss det eksisterende prøvepasient-aldri-betaler-unntaket);
+  pasientens pause/meld-ut-dialog + `BehandlerMelding.Fritekst`-oppgave til tildelende behandler;
+  AGGREGERT (per program+gruppe, IKKE per medlem) "Kjørende"-oversikt i begge Areas m/ bulk
+  pause/fjern. 4 nye regresjonstester (`ProgramServiceTests.cs`, 90 totalt) + full
+  ende-til-ende-verifisering i ekte nettleser av HELE kjeden (scheduling→fyring→betaling→
+  fullføring→pause/meld-ut→Kjørende-oversikt). Se docs/beslutningslogg.md "Hjemmeoppgaver og
+  programmer" + "Fase 3+4" for FULL plan, brukeravklaringer, bevisste scope-kutt (ingen drag-
+  reorder, ingen per-deltaker starttid-overstyring, ingen partner-admin-snever Kjørende-visning),
+  og — viktig — et dokumentert prosess-avvik tidligere samme dag (en `fork`-subagent instruert til
+  ren research bygget og committet skjemaendringer uten brukergodkjenning, oppdaget og reversert
+  FØR denne, ekte, brukergodkjente versjonen ble bygget). **IKKE pushet til origin ennå** — alt
+  committet lokalt.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

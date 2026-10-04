@@ -56,6 +56,12 @@ public sealed class AppDbContext : DbContext
     public DbSet<EktBankIdInnstilling> EktBankIdInnstillinger => Set<EktBankIdInnstilling>();
     public DbSet<Tilbakemelding> Tilbakemeldinger => Set<Tilbakemelding>();
     public DbSet<HjemmeoppgaveLiking> HjemmeoppgaveLikinger => Set<HjemmeoppgaveLiking>();
+    public DbSet<Behandlingsprogram> Behandlingsprogrammer => Set<Behandlingsprogram>();
+    public DbSet<ProgramDrop> ProgramDrops => Set<ProgramDrop>();
+    public DbSet<ProgramDropTest> ProgramDropTester => Set<ProgramDropTest>();
+    public DbSet<ProgramDeltakelse> ProgramDeltakelser => Set<ProgramDeltakelse>();
+    public DbSet<ProgramTildeling> ProgramTildelinger => Set<ProgramTildeling>();
+    public DbSet<ProgramLiking> ProgramLikinger => Set<ProgramLiking>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -289,6 +295,51 @@ public sealed class AppDbContext : DbContext
             entity.ToTable("hjemmeoppgave_likinger");
             entity.HasKey(l => l.Id);
             entity.HasIndex(l => new { l.BehandlerId, l.TestId }).IsUnique();
+        });
+
+        modelBuilder.Entity<Behandlingsprogram>(entity =>
+        {
+            entity.ToTable("behandlingsprogrammer");
+            entity.HasKey(p => p.Id);
+            entity.HasIndex(p => p.OpprettetAvBehandlerId);
+        });
+
+        modelBuilder.Entity<ProgramDrop>(entity =>
+        {
+            entity.ToTable("program_drops");
+            entity.HasKey(d => d.Id);
+            entity.HasIndex(d => d.ProgramId);
+        });
+
+        modelBuilder.Entity<ProgramDropTest>(entity =>
+        {
+            entity.ToTable("program_drop_tester");
+            entity.HasKey(t => t.Id);
+            entity.HasIndex(t => t.ProgramDropId);
+        });
+
+        modelBuilder.Entity<ProgramDeltakelse>(entity =>
+        {
+            entity.ToTable("program_deltakelser");
+            entity.HasKey(d => d.Id);
+            entity.HasIndex(d => d.ProgramId);
+            entity.HasIndex(d => d.PasientId);
+            entity.HasIndex(d => d.NesteDroppPlanlagtUtc);
+        });
+
+        modelBuilder.Entity<ProgramTildeling>(entity =>
+        {
+            entity.ToTable("program_tildelinger");
+            entity.HasKey(t => t.Id);
+            entity.HasIndex(t => t.TestTildelingId).IsUnique();
+            entity.HasIndex(t => new { t.ProgramDeltakelseId, t.ProgramDropId });
+        });
+
+        modelBuilder.Entity<ProgramLiking>(entity =>
+        {
+            entity.ToTable("program_likinger");
+            entity.HasKey(l => l.Id);
+            entity.HasIndex(l => new { l.BehandlerId, l.ProgramId }).IsUnique();
         });
 
         modelBuilder.Entity<Partner>(entity =>

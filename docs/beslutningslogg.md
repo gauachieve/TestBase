@@ -7166,3 +7166,134 @@ med to reelle, separate behandler-identiteter i denne runden — kun verifisert 
 en direkte databasesjekk av at `ErDeltMedAlle`-flagget faktisk styrer `HentDeltMedAlleAsync`
 korrekt. Samme underliggende spørringslogikk brukes av liking-flyten, så risikoen vurderes lav,
 men er ikke identisk med en fullverdig to-bruker ende-til-ende-verifisering.
+
+### Fase 3+4 — program-datamodell/motor + tildeling/kjørende opplevelse (2026-10-04/05, samme runde, bygget autonomt over natten på brukerens eksplisitte "push through autonomously")
+
+Seks nye entiteter i `TestBase.Shared/Domain/Tester/`: `Behandlingsprogram` (programmets egne
+felt — Navn/Forklaring/StartUkedag/StartKlokkeslett/delingsflagg/arkivert/kopiert-fra),
+`ProgramDrop` (Rekkefolge, `DagerEtterForrige` — kumulativt dag-offset fra dag 0, eget
+Fra/Til-tidsvindu + `UnngaaNatt`), `ProgramDropTest` (mange-til-mange med egen Rekkefolge internt i
+droppen), `ProgramDeltakelse` (én rad per pasient PER tildelingsbatch — `ProgramStartUtc`,
+`NaavaerendeDroppIndeks`, `NesteDroppPlanlagtUtc`, `PauseUtc`/`MeldtUtUtc`/`FullfortUtc`),
+`ProgramTildeling` (den ENESTE koblingen tilbake fra en generisk `TestTildeling` til hvilken
+deltakelse/drop/posisjon den stammer fra — unik indeks på `TestTildelingId`, siden en tildeling
+aldri kan tilhøre mer enn én program-posisjon), `ProgramLiking` (identisk mønster som
+`HjemmeoppgaveLiking`). To migrasjoner (`ProgrammerFase3DataModell` + en liten oppfølgende
+`ProgrammerLiking` — sistnevnte fordi `ProgramLiking`-entiteten/DbSet-et opprinnelig ble glemt i
+første runde og måtte ettermonteres, fanget av en kompilatorfeil FØR commit, ikke i produksjon).
+
+**Selvfanget navnekollisjon FØR noe bygget feil:** å kalle hovedentiteten rett og slett `Program`
+ville kollidert med .NET sin egen auto-genererte top-level-statements `Program`-klasse i
+`TestBase.Web/Program.cs` — IKKE den dokumenterte "Area-navn skygger domenetype"-fallgruven i
+CLAUDE.md (dette er en klassenavn-kollisjon med en kompilatorgenerert type, ikke et
+navneromssegment), men samme underliggende lærdom: sjekk ALLTID om et nytt domenenavn kolliderer
+med noe .NET selv genererer, ikke bare med eksisterende Areas. Omdøpt til `Behandlingsprogram` før
+noen build i det hele tatt ble forsøkt — ingen feilmelding noensinne sett, ren selvkorreksjon.
+
+**Kjøremotoren gjenbruker eksisterende infrastruktur i stedet for å finne opp sin egen:**
+`PlanlagtTildelingService.BeregnNesteForekomstUtc(etterUtc, ukedag, klokkeslett)` (allerede
+eksisterende statisk metode fra den tidligere "planlagt tildeling"-funksjonen) beregner
+programmets konkrete dag-0-ankertidspunkt; en ny statisk `ProgramService.RandomiserTidspunkt`
+beregner et faktisk forpliktet klokkeslett innenfor en drops eget vindu, med `UnngaaNatt` som
+en KLEMMING mot 07:00 (ikke et nytt tilfeldig forsøk) hvis det opprinnelige tilfeldige valget
+havnet i 22:00–07:00 — enkelt, forutsigbart, og garantert terminerende selv om HELE vinduet ligger
+på natten (dekket av en ny enhetstest, se under). En egen `ProgramBakgrunnstjeneste` (2-minutters
+polling, samme `BackgroundService`-mønster som `PlanlagtTildelingBakgrunnstjeneste`) kaller
+`FyrAvDueAsync` — verifisert med en ekte, ublokkert kjøring: tvang `NesteDroppPlanlagtUtc` til
+fortiden via direkte SQL og bekreftet (backgrounded polling-sjekk) at tjenesten faktisk fanget opp
+og fyrte av droppen innenfor sitt naturlige intervall, ikke en manuelt trigget snarvei.
+
+**Progressiv, "én test om gangen"-kjeding innad i en drop** (bevisst valgt fremfor å opprette ALLE
+en drops `TestTildeling`-rader på én gang): KUN den første testen i en drop får sin `TestTildeling`
+opprettet når selve droppen fyrer (`FyrAvDroppAsync`); hver påfølgende test i SAMME drop opprettes
+først når pasienten fullfører den forrige, via `HaandterFullfortTestAsync` — et NYTT, eksternt kall
+fra `Pasientportal/Tester/Fyll.cshtml.cs` rett etter `TestService.LagreSvarAsync(..., markerFullfort:
+true)`. Samme bevisste arkitekturprinsipp som hjemmeoppgavenes mandatory-validering (fase 1):
+`TestService`/`LagreSvarAsync` er HELT uvitende om at Programmer eksisterer — koblingen går via
+`ProgramTildeling` og et kall utenfra, ikke en utvidelse av den delte metoden. Når en drops siste
+test er fullført, planlegges NESTE drops tidspunkt (`PlanleggNesteDroppEllerFullforAsync`) — eller,
+hvis det var den siste droppen i programmet, settes `ProgramDeltakelse.FullfortUtc`.
+
+**Betalingsregel** (brukerens eksplisitte krav — "charge once at first drop, rest free"): KUN
+aller første test i aller første drop kan noensinne få en reell pris
+(`TestPrisberegner.Beregn`); enhver annen test i programmet (resten av samme drop, ALLE senere
+drops) blir ALLTID tvunget til `BetalingStatus.IkkePakrevd`/0 kr, uavhengig av testens egen prising.
+En prøvepasient (intet personnummer) betaler ALDRI noe uansett, konsistent med det eksisterende
+systemomfattende unntaket i `TestTildelingsService.TildelOgVarsleAsync` — reglene kombineres (første
+test+første drop+IKKE prøvepasient er ALLE tre nødvendige for at en reell pris i det hele tatt
+vurderes). Dekket av en ny regresjonstest (se under) som eksplisitt beviser alle fire kombinasjoner
+(ekte pasient betaler for test 1, ekte pasient betaler IKKE for test 2 i samme drop ELLER for test 1
+i drop 2, prøvepasient betaler ALDRI selv for test 1 i drop 1).
+
+**Pasientens pause/meld-ut** (ny `<dialog>` på `Pasientportal/Tester/Fyll.cshtml`, vist KUN når
+den aktuelle tildelingen faktisk stammer fra et program): Pause stopper FREMTIDIGE drops midlertidig
+(allerede igangsatt test i gjeldende drop fullføres normalt — ingen avbrytelse midt i), Meld ut er
+TERMINALT (aldri flere påminnelser fra akkurat dette programmet igjen, men samme prinsipp om at en
+allerede igangsatt test fullføres normalt). Begge oppretter en `BehandlerMelding.Fritekst`-oppgave
+hos den behandleren som FAKTISK tildelte programmet (`ProgramDeltakelse.TildeltAvBehandlerId`) — et
+admin-tildelt program oppretter BEVISST ingen slik oppgave (samme scope-avgrensning som ble
+diskutert for 13-punkts-runden sitt punkt 13: det finnes ingen generell "hvilken behandler eier
+akkurat nå denne pasienten"-oppslagslogikk å gjenbruke trygt her uten mer utredning, og det ble
+vurdert at admin selv kan følge opp via den aggregerte Kjørende-oversikten uansett). Verifisert
+fullt ende-til-ende i nettleser: pause satte riktig `PauseUtc` + opprettet riktig meldingstekst
+synlig på behandlerens Min Side; en etterfølgende "Fjern" (fra Kjørende-oversikten, se under) satte
+riktig `MeldtUtUtc` og en egen oppgavetekst.
+
+**"Kjørende"-oversikt, AGGREGERT per (ProgramId, GruppeId)** (brukerens eksplisitte svar —
+"aggregated count", ikke én rad per pasient i selve tabellen): `Behandlerportal/Programmer`
+(ny "Kjørende"-fane, kun EGNE tildelinger) og `Admin/Programmer/Kjorende` (ALLE tildelinger på
+tvers av behandlere, med behandlerens navn i parentes foran programnavnet — brukerens eksplisitte
+formatkrav) viser én rad per gruppe-tildelingsbatch (eller én rad per individuelt tildelt pasient
+når `GruppeId` er null), med en samlet "Pause"/"Fjern"-knapp som virker på HELE batchen på én gang
+(`PauseFlereAsync`/`FjernFlereAsync`, som bare looper de underliggende enkelt-metodene — ingen egen
+bulk-SQL, siden antallet deltakere per gruppe er lite nok at N+1 aldri er et reelt problem her).
+Verifisert i nettleser: én rad med riktig "Gjenstående drops"-tall, riktig aggregert
+deltaker-telling, "Pause" satte riktig status + viste en bekreftelsesmelding, "Fjern" (med en
+`confirm()`-dialog, jf. samme destruktiv-handling-mønster som Grupper sin hard-slett) fjernet raden
+helt fra den kjørende listen og satte `MeldtUtUtc` korrekt i databasen.
+
+**Bevisste scope-avgrensninger denne runden** (ikke spurt om, egne vurderinger — ingen av disse
+ble oppdaget som reelle mangler under verifisering, kun bevisst utelatt arbeid):
+- Ingen drag-og-slipp-omordning av tester innad i en drop i forfatter-UI-et — kun en enkel
+  flervalgsliste (native `<select multiple>`), rekkefølgen følger utvalgsrekkefølgen.
+- Ingen mulighet til å overstyre starttidspunktet for ÉN enkelt deltaker i en gruppe-tildeling —
+  "same day for all" (brukerens eget svar) tolkes strengt: alle som tildeles sammen deler nøyaktig
+  samme `ProgramStartUtc`, ingen senere per-person-justering.
+- Ingen egen partner-admin-visning av Kjørende på tvers av KUN partnerens egne kolleger (kun den
+  globale admin-visningen og behandlerens egen — en mellomting ble vurdert unødvendig kompleks for
+  denne runden, kan legges til senere med samme `AggregerKjorendeAsync`-grunnlag).
+- `OppdaterAsync` nekter å endre selve drop-/testlisten når programmet allerede har minst én
+  deltakelse (samme "strukturell endring etter tildeling er farlig"-prinsipp som hjemmeoppgavenes
+  fase 1) — kun navn/forklaring/starttidspunkt kan endres da, "Kopier" er veien til en ny versjon.
+
+**Ny regresjonstest-fil** (`tests/TestBase.IntegrationTests/ProgramServiceTests.cs`, 4 nye tester,
+90 totalt): to rene enhetstester av `RandomiserTidspunkt` (unngå-natt-klemming OG at et vindu uten
+UnngaaNatt beholder et faktisk natt-tidspunkt uendret), én full integrasjonstest som bygger et
+2-drops program (drop 1: to tester, drop 2: én test) og kjører hele livssyklusen gjennom ekte
+tjenestekall (`TildelAsync` → tving `NesteDroppPlanlagtUtc` til fortiden → `FyrAvDueAsync` →
+`LagreSvarAsync`+`HaandterFullfortTestAsync` gjentatt per test) og beviser betalingsregelen presist
+for BÅDE en ekte pasient og en prøvepasient, kjedingen innad i drop 1, og at `FullfortUtc` først
+settes etter ALLE drops er unnagjort — og én test av pause/meld-ut-tilstandsmaskinen + at
+`BehandlerMelding`-oppgaven faktisk opprettes (via `TellUlesteAsync`-tellingen), inkludert at et
+pauseforsøk ETTER meld-ut er en stille no-op (meld-ut er terminalt). Alle 90 tester grønne.
+
+**Autorisasjon verifisert eksplisitt** (jf. CLAUDE.md sin dokumenterte "ny sidemappe er ikke
+automatisk beskyttet"-fallgruve): `AuthorizeAreaFolder` lagt til for BÅDE `Admin/Programmer` og
+Behandlerportal sine `Hjemmeoppgaver`/`Programmer`-mapper i `Program.cs`, bekreftet med rå,
+uautentiserte `curl`-kall mot alle fem nye sidestiene (`Kjorende`, `Programmer`-indeks,
+`Programmer/Rediger/{id}`, `Programmer/Tildel/{id}`, `Hjemmeoppgaver`) — samtlige ga korrekt `302`
+til innlogging, ingen `200`.
+
+**Falsk alarm underveis, ikke en kodefeil:** en forvirring om hvorvidt
+`PlanlagtTildelingService.BeregnNesteForekomstUtc` ga feil resultat (viste "neste søndag" i stedet
+for "i dag") viste seg etter grundig isolasjon (en midlertidig xUnit-test som kalte metoden direkte,
+senere slettet) å være en feiltolkning av Git Bash (MSYS) sin `TZ="Europe/Oslo" date`-utdata — den
+respekterte faktisk ikke `TZ`-variabelen i akkurat denne påkallingen og printet UTC, ikke norsk
+lokal tid, noe som fikk "nå" til å se ut som to timer tidligere enn det faktisk var. Krysssjekket
+med PowerShell sin `[DateTime]::UtcNow` for å bekrefte den ekte UTC-tiden. INGEN kodeendring var
+nødvendig — ren tidssone-/verktøy-misforståelse fra min side, ikke en reell regresjon i
+planleggingslogikken. Nevnt her som en advarsel mot å stole blindt på `TZ=` foran `date` i Git Bash
+for fremtidig feilsøking av tidssonespørsmål.
+
+Alt arbeid i denne runden (Fase 0 t.o.m. Fase 3+4) er committet lokalt, IKKE pushet til `origin`
+ennå — se "Hvordan jobbe videre" / åpne punkter for push-status.

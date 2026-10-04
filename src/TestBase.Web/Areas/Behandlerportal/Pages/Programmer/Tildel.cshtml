@@ -1,0 +1,59 @@
+@page "{id:long}"
+@model TestBase.Web.Areas.Behandlerportal.Pages.Programmer.TildelModel
+@{
+    ViewData["Title"] = "Tildel program";
+}
+
+@if (Model.Program is null)
+{
+    <p style="color: darkred;">Fant ikke programmet.</p>
+}
+else
+{
+    <h1>Tildel «@Model.Program.Navn»</h1>
+
+    @if (Model.AntallTildelt is not null)
+    {
+        <p class="rapport-status-melding">Tildelt til @Model.AntallTildelt pasient(er). Første drop fyres av automatisk når programmets starttidspunkt inntreffer.</p>
+        <p><a href="/Behandlerportal/Programmer">Tilbake til Programmer</a></p>
+    }
+    else
+    {
+        @if (Model.Feilmelding is not null)
+        {
+            <p style="color: darkred;">@Model.Feilmelding</p>
+        }
+
+        <form method="post">
+            <fieldset>
+                <legend>Tildel til</legend>
+                <label><input type="radio" name="Modus" value="Pasienter" checked="@(Model.Modus != "Gruppe")" onclick="document.getElementById('pasientVelger').hidden=false;document.getElementById('gruppeVelger').hidden=true;" /> Enkeltpasient(er)</label>
+                <label><input type="radio" name="Modus" value="Gruppe" checked="@(Model.Modus == "Gruppe")" onclick="document.getElementById('pasientVelger').hidden=true;document.getElementById('gruppeVelger').hidden=false;" /> Gruppe</label>
+            </fieldset>
+
+            <div id="pasientVelger" hidden="@(Model.Modus == "Gruppe")">
+                <label>Velg pasient(er)</label><br />
+                <select name="ValgtePasientIder" multiple size="8" style="width: 100%; max-width: 480px;">
+                    @foreach (var pasient in Model.MinePasienter)
+                    {
+                        <option value="@pasient.Id">@(pasient.Navn ?? "(ikke fullført)")</option>
+                    }
+                </select>
+            </div>
+
+            <div id="gruppeVelger" hidden="@(Model.Modus != "Gruppe")">
+                <label>Velg gruppe</label><br />
+                <select name="ValgtGruppeId">
+                    <option value="">(velg gruppe)</option>
+                    @foreach (var gruppe in Model.MineGrupper)
+                    {
+                        <option value="@gruppe.Id">@gruppe.Navn</option>
+                    }
+                </select>
+                <p><em>Alle medlemmer starter samme kalenderdag.</em></p>
+            </div>
+
+            <p><button type="submit" class="btn-accent">Tildel</button></p>
+        </form>
+    }
+}

@@ -1,0 +1,119 @@
+@page "{id:long?}"
+@model TestBase.Web.Areas.Behandlerportal.Pages.Programmer.RedigerModel
+@{
+    ViewData["Title"] = Model.ProgramId is null ? "Nytt program" : "Rediger program";
+    var ukedager = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday };
+    var ukedagNavn = new Dictionary<DayOfWeek, string> {
+        [DayOfWeek.Monday] = "Mandag", [DayOfWeek.Tuesday] = "Tirsdag", [DayOfWeek.Wednesday] = "Onsdag",
+        [DayOfWeek.Thursday] = "Torsdag", [DayOfWeek.Friday] = "Fredag", [DayOfWeek.Saturday] = "Lørdag", [DayOfWeek.Sunday] = "Søndag"
+    };
+}
+
+<h1>@(Model.ProgramId is null ? "Nytt program" : "Rediger program")</h1>
+
+@if (Model.Lagret)
+{
+    <p class="rapport-status-melding">Lagret.</p>
+}
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: @(Model.DropsLaast ? "#b06000" : "darkred");">@Model.Feilmelding</p>
+}
+
+<form method="post" data-disable-on-submit="Lagrer …">
+    <div>
+        <label for="Navn">Navn</label><br />
+        <input type="text" id="Navn" name="Navn" value="@Model.Navn" required style="width: 100%; max-width: 480px;" />
+    </div>
+    <div>
+        <label for="Forklaring">Forklaring</label><br />
+        <textarea id="Forklaring" name="Forklaring" rows="3" style="width: 100%; max-width: 480px;">@Model.Forklaring</textarea>
+    </div>
+    <div>
+        <label for="StartUkedag">Programmet starter på</label><br />
+        <select id="StartUkedag" name="StartUkedag">
+            @foreach (var dag in ukedager)
+            {
+                <option value="@dag" selected="@(Model.StartUkedag == dag)">@ukedagNavn[dag]</option>
+            }
+        </select>
+        kl.
+        <input type="time" name="StartKlokkeslett" value="@Model.StartKlokkeslett" />
+        <p><em>Neste forekomst av denne ukedagen (norsk tid) regnes ut automatisk når programmet tildeles.</em></p>
+    </div>
+
+    <h2>Drops</h2>
+    <p><em>Første drop fyres av på selve starttidspunktet over. Hver påfølgende drop er et antall dager ETTER forrige drop, innenfor sitt eget fra-til-tidsvindu (randomisert).</em></p>
+
+    <div id="programDropListe">
+    @for (var i = 0; i < Model.Drops.Count; i++)
+    {
+        var drop = Model.Drops[i];
+        <div class="program-drop-rad" style="border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong class="program-drop-nummer">Drop @(i + 1)</strong>
+                <button type="button" class="program-fjern-drop btn-muted">Fjern</button>
+            </div>
+            <div>
+                <label>Dager etter forrige drop (0 for første)</label><br />
+                <input type="number" min="0" name="Drops[@i].DagerEtterForrige" data-feltnavn="DagerEtterForrige" value="@drop.DagerEtterForrige" />
+            </div>
+            <div>
+                <label>Tidsvindu (fra–til, randomisert)</label><br />
+                <input type="time" name="Drops[@i].FraKlokkeslett" data-feltnavn="FraKlokkeslett" value="@drop.FraKlokkeslett" />
+                –
+                <input type="time" name="Drops[@i].TilKlokkeslett" data-feltnavn="TilKlokkeslett" value="@drop.TilKlokkeslett" />
+            </div>
+            <div>
+                <label><input type="checkbox" name="Drops[@i].UnngaaNatt" data-feltnavn="UnngaaNatt" value="true" checked="@drop.UnngaaNatt" /> Unngå natt (22:00–07:00)</label>
+            </div>
+            <div>
+                <label>Tester (i rekkefølge — ctrl/cmd+klikk for flere)</label><br />
+                <select name="Drops[@i].TestIder" data-feltnavn="TestIder" multiple size="6" style="width: 100%; max-width: 480px;">
+                    @foreach (var test in Model.TilgjengeligeTester.OrderBy(t => t.Navn))
+                    {
+                        <option value="@test.Id" selected="@drop.TestIder.Contains(test.Id)">@test.Navn</option>
+                    }
+                </select>
+            </div>
+        </div>
+    }
+    </div>
+
+    <template id="programDropMal">
+        <div class="program-drop-rad" style="border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong class="program-drop-nummer">Drop</strong>
+                <button type="button" class="program-fjern-drop btn-muted">Fjern</button>
+            </div>
+            <div>
+                <label>Dager etter forrige drop (0 for første)</label><br />
+                <input type="number" min="0" data-feltnavn="DagerEtterForrige" value="1" />
+            </div>
+            <div>
+                <label>Tidsvindu (fra–til, randomisert)</label><br />
+                <input type="time" data-feltnavn="FraKlokkeslett" value="09:00" />
+                –
+                <input type="time" data-feltnavn="TilKlokkeslett" value="18:00" />
+            </div>
+            <div>
+                <label><input type="checkbox" data-feltnavn="UnngaaNatt" value="true" checked /> Unngå natt (22:00–07:00)</label>
+            </div>
+            <div>
+                <label>Tester (i rekkefølge — ctrl/cmd+klikk for flere)</label><br />
+                <select data-feltnavn="TestIder" multiple size="6" style="width: 100%; max-width: 480px;">
+                    @foreach (var test in Model.TilgjengeligeTester.OrderBy(t => t.Navn))
+                    {
+                        <option value="@test.Id">@test.Navn</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </template>
+
+    <button type="button" id="programLeggTilDrop" class="btn-muted">+ Legg til drop</button>
+
+    <p><button type="submit" class="btn-accent">Lagre</button></p>
+</form>
+
+<script src="~/js/program-editor.js" asp-append-version="true"></script>

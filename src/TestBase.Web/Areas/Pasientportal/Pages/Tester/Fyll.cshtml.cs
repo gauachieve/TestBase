@@ -21,13 +21,17 @@ public sealed class FyllModel : PageModel
 {
     private readonly TestService _testService;
     private readonly HjemmeoppgaveService _hjemmeoppgaveService;
+    private readonly ProgramService _programService;
     private readonly IAuditLogger _auditLogger;
     private readonly ICurrentUserContext _currentUser;
 
-    public FyllModel(TestService testService, HjemmeoppgaveService hjemmeoppgaveService, IAuditLogger auditLogger, ICurrentUserContext currentUser)
+    public FyllModel(
+        TestService testService, HjemmeoppgaveService hjemmeoppgaveService, ProgramService programService,
+        IAuditLogger auditLogger, ICurrentUserContext currentUser)
     {
         _testService = testService;
         _hjemmeoppgaveService = hjemmeoppgaveService;
+        _programService = programService;
         _auditLogger = auditLogger;
         _currentUser = currentUser;
     }
@@ -56,6 +60,9 @@ public sealed class FyllModel : PageModel
 
     /// <summary>Hjemmeoppgaver (2026-10-04): spørsmålstekstene til ethvert påkrevd, ubesvart ledd — KUN håndhevet her, se HjemmeoppgaveService.FinnManglendePaakrevdeAsync for hvorfor ikke i den delte LagreSvarAsync.</summary>
     public IReadOnlyList<string> ManglendePaakrevdeSvar { get; private set; } = Array.Empty<string>();
+
+    /// <summary>Programmer (fase 4): satt når DENNE tildelingen stammer fra et Behandlingsprogram — viser pause/meld ut-knappene nederst, se Fyll.cshtml.</summary>
+    public long? ProgramDeltakelseId { get; private set; }
 
     public TestSide? GjeldendeSide => Innhold is null ? null : Innhold.Sider.ElementAtOrDefault(GjeldendeSideNummer - 1);
 
@@ -93,6 +100,10 @@ public sealed class FyllModel : PageModel
         {
             return RedirectToPage("Betal", new { id });
         }
+
+        // Programmer (fase 4): denne tildelingen stammer fra et Behandlingsprogram hvis en
+        // ProgramTildeling-kobling finnes — viser da pause/meld ut-knappene, se Fyll.cshtml.
+        ProgramDeltakelseId = (await _programService.FinnDeltakelseForTildelingAsync(id, cancellationToken))?.Id;
 
         GjeldendeSideNummer = innhold.Sider.Count == 0 ? 1 : Math.Clamp(side ?? 1, 1, innhold.Sider.Count);
         if (GjeldendeSideNummer == innhold.Sider.Count)
@@ -191,6 +202,11 @@ public sealed class FyllModel : PageModel
 
         if (markerFullfort)
         {
+            // Programmer (fase 3): stille no-op hvis denne tildelingen ikke stammer fra et
+            // program (se ProgramTildeling) — sørger for at neste test i SAMME drop opprettes
+            // nå, eller at neste drops tidspunkt beregnes hvis droppen var ferdig.
+            await _programService.HaandterFullfortTestAsync(id, $"{Request.Scheme}://{Request.Host}", cancellationToken);
+
             await _auditLogger.LogAsync(
                 _currentUser.UserId, _currentUser.Role.ToString(), "FullforTest",
                 nameof(TestTildeling), id.ToString(), cancellationToken: cancellationToken);
@@ -232,6 +248,40 @@ public sealed class FyllModel : PageModel
         nesteSideNummer = Math.Clamp(nesteSideNummer, 1, innhold.Sider.Count);
 
         return RedirectToPage(new { id, side = nesteSideNummer });
+    }
+
+    /// <summary>Programmer (fase 4): stopper FREMTIDIGE drops — gjeldende test fullføres normalt. Eierskap sjekkes via at tildelingen (og dermed deltakelsen) allerede ble lastet for DENNE pasienten i OnGetAsync.</summary>
+    public async Task<IActionResult> OnPostPauseProgramAsync(long id, long deltakelseId, CancellationToken cancellationToken)
+    {
+        var innhold = await _testService.HentTildelingMedInnholdAsync(id, cancellationToken);
+        if (innhold is null || innhold.Tildeling.PasientId != HentPasientId())
+        {
+            return NotFound();
+        }
+        var deltakelse = await _programService.FinnDeltakelseForTildelingAsync(id, cancellationToken);
+        if (deltakelse is null || deltakelse.Id != deltakelseId)
+        {
+            return NotFound();
+        }
+        await _programService.PauseAsync(deltakelseId, cancellationToken);
+        return RedirectToPage(new { id });
+    }
+
+    /// <summary>Programmer (fase 4): TERMINAL — ingen flere drops noensinne, gjeldende test fullføres normalt.</summary>
+    public async Task<IActionResult> OnPostMeldUtProgramAsync(long id, long deltakelseId, CancellationToken cancellationToken)
+    {
+        var innhold = await _testService.HentTildelingMedInnholdAsync(id, cancellationToken);
+        if (innhold is null || innhold.Tildeling.PasientId != HentPasientId())
+        {
+            return NotFound();
+        }
+        var deltakelse = await _programService.FinnDeltakelseForTildelingAsync(id, cancellationToken);
+        if (deltakelse is null || deltakelse.Id != deltakelseId)
+        {
+            return NotFound();
+        }
+        await _programService.MeldUtAsync(deltakelseId, cancellationToken);
+        return RedirectToPage(new { id });
     }
 
     private long HentPasientId() =>

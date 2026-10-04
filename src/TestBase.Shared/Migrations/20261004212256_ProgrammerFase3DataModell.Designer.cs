@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TestBase.Shared.Data;
 
@@ -11,9 +12,11 @@ using TestBase.Shared.Data;
 namespace TestBase.Shared.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261004212256_ProgrammerFase3DataModell")]
+    partial class ProgrammerFase3DataModell
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1053,31 +1056,6 @@ namespace TestBase.Shared.Migrations
                     b.HasIndex("ProgramDropId");
 
                     b.ToTable("program_drop_tester", (string)null);
-                });
-
-            modelBuilder.Entity("TestBase.Shared.Domain.Tester.ProgramLiking", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("BehandlerId")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTimeOffset>("OpprettetUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<long>("ProgramId")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BehandlerId", "ProgramId")
-                        .IsUnique();
-
-                    b.ToTable("program_likinger", (string)null);
                 });
 
             modelBuilder.Entity("TestBase.Shared.Domain.Tester.ProgramTildeling", b =>

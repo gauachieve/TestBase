@@ -53,6 +53,7 @@ builder.Services.AddScoped<PasientInvitasjonService>();
 builder.Services.AddScoped<GruppeService>();
 builder.Services.AddScoped<TestService>();
 builder.Services.AddScoped<HjemmeoppgaveService>();
+builder.Services.AddScoped<ProgramService>();
 builder.Services.AddScoped<TestTildelingsService>();
 builder.Services.AddSingleton<TestPrisberegner>();
 builder.Services.AddScoped<BehandlerMeldingService>();
@@ -61,6 +62,7 @@ builder.Services.AddHostedService<DagligPaaminnelseBakgrunnstjeneste>();
 builder.Services.AddScoped<PlanlagtTildelingService>();
 builder.Services.AddScoped<TestBase.Shared.Domain.Tilbakemeldinger.TilbakemeldingService>();
 builder.Services.AddHostedService<PlanlagtTildelingBakgrunnstjeneste>();
+builder.Services.AddHostedService<ProgramBakgrunnstjeneste>();
 
 // Skåringsmotor og innebygde, kode-definerte tester (fase 5 — bevist ut med WHO-5).
 builder.Services.AddScoped<ITestSkaaringsberegner, Who5Skaaringsberegner>();
@@ -585,11 +587,13 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeAreaFolder("Admin", "/Tester/Prising", "SuperadminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Okonomi", "SuperadminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Tilbakemeldinger", "AdminOmrade");
+    options.Conventions.AuthorizeAreaFolder("Admin", "/Programmer", "AdminOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Behandlere", "BehandlerOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Pasienter", "BehandlerOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Grupper", "BehandlerOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Tildel", "BehandlerOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Hjemmeoppgaver", "BehandlerOmrade");
+    options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Programmer", "BehandlerOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/MinPartner", "PartnerAdminOmrade");
 });
 builder.Services.AddHealthChecks()
