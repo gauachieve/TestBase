@@ -1080,7 +1080,7 @@ public sealed class TestService
         var tildelingIder = await _db.TestTildelinger.Where(t => t.TestId == test.Id).Select(t => t.Id).ToListAsync(cancellationToken);
         _db.TestTildelingBetalinger.RemoveRange(_db.TestTildelingBetalinger.Where(b => tildelingIder.Contains(b.TestTildelingId)));
         _db.Pengebevegelser.RemoveRange(_db.Pengebevegelser.Where(p => p.TestTildelingId != null && tildelingIder.Contains(p.TestTildelingId.Value)));
-        _db.BehandlerMeldinger.RemoveRange(_db.BehandlerMeldinger.Where(m => m.TestTildelingId != null && tildelingIder.Contains(m.TestTildelingId.Value)));
+        _db.BehandlerMeldinger.RemoveRange(_db.BehandlerMeldinger.Where(m => tildelingIder.Contains(m.TestTildelingId)));
         _db.TestSvar.RemoveRange(_db.TestSvar.Where(s => tildelingIder.Contains(s.TestTildelingId)));
         await _db.SaveChangesAsync(cancellationToken);
 

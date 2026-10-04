@@ -328,16 +328,13 @@ namespace TestBase.Shared.Migrations
                     b.Property<long>("BehandlerId")
                         .HasColumnType("bigint");
 
-                    b.Property<string>("Fritekst")
-                        .HasColumnType("longtext");
-
                     b.Property<DateTimeOffset?>("LestUtc")
                         .HasColumnType("datetime(6)");
 
                     b.Property<DateTimeOffset>("OpprettetUtc")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<long?>("TestTildelingId")
+                    b.Property<long>("TestTildelingId")
                         .HasColumnType("bigint");
 
                     b.HasKey("Id");
@@ -703,28 +700,6 @@ namespace TestBase.Shared.Migrations
                     b.ToTable("pasient_invitasjoner", (string)null);
                 });
 
-            modelBuilder.Entity("TestBase.Shared.Domain.Tester.HjemmeoppgaveLiking", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("BehandlerId")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTimeOffset>("OpprettetUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<long>("TestId")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("HjemmeoppgaveLikinger");
-                });
-
             modelBuilder.Entity("TestBase.Shared.Domain.Tester.PartnerTestAndel", b =>
                 {
                     b.Property<long>("Id")
@@ -913,12 +888,6 @@ namespace TestBase.Shared.Migrations
                     b.Property<bool>("ErAktiv")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<bool>("ErDeltMedAlle")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("ErDeltMedPartner")
-                        .HasColumnType("tinyint(1)");
-
                     b.Property<bool>("FyllesUtAvBehandler")
                         .HasColumnType("tinyint(1)");
 
@@ -931,9 +900,6 @@ namespace TestBase.Shared.Migrations
                     b.Property<string>("Kode")
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)");
-
-                    b.Property<long?>("KopiertFraTestId")
-                        .HasColumnType("bigint");
 
                     b.Property<bool>("KreverBiologiskKjonn")
                         .HasColumnType("tinyint(1)");
@@ -951,9 +917,6 @@ namespace TestBase.Shared.Migrations
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
-
-                    b.Property<long?>("OpprettetAvBehandlerId")
-                        .HasColumnType("bigint");
 
                     b.Property<DateTimeOffset>("OpprettetUtc")
                         .HasColumnType("datetime(6)");
@@ -1034,12 +997,6 @@ namespace TestBase.Shared.Migrations
                         .HasColumnType("bigint");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("BildeData")
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("ErPaakrevd")
-                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("Instruksjon")
                         .HasMaxLength(2000)

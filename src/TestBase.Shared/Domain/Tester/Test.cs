@@ -127,33 +127,4 @@ public sealed class Test
     /// for ALLE eksisterende tester.
     /// </summary>
     public bool KreverBiologiskKjonn { get; set; }
-
-    // --- Egenproduserte tester / "hjemmeoppgaver" (ny funksjonspakke, se
-    // docs/beslutningslogg.md "Hjemmeoppgaver og programmer") — en behandler-
-    // forfattet Test (Kode forblir null, akkurat som admin-forfattede tester i
-    // dag), skilt fra innebygde/admin-tester KUN via OpprettetAvBehandlerId.
-
-    /// <summary>
-    /// Satt (ikke null) for en test en BEHANDLER selv har laget ("hjemmeoppgave")
-    /// via Behandlerportal — null for innebygde/admin-forfattede tester. Eieren
-    /// av testen, før en eventuell deling/liking/kopiering (se
-    /// <see cref="KopiertFraTestId"/>) — IKKE nødvendigvis hvem som til enhver
-    /// tid "ser" den (ErDeltMedAlle/ErDeltMedPartner styrer det).
-    /// </summary>
-    public long? OpprettetAvBehandlerId { get; set; }
-
-    /// <summary>Behandler har aktivt valgt "del med andre" — synlig i ALLE andre behandleres "Delt"-fane, uavhengig av partner.</summary>
-    public bool ErDeltMedAlle { get; set; }
-
-    /// <summary>Behandler har aktivt valgt "del med partner" — synlig i "Partner"-fanen for behandlere med SAMME Behandler.PartnerId som eieren. Meningsløst (aldri satt) hvis eieren ikke har noen partner.</summary>
-    public bool ErDeltMedPartner { get; set; }
-
-    /// <summary>
-    /// Satt når denne testen ble opprettet som en FORK av en annens delte test
-    /// (se HjemmeoppgaveLiking — liking alene peker fortsatt til originalen;
-    /// en fork skjer først når man trykker "Rediger" på en likt, ikke-eid test).
-    /// Null for en ordinær, selvstendig forfattet test. Kun til sporbarhet —
-    /// ingen logikk leser denne for å "arve" fremtidige endringer fra originalen.
-    /// </summary>
-    public long? KopiertFraTestId { get; set; }
 }

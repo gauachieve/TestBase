@@ -24,27 +24,4 @@ public sealed class TestLedd
     /// rett og slett ikke til skåren, akkurat som før dette feltet fantes.
     /// </summary>
     public decimal? NormertGjennomsnitt { get; set; }
-
-    /// <summary>
-    /// Hjemmeoppgaver (se Test.OpprettetAvBehandlerId): sant betyr dette leddet
-    /// MÅ være besvart før pasienten kan levere inn siden/testen — håndhevet i
-    /// TestService.LagreSvarAsync (kaster hvis et påkrevd ledd mangler svar ved
-    /// "Ferdig"). NY PRIMITIV, bevisst KUN brukt for hjemmeoppgaver foreløpig —
-    /// ALLE eksisterende (innebygde/admin-forfattede) tester har denne false og
-    /// er dermed helt upåvirket; "frivillig å svare, men en advarsel ved mange
-    /// ubesvarte" (Test.MaksUbesvartProsent) er en annen, allerede eksisterende
-    /// mekanisme og forblir uendret.
-    /// </summary>
-    public bool ErPaakrevd { get; set; }
-
-    /// <summary>
-    /// Kun for Svartype == TestSvartype.Bilde: selve bildet som en data-URL
-    /// (f.eks. "data:image/png;base64,...") lagret direkte i databasen — samme
-    /// pragmatiske mønster som Tilbakemelding.Skjermbilde (se den klassens
-    /// doc), BEVISST valgt fremfor ny blob-lagringsinfrastruktur (ingen slik
-    /// finnes i prosjektet i dag). Rent visningsinnhold, display-only — et
-    /// Bilde-ledd kan ALDRI være ErPaakrevd (håndhevet i editoren), siden det
-    /// ikke finnes noe "svar" å kreve.
-    /// </summary>
-    public string? BildeData { get; set; }
 }
