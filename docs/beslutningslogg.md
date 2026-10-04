@@ -7047,3 +7047,79 @@ noen ny `TestSvartype`, kun et ekte nytt behov: `Bilde`):
 
 Bygges autonomt over flere faser (brukerens eksplisitte valg, samme mønster som 13-punkts-runden
 tidligere samme dag) — dokumenteres fortløpende her ved hver fase.
+
+### Fase 1 — hjemmeoppgave-editor + utfyllingsflyt (2026-10-04, samme dag)
+
+Ny `HjemmeoppgaveService` (`TestBase.Shared/Domain/Tester/`) — BEVISST en EGEN klasse fra
+`TestService`, IKKE en utvidelse: `TestService.OpprettTestAsync` gir automatisk ALLE partnere
+`PartnerTestTilgang` (riktig for admin-forfattede tester, ment for bred distribusjon — se
+"Partner System + Test Monetization") — en hjemmeoppgave skal derimot starte PRIVAT, synlig for
+andre KUN når eieren eksplisitt deler den. Dekker opprett/rediger/slett/kopier/lik + de to
+sharing-flaggene, pluss en ny valideringsmetode
+`FinnManglendePaakrevdeAsync` kalt FRA `Pasientportal/Tester/Fyll.cshtml.cs` rett før innsending —
+BEVISST IKKE lagt inn i den delte `TestService.LagreSvarAsync` (ville påvirket alle ~20 andre
+testers fyllingsflyter, som i dag stille tillater å hoppe over ethvert ledd, se CLAUDE.md sin
+GADIT-fallgruve for hvorfor det er load-bearing andre steder).
+
+**Datasikkerhet ved redigering/sletting** (ikke eksplisitt spurt om, egen vurdering): en
+hjemmeoppgaves ledd-liste kan KUN erstattes så lenge INGEN pasient ennå er tildelt den — en
+strukturell endring etterpå ville foreldreløsgjort eksisterende `TestSvar`-rader. `OppdaterAsync`
+lagrer metadata (navn/forklaring/takk-tekst) uansett, men nekter ledd-endringer med en tydelig
+melding ("bruk Kopier i stedet") når minst én tildeling finnes — verifisert i nettleser: lagret
+uendret ledd-liste på en allerede tildelt hjemmeoppgave viste korrekt låsemeldingen, og bilde-dataen
+(141 380 tegn base64) var fortsatt intakt i databasen etterpå. `SlettAsync` følger samme prinsipp:
+hard-sletter KUN hvis ingen tildelinger finnes, ellers arkiverer (`ErAktiv=false`) i stedet for å
+risikere å ødelegge ekte svardata.
+
+**Ny `Behandlerportal/Hjemmeoppgaver`-overflate** (Admin/Tester/Sider+Ledd er Admin-ONLY i dag — en
+behandler har ikke den tilgangen, så dette MÅTTE bli en egen side, ikke gjenbruk): `Index.cshtml`
+(fase 1: kun "Personlig"-listen, fulle faner kommer fase 2) + `Rediger.cshtml` (opprett/rediger i
+ÉN side, flat ledd-liste bundet via indekserte skjemafelt `Ledd[n].X` — ASP.NET Cores
+modellbinding håndterer en `List<T>` fra sammenhengende indekser uten eget parse-arbeid). Ny
+`wwwroot/js/hjemmeoppgave-editor.js`: legg til/fjern ledd-rader klient-side (reindekserer ALLE
+rader ved fjerning, slik at indeksene forblir sammenhengende), vis/skjul felt per svartype, og
+en "squash"-funksjon (canvas-nedskalering til maks 1600px + JPEG-rekoding kvalitet 0,8) FØR et
+opplastet bilde limes inn som base64 i et skjult felt — brukerens eksplisitte krav ("hvis du
+støtter squashing, er det OK") — en rå mobilbilde-original (158 KB testfil) ble aldri sendt til
+serveren, kun den ferdig nedskalerte JPEG-en (141 KB base64 ≈ 106 KB binært, verifisert i
+nettleser).
+
+**Reell bug funnet og fikset under verifisering**: JS-templatens `<select>` for svartype hadde
+INGEN `selected`-markering på noe `<option>` — nettleseren faller da tilbake til FØRSTE alternativ
+(`LikertSkala`) i stedet for C#-modellens standardverdi (`Fritekst`), så et nytt ledd lagt til via
+"+ Legg til ledd" og aldri eksplisitt endret av forfatteren ble lagret som en tom Likert-skala (ingen
+svaralternativer, usynlig i utfyllingsflyten) i stedet for et fritekstfelt. Fanget ved faktisk å
+fylle ut den opprettede hjemmeoppgaven i nettleser og se at ett ledd manglet et synlig
+inputfelt — IKKE noe en ren kodelesning ville avdekket. Fikset ved å eksplisitt markere
+`Fritekst`-alternativet `selected` i malen, slik at klient- og server-standardverdi stemmer
+overens.
+
+**Rapportvisning** (begge Areas + Pasientportals egen lesetilgang): `Rapport.cshtml.cs` sin
+`LastInnAsync` bailet TIDLIGERE ut med `NotFound()` for ENHVER test uten en registrert
+`ITestSkaaringsberegner` (siden `BeregnSkaaringAsync` allerede returnerte `null` uendret for en
+`Test.Kode == null`-test — ingen kodeendring trengtes DER). Ny `ErHjemmeoppgaveRapport`-gate
+bypasser dette KUN for `Test.ErHjemmeoppgave` (bevisst IKKE en generell endring for enhver
+score-løs test — utenfor scope, kunne hatt utilsiktede konsekvenser for en admin-forfattet test
+uten skåringslogikk). Viser i stedet rå svar (gjenbruker den EKSISTERENDE `SideMedSvar`/`SvarRad`-
+tabellen som allerede fantes parallelt med skåringsvisningen for alle tester) + et nytt
+"Startet:"-felt (`TestTildeling.StartetUtc`, fantes allerede i skjemaet) ved siden av det
+eksisterende "Fullført:"-feltet — brukerens eksplisitte krav. Bilde-ledd ekskludert fra selve
+svar-tabellen (rent visningsinnhold, ikke et spørsmål/svar-par) i alle tre rapportvisninger
+(Behandlerportal, Admin, Pasientportal).
+
+Verifisert FULLT ende-til-ende i nettleser: opprettet en hjemmeoppgave (1 påkrevd Likert-ledd, 1
+valgfritt fritekst-ledd, 1 bilde-ledd med faktisk opplastet+squashet bilde), tildelt en pasient
+(direkte SQL — Fase 2s kategoritre-integrasjon ikke bygget ennå, se under), fylt ut som pasient:
+innsending BLOKKERT med tydelig feilmelding når det påkrevde leddet sto tomt, LYKTES etter
+besvarelse, belønningssiden viste korrekt fallback-tekst ("Ferdig!"/"Takk for at du fylte ut
+testen.") siden takk-felt ble latt tomme. Behandlers rapport viste korrekt "Startet"+"Fullført",
+INGEN "Resultat"-seksjon, rå svar-tabell med Likert-label og fritekst (bilde-leddet korrekt
+utelatt), godkjenning fungerte uendret. 86 tester fortsatt grønne.
+
+**Bevisst IKKE i fase 1** (hører til fase 2/3): hjemmeoppgaver vises ENNÅ IKKE i selve
+test-tildelings-kategoritreet (`Tildel/Tester.cshtml` sin "Egenproduserte"-pinning er fase 2) —
+tildeling for denne verifiseringen ble derfor gjort direkte i databasen, ikke via UI. Like/del/
+Delt-faner/Partner-faner er heller ikke bygget (fase 2). "Kopier"-knappen og "Rediger (lager
+kopi)"-knappen for en likt rad finnes i `Index.cshtml` sin kode, men kan ikke browser-testes
+fullt ut før fase 2s liking-UI finnes (en annen behandlers delte hjemmeoppgave kan ikke vises i
+"Personlig" ennå siden ingen UI kan opprette en `HjemmeoppgaveLiking`-rad).

@@ -57,6 +57,10 @@ else
                 <div class="rapport-pnr">Personnummer: @Model.Pasient?.Personnummer</div>
             </div>
             <div><strong>Fullført:</strong> @Model.Tildeling?.FullfortUtc?.ToString("g")</div>
+            @if (Model.ErHjemmeoppgaveRapport)
+            {
+                <div><strong>Startet:</strong> @(Model.Tildeling?.StartetUtc?.ToString("g") ?? "(ikke registrert)")</div>
+            }
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Model.Test?.RapportIntroduksjon))
@@ -359,6 +363,11 @@ else if (Model.Tildeling?.RapportGodkjentUtc is not null)
         <div style="font-size: 13px; margin-bottom: 2px;">
             <strong>Pasient:</strong> @(Model.Pasient?.Navn ?? "(ikke fullført)") &nbsp;·&nbsp;
             <strong>Fullført:</strong> @Model.Tildeling?.FullfortUtc?.ToString("g")
+            @if (Model.ErHjemmeoppgaveRapport)
+            {
+                <text>&nbsp;·&nbsp;</text>
+                <strong>Startet:</strong> @(Model.Tildeling?.StartetUtc?.ToString("g") ?? "(ikke registrert)")
+            }
         </div>
         <div style="font-size: 12px; color: #6b7280; margin-bottom: 10px;">Personnummer: @Model.Pasient?.Personnummer</div>
 

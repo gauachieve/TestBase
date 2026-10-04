@@ -1751,3 +1751,9 @@ textarea.kommentarfelt {
 @media (max-width: 640px) {
   .hjelp-panel { width: 100vw; }
 }
+
+/* Hjemmeoppgaver (2026-10-04): et Bilde-ledd er rent visningsinnhold forfatteren la inn —
+   "kan utvides" (bugliste-kravet) betyr her: klikk for å vise i full bredde i stedet for
+   en begrenset forhåndsvisning. */
+.hjemmeoppgave-bilde { max-width: 320px; transition: max-width 0.15s ease; cursor: zoom-in; }
+.hjemmeoppgave-bilde.bilde-utvidet { max-width: 100%; cursor: zoom-out; }

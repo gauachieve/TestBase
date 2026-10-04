@@ -18,7 +18,7 @@
 }
 else if (Model.ErFullfort)
 {
-    <h1>Ferdig!</h1>
+    <h1>@(Model.Innhold.Test.BelonningsTittel ?? "Ferdig!")</h1>
     <p>@(Model.Innhold.Test.Belonningstekst ?? "Takk for at du fylte ut testen.")</p>
     @if (Model.GyldighetsAdvarsel is not null)
     {
@@ -68,7 +68,7 @@ else
             {
                 var eksisterende = Model.Innhold.EksisterendeSvar.GetValueOrDefault(ledd.Id);
                 <div style="margin-bottom: 1.5rem;">
-                    <p><strong>@ledd.Sporsmalstekst</strong></p>
+                    <p><strong>@ledd.Sporsmalstekst</strong>@(ledd.ErPaakrevd ? " *" : "")</p>
                     @if (!string.IsNullOrWhiteSpace(ledd.Instruksjon))
                     {
                         <p><em>@ledd.Instruksjon</em></p>
@@ -136,10 +136,34 @@ else
                             </label>
                         </div>
                     }
+                    else if (ledd.Svartype == TestSvartype.Bilde)
+                    {
+                        // Rent visningsinnhold forfatteren (behandleren) la inn — ALDRI et
+                        // spørsmål/svar, derfor intet name="Svar_..."-attributt her.
+                        if (!string.IsNullOrEmpty(ledd.BildeData))
+                        {
+                            <img src="data:@(ledd.BildeContentType ?? "image/jpeg");base64,@ledd.BildeData"
+                                 alt="@ledd.Sporsmalstekst" style="border-radius: 8px;"
+                                 onclick="this.classList.toggle('bilde-utvidet')" class="hjemmeoppgave-bilde" />
+                        }
+                    }
                     else
                     {
                         <textarea name="Svar_@ledd.Id" rows="3" cols="50">@eksisterende</textarea>
                     }
+                </div>
+            }
+
+            @if (Model.ManglendePaakrevdeSvar.Count > 0)
+            {
+                <div style="border: 1px solid #c00; background: #fee; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+                    <p><strong>Du må svare på følgende før du kan levere inn:</strong></p>
+                    <ul>
+                    @foreach (var sporsmal in Model.ManglendePaakrevdeSvar)
+                    {
+                        <li>@sporsmal</li>
+                    }
+                    </ul>
                 </div>
             }
 

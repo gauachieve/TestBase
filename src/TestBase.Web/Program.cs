@@ -52,6 +52,7 @@ builder.Services.AddScoped<PasientAuthenticationService>();
 builder.Services.AddScoped<PasientInvitasjonService>();
 builder.Services.AddScoped<GruppeService>();
 builder.Services.AddScoped<TestService>();
+builder.Services.AddScoped<HjemmeoppgaveService>();
 builder.Services.AddScoped<TestTildelingsService>();
 builder.Services.AddSingleton<TestPrisberegner>();
 builder.Services.AddScoped<BehandlerMeldingService>();
@@ -588,6 +589,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Pasienter", "BehandlerOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Grupper", "BehandlerOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Tildel", "BehandlerOmrade");
+    options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Hjemmeoppgaver", "BehandlerOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/MinPartner", "PartnerAdminOmrade");
 });
 builder.Services.AddHealthChecks()

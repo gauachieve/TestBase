@@ -1,0 +1,59 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.Hjemmeoppgaver.IndexModel
+@{
+    ViewData["Title"] = "Hjemmeoppgaver";
+}
+
+<h1>Hjemmeoppgaver</h1>
+<p><em>Fase 1: kun din egen liste. Delt/Partner-faner og liking kommer i fase 2.</em></p>
+
+@if (Model.Melding is not null)
+{
+    <p class="rapport-status-melding">@Model.Melding</p>
+}
+
+<p><a href="/Behandlerportal/Hjemmeoppgaver/Rediger" class="btn-accent">+ Ny hjemmeoppgave</a></p>
+
+@if (!Model.Personlige.Any())
+{
+    <p>Du har ikke laget noen hjemmeoppgaver ennå.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>Navn</th>
+                <th>Opprettet</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var test in Model.Personlige)
+        {
+            var erEgen = test.OpprettetAvBehandlerId == Model.EgenBehandlerId;
+            <tr>
+                <td>@test.Navn @(erEgen ? "" : "(likt)")</td>
+                <td>@test.OpprettetUtc.ToString("g")</td>
+                <td>
+                    @if (erEgen)
+                    {
+                        <a href="/Behandlerportal/Hjemmeoppgaver/Rediger/@test.Id">Rediger</a>
+                        <form method="post" asp-page-handler="Slett" style="display: inline;" onsubmit="return confirm('Slette denne hjemmeoppgaven?');">
+                            <input type="hidden" name="testId" value="@test.Id" />
+                            <button type="submit" class="btn-muted">Slett</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <form method="post" asp-page-handler="Kopier" style="display: inline;">
+                            <input type="hidden" name="testId" value="@test.Id" />
+                            <button type="submit">Rediger (lager kopi)</button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

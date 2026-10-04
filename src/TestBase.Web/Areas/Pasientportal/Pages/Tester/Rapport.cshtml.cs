@@ -61,7 +61,8 @@ public sealed class RapportModel : PageModel
 
         Sider = innhold.Sider.Select(side =>
         {
-            var svar = innhold.AlleLedd.Where(l => l.TestSideId == side.Id).Select(ledd =>
+            // Bilde-ledd (hjemmeoppgaver) er rent visningsinnhold, ikke et besvart spørsmål.
+            var svar = innhold.AlleLedd.Where(l => l.TestSideId == side.Id && l.Svartype != TestSvartype.Bilde).Select(ledd =>
             {
                 var raaVerdi = innhold.EksisterendeSvar.GetValueOrDefault(ledd.Id, "-");
                 var label = ledd.Svartype switch

@@ -20,12 +20,14 @@ namespace TestBase.Web.Areas.Pasientportal.Pages.Tester;
 public sealed class FyllModel : PageModel
 {
     private readonly TestService _testService;
+    private readonly HjemmeoppgaveService _hjemmeoppgaveService;
     private readonly IAuditLogger _auditLogger;
     private readonly ICurrentUserContext _currentUser;
 
-    public FyllModel(TestService testService, IAuditLogger auditLogger, ICurrentUserContext currentUser)
+    public FyllModel(TestService testService, HjemmeoppgaveService hjemmeoppgaveService, IAuditLogger auditLogger, ICurrentUserContext currentUser)
     {
         _testService = testService;
+        _hjemmeoppgaveService = hjemmeoppgaveService;
         _auditLogger = auditLogger;
         _currentUser = currentUser;
     }
@@ -51,6 +53,9 @@ public sealed class FyllModel : PageModel
     /// innsendingen (den har allerede skjedd på dette tidspunktet).
     /// </summary>
     public string? GyldighetsAdvarsel { get; private set; }
+
+    /// <summary>Hjemmeoppgaver (2026-10-04): spørsmålstekstene til ethvert påkrevd, ubesvart ledd — KUN håndhevet her, se HjemmeoppgaveService.FinnManglendePaakrevdeAsync for hvorfor ikke i den delte LagreSvarAsync.</summary>
+    public IReadOnlyList<string> ManglendePaakrevdeSvar { get; private set; } = Array.Empty<string>();
 
     public TestSide? GjeldendeSide => Innhold is null ? null : Innhold.Sider.ElementAtOrDefault(GjeldendeSideNummer - 1);
 
@@ -158,6 +163,29 @@ public sealed class FyllModel : PageModel
 
         var erSisteSide = GjeldendeSideNummer == innhold.Sider.Count;
         var markerFullfort = Handling is "Ferdig" or "FerdigNeste" or "FerdigHjem" && erSisteSide;
+
+        if (markerFullfort && innhold.Test.ErHjemmeoppgave)
+        {
+            // Må slås sammen med svar fra TIDLIGERE lagrede sider også (en hjemmeoppgave er i dag
+            // alltid flat/én side, men sjekken er skrevet til å tåle flere sider uansett) — uten
+            // dette ville et påkrevd ledd på en side som IKKE er gjeldende (umulig i dag, men en
+            // fremtidig flersides-hjemmeoppgave ville rammet dette stille) blitt feilaktig
+            // rapportert som manglende selv om det faktisk ble besvart tidligere.
+            var kombinertSvar = new Dictionary<long, string>(innhold.EksisterendeSvar);
+            foreach (var (leddId, verdi) in svar)
+            {
+                kombinertSvar[leddId] = verdi;
+            }
+
+            ManglendePaakrevdeSvar = await _hjemmeoppgaveService.FinnManglendePaakrevdeAsync(innhold.Test.Id, kombinertSvar, cancellationToken);
+            if (ManglendePaakrevdeSvar.Count > 0)
+            {
+                // Lagre det som FAKTISK ble fylt ut på denne siden (ikke-påkrevd skal ikke gå tapt
+                // ved et avbrutt innsendingsforsøk), men ALDRI marker fullført.
+                await _testService.LagreSvarAsync(id, svar, markerFullfort: false, cancellationToken);
+                return Page();
+            }
+        }
 
         await _testService.LagreSvarAsync(id, svar, markerFullfort, cancellationToken);
 

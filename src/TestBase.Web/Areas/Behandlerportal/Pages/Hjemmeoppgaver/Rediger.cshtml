@@ -1,0 +1,138 @@
+@page "{id:long?}"
+@model TestBase.Web.Areas.Behandlerportal.Pages.Hjemmeoppgaver.RedigerModel
+@using TestBase.Shared.Domain.Tester
+@{
+    ViewData["Title"] = Model.TestId is null ? "Ny hjemmeoppgave" : "Rediger hjemmeoppgave";
+}
+
+<h1>@(Model.TestId is null ? "Ny hjemmeoppgave" : "Rediger hjemmeoppgave")</h1>
+
+@if (Model.Lagret)
+{
+    <p class="rapport-status-melding">Lagret.</p>
+}
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: @(Model.LeddLaast ? "#b06000" : "darkred");">@Model.Feilmelding</p>
+}
+
+<form method="post" data-disable-on-submit="Lagrer …">
+    <div>
+        <label for="Navn">Navn</label><br />
+        <input type="text" id="Navn" name="Navn" value="@Model.Navn" required style="width: 100%; max-width: 480px;" />
+    </div>
+    <div>
+        <label for="Beskrivelse">Forklaring (vist til pasienten før de starter)</label><br />
+        <textarea id="Beskrivelse" name="Beskrivelse" rows="3" style="width: 100%; max-width: 480px;">@Model.Beskrivelse</textarea>
+    </div>
+
+    <h2>Ledd</h2>
+    <p><em>Marker et ledd som "påkrevd" for å kreve svar før pasienten kan levere inn.</em></p>
+
+    <div id="hjemmeoppgaveLeddListe">
+    @for (var i = 0; i < Model.Ledd.Count; i++)
+    {
+        var ledd = Model.Ledd[i];
+        <div class="hjemmeoppgave-ledd-rad" style="border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong class="hjemmeoppgave-ledd-nummer">Ledd @(i + 1)</strong>
+                <button type="button" class="hjemmeoppgave-fjern-ledd btn-muted">Fjern</button>
+            </div>
+            <div>
+                <label>Spørsmål/tekst</label><br />
+                <input type="text" name="Ledd[@i].Sporsmalstekst" data-feltnavn="Sporsmalstekst" value="@ledd.Sporsmalstekst" style="width: 100%; max-width: 480px;" />
+            </div>
+            <div>
+                <label>Instruksjon (valgfritt)</label><br />
+                <input type="text" name="Ledd[@i].Instruksjon" data-feltnavn="Instruksjon" value="@ledd.Instruksjon" style="width: 100%; max-width: 480px;" />
+            </div>
+            <div>
+                <label>Svartype</label><br />
+                <select name="Ledd[@i].Svartype" data-feltnavn="Svartype">
+                    @foreach (TestSvartype type in Enum.GetValues(typeof(TestSvartype)))
+                    {
+                        <option value="@type" selected="@(ledd.Svartype == type)">@type</option>
+                    }
+                </select>
+            </div>
+            <div class="hjemmeoppgave-svaralternativer-felt">
+                <label>Svaralternativer (format: verdi:tekst,verdi:tekst)</label><br />
+                <input type="text" name="Ledd[@i].Svaralternativer" data-feltnavn="Svaralternativer" value="@ledd.Svaralternativer" style="width: 100%; max-width: 480px;" />
+            </div>
+            <div class="hjemmeoppgave-bilde-felt">
+                <label>Bilde</label><br />
+                <input type="file" accept="image/*" class="hjemmeoppgave-bilde-fil" />
+                @if (!string.IsNullOrEmpty(ledd.BildeData))
+                {
+                    <img class="hjemmeoppgave-bilde-forhandsvisning" src="data:@(ledd.BildeContentType ?? "image/jpeg");base64,@ledd.BildeData" style="max-width: 200px; display: block; margin-top: 0.5rem;" />
+                }
+                else
+                {
+                    <img class="hjemmeoppgave-bilde-forhandsvisning" hidden style="max-width: 200px; display: block; margin-top: 0.5rem;" />
+                }
+                <input type="hidden" name="Ledd[@i].BildeData" data-feltnavn="BildeData" value="@ledd.BildeData" />
+                <input type="hidden" name="Ledd[@i].BildeContentType" data-feltnavn="BildeContentType" value="@ledd.BildeContentType" />
+            </div>
+            <div class="hjemmeoppgave-paakrevd-felt">
+                <label><input type="checkbox" name="Ledd[@i].ErPaakrevd" data-feltnavn="ErPaakrevd" value="true" checked="@ledd.ErPaakrevd" /> Påkrevd</label>
+            </div>
+        </div>
+    }
+    </div>
+
+    <template id="hjemmeoppgaveLeddMal">
+        <div class="hjemmeoppgave-ledd-rad" style="border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong class="hjemmeoppgave-ledd-nummer">Ledd</strong>
+                <button type="button" class="hjemmeoppgave-fjern-ledd btn-muted">Fjern</button>
+            </div>
+            <div>
+                <label>Spørsmål/tekst</label><br />
+                <input type="text" data-feltnavn="Sporsmalstekst" style="width: 100%; max-width: 480px;" />
+            </div>
+            <div>
+                <label>Instruksjon (valgfritt)</label><br />
+                <input type="text" data-feltnavn="Instruksjon" style="width: 100%; max-width: 480px;" />
+            </div>
+            <div>
+                <label>Svartype</label><br />
+                <select data-feltnavn="Svartype">
+                    @foreach (TestSvartype type in Enum.GetValues(typeof(TestSvartype)))
+                    {
+                        <option value="@type" selected="@(type == TestSvartype.Fritekst)">@type</option>
+                    }
+                </select>
+            </div>
+            <div class="hjemmeoppgave-svaralternativer-felt">
+                <label>Svaralternativer (format: verdi:tekst,verdi:tekst)</label><br />
+                <input type="text" data-feltnavn="Svaralternativer" style="width: 100%; max-width: 480px;" />
+            </div>
+            <div class="hjemmeoppgave-bilde-felt">
+                <label>Bilde</label><br />
+                <input type="file" accept="image/*" class="hjemmeoppgave-bilde-fil" />
+                <img class="hjemmeoppgave-bilde-forhandsvisning" hidden style="max-width: 200px; display: block; margin-top: 0.5rem;" />
+                <input type="hidden" data-feltnavn="BildeData" />
+                <input type="hidden" data-feltnavn="BildeContentType" />
+            </div>
+            <div class="hjemmeoppgave-paakrevd-felt">
+                <label><input type="checkbox" data-feltnavn="ErPaakrevd" value="true" /> Påkrevd</label>
+            </div>
+        </div>
+    </template>
+
+    <button type="button" id="hjemmeoppgaveLeggTilLedd" class="btn-muted">+ Legg til ledd</button>
+
+    <h2>Takk-side (vist etter innsending)</h2>
+    <div>
+        <label for="BelonningsTittel">Overskrift</label><br />
+        <input type="text" id="BelonningsTittel" name="BelonningsTittel" value="@Model.BelonningsTittel" placeholder="Ferdig!" style="width: 100%; max-width: 480px;" />
+    </div>
+    <div>
+        <label for="Belonningstekst">Melding</label><br />
+        <textarea id="Belonningstekst" name="Belonningstekst" rows="3" style="width: 100%; max-width: 480px;">@Model.Belonningstekst</textarea>
+    </div>
+
+    <p><button type="submit" class="btn-accent">Lagre</button></p>
+</form>
+
+<script src="~/js/hjemmeoppgave-editor.js" asp-append-version="true"></script>

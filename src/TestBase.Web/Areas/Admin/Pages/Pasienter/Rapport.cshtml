@@ -31,6 +31,10 @@ else
 
             <div class="rapport-metarad">
                 <div><strong>Fullført:</strong> @Model.Tildeling?.FullfortUtc?.ToString("g")</div>
+                @if (Model.Test?.ErHjemmeoppgave == true)
+                {
+                    <div><strong>Startet:</strong> @(Model.Tildeling?.StartetUtc?.ToString("g") ?? "(ikke registrert)")</div>
+                }
             </div>
 
             @if (!string.IsNullOrWhiteSpace(Model.Test?.RapportIntroduksjon))

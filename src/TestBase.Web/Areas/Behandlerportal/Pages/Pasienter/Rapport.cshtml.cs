@@ -55,6 +55,9 @@ public sealed class RapportModel : PageModel
     public Test? Test { get; private set; }
     public TestTildeling? Tildeling { get; private set; }
     public TestSkaaring? Skaaring { get; private set; }
+
+    /// <summary>Sann for en Test.ErHjemmeoppgave-test — rapporten viser rå svar + start-/sluttidspunkt (Tildeling.StartetUtc/FullfortUtc) i stedet for en TestSkaaring, se LastInnAsync.</summary>
+    public bool ErHjemmeoppgaveRapport { get; private set; }
     public IReadOnlyList<CutoffMarkering> Cutoffs { get; private set; } = Array.Empty<CutoffMarkering>();
 
     /// <summary>Se ITestSkaaringsberegner.SignifikantEndringProsentpoeng — NULL skjuler hele
@@ -207,38 +210,48 @@ public sealed class RapportModel : PageModel
         KategoriNavn = await _testService.HentPrimaerKategoriNavnAsync(Test.Id, cancellationToken);
         SignifikantEndringProsentpoeng = _testService.HentSignifikantEndringProsentpoeng(Test.Kode);
 
-        Skaaring = await _testService.BeregnSkaaringAsync(id, cancellationToken);
-        if (Skaaring is null)
+        // Hjemmeoppgaver (2026-10-04): ALDRI en TestSkaaring (Test.Kode er null, se
+        // TestService.BeregnSkaaringAsync — FinnBeregner(null) returnerer null uendret, ingen
+        // kodeendring trengtes der). I MOTSETNING TIL enhver annen score-løs test (som i dag
+        // fortsatt 404-er her — bevisst IKKE endret for dem, utenfor scope) hopper vi for EN
+        // HJEMMEOPPGAVE eksplisitt over Skaaring-kravet og viser rå svar + start-/sluttidspunkt
+        // i stedet, se ErHjemmeoppgaveRapport i viewet.
+        ErHjemmeoppgaveRapport = Test.ErHjemmeoppgave;
+        if (!ErHjemmeoppgaveRapport)
         {
-            return false;
-        }
+            Skaaring = await _testService.BeregnSkaaringAsync(id, cancellationToken);
+            if (Skaaring is null)
+            {
+                return false;
+            }
 
-        // Cutoff-linjer på resultat-fremdriftsbaren (2026-09-27, samme prinsipp som
-        // Grupper/Aggregert sitt histogram) — Histogramgrenser er enten allerede i prosent
-        // (VisSomProsentIHistogram, kun WHO-5/WHO-5 VAS) eller i råskår og må skaleres mot
-        // RaaSkaarMaks for å plasseres riktig på en 0-100%-bar. Ikke vist når SkjulProsent er
-        // satt (se TestSkaaring), siden det ikke finnes noen fremdriftsbar å tegne linjer over da.
-        if (!Skaaring.SkjulProsent && Skaaring.RaaSkaarMaks > 0)
-        {
-            RaaCutoffs = _testService.HentHistogramgrenser(Test.Kode);
-            var visSomProsent = _testService.VisSomProsentIHistogram(Test.Kode);
-            Cutoffs = RaaCutoffs
-                .Select(g => new CutoffMarkering(g.Navn, visSomProsent ? g.Verdi : g.Verdi * 100m / Skaaring.RaaSkaarMaks))
-                .ToList();
-        }
+            // Cutoff-linjer på resultat-fremdriftsbaren (2026-09-27, samme prinsipp som
+            // Grupper/Aggregert sitt histogram) — Histogramgrenser er enten allerede i prosent
+            // (VisSomProsentIHistogram, kun WHO-5/WHO-5 VAS) eller i råskår og må skaleres mot
+            // RaaSkaarMaks for å plasseres riktig på en 0-100%-bar. Ikke vist når SkjulProsent er
+            // satt (se TestSkaaring), siden det ikke finnes noen fremdriftsbar å tegne linjer over da.
+            if (!Skaaring.SkjulProsent && Skaaring.RaaSkaarMaks > 0)
+            {
+                RaaCutoffs = _testService.HentHistogramgrenser(Test.Kode);
+                var visSomProsent = _testService.VisSomProsentIHistogram(Test.Kode);
+                Cutoffs = RaaCutoffs
+                    .Select(g => new CutoffMarkering(g.Navn, visSomProsent ? g.Verdi : g.Verdi * 100m / Skaaring.RaaSkaarMaks))
+                    .ToList();
+            }
 
-        if (Test.Kode == "sipp118")
-        {
-            Sipp118Radar = Sipp118RadarBeregner.Beregn(Skaaring.Indikatorer);
-        }
-        else if (Test.Kode == "scid5_pf")
-        {
-            Scid5PfBar = Scid5PfBarBeregner.Beregn(innhold.AlleLedd, innhold.EksisterendeSvar);
-        }
-        else if (Test.Kode == "mpfi_24")
-        {
-            MpfiFleksibilitetRadar = MpfiRadarBeregner.Beregn(Skaaring.Indikatorer, "Fleksibilitet — ");
-            MpfiRigiditetRadar = MpfiRadarBeregner.Beregn(Skaaring.Indikatorer, "Rigiditet — ");
+            if (Test.Kode == "sipp118")
+            {
+                Sipp118Radar = Sipp118RadarBeregner.Beregn(Skaaring.Indikatorer);
+            }
+            else if (Test.Kode == "scid5_pf")
+            {
+                Scid5PfBar = Scid5PfBarBeregner.Beregn(innhold.AlleLedd, innhold.EksisterendeSvar);
+            }
+            else if (Test.Kode == "mpfi_24")
+            {
+                MpfiFleksibilitetRadar = MpfiRadarBeregner.Beregn(Skaaring.Indikatorer, "Fleksibilitet — ");
+                MpfiRigiditetRadar = MpfiRadarBeregner.Beregn(Skaaring.Indikatorer, "Rigiditet — ");
+            }
         }
 
         // Kun behandler-utfylte tester (se Test.FyllesUtAvBehandler) har noensinne en
@@ -249,7 +262,9 @@ public sealed class RapportModel : PageModel
 
         Sider = innhold.Sider.Select(side =>
         {
-            var svar = innhold.AlleLedd.Where(l => l.TestSideId == side.Id).Select(ledd =>
+            // Bilde-ledd (hjemmeoppgaver) er rent visningsinnhold forfatteren la inn, ALDRI en
+            // besvart "spørsmål/svar"-rad — tas derfor ikke med i selve svar-tabellen.
+            var svar = innhold.AlleLedd.Where(l => l.TestSideId == side.Id && l.Svartype != TestSvartype.Bilde).Select(ledd =>
             {
                 var raaVerdi = innhold.EksisterendeSvar.GetValueOrDefault(ledd.Id, "-");
                 var label = ledd.Svartype switch
