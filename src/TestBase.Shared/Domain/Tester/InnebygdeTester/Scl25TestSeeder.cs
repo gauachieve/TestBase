@@ -55,7 +55,8 @@ public sealed class Scl25TestSeeder : IInnebygdTestSeeder
     private const string RapportIntroduksjonTekst =
         "SCL-25 / Hopkins Symptom Checklist-25 er et bredt kartleggingsverktøy for angst- og " +
         "depresjonssymptomer, mye brukt i norsk primærhelsetjeneste. 25 spørsmål om siste uke, " +
-        "hvert skåret 1–4. Ledd 24 (tanker om å avslutte livet) flagges spesielt ved forhøyet svar.";
+        "hvert skåret 1–4. Ledd 24 (tanker om å avslutte livet) flagges spesielt ved forhøyet svar. " +
+        "SCL-25 er et bredt screeningverktøy, ikke tilstrekkelig alene for å stille diagnose.";
 
     public async Task SeedAsync(TestService testService, CancellationToken cancellationToken = default)
     {

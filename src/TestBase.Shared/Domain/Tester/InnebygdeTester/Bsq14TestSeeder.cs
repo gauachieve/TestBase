@@ -37,7 +37,8 @@ public sealed class Bsq14TestSeeder : IInnebygdTestSeeder
 
     private const string RapportIntroduksjonTekst =
         "BSQ-14 (Body Shape Questionnaire, kortversjon) kartlegger bekymring for egen kroppsform de siste " +
-        "4 ukene. 14 spørsmål, sumskår 14-84.";
+        "4 ukene. 14 spørsmål, sumskår 14-84. BSQ-14 er et screeningverktøy, ikke tilstrekkelig alene " +
+        "for å stille diagnose på en spiseforstyrrelse.";
 
     public async Task SeedAsync(TestService testService, CancellationToken cancellationToken = default)
     {

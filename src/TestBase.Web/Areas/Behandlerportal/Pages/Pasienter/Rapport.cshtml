@@ -98,10 +98,13 @@ else
                     <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong></p>
                 }
                 @* For SCID-5-PF er dette dobbelt opp med stolpediagrammet under (som viser akkurat
-                   det samme, per forstyrrelse, i et bedre format) — se docs/beslutningslogg.md. *@
+                   det samme, per forstyrrelse, i et bedre format) — se docs/beslutningslogg.md.
+                   For MPFI-24 (bugliste punkt 7) er KUN badge-boksene (f.eks. "3.00/3.50") dobbelt
+                   opp med de to radar-hexagonene under — selve Fortolkning-teksten er IKKE
+                   redundant (radaren viser ingen prosa), så den beholdes. *@
                 @if (Model.Scid5PfBar is null)
                 {
-                    @if (Model.Skaaring.Indikatorer is { Count: > 0 })
+                    @if (Model.Skaaring.Indikatorer is { Count: > 0 } && Model.MpfiFleksibilitetRadar is null)
                     {
                         <div class="rapport-indikatorer">
                         @foreach (var indikator in Model.Skaaring.Indikatorer)
@@ -125,6 +128,9 @@ else
                     string TekstTag(double x, double y, string ankerJustering, string innhold, string ekstraStil = "") =>
                         $"<text x=\"{F(x)}\" y=\"{F(y)}\" text-anchor=\"{ankerJustering}\" style=\"font-size: 11px; fill: var(--ink); {ekstraStil}\">{System.Net.WebUtility.HtmlEncode(innhold)}</text>";
                 }
+                @* data-rapport-graf på en wrapper-div, IKKE selve <svg>-en — se tilsvarende
+                   kommentar ved MPFI-radarene lenger ned for hvorfor (html2canvas-begrensning). *@
+                <div data-rapport-graf="sipp-radar">
                 <svg viewBox="0 0 @Sipp118RadarBeregner.Bredde @Sipp118RadarBeregner.Hoyde" role="img" aria-label="Domeneprofil (SIPP-118-inspirert)" style="max-width: 360px; display: block; margin: 0 auto;">
                     @* Ytre ramme (maks per domene) og en cutoff-ring (den forenklede lavfunksjon-grensen). *@
                     <polygon points="@radar.YtreRingPunkter" style="fill: none; stroke: var(--border); stroke-width: 1;" />
@@ -141,6 +147,7 @@ else
                         @Html.Raw(TekstTag(p.LabelX, p.LabelY, p.LabelAnker, $"{p.Navn} ({p.Verdi}/{p.Maks})"))
                     }
                 </svg>
+                </div>
                 <p style="font-size: 0.82rem; color: #666; text-align: center;">
                     Stiplet linje = forenklet lavfunksjon-grense (ikke en offisiell SIPP-118-norm). Viser kun DENNE besvarelsen — radaren kan ikke vise utvikling over tid, siden hvert domene er en egen dimensjon.
                 </p>
@@ -155,7 +162,7 @@ else
                     string F(double tall) => tall.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
                     string TekstTag(double x, double y, string ankerJustering, string innhold) =>
                         $"<text x=\"{F(x)}\" y=\"{F(y)}\" text-anchor=\"{ankerJustering}\" style=\"font-size: 11px; fill: var(--ink);\">{System.Net.WebUtility.HtmlEncode(innhold)}</text>";
-                    string TegnRadar(TestBase.Shared.Domain.Tester.Skaaring.MpfiRadarData radar, string tittel, string ariaLabel)
+                    string TegnRadar(TestBase.Shared.Domain.Tester.Skaaring.MpfiRadarData radar, string tittel, string ariaLabel, string grafNokkel)
                     {
                         var deler = new List<string>
                         {
@@ -172,14 +179,19 @@ else
                             deler.Add($"<circle cx=\"{F(p.DataX)}\" cy=\"{F(p.DataY)}\" r=\"3.5\" style=\"fill: var(--accent-dark);\" />");
                             deler.Add(TekstTag(p.LabelX, p.LabelY, p.LabelAnker, $"{p.Navn} ({F(p.Skaare)})"));
                         }
-                        return $"<div style=\"flex: 1 1 280px; text-align: center;\"><strong>{System.Net.WebUtility.HtmlEncode(tittel)}</strong>" +
+                        // data-rapport-graf på den YTRE div-en, IKKE på selve <svg>-en — html2canvas
+                        // (se wwwroot/js/rapport.js) feiler med "Unable to find element in cloned
+                        // iframe" når den blir bedt om å rendre et SVG-ROT-element direkte (en kjent
+                        // html2canvas-begrensning, funnet ved reell nettleser-verifisering av
+                        // bugliste punkt 8), men fungerer fint på en vanlig HTML-wrapper rundt den.
+                        return $"<div data-rapport-graf=\"{grafNokkel}\" style=\"flex: 1 1 280px; text-align: center;\"><strong>{System.Net.WebUtility.HtmlEncode(tittel)}</strong>" +
                                $"<svg viewBox=\"0 0 {TestBase.Shared.Domain.Tester.Skaaring.MpfiRadarBeregner.Bredde} {TestBase.Shared.Domain.Tester.Skaaring.MpfiRadarBeregner.Hoyde}\" role=\"img\" aria-label=\"{System.Net.WebUtility.HtmlEncode(ariaLabel)}\" style=\"max-width: 320px; display: block; margin: 0 auto;\">" +
                                string.Join("", deler) + "</svg></div>";
                     }
                 }
                 <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-                    @Html.Raw(TegnRadar(Model.MpfiFleksibilitetRadar, "Fleksibilitetsprosesser", "Fleksibilitetsprofil"))
-                    @Html.Raw(TegnRadar(Model.MpfiRigiditetRadar, "Rigiditetsprosesser", "Rigiditetsprofil"))
+                    @Html.Raw(TegnRadar(Model.MpfiFleksibilitetRadar, "Fleksibilitetsprosesser", "Fleksibilitetsprofil", "mpfi-fleks"))
+                    @Html.Raw(TegnRadar(Model.MpfiRigiditetRadar, "Rigiditetsprosesser", "Rigiditetsprofil", "mpfi-rigid"))
                 </div>
                 <p style="font-size: 0.82rem; color: #666; text-align: center;">
                     Stiplet linje = kjønnsspesifikt normgjennomsnitt. Fylt flate = denne besvarelsen. Fleksibilitet og
@@ -256,7 +268,7 @@ else
                             <td>
                                 @if (endring is not null)
                                 {
-                                    var signifikant = Math.Abs(endring.Value) >= 10;
+                                    var signifikant = Model.SignifikantEndringProsentpoeng is not null && Math.Abs(endring.Value) >= Model.SignifikantEndringProsentpoeng.Value;
                                     <text>@(endring > 0 ? "+" : "")@(endring)@(signifikant ? " (signifikant endring)" : "")</text>
                                 }
                             </td>
@@ -265,7 +277,10 @@ else
                     }
                     </tbody>
                 </table>
-                <p><em>En endring i prosentskår på 10 % eller mer regnes som signifikant, jf. WHO-5-veiledningen.</em></p>
+                @if (Model.SignifikantEndringProsentpoeng is not null)
+                {
+                    <p><em>En endring i prosentskår på @(Model.SignifikantEndringProsentpoeng.Value.ToString("0.#")) prosentpoeng eller mer regnes som signifikant for denne testen, jf. testens egen offisielle veiledning.</em></p>
+                }
             </div>
         }
 
@@ -377,7 +392,8 @@ else if (Model.Tildeling?.RapportGodkjentUtc is not null)
                         </div>
                     }
                 }
-                @if (Model.Skaaring.Indikatorer is { Count: > 0 })
+                @* Samme "ikke dobbelt opp med grafen/stolpediagrammet"-prinsipp som i hovedvisningen over. *@
+                @if (Model.Skaaring.Indikatorer is { Count: > 0 } && Model.Scid5PfBar is null && Model.MpfiFleksibilitetRadar is null)
                 {
                     <div style="margin-bottom: 6px;">
                     @foreach (var indikator in Model.Skaaring.Indikatorer)
@@ -388,7 +404,31 @@ else if (Model.Tildeling?.RapportGodkjentUtc is not null)
                     }
                     </div>
                 }
-                <div style="font-size: 13px;">@Model.Skaaring.Fortolkning</div>
+                <div style="font-size: 13px; white-space: pre-line;">@Model.Skaaring.Fortolkning</div>
+            </div>
+        }
+
+        @* Bugliste punkt 8, 2026-10-04: grafene manglet HELT i utklippstavle-malen (den er en
+           separat, skjult markup-blokk — delte ALDRI DOM med selve siden sin SVG-rendring).
+           Legges inn her som TOMME <img>-plassholdere (data-rapport-graf-plassholder) — selve
+           src-attributtet settes av wwwroot/js/rapport.js RETT FØR kopiering, ved å rendre den
+           LEVENDE, synlige SVG-en (data-rapport-graf på samme nøkkel) til en PNG-bitmap via
+           html2canvas (allerede vendoret lokalt for tilbakemeldingswidgeten, se wwwroot/js/
+           vendor/html2canvas.min.js). Bitmap i stedet for rå <svg>-markup i selve
+           utklippstavlen fordi mange journalsystemers rich text-felt enten stripper eller
+           feilrendrer inline SVG ved innliming, mens et <img>-element med en data:-URI limes
+           inn pålitelig overalt. *@
+        @if (Model.Sipp118Radar is not null)
+        {
+            <div style="text-align: center; margin-bottom: 14px;">
+                <img data-rapport-graf-plassholder="sipp-radar" alt="Domeneprofil" style="max-width: 360px;" />
+            </div>
+        }
+        @if (Model.MpfiFleksibilitetRadar is not null && Model.MpfiRigiditetRadar is not null)
+        {
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
+                <img data-rapport-graf-plassholder="mpfi-fleks" alt="Fleksibilitetsprofil" style="max-width: 300px;" />
+                <img data-rapport-graf-plassholder="mpfi-rigid" alt="Rigiditetsprofil" style="max-width: 300px;" />
             </div>
         }
 
@@ -451,4 +491,5 @@ else if (Model.Tildeling?.RapportGodkjentUtc is not null)
     </div>
 </div>
 
+<script src="~/js/vendor/html2canvas.min.js" asp-append-version="true"></script>
 <script src="~/js/rapport.js" asp-append-version="true"></script>

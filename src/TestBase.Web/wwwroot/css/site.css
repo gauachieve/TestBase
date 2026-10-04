@@ -1072,6 +1072,45 @@ dialog#oppsummeringDialog::backdrop, dialog#grupperapportDialog::backdrop, dialo
   .svar-knapp { flex: 1 1 40%; }
 }
 
+/* Tiltet-tekst variant (bugliste punkt 3, 2026-10-04 — kun MADRS-S, se Fyll.cshtml): store,
+   runde knapper på én horisontal rad, med svarteksten tiltet 45° og forankret til å "vokse ut"
+   av knappens øvre venstre kant — som akseetiketter i et diagram. Løser at MADRS-S sine
+   "mellomtrinn" (f.eks. en ubenevnt "2" mellom de tekstsatte "0" og "4") ble utydelige stablet
+   vertikalt — her er alle seks gradene synlige side om side uansett tekstlengde. */
+.svar-rad--tiltet-tekst {
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 1.75rem;
+  margin: 3.75rem 0 2rem 0.75rem;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 0.25rem;
+}
+.svar-rad--tiltet-tekst .svar-knapp {
+  position: relative;
+  flex: 0 0 auto;
+  width: 3.5rem;
+  height: 3.5rem;
+  min-width: 0;
+  border-radius: 50%;
+  border-width: 3px;
+  padding: 0;
+}
+.svar-rad--tiltet-tekst .svar-knapp span {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 0.4rem;
+  transform: rotate(-45deg);
+  transform-origin: left bottom;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  font-weight: 600 !important;
+  color: var(--ink-soft) !important;
+}
+.svar-rad--tiltet-tekst .svar-knapp:has(input:checked) span {
+  color: var(--accent-dark) !important;
+}
+
 /* ---------- Testutfylling: test-nivå intro-tekst (Fyll.cshtml sin
    Test.Beskrivelse, vist øverst på side 1) — større og med mer luft rundt,
    siden den ofte gir en instruksjon pasienten må lese nøye før de svarer
@@ -1249,7 +1288,11 @@ dialog#oppsummeringDialog::backdrop, dialog#grupperapportDialog::backdrop, dialo
 .rapport-skaartall { font-size: 2.2rem; font-weight: 800; color: var(--accent-dark); white-space: nowrap; }
 .rapport-fremdrift { flex: 1; height: 0.6rem; border-radius: 999px; background: var(--bg-soft); position: relative; }
 .rapport-fremdrift-fyll { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--accent-dark)); }
-.rapport-fortolkning { font-size: 0.96rem; }
+/* white-space: pre-line lar en Fortolkning-streng med domene-/delskala-lister (f.eks. CORE-OM,
+   EDE-Q, SCL-25) bruke ekte \n\n-avsnitt og "• "-punkter uten å måtte gjøre strengen om til HTML
+   (Razor sin standard @-interpolering HTML-encoder automatisk — trygt, men betyr at linjeskift
+   MÅ komme fra CSS, ikke fra <br>/<li>-tagger i selve teksten). Se bugliste punkt 6. */
+.rapport-fortolkning { font-size: 0.96rem; white-space: pre-line; }
 
 /* Cutoff-linjer over resultat-fremdriftsbaren (ITestSkaaringsberegner.Histogramgrenser,
    samme prinsipp som Grupper/Aggregert sitt histogram) — se Rapport.cshtml.cs (begge Areas). */

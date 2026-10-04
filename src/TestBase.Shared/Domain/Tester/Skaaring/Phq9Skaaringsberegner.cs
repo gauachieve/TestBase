@@ -44,8 +44,7 @@ public sealed class Phq9Skaaringsberegner : ITestSkaaringsberegner
 
         var fortolkning =
             $"Råskår {raaSkaar}/{Maks} — {kategori} grad av depressive symptomer (basert på allment kjente " +
-            "PHQ-9-cutoffs: 0-4 ingen/minimal, 5-9 mild, 10-14 moderat, 15-19 moderat til alvorlig, 20-27 alvorlig). " +
-            "PHQ-9 er et kartleggingsverktøy, ikke tilstrekkelig alene for å stille diagnose.";
+            "PHQ-9-cutoffs: 0-4 ingen/minimal, 5-9 mild, 10-14 moderat, 15-19 moderat til alvorlig, 20-27 alvorlig).";
 
         var indikatorer = new List<TestSkaaringIndikator>
         {

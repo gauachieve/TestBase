@@ -41,7 +41,8 @@ public sealed class Sdq20TestSeeder : IInnebygdTestSeeder
 
     private const string RapportIntroduksjonTekst =
         "SDQ-20 (Somatoform Dissociation Questionnaire, Nijenhuis et al. 1996) kartlegger kroppslige " +
-        "(somatoforme) dissosiative symptomer. 20 spørsmål, sumskår 20-100.";
+        "(somatoforme) dissosiative symptomer. 20 spørsmål, sumskår 20-100. SDQ-20 er et " +
+        "screeningverktøy, ikke tilstrekkelig alene for å stille diagnose.";
 
     public async Task SeedAsync(TestService testService, CancellationToken cancellationToken = default)
     {

@@ -18,7 +18,8 @@ public sealed class AuditTestSeeder : IInnebygdTestSeeder
 
     private const string RapportIntroduksjonTekst =
         "AUDIT (Alcohol Use Disorders Identification Test, WHO) er et screeningverktøy for risikofylt " +
-        "alkoholbruk. 10 spørsmål, sumskår 0-40.";
+        "alkoholbruk. 10 spørsmål, sumskår 0-40. AUDIT er et screeningverktøy, ikke tilstrekkelig " +
+        "alene for å stille diagnose.";
 
     public async Task SeedAsync(TestService testService, CancellationToken cancellationToken = default)
     {

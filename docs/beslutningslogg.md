@@ -6805,3 +6805,136 @@ ekte Vipps- og kortbetaling på live. Begge UNDERSØKT, INGEN av dem implementer
    live" har stått i CLAUDE.md gjennom hele prosjektet). Spør brukeren eksplisitt om de faktisk har
    signerte avtaler/ekte nøkler klare FØR dette tas videre, og foreslå en BETA-verifisering med en
    reell, liten betaling FØR noe liknende skrus på for ekte pasienter på live.
+
+## 13-punkts brukerfeedback-runde fra `bugs_features.txt` (2026-10-04)
+
+Brukeren ba om at hele en 13-punkts feedback-liste ble implementert autonomt over natten
+("Push it all the way", med egen vurdering på alt uklart). Alle 13 punkter er bygget, de 12 første
+verifisert og pushet samme runde; punkt 13 fikk en designavklaring med brukeren underveis (se egen
+underseksjon) før implementering.
+
+1. **"Ferdig!"-mellomsiden fjernet for multi-test-sekvenser.** `Pasientportal/Tester/Fyll` sin siste
+   side fikk to nye knapper — "Fullfør og gå til {neste testnavn}" og "Fullfør og gå til Min side" —
+   som går DIREKTE videre (`Handling` nå `"FerdigNeste"`/`"FerdigHjem"`, i tillegg til det
+   eksisterende `"Ferdig"`), i stedet for den gamle, ekstra bekreftelsessiden mellom hver test i en
+   tildelt batch. En eventuell `GyldighetsAdvarsel` bæres videre via `TempData` og vises som banner
+   på neste side/MinSide.
+2. **BankID-phishing-varselet i Chrome: IKKE en kodefiks.** Bekreftet at dette krever brukerens egen
+   Google Search Console-tilgang (site ownership verification + "request review") — ingen
+   applikasjonskode kan løse dette, kun dokumentert som "ikke gjort" her.
+3. **MADRS-S sin Likert-skala (med "mellomtrinn", ikke-merkede verdier mellom de merkede) redesignet**
+   til store, runde, klikkbare radioknapper med svarteksten 45°-rotert oppover fra hver knapp — ny
+   `.svar-rad--tiltet-tekst`-CSS-klasse (site.css), aktivert kun for `madrs_klinikk`/MADRS-S sitt
+   layout i `Fyll.cshtml` (`stablet`/`tiltetTekst`-variabler), orange tema beholdt.
+4. **"10 %-endring er signifikant" var WHO-5-spesifikk, ikke generell.** Ny
+   `ITestSkaaringsberegner.SignifikantEndringProsentpoeng` (default-interface-member, `null` som
+   standard — INGEN av de ~17 andre beregnerne endret kode). Kun `Who5Skaaringsberegner`/
+   `Who5VasSkaaringsberegner` setter den eksplisitt (10,0, deres egen sourcede konvensjon).
+   Research viste reell, populasjonsavhengig variasjon i "én SD"-tall for andre instrumenter — BEVISST
+   IKKE hardkodet en generisk verdi som kunne villede klinisk (samme "bevisst sovende fremfor gjettet"-
+   prinsipp som `Test.MaksUbesvartProsent`). Rapportsiden (begge Areas) viser nå kun "X % endring er
+   statistisk/klinisk signifikant"-forklaringen når testen faktisk har en sourcet verdi.
+5. **"Distress" i CORE-10/CORE-OM sin norske tekst undersøkt.** Helsebibliotekets offisielle norske
+   CORE-oversettelse bruker "symptomer og plager", ikke en fornorsket "distress" — testnavn/
+   beskrivelse/rapporttekst oppdatert til dette i begge testers seeder+skåringsberegner.
+6. **Flerdimensjonale rapporter fikk punktlister.** CORE-OM, EDE-Q og SCL-25 sine delskala-
+   oppsummeringer i `Fortolkning` er nå `\n• `-punktlister (kombinert med `white-space: pre-line` på
+   `.rapport-fortolkning`, IKKE embedded HTML — Razor escaper `@`-interpolert tekst automatisk, se
+   fallgruve-notat i koden) i stedet for én lang kommaseparert setning.
+7. **MPFI-24 sine "3.00/3.50"-tallbokser fjernet fra Resultat-blokken** (begge Areas) — rent
+   redundant med de to radar-grafene rett under. Samme `Indikatorer`-undertrykking som allerede
+   fantes for SCID-5-PF sitt stolpediagram (`Model.Scid5PfBar is null`), nå utvidet med
+   `&& Model.MpfiFleksibilitetRadar is null`. Admin-siden hadde IKKE fått det tilsvarende
+   SCID-5-PF-unntaket fra før (kun Behandlerportal sin "Kopier alt"-mal hadde det) — rettet samtidig.
+8. **Grafer (radarer) manglet i "Kopier alt"/"Kopier resultat"-utklippstavlen.** Ny
+   data-attributt-kobling: `data-rapport-graf="<nøkkel>"` på en WRAPPER-`<div>` rundt hver levende,
+   synlige graf, matchende tom `<img data-rapport-graf-plassholder="<nøkkel>">` i den skjulte
+   `#rapportKopierMal`. `wwwroot/js/rapport.js` sin nye `fyllInnGrafBitmaps()` rendrer hver kilde til
+   PNG via html2canvas (allerede vendoret lokalt for tilbakemeldingswidgeten) rett før kopiering —
+   et `<img>` med en `data:`-URI limes pålitelig inn i journalsystemers rich text-felt, der rå inline
+   SVG ofte strippes/feilrendrer. **Reelt funn under verifisering:** html2canvas kaster
+   `"Unable to find element in cloned iframe"` (en kjent html2canvas-begrensning) når den bes om å
+   rendre et `<svg>`-ROT-element DIREKTE — løst ved å plassere `data-rapport-graf` på den omsluttende
+   `<div>`-en i stedet for selve `<svg>`-en (gjelder MPFI-24 sine to radarer OG SIPP-118 sin, SIPP
+   fikk en ny dedikert wrapper-div den ikke hadde fra før). Verifisert ende-til-ende: begge MPFI-
+   bitmap-ene (~78-79 KB PNG hver) korrekt fylt inn og visuelt identiske med de levende radarene.
+9. **SIPP-118-radarens domenenavn-tekst ble klippet.** `Sipp118RadarBeregner` sitt SVG-lerret var for
+   lite til lange etiketter som "Relasjonell kapasitet (5/5)" — `viewBox` klipper alt utenfor uten
+   varsel. `Bredde`/`Hoyde` 320→640 (kun lerretsstørrelse, selve radarens `MaksRadius` uendret).
+10. **GADIT sitt norske navn endret fra "spillavhengighet" til "Dataspillavhengighet ICD-11 GADIT"** —
+    "spill" leses primært som gambling på norsk, misvisende for en gaming-test. "Dataspillavhengighet"
+    bekreftet som Helsebibliotekets/NHIs/Medietilsynets etablerte begrep. Eksisterende
+    `SettNavnAsync`-mekanisme i seederen gjør at omdøpingen slår inn automatisk ved neste
+    "Regenerer innebygde tester"-kjøring, ingen migrasjon nødvendig.
+11. **Screening-forbehold ("ikke tilstrekkelig alene for diagnose") flyttet fra PER-RESULTAT-tekst
+    til testens EGEN engangs-beskrivelse.** Fjernet fra `Fortolkning` i 10 skåringsberegnere (ASRS,
+    AUDIT, BSQ-14, CORE-10, CORE-OM, DUDIT, EDE-Q, PHQ-9 uendret — hadde alt sitt eget forbehold før,
+    SCL-25, SDQ-20), lagt til i de tilsvarende 9 seedernes `RapportIntroduksjonTekst` i stedet (vist
+    én gang, ikke gjentatt på hver eneste besvarelse/rapport).
+12. **TRAPS II sin rapport "så wonky ut"** — opptil 15 individuelle "Bekreftet traumeeksponering"-
+    badges lå blandet inn blant de 9 faktiske diagnose-badgene øverst i rapporten. Flyttet til en
+    `\n\nBekreftede traumeeksponeringer:\n• ...`-punktliste i `Fortolkning` i stedet (samme mønster
+    som punkt 6/CORE-OM) — `Indikatorer` inneholder nå ALLTID nøyaktig 9 faste diagnostiske badges,
+    uavhengig av antall bekreftede traumer. 2 eksisterende enhetstester omskrevet til å sjekke
+    Fortolkning-teksten i stedet for de nå fjernede Indikator-oppføringene.
+
+### Punkt 13: admin-tildelt klinikertest — verken admin eller behandler fikk oppgaven, behandler fikk likevel rapporten
+
+Brukeren rapporterte et KONKRET, reelt scenario etter at punkt 1-12 var ferdig: en admin tildelte en
+klinikertest (`Test.FyllesUtAvBehandler`, f.eks. SCID-5-PF/HCR-20) til en pasient — verken admin
+eller den tiltenkte behandleren fikk oppgaven på sin Min side, men behandleren fikk likevel den
+RESULTERENDE rapporten. Spurt om en anbefaling før implementering (eksplorerende spørsmål, ikke en
+direkte implementeringsinstruks) — anbefalingen ble gitt og godkjent («Yes»):
+
+**Root cause, bekreftet ved kodelesing + reprodusert lokalt:** systemet har ALDRI hatt noe eksplisitt
+felt for "hvem eier denne klinikeroppgaven" — det ble alltid stille utledet fra `Pasient.BehandlerId`
+på TRE forskjellige steder (`TestService.HentIkkeFullforteForBehandlerAsync`/
+`HentGodkjenteFullforteForBehandlerAsync`, `FyllForPasient.cshtml.cs` sin tilgangssjekk,
+`Behandlerportal/Pasienter/Rapport.cshtml.cs` sin tilgangssjekk). Dette holder for den VANLIGE veien
+(en behandler tildeler til sin EGEN pasient — `Behandlerportal/Tildel/Pasienter.cshtml.cs` passerer
+alltid behandlerens EGEN id til `HentTilgjengeligePasienterAsync`, så `Pasient.BehandlerId` er
+STRUKTURELT alltid korrekt der — bekreftet ved kodelesing, feilen kan IKKE oppstå via
+Behandlerportal sin tildelingsflyt). Men en ADMINISTRATOR kan tildele til EN HVILKEN SOM HELST
+pasient i systemet (`behandlerId: null` i `HentTilgjengeligePasienterAsync` gir ALLE pasienter), og
+hvis pasientens egen `BehandlerId` peker på en ARKIVERT (eller på annen måte ikke-innloggbar)
+behandler-konto, blir oppgaven/rapporten usynlig for BOKSTAVELIG TALT alle — den tiltenkte
+behandleren kan ikke lenger logge inn, og ingen annen konto var noensinne koblet til tildelingen.
+Reprodusert lokalt nøyaktig slik: en pasient med en arkivert eier, SCID-5-PF tildelt av admin uten
+override → testen ble korrekt HOPPET OVER med en forklarende melding i stedet for å forsvinne stille
+(se under).
+
+**Løsning (brukerens godkjente anbefaling):** nytt felt `TestTildeling.AnsvarligBehandlerId`
+(nullable `long`, migrasjon `LeggTilAnsvarligBehandlerIdPaaTestTildeling`) — eksplisitt satt KUN når
+noen aktivt velger en ANNEN behandler enn pasientens egen ved tildelingstidspunktet. `null` (det
+normale) betyr uendret oppførsel fra før feltet fantes: "bruk `Pasient.BehandlerId`". Alle tre
+stedene over leser nå via `(AnsvarligBehandlerId ?? Pasient.BehandlerId)` i stedet for
+`Pasient.BehandlerId` alene (EF Core-join + `??` i `TestService`, ren fallback-sjekk i de to
+PageModel-ene). Ny UI KUN på `Admin/Tildel/Tester.cshtml` (Behandlerportal sin side trenger den
+IKKE — kan strukturelt aldri treffe problemet, se over): en "Ansvarlig behandler for disse testene"-
+nedtrekksmeny + advarseltekst i oppsummerings-dialogen, vist av `wwwroot/js/tildel.js` KUN når minst
+én avkrysset test har `data-fylles-ut-av-behandler="true"`. `TestTildelingsService.
+TildelOgVarsleAsync` fikk et nytt `ansvarligBehandlerId`-parameter og en forhåndssjekk: er verken
+et eksplisitt valg gjort ELLER pasientens egen behandler faktisk `Aktiv`, hopper DENNE testen for
+DENNE pasienten over med en tydelig forklaring i den allerede eksisterende "Ikke tildelt"-seksjonen
+(samme UI-mønster som `Test.KreverBiologiskKjonn`) — i stedet for å stille opprette en tildeling
+ingen noensinne vil se. Planlagte/utsatte tildelinger (`PlanlagtTildelingService`) fikk IKKE et
+tilsvarende eksplisitt valg denne runden (scope-avgrensning) — de faller automatisk tilbake til
+samme sikre "hopp over med forklaring hvis pasientens behandler ikke er aktiv"-oppførsel ved faktisk
+utførelse, aldri verre enn før.
+
+Fanget og fikset underveis: en eksisterende positional-argument-kallsted i
+`PlanlagtTildelingService.cs` (`TildelOgVarsleAsync(..., rad.Varslingsmetode, cancellationToken)`)
+traff PRESIS den dokumenterte "ny valgfri parameter midt i signaturen knekker positional calls"-
+fallgruven i CLAUDE.md — rettet med et navngitt `cancellationToken:`-argument.
+
+Verifisert ende-til-ende i nettleser (Playwright) + direkte SQL-inspeksjon, IKKE bare lest i koden:
+(1) uten override, pasient med arkivert eier → testen hoppet korrekt over med forklarende melding,
+INGEN tildeling opprettet; (2) med eksplisitt valgt behandler → tildelingen opprettet med riktig
+`AnsvarligBehandlerId` i databasen, OG den valgte behandleren (ikke pasientens egen, ikke-innloggbare
+eier) fikk oppgaven synlig på sin Min side-"Ikke besvart"-fane MED en fungerende "Fyll ut"-lenke inn
+på `FyllForPasient` (som uten fiksen ville gitt 404 for denne behandleren); (3) rapport-tilgangs-
+fiksen testet uavhengig på en ALLEREDE fullført besvarelse ved å sette `AnsvarligBehandlerId` til en
+tredje behandler — bekreftet at den opprinnelige eieren DA mister tilgang (404) nettopp fordi
+override-feltet nå korrekt vinner over `Pasient.BehandlerId`. Full regresjonskjøring: alle 86
+integrasjonstester (inkl. de DB-avhengige `HeleFlytenTests`/`BetalingPipelineTests`) grønne
+etterpå.

@@ -32,8 +32,7 @@ public sealed class DuditSkaaringsberegner : ITestSkaaringsberegner
         var fortolkning =
             $"Sumskår {raaSkaar}/{Maks}. Cutoff for mulig rusrelatert problem: ≥6 for menn, ≥2 for kvinner — " +
             "vurder opp mot pasientens kjønn. En skår ≥25 indikerer sannsynlig avhengighet uansett kjønn" +
-            (sannsynligAvhengighet ? " — DENNE PASIENTEN er over 25." : ".") +
-            " DUDIT er et screeningverktøy, ikke tilstrekkelig alene for å stille diagnose.";
+            (sannsynligAvhengighet ? " — DENNE PASIENTEN er over 25." : ".");
 
         var indikatorer = new List<TestSkaaringIndikator>
         {

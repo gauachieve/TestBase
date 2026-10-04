@@ -73,14 +73,16 @@ public sealed class CoreOmSkaaringsberegner : ITestSkaaringsberegnerMedLedd
 
         var fortolkning =
             $"Gjennomsnittsskår {snitt:0.00} (av skala 0-4) — " +
-            (overGrense ? "OVER den forenklede kliniske grensen 1,0, som indikerer klinisk signifikant distress." : "under grensen 1,0.") +
-            $" Domener: Velvære {velvareSum}/{AntallVelvare * 4}, Problemer/symptomer {problemerSum}/{AntallProblemer * 4}, " +
-            $"Livsfunksjon {funksjonSum}/{AntallFunksjon * 4}, Risiko {risikoSum}/{AntallRisiko * 4}. " +
-            "CORE-OM er et bredt distressmål, ikke tilstrekkelig alene for å stille diagnose.";
+            (overGrense ? "OVER den forenklede kliniske grensen 1,0, som indikerer et klinisk signifikant nivå av symptomer og plager." : "under grensen 1,0.") +
+            "\n\nDomener:\n" +
+            $"• Velvære: {velvareSum}/{AntallVelvare * 4}\n" +
+            $"• Problemer/symptomer: {problemerSum}/{AntallProblemer * 4}\n" +
+            $"• Livsfunksjon: {funksjonSum}/{AntallFunksjon * 4}\n" +
+            $"• Risiko: {risikoSum}/{AntallRisiko * 4}";
 
         var indikatorer = new List<TestSkaaringIndikator>
         {
-            new("Klinisk signifikant distress", overGrense ? "Over grense" : "Under grense", !overGrense)
+            new("Klinisk signifikant symptomnivå", overGrense ? "Over grense" : "Under grense", !overGrense)
         };
 
         // Risiko for seg selv: ledd 29-32 (posisjon 0-3 i risikoblokken). Risiko for andre: ledd 33-34 (posisjon 4-5).

@@ -33,6 +33,9 @@ public sealed class Who5Skaaringsberegner : ITestSkaaringsberegner
         new TestSkaaringGrenseverdi("Grenseverdi", Grenseverdi * 4)
     };
 
+    /// <summary>WHO-5s egen offisielle veiledning: en endring på 10 prosentpoeng eller mer regnes som klinisk signifikant.</summary>
+    public double? SignifikantEndringProsentpoeng => 10.0;
+
     public TestSkaaring BeregnSkaaring(IReadOnlyList<TestSvar> svar)
     {
         var verdier = svar.Select(s => int.Parse(s.SvarVerdi)).ToList();

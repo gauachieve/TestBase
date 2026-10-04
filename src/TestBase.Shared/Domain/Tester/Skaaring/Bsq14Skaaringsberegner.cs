@@ -35,8 +35,7 @@ public sealed class Bsq14Skaaringsberegner : ITestSkaaringsberegner
 
         var fortolkning =
             $"Sumskår {raaSkaar}/{Maks} — {kategori} (grenser: <41 ingen, 41-52 mild, 53-67 moderat, ≥68 markert — " +
-            "proporsjonalt skalert fra de mye siterte BSQ-34-cutoffene). BSQ-14 er et screeningverktøy, ikke " +
-            "tilstrekkelig alene for å stille diagnose på en spiseforstyrrelse.";
+            "proporsjonalt skalert fra de mye siterte BSQ-34-cutoffene).";
 
         var indikatorer = new List<TestSkaaringIndikator> { new("Bekymringsnivå", kategori, positiv) };
 

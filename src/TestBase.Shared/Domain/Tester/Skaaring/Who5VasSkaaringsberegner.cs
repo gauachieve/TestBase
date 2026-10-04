@@ -46,6 +46,9 @@ public sealed class Who5VasSkaaringsberegner : ITestSkaaringsberegner
         new TestSkaaringGrenseverdi("Depresjon", DepresjonGrense)
     };
 
+    /// <summary>Samme offisielle WHO-5-veiledning som den ordinære WHO-5 (begge rapporterer i prosent).</summary>
+    public double? SignifikantEndringProsentpoeng => 10.0;
+
     public TestSkaaring BeregnSkaaring(IReadOnlyList<TestSvar> svar)
     {
         var verdier = svar.Select(s => int.Parse(s.SvarVerdi)).ToList();

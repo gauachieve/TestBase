@@ -174,9 +174,24 @@ public sealed class TestTildelingsService
         IReadOnlyDictionary<long, decimal?> onsketHonorarKrPerTestId,
         string baseUrl,
         Varslingspreferanse varslingsmetode = Varslingspreferanse.Begge,
+        long? ansvarligBehandlerId = null,
         CancellationToken cancellationToken = default)
     {
         var pasienter = await _db.Pasienter.Where(p => pasientIder.Contains(p.Id)).ToListAsync(cancellationToken);
+
+        // Bugliste punkt 13: hvem som skal motta OPPGAVEN+RAPPORTEN for en
+        // Test.FyllesUtAvBehandler-tildeling er IKKE lenger blindt "pasientens egen behandler" —
+        // se TestTildeling.AnsvarligBehandlerId sin XML-doc for hele rotårsaken. Slår opp status
+        // for ALLE involverte behandlere (pasientenes egne + en evt. eksplisitt valgt) i ÉN
+        // spørring her, FØR per-pasient-løkken, for å unngå N+1.
+        var involverteBehandlerIder = pasienter.Select(p => p.BehandlerId).Distinct().ToList();
+        if (ansvarligBehandlerId is not null && !involverteBehandlerIder.Contains(ansvarligBehandlerId.Value))
+        {
+            involverteBehandlerIder.Add(ansvarligBehandlerId.Value);
+        }
+        var behandlerStatusPerId = await _db.Behandlere
+            .Where(b => involverteBehandlerIder.Contains(b.Id))
+            .ToDictionaryAsync(b => b.Id, b => b.Status, cancellationToken);
 
         // Hentet ÉN gang her (i stedet for én gang for PartnerId + én gang til
         // inni BeregnPrisPerTestAsync) — samme entitet gjenbrukt begge steder,
@@ -221,16 +236,42 @@ public sealed class TestTildelingsService
                     continue;
                 }
 
-                var tildeling = await _testService.TildelAsync(
-                    testId, pasient.Id, behandlerId: behandlerId, administratorId: administratorId,
-                    frist: null, varighetMinutter: null, cancellationToken: cancellationToken);
-
                 // Behandler-utfylte tester (se Test.FyllesUtAvBehandler — YGTSS-R/MADRS
                 // klinikkversjon/SCID-5-PF) sendes ALDRI til pasienten: ingen pris (samme
                 // "IkkePakrevd"-prinsipp som prøvepasienter under), ingen lenke i SMS/e-post,
                 // ingen oppføring i selve varslingsmeldingen. Behandleren fyller den ut selv
                 // på Behandlerportal/Pasienter/FyllForPasient, se BehandlerOppgave.
                 var erBehandlerUtfylt = tester.GetValueOrDefault(testId)?.FyllesUtAvBehandler ?? false;
+
+                // Bugliste punkt 13: for en behandler-utfylt test MÅ vi kunne navngi NOEN aktiv
+                // behandler som får oppgaven+rapporten — ansvarligBehandlerId (eksplisitt valgt av
+                // kalleren) vinner, ellers faller vi tilbake til pasientens egen behandler, MEN
+                // kun hvis den kontoen faktisk er aktiv. Er verken valgt eller pasientens egen
+                // behandler aktiv, hopper vi over DENNE testen for DENNE pasienten i stedet for å
+                // stille opprette en tildeling ingen noensinne vil se (se TestTildeling.
+                // AnsvarligBehandlerId sin XML-doc for hele bakgrunnen).
+                if (erBehandlerUtfylt)
+                {
+                    var pasientensBehandlerErAktiv = behandlerStatusPerId.GetValueOrDefault(pasient.BehandlerId) == BehandlerStatus.Aktiv;
+                    if (ansvarligBehandlerId is null && !pasientensBehandlerErAktiv)
+                    {
+                        ikkeTildelteTester.Add(
+                            $"{valgtTest?.Navn}: fylles ut av behandler, men {(pasient.Navn ?? "denne pasienten")} sin egen " +
+                            "behandler er ikke aktiv (arkivert/ikke fullført registrering) — velg en ansvarlig behandler manuelt for denne testen.");
+                        continue;
+                    }
+                    if (ansvarligBehandlerId is not null && behandlerStatusPerId.GetValueOrDefault(ansvarligBehandlerId.Value) != BehandlerStatus.Aktiv)
+                    {
+                        ikkeTildelteTester.Add($"{valgtTest?.Navn}: den valgte ansvarlige behandleren er ikke en aktiv konto.");
+                        continue;
+                    }
+                }
+
+                var tildeling = await _testService.TildelAsync(
+                    testId, pasient.Id, behandlerId: behandlerId, administratorId: administratorId,
+                    frist: null, varighetMinutter: null,
+                    ansvarligBehandlerId: erBehandlerUtfylt ? ansvarligBehandlerId : null,
+                    cancellationToken: cancellationToken);
 
                 // "Prøv systemet"-pasient (intet personnummer, se PasientInvitasjonService.
                 // RegistrerViaQrAsync) skal ALDRI møte betalingsgaten, uansett testens pris —

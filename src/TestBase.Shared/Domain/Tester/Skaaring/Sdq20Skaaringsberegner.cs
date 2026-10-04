@@ -27,8 +27,7 @@ public sealed class Sdq20Skaaringsberegner : ITestSkaaringsberegner
             $"Sumskår {raaSkaar}/{Maks} — " +
             (overGrense
                 ? $"OVER grenseverdien ({Cutoff}), som indikerer sannsynlig somatoform dissosiasjon og bør følges opp videre."
-                : $"under grenseverdien ({Cutoff}).") +
-            " SDQ-20 er et screeningverktøy, ikke tilstrekkelig alene for å stille diagnose.";
+                : $"under grenseverdien ({Cutoff}).");
 
         var indikatorer = new List<TestSkaaringIndikator>
         {

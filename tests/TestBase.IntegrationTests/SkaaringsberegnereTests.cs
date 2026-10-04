@@ -499,10 +499,14 @@ public sealed class SkaaringsberegnereTests
         Assert.Contains("Nåværende trusselfølelse (Th): 3/8", resultat.Fortolkning);
         Assert.Contains("Affektregulering (Ad): 0/8", resultat.Fortolkning);
 
-        Assert.Contains(resultat.Indikatorer!, i => i.Verdi == "Bekreftet: Traume-spørsmål 1");
-        Assert.Contains(resultat.Indikatorer!, i => i.Verdi == "Bekreftet: Traume-spørsmål 3");
-        Assert.Contains(resultat.Indikatorer!, i => i.Verdi == "Bekreftet (annet): Ble utsatt for noe annet");
-        Assert.DoesNotContain(resultat.Indikatorer!, i => i.Verdi.Contains("Traume-spørsmål 2"));
+        // Bugliste punkt 12 (2026-10-04): bekreftede traumeeksponeringer flyttet fra individuelle
+        // Indikator-badger til en punktliste i selve Fortolkning-teksten — se
+        // TrapsIiSkaaringsberegner. Indikatorer inneholder nå KUN de 9 faste diagnostiske badgene.
+        Assert.Contains("• Traume-spørsmål 1", resultat.Fortolkning);
+        Assert.Contains("• Traume-spørsmål 3", resultat.Fortolkning);
+        Assert.Contains("• Annet: Ble utsatt for noe annet", resultat.Fortolkning);
+        Assert.DoesNotContain("Traume-spørsmål 2", resultat.Fortolkning);
+        Assert.Equal(9, resultat.Indikatorer!.Count);
     }
 
     [Fact]
@@ -547,7 +551,7 @@ public sealed class SkaaringsberegnereTests
         var resultat = new CoreOmSkaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
 
         // Velvære: ledd1(revers 4-0=4) + ledd2(revers, mangler->0, 4-0=4) + ledd3(IKKE revers, 0) + ledd4(revers 4) = 12.
-        Assert.Contains("Velvære 12/16", resultat.Fortolkning);
+        Assert.Contains("Velvære: 12/16", resultat.Fortolkning);
         Assert.Contains(resultat.Indikatorer!, i => i.Navn.Contains("Risiko for andre") && !i.Positiv);
     }
 

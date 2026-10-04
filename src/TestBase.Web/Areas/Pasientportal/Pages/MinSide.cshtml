@@ -10,6 +10,13 @@
 }
 <h1>Min side @(antallUbesvarte > 0 ? $"({antallUbesvarte})" : "")</h1>
 
+@if (TempData["GyldighetsAdvarselForrigeTest"] is string forrigeAdvarsel)
+{
+    <div style="border: 1px solid #c90; background: #fff8e6; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+        <p><strong>Merk om forrige test:</strong> @forrigeAdvarsel</p>
+    </div>
+}
+
 <p><a class="btn-accent" href="/Pasientportal/Tester/GodkjenteRapporter">Godkjente rapporter</a></p>
 
 @if (Model.ManglerProfilinfo && Model.FullforProfilLenke is not null)

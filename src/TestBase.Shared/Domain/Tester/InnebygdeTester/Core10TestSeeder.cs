@@ -36,9 +36,12 @@ public sealed class Core10TestSeeder : IInnebygdTestSeeder
     private const string Kategori = "Funksjon, livskvalitet og behandlingsutfall";
 
     private const string RapportIntroduksjonTekst =
-        "CORE-10 (Clinical Outcomes in Routine Evaluation, kortversjon) er et bredt mål på psykisk " +
-        "distress siste uke, mye brukt for å følge behandlingsutfall over tid. Ledd 3 og 10 er " +
-        "risikospørsmål (selvskading/«livet ikke verdt å leve») og flagges alltid separat.";
+        "CORE-10 (Clinical Outcomes in Routine Evaluation, kortversjon) er et bredt mål på " +
+        "symptomer og plager siste uke (samme begrep som Helsebibliotekets offisielle norske " +
+        "CORE-oversettelse bruker — «distress» er ikke et etablert norsk klinisk begrep, se " +
+        "docs/beslutningslogg.md), mye brukt for å følge behandlingsutfall over tid. Ledd 3 og 10 " +
+        "er risikospørsmål (selvskading/«livet ikke verdt å leve») og flagges alltid separat. " +
+        "CORE-10 er et bredt mål på symptomer og plager, ikke tilstrekkelig alene for å stille diagnose.";
 
     public async Task SeedAsync(TestService testService, CancellationToken cancellationToken = default)
     {
@@ -53,7 +56,7 @@ public sealed class Core10TestSeeder : IInnebygdTestSeeder
         }
 
         var test = await testService.OpprettTestAsync(
-            navn: "CORE-10 (Psykisk distress)",
+            navn: "CORE-10 (Symptomer og plager)",
             beskrivelse: "Tenk over den siste uken og kryss av det svaret som passer best for hvert utsagn.",
             belonningstekst: "Takk for at du fylte ut CORE-10. Din behandler vil se over svarene dine.",
             kode: Kode,

@@ -18,7 +18,8 @@ public sealed class DuditTestSeeder : IInnebygdTestSeeder
     private const string RapportIntroduksjonTekst =
         "DUDIT (Drug Use Disorders Identification Test, Berman et al. 2003) er et screeningverktøy for " +
         "narkotikabruk, etter samme mal som AUDIT. 11 spørsmål, sumskår 0-44. Cutoff for mulig " +
-        "rusrelatert problem er kjønnsavhengig (se rapporten) — vurder alltid i lys av pasientens kjønn.";
+        "rusrelatert problem er kjønnsavhengig (se rapporten) — vurder alltid i lys av pasientens kjønn. " +
+        "DUDIT er et screeningverktøy, ikke tilstrekkelig alene for å stille diagnose.";
 
     public async Task SeedAsync(TestService testService, CancellationToken cancellationToken = default)
     {

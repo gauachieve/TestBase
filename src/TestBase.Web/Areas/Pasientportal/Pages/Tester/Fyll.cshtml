@@ -5,6 +5,13 @@
     ViewData["Title"] = "Fyll ut test";
 }
 
+@if (TempData["GyldighetsAdvarselForrigeTest"] is string forrigeAdvarsel)
+{
+    <div style="border: 1px solid #c90; background: #fff8e6; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+        <p><strong>Merk om forrige test:</strong> @forrigeAdvarsel</p>
+    </div>
+}
+
 @if (Model.Innhold is null)
 {
     <p style="color: darkred;">Fant ikke testen.</p>
@@ -69,11 +76,17 @@ else
 
                     @if (ledd.Svartype == TestSvartype.LikertSkala)
                     {
-                        // MADRS-S og PDS-ICD-11 sine svaralternativer er lange nok til at
-                        // radlayout blir trangt — stables vertikalt som fullbredde-bokser i
-                        // stedet (bugliste 2026-09-13 punkt 24, utvidet 2026-09-20 til
-                        // PDS-ICD-11), uten å røre andre testers kortere alternativer.
-                        var stablet = Model.Innhold.Test.Kode is "madrs_s" or "pds_icd11";
+                        // PDS-ICD-11 sine svaralternativer er lange nok til at radlayout blir
+                        // trangt — stables vertikalt som fullbredde-bokser i stedet (bugliste
+                        // 2026-09-13 punkt 24, utvidet 2026-09-20 til PDS-ICD-11), uten å røre
+                        // andre testers kortere alternativer. MADRS-S fikk i stedet en EGEN
+                        // layout (bugliste punkt 3, 2026-10-04): stablet vertikalt så "over
+                        // hverandre"-mellomtrinnene (f.eks. "2" uten egen tekst mellom "0" og
+                        // "4") ble visuelt utydelige — store, horisontale runde knapper med
+                        // tiltet tekst (45°) over hver, à la et diagram sin akseetikett, holder
+                        // alle seks gradene synlige side om side i stedet.
+                        var stablet = Model.Innhold.Test.Kode is "pds_icd11";
+                        var tiltetTekst = Model.Innhold.Test.Kode is "madrs_s";
 
                         // PDS-ICD-11 ledd 1-10 er bipolare og stokkes i visningsrekkefølge —
                         // den "sunne" midtre teksten som alltid ligger i midten er kun en
@@ -87,7 +100,7 @@ else
                         var punkter = stokkes
                             ? TestLeddSvaralternativer.ParseStokket(ledd.Svaralternativer, unchecked((int)(Model.Innhold.Tildeling.Id * 397 ^ ledd.Id)))
                             : TestLeddSvaralternativer.Parse(ledd.Svaralternativer);
-                        <div class="svar-rad @(stablet ? "svar-rad--stablet" : "")">
+                        <div class="svar-rad @(stablet ? "svar-rad--stablet" : "") @(tiltetTekst ? "svar-rad--tiltet-tekst" : "")">
                         @foreach (var punkt in punkter)
                         {
                             <label class="svar-knapp">
@@ -139,12 +152,18 @@ else
                 {
                     <button type="submit" name="Handling" value="Neste">Neste</button>
                 }
+                else if (Model.NesteIkkeFullforteTildelingId is not null)
+                {
+                    // To direkte handlinger i stedet for én knapp + en ekstra "Ferdig!"-
+                    // bekreftelsesside (bugliste punkt 1) — pasienten velger selv om de vil
+                    // rett videre til neste test, eller stoppe her og dra tilbake til Min
+                    // Side, uten et redundant mellomsteg som bare gjentar samme spørsmål.
+                    <button type="submit" name="Handling" value="FerdigNeste" class="btn-accent">Fullfør og gå videre til @(Model.NesteIkkeFullforteTestNavn ?? "neste test")</button>
+                    <button type="submit" name="Handling" value="FerdigHjem">Fullfør og gå tilbake til Min Side</button>
+                }
                 else
                 {
-                    var fullforTekst = Model.NesteIkkeFullforteTildelingId is not null
-                        ? "Fullfør og gå videre til " + (Model.NesteIkkeFullforteTestNavn ?? "neste test")
-                        : "Fullfør og gå til Min Side";
-                    <button type="submit" name="Handling" value="Ferdig" class="btn-accent">@fullforTekst</button>
+                    <button type="submit" name="Handling" value="Ferdig" class="btn-accent">Fullfør og gå til Min Side</button>
                 }
             </div>
         </form>

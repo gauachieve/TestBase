@@ -585,6 +585,7 @@ public sealed class TestService
 
     public async Task<TestTildeling> TildelAsync(
         long testId, long pasientId, long? behandlerId, long? administratorId, DateTimeOffset? frist, int? varighetMinutter,
+        long? ansvarligBehandlerId = null,
         CancellationToken cancellationToken = default)
     {
         if (behandlerId is null == administratorId is null)
@@ -600,7 +601,8 @@ public sealed class TestService
             TildeltAvAdministratorId = administratorId,
             TildeltUtc = DateTimeOffset.UtcNow,
             Frist = frist,
-            VarighetMinutter = varighetMinutter
+            VarighetMinutter = varighetMinutter,
+            AnsvarligBehandlerId = ansvarligBehandlerId
         };
         _db.TestTildelinger.Add(tildeling);
         await _db.SaveChangesAsync(cancellationToken);
@@ -983,12 +985,14 @@ public sealed class TestService
     public async Task<IReadOnlyList<TildelingMedTestOgPasient>> HentUgodkjenteFullforteForBehandlerAsync(
         long behandlerId, CancellationToken cancellationToken = default)
     {
-        var pasientIder = await _db.Pasienter.Where(p => p.BehandlerId == behandlerId).Select(p => p.Id).ToListAsync(cancellationToken);
-        var tildelinger = await _db.TestTildelinger
-            .Where(t => pasientIder.Contains(t.PasientId) && t.Status == TestTildelingStatus.Fullfort &&
-                        t.RapportGodkjentUtc == null && t.RapportForkastetUtc == null)
-            .OrderBy(t => t.FullfortUtc)
-            .ToListAsync(cancellationToken);
+        var tildelinger = await (
+            from t in _db.TestTildelinger
+            join p in _db.Pasienter on t.PasientId equals p.Id
+            where (t.AnsvarligBehandlerId ?? p.BehandlerId) == behandlerId && t.Status == TestTildelingStatus.Fullfort &&
+                  t.RapportGodkjentUtc == null && t.RapportForkastetUtc == null
+            orderby t.FullfortUtc
+            select t
+        ).ToListAsync(cancellationToken);
         return await BerikMedTestOgPasientAsync(tildelinger, cancellationToken);
     }
 
@@ -996,11 +1000,18 @@ public sealed class TestService
     public async Task<IReadOnlyList<TildelingMedTestOgPasient>> HentIkkeFullforteForBehandlerAsync(
         long behandlerId, CancellationToken cancellationToken = default)
     {
-        var pasientIder = await _db.Pasienter.Where(p => p.BehandlerId == behandlerId).Select(p => p.Id).ToListAsync(cancellationToken);
-        var tildelinger = await _db.TestTildelinger
-            .Where(t => pasientIder.Contains(t.PasientId) && t.Status != TestTildelingStatus.Fullfort)
-            .OrderBy(t => t.TildeltUtc)
-            .ToListAsync(cancellationToken);
+        // Bugliste punkt 13: AnsvarligBehandlerId (satt KUN for behandler-utfylte tester der noen
+        // eksplisitt valgte en ANNEN behandler enn pasientens egen, se TestTildeling sin XML-doc)
+        // vinner over Pasient.BehandlerId her — ellers ser VERKEN den valgte behandleren (feltet
+        // peker bort fra pasientens egen BehandlerId) ELLER pasientens egen behandler (som ikke
+        // lenger er ansvarlig) riktig status for akkurat denne tildelingen.
+        var tildelinger = await (
+            from t in _db.TestTildelinger
+            join p in _db.Pasienter on t.PasientId equals p.Id
+            where (t.AnsvarligBehandlerId ?? p.BehandlerId) == behandlerId && t.Status != TestTildelingStatus.Fullfort
+            orderby t.TildeltUtc
+            select t
+        ).ToListAsync(cancellationToken);
         return await BerikMedTestOgPasientAsync(tildelinger, cancellationToken);
     }
 
@@ -1008,11 +1019,13 @@ public sealed class TestService
     public async Task<IReadOnlyList<TildelingMedTestOgPasient>> HentGodkjenteFullforteForBehandlerAsync(
         long behandlerId, CancellationToken cancellationToken = default)
     {
-        var pasientIder = await _db.Pasienter.Where(p => p.BehandlerId == behandlerId).Select(p => p.Id).ToListAsync(cancellationToken);
-        var tildelinger = await _db.TestTildelinger
-            .Where(t => pasientIder.Contains(t.PasientId) && t.RapportGodkjentUtc != null)
-            .OrderByDescending(t => t.RapportGodkjentUtc)
-            .ToListAsync(cancellationToken);
+        var tildelinger = await (
+            from t in _db.TestTildelinger
+            join p in _db.Pasienter on t.PasientId equals p.Id
+            where (t.AnsvarligBehandlerId ?? p.BehandlerId) == behandlerId && t.RapportGodkjentUtc != null
+            orderby t.RapportGodkjentUtc descending
+            select t
+        ).ToListAsync(cancellationToken);
         return await BerikMedTestOgPasientAsync(tildelinger, cancellationToken);
     }
 
@@ -1273,6 +1286,10 @@ public sealed class TestService
     /// <summary>Se ITestSkaaringsberegner.Histogramgrenser — tom liste for tester uten en enkel, navngitt cutoff.</summary>
     public IReadOnlyList<TestSkaaringGrenseverdi> HentHistogramgrenser(string? testKode) =>
         FinnBeregner(testKode)?.Histogramgrenser ?? Array.Empty<TestSkaaringGrenseverdi>();
+
+    /// <summary>Se ITestSkaaringsberegner.SignifikantEndringProsentpoeng — NULL (ingen markering) som fallback for tester uten en sitert terskel.</summary>
+    public double? HentSignifikantEndringProsentpoeng(string? testKode) =>
+        FinnBeregner(testKode)?.SignifikantEndringProsentpoeng;
 
     private ITestSkaaringsberegner? FinnBeregner(string? testKode) =>
         testKode is null ? null : _skaaringsberegnere.FirstOrDefault(b => b.TestKode == testKode);

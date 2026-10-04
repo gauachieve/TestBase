@@ -647,6 +647,28 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   admin/behandler-BankID-serien) og ekte Vipps/kortbetaling (en credentials-/avtale-beslutning, IKKE
   en kodeendring — Program.cs velger allerede automatisk ekte klient fremfor mock så snart ekte
   nøkler er satt som App Service-innstillinger) — se docs/beslutningslogg.md for full begrunnelse.
+- **13-punkts brukerfeedback-runde (2026-10-04):** implementert autonomt fra en brukerlevert
+  feedback-liste (`bugs_features.txt`, IKKE i kildekontroll — ren arbeidsnotat). Blant de 13: fjernet
+  en redundant "Ferdig!"-mellomside i flertest-sekvenser, MADRS-S sin Likert-skala redesignet (store
+  tiltede svarbokser) for å håndtere umerkede mellomtrinn, "10 %-endring er signifikant" gjort
+  test-spesifikk (`ITestSkaaringsberegner.SignifikantEndringProsentpoeng`, KUN WHO-5/WHO-5 VAS har
+  en sourcet verdi — bevisst IKKE en gjettet generisk SD for resten), flerdimensjonale rapporter
+  (CORE-OM/EDE-Q/SCL-25) fikk punktlister, grafer (radarer) er nå med i "Kopier alt"/"Kopier
+  resultat"-utklippstavlen som ekte PNG-bitmaps (html2canvas, samme bibliotek som
+  tilbakemeldingswidgeten), GADIT omdøpt til "Dataspillavhengighet" (ikke "spillavhengighet" — leses
+  som gambling på norsk). **Punkt 13, den største endringen:** et reelt, reprodusert hull der en
+  ADMIN-tildelt klinikertest (`Test.FyllesUtAvBehandler`) kunne bli usynlig for BÅDE admin og
+  behandler samtidig som rapporten likevel endte hos en behandler — fordi oppgave-/rapport-eierskap
+  alltid ble stille utledet fra `Pasient.BehandlerId` tre forskjellige steder, uten noen sjekk på om
+  den kontoen faktisk var aktiv/innloggbar. Fikset med et nytt eksplisitt felt,
+  `TestTildeling.AnsvarligBehandlerId` (migrasjon, `null` = uendret gammel oppførsel), en ny
+  "Ansvarlig behandler"-nedtrekksmeny KUN på `Admin/Tildel/Tester` (Behandlerportal sin side kan
+  strukturelt aldri treffe dette — en behandler ser alltid bare egne pasienter), og en forhåndssjekk
+  som nå hopper over (med forklaring, ikke stille) en slik test hvis verken et eksplisitt valg er
+  gjort eller pasientens egen behandler faktisk er aktiv. Alle 13 punkter browser-verifisert, 86
+  tester grønne. Se docs/beslutningslogg.md "13-punkts brukerfeedback-runde" for full detalj per
+  punkt, inkl. et nytt reelt html2canvas-funn (kan ikke rendre et `<svg>`-rotelement direkte, må
+  pakkes i en vanlig HTML-wrapper) lagt til i fallgruve-lista under.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
@@ -903,6 +925,8 @@ dotnet watch run
 - En OIDC-klients `scope`-parameter i selve autorisasjonsforespørselen er IKKE nødvendigvis det den faktiske oppstrøms-identitetsleverandøren mottar — en BROKER (som Idura foran ekte BankID) kan være konfigurert PER KLIENT-ID (i brokerens eget dashbord/klientoppsett) til å alltid legge til egne scopes oppå det klienten ber om. Bekreftet reelt 2026-10-01/02: koden ber kun om `openid profile`, men den faktiske utgående autorisasjons-URL-en til BankID viste `scope=openid+profile+sub_nnin+sub_bankid` — `options.Scope.Add(...)` i vår egen kode styrer altså IKKE nødvendigvis hva som faktisk forhandles med den underliggende identitetsleverandøren. Anta ALDRI at en klients scope-forespørsel er den fulle sannheten for en brokered OIDC-integrasjon — observer den FAKTISKE utgående URL-en (eller spør brokerens støtteapparat) for å vite hva som egentlig blir bedt om, spesielt når en spesifikk scope bevisst UNNGÅS av en etterlevelsesgrunn (se "Ekte BankID for admin/behandler, del 5").
 - En ny `IInnebygdTestSeeder`- og/eller `ITestSkaaringsberegner`-IMPLEMENTASJON (ny klasse) blir IKKE automatisk tatt i bruk — BEGGE grensesnittene krever et EKSPLISITT `builder.Services.AddScoped<...>(...)`-kall i Program.cs per klasse (ingen reflection/assembly-scan). Glemmer man dette, kjører "Regenerer innebygde tester" (Admin/Tester) stille uten feil og uten å opprette testen i det hele tatt — ingen kompilatorfeil, ingen runtime-advarsel, testen ser bare ut til å "ikke eksistere". Skjedde reelt ved MPFI-24 (2026-10-03, se docs/beslutningslogg.md). Sjekk ALLTID at BEGGE linjene (seeder OG skåringsberegner, hvis testen har en) er lagt til i Program.cs før en ny innebygd test regnes som ferdig, og bekreft ved å faktisk se testen dukke opp i Admin/Tester-listen etter et regenerer-klikk.
 - En `_auditLogger.LogAsync(...)`-kall med `entityId: string.Join(",", ider)` (en rå kommaseparert liste av FLERE entitet-IDer) kaster `DbUpdateException`/`MySqlException: Data too long for column 'EntityId'` så snart listen blir lang nok — `AuditLogEntry.EntityId` har `HasMaxLength(64)` i AppDbContext, indeksert for oppslag på ÉN entitet, ikke designet for en voksende batch-liste. Skjedde reelt på LIVE ved "velg alle tester"-tildeling (2026-10-03, se docs/beslutningslogg.md "Reell 500-feil ved bulk-tildeling") — og samme mønster fantes i FEM andre kallsteder, inkludert ett (`Admin/Tester/Prising` sin "lagre alle") som trigges av en VANLIG lagring, ikke et spesielt brukervalg. Bruk ALLTID `AuditBatch.EntityId(ider)` (`TestBase.Shared/Security/AuditBatch.cs`) for et audit-kall som dekker flere entiteter — den returnerer enten selve ID-en (ett element) eller en kort `"batch:{antall}"`-streng, og legg heller den fulle listen i `details` (2000 tegns grense, ikke indeksert). `EfAuditLogger.LogAsync` trunkerer nå også defensivt ALLE felt som et sikkerhetsnett, men det er ingen unnskyldning for å ikke bruke AuditBatch ved nye bulk-kallsteder — en silent trunkering gir et ufullstendig/meningsløst audit-spor, selv om den ikke lenger krasjer.
+- html2canvas (vendoret lokalt, se tilbakemeldingswidgeten) kaster `"Unable to find element in cloned iframe"` når den bes om å rendre et `<svg>`-ROT-element DIREKTE — en kjent begrensning i biblioteket, ikke noe spesifikt ved vårt markup. Skjedde reelt ved bugliste punkt 8 (2026-10-04, "Kopier alt" skulle inkludere graf-bitmaps) — løst ved å plassere capture-målet (`data-rapport-graf="..."`-attributtet) på en vanlig omsluttende `<div>` rundt SVG-en i stedet for på selve `<svg>`-taggen. Gjelder ethvert fremtidig forsøk på å skjermbilde-fange et SVG-element med html2canvas — pakk det ALLTID i en HTML-wrapper først.
+- Den tidligere dokumenterte "ny valgfri parameter midt i signaturen knekker positional calls"-fallgruven gjentok seg reelt ved bugliste punkt 13 (2026-10-04): å legge `long? ansvarligBehandlerId = null` midt i `TestTildelingsService.TildelOgVarsleAsync` sin signatur (før den eksisterende `cancellationToken`) knekte ET kallsted i `PlanlagtTildelingService.cs` som fortsatt brukte positional argumenter helt til slutten (`CS1503`, kompilatoren fanget det — denne gangen IKKE en stille runtime-bug, men prinsippet/risikoen er identisk). Minner om: `grep -rn "\.MetodeNavn(" src/` for ALLE kallsteder FØR man endrer en eksisterende offentlig metodesignatur, ikke bare de kallstedene man selv nettopp jobbet i.
 
 ## Hvordan jobbe videre
 

@@ -76,7 +76,8 @@ public sealed class CoreOmTestSeeder : IInnebygdTestSeeder
     private const string RapportIntroduksjonTekst =
         "CORE-OM (Clinical Outcomes in Routine Evaluation – Outcome Measure) er den fulle 34-ledds " +
         "versjonen av CORE-systemet, med 4 domener: subjektiv velvære, problemer/symptomer, " +
-        "livsfunksjon og risiko. Risikoleddene (29-34) flagges alltid separat, uavhengig av totalskår.";
+        "livsfunksjon og risiko. Risikoleddene (29-34) flagges alltid separat, uavhengig av totalskår. " +
+        "CORE-OM er et bredt mål på symptomer og plager, ikke tilstrekkelig alene for å stille diagnose.";
 
     public async Task SeedAsync(TestService testService, CancellationToken cancellationToken = default)
     {

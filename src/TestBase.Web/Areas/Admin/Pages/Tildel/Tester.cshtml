@@ -107,7 +107,8 @@ else if (Model.ValgtePasienter.Any())
                                        data-estimert-min="@Model.EstimertMinutterPerTestId.GetValueOrDefault(test.Id)"
                                        data-minste-pris="@test.MinstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                                        data-storste-pris="@test.StorstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                                       data-typisk-honorar="@test.TypiskBehandlerHonorarKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                                       data-typisk-honorar="@test.TypiskBehandlerHonorarKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                       data-fylles-ut-av-behandler="@test.FyllesUtAvBehandler.ToString().ToLowerInvariant()" />
                                 @test.Navn
                                 @if (!string.IsNullOrEmpty(test.OversettelseNotat))
                                 {
@@ -148,6 +149,30 @@ else if (Model.ValgtePasienter.Any())
                 <li>@(p.Pasient.Navn ?? "(ikke fullført)")</li>
             }
             </ul>
+
+            @* Bugliste punkt 13: admin kan tildele FyllesUtAvBehandler-tester til EN HVILKEN SOM
+               HELST pasient, ikke bare egne — "pasientens egen behandler" er derfor IKKE alltid et
+               trygt implisitt valg her (se TestTildeling.AnsvarligBehandlerId sin XML-doc). Skjult
+               som standard, vist av wwwroot/js/tildel.js kun når minst én AVKRYSSET test har
+               data-fylles-ut-av-behandler="true". *@
+            <div id="ansvarligBehandlerBlokk" hidden>
+                <p style="color: darkred;">
+                    <strong>Minst én valgt test fylles ut av behandler, ikke pasienten.</strong>
+                    Velg hvem som skal få oppgaven OG den ferdige rapporten. La stå tomt for å bruke
+                    pasientens egen behandler — krever at den kontoen faktisk er aktiv, ellers blir
+                    IKKE denne testen tildelt (du får beskjed om dette etter innsending i stedet for
+                    at oppgaven stille forsvinner).
+                </p>
+                <label for="ansvarligBehandlerValg">Ansvarlig behandler for disse testene</label><br />
+                <select name="AnsvarligBehandlerId" id="ansvarligBehandlerValg">
+                    <option value="">(bruk pasientens egen behandler)</option>
+                    @foreach (var b in Model.AktiveBehandlere)
+                    {
+                        <option value="@b.Id">@b.Visningsnavn</option>
+                    }
+                </select>
+            </div>
+
             <button type="button" id="lukkOppsummering" class="btn btn-muted">Avbryt</button>
             <button type="submit" asp-page-handler="Send" class="btn btn-accent" id="sendNaaKnapp">Bekreft og send</button>
             <button type="submit" asp-page-handler="Planlegg" class="btn btn-accent" id="sendPlanlagtKnapp" hidden>Bekreft og planlegg</button>

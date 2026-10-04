@@ -27,9 +27,15 @@ public sealed record Sipp118RadarData(
 /// </summary>
 public static class Sipp118RadarBeregner
 {
-    public const double Bredde = 320;
-    public const double Hoyde = 320;
-    private const double Senter = 160;
+    // Bugliste punkt 9: domenenavn som "Relasjonell kapasitet (5/5)" er ~170px brede ved 11px
+    // skrift — et 320×320 lerret klipper dem rett av siden et SVG sin viewBox klipper alt
+    // utenfor som standard. Lerretet er derfor mye større enn selve radaren trenger (MaksRadius
+    // er uendret, radaren ser visuelt lik ut som før) — kun for å gi lang tekst nok plass rundt
+    // hele sirkelen, uansett hvilken av de 5 aksene (eller en fremtidig test med flere/lengre
+    // domenenavn) som havner nærmest kanten.
+    public const double Bredde = 640;
+    public const double Hoyde = 640;
+    private const double Senter = 320;
     private const double MaksRadius = 105;
     private const double LabelRadius = MaksRadius + 28;
 

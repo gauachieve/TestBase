@@ -36,8 +36,7 @@ public sealed class AuditSkaaringsberegner : ITestSkaaringsberegner
 
         var fortolkning =
             $"Sumskår {raaSkaar}/{Maks} — {kategori} (WHO-cutoffs: 0-7 lav risiko, 8-15 risikofylt, 16-19 " +
-            "skadelig, 20-40 sannsynlig avhengighet). AUDIT er et screeningverktøy, ikke tilstrekkelig alene " +
-            "for å stille diagnose.";
+            "skadelig, 20-40 sannsynlig avhengighet).";
 
         var indikatorer = new List<TestSkaaringIndikator> { new("Risikonivå", kategori, positiv) };
 

@@ -58,7 +58,7 @@ public sealed class FyllForPasientModel : PageModel
     public async Task<IActionResult> OnGetAsync(long id, int? side, CancellationToken cancellationToken)
     {
         var innhold = await _testService.HentTildelingMedInnholdAsync(id, cancellationToken);
-        if (innhold is null || !await HarTilgangAsync(innhold.Tildeling.PasientId, cancellationToken))
+        if (innhold is null || !await HarTilgangAsync(innhold.Tildeling, cancellationToken))
         {
             return NotFound();
         }
@@ -88,7 +88,7 @@ public sealed class FyllForPasientModel : PageModel
     public async Task<IActionResult> OnPostAsync(long id, int? side, CancellationToken cancellationToken)
     {
         var innhold = await _testService.HentTildelingMedInnholdAsync(id, cancellationToken);
-        if (innhold is null || !await HarTilgangAsync(innhold.Tildeling.PasientId, cancellationToken))
+        if (innhold is null || !await HarTilgangAsync(innhold.Tildeling, cancellationToken))
         {
             return NotFound();
         }
@@ -155,11 +155,19 @@ public sealed class FyllForPasientModel : PageModel
             .ToDictionaryAsync(s => s.TestLeddId, s => s.BehandlerKommentar!, cancellationToken);
     }
 
-    /// <summary>Samme mønster som Behandlerportal/Pasienter/Detaljer sin HarTilgangAsync — egen (ikke-partner-utvidet) pasient, eller partner-admin på tvers av partnerens behandlere.</summary>
-    private async Task<bool> HarTilgangAsync(long pasientId, CancellationToken cancellationToken)
+    /// <summary>
+    /// Samme mønster som Behandlerportal/Pasienter/Detaljer sin HarTilgangAsync — egen
+    /// (ikke-partner-utvidet) pasient, eller partner-admin på tvers av partnerens behandlere.
+    /// Bugliste punkt 13: tildelingens EGEN TestTildeling.AnsvarligBehandlerId (satt kun når noen
+    /// eksplisitt valgte en ANNEN behandler enn pasientens egen ved tildelingstidspunktet, se
+    /// feltets XML-doc) vinner over Pasient.BehandlerId — ellers kan den eksplisitt valgte
+    /// behandleren ALDRI få tilgang til oppgaven de faktisk ble gitt ansvar for.
+    /// </summary>
+    private async Task<bool> HarTilgangAsync(TestTildeling tildeling, CancellationToken cancellationToken)
     {
-        var behandlerId = await _db.Pasienter.Where(p => p.Id == pasientId).Select(p => p.BehandlerId).FirstOrDefaultAsync(cancellationToken);
-        if (behandlerId == HentBehandlerId())
+        var pasientensBehandlerId = await _db.Pasienter.Where(p => p.Id == tildeling.PasientId).Select(p => p.BehandlerId).FirstOrDefaultAsync(cancellationToken);
+        var ansvarligBehandlerId = tildeling.AnsvarligBehandlerId ?? pasientensBehandlerId;
+        if (ansvarligBehandlerId == HentBehandlerId())
         {
             return true;
         }
@@ -169,7 +177,7 @@ public sealed class FyllForPasientModel : PageModel
             return false;
         }
 
-        var eierPartnerId = await _db.Behandlere.Where(b => b.Id == behandlerId).Select(b => b.PartnerId).FirstOrDefaultAsync(cancellationToken);
+        var eierPartnerId = await _db.Behandlere.Where(b => b.Id == ansvarligBehandlerId).Select(b => b.PartnerId).FirstOrDefaultAsync(cancellationToken);
         return eierPartnerId == _currentUser.PartnerId;
     }
 

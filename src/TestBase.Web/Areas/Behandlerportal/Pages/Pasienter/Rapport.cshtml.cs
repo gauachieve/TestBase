@@ -57,6 +57,12 @@ public sealed class RapportModel : PageModel
     public TestSkaaring? Skaaring { get; private set; }
     public IReadOnlyList<CutoffMarkering> Cutoffs { get; private set; } = Array.Empty<CutoffMarkering>();
 
+    /// <summary>Se ITestSkaaringsberegner.SignifikantEndringProsentpoeng — NULL skjuler hele
+    /// "signifikant endring"-markeringen/forklaringslinjen i "utvikling over tid" (bugliste
+    /// 2026-10-04: en tidligere hardkodet 10%-regel, kun gyldig for WHO-5, ble feilaktig vist
+    /// for ALLE tester).</summary>
+    public double? SignifikantEndringProsentpoeng { get; private set; }
+
     /// <summary>Radar-graf av de 5 SIPP-118-inspirerte domenene — kun satt for Test.Kode == "sipp118" (se Sipp118RadarBeregner).</summary>
     public Sipp118RadarData? Sipp118Radar { get; private set; }
 
@@ -184,16 +190,22 @@ public sealed class RapportModel : PageModel
             return false;
         }
 
-        Pasient = await _db.Pasienter.FirstOrDefaultAsync(
-            p => p.Id == innhold.Tildeling.PasientId && p.BehandlerId == behandlerId, cancellationToken);
-        if (Pasient is null)
+        // Bugliste punkt 13: TestTildeling.AnsvarligBehandlerId (satt kun når noen eksplisitt
+        // valgte en ANNEN behandler enn pasientens egen for en behandler-utfylt test, se feltets
+        // XML-doc) vinner over Pasient.BehandlerId — ellers havner rapporten alltid hos pasientens
+        // vanlige behandler uansett hvem som faktisk ble bedt om å gjennomføre/rapportere på den
+        // kliniske vurderingen.
+        var pasient = await _db.Pasienter.FirstOrDefaultAsync(p => p.Id == innhold.Tildeling.PasientId, cancellationToken);
+        if (pasient is null || (innhold.Tildeling.AnsvarligBehandlerId ?? pasient.BehandlerId) != behandlerId)
         {
             return false;
         }
+        Pasient = pasient;
 
         Tildeling = innhold.Tildeling;
         Test = innhold.Test;
         KategoriNavn = await _testService.HentPrimaerKategoriNavnAsync(Test.Id, cancellationToken);
+        SignifikantEndringProsentpoeng = _testService.HentSignifikantEndringProsentpoeng(Test.Kode);
 
         Skaaring = await _testService.BeregnSkaaringAsync(id, cancellationToken);
         if (Skaaring is null)

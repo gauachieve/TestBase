@@ -175,11 +175,27 @@
         };
     }
 
+    // Bugliste punkt 13 (kun Admin/Tildel/Tester — elementet finnes ikke på
+    // Behandlerportal sin side, siden en behandler uansett kun kan tildele til
+    // EGNE pasienter og problemet derfor ikke kan oppstå der, se
+    // TestTildeling.AnsvarligBehandlerId sin XML-doc).
+    var ansvarligBehandlerBlokk = document.getElementById('ansvarligBehandlerBlokk');
+
     function oppdaterOppsummering() {
         var valgtMetode = document.querySelector('.tildel-varslingsmetode:checked');
         var inkludererSms = valgtMetode && (valgtMetode.value === 'Sms' || valgtMetode.value === 'Begge');
         var smsGebyrKr = inkludererSms ? tall(form.getAttribute('data-sms-gebyr-kr')) : 0;
         var antallPasienter = tall(form.getAttribute('data-antall-pasienter'), 1);
+
+        if (ansvarligBehandlerBlokk) {
+            var harBehandlerUtfylt = false;
+            document.querySelectorAll('.tildel-test-checkbox:checked').forEach(function (checkbox) {
+                if (checkbox.getAttribute('data-fylles-ut-av-behandler') === 'true') {
+                    harBehandlerUtfylt = true;
+                }
+            });
+            visSkjult(ansvarligBehandlerBlokk, harBehandlerUtfylt);
+        }
 
         var seddeTestIder = {};
         var sumTotal = 0, sumPlattform = 0, sumPartner = 0, sumBehandler = 0;

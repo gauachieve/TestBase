@@ -106,7 +106,7 @@ public sealed class PlanlagtTildelingService
 
             await _tildelingsService.TildelOgVarsleAsync(
                 pasientIder, testIder, rad.BehandlerId, rad.AdministratorId, honorar,
-                baseUrl, rad.Varslingsmetode, cancellationToken);
+                baseUrl, rad.Varslingsmetode, cancellationToken: cancellationToken);
             rad.Feilmelding = null;
         }
         catch (Exception ex)

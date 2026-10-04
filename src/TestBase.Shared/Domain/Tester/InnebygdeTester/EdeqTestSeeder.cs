@@ -73,7 +73,8 @@ public sealed class EdeqTestSeeder : IInnebygdTestSeeder
         "EDE-Q (Eating Disorder Examination Questionnaire, tilpasset/omskrevet versjon — se " +
         "seeder-kommentar for opphavsrettslig forbehold) kartlegger spiseforstyrrelsessymptomer " +
         "siste 28 dager, med 4 delskalaer (Restriksjon, Spisebekymring, Figurbekymring, " +
-        "Vektbekymring) og et globalskår som gjennomsnittet av disse.";
+        "Vektbekymring) og et globalskår som gjennomsnittet av disse. EDE-Q er et screeningverktøy, " +
+        "ikke tilstrekkelig alene for å stille diagnose.";
 
     public async Task SeedAsync(TestService testService, CancellationToken cancellationToken = default)
     {

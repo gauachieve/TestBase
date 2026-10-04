@@ -49,7 +49,8 @@ public sealed class AsrsTestSeeder : IInnebygdTestSeeder
     private const string RapportIntroduksjonTekst =
         "ASRS v1.1 Symptomsjekkliste (WHO/Kessler et al.) er et screeningverktøy for voksen-ADHD. Del A " +
         "(spørsmål 1-6) er den validerte screeneren; Del B (spørsmål 7-18) gir supplerende klinisk " +
-        "informasjon, men teller ikke med i screener-skåren.";
+        "informasjon, men teller ikke med i screener-skåren. ASRS er et screeningverktøy, ikke " +
+        "tilstrekkelig alene for å stille diagnose.";
 
     public async Task SeedAsync(TestService testService, CancellationToken cancellationToken = default)
     {

@@ -42,4 +42,21 @@ public interface ITestSkaaringsberegner
     /// sammensatte domene-grenser som ikke er meningsfulle å tegne som én linje.
     /// </summary>
     IReadOnlyList<TestSkaaringGrenseverdi> Histogramgrenser => Array.Empty<TestSkaaringGrenseverdi>();
+
+    /// <summary>
+    /// Hvor stor en endring i prosentskår mellom to besvarelser av SAMME test må være for å
+    /// markeres som "signifikant endring" i "utvikling over tid"-tabellen (se
+    /// Behandlerportal/Pasienter/Rapport.cshtml). Standard NULL — ingen markering vises med
+    /// mindre testen eksplisitt setter denne, basert på en EKTE sitert terskel. Satt KUN for
+    /// WHO-5/WHO-5 VAS (10 prosentpoeng, WHO-5-manualens egen offisielle terskel) — en tidligere
+    /// versjon av koden viste denne 10%-regelen for ALLE tester uansett, selv om den kun noensinne
+    /// var sitert/gyldig for WHO-5 (bugliste 2026-10-04, se docs/beslutningslogg.md). BEVISST IKKE
+    /// erstattet med "1 standardavvik fra forskningen" for andre tester: søk i litteraturen viser
+    /// publiserte SD-tall for disse instrumentene varierer 2-3× avhengig av populasjon (f.eks.
+    /// PHQ-9 ~6,5 i en generell befolkning mot 8-15 i kliniske utvalg; CORE-OM 4,3 mot 7,1) — å
+    /// hardkode ÉN "forskningsbasert" terskel ville vært like misvisende som 10%-regelen den
+    /// erstatter, så funksjonen er bevisst sovende for andre tester inntil en reell, sitert
+    /// terskel for akkurat DEN populasjonen/bruken faktisk legges inn.
+    /// </summary>
+    double? SignifikantEndringProsentpoeng => null;
 }

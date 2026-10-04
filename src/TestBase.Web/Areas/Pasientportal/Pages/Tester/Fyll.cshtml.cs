@@ -157,7 +157,7 @@ public sealed class FyllModel : PageModel
         }
 
         var erSisteSide = GjeldendeSideNummer == innhold.Sider.Count;
-        var markerFullfort = Handling == "Ferdig" && erSisteSide;
+        var markerFullfort = Handling is "Ferdig" or "FerdigNeste" or "FerdigHjem" && erSisteSide;
 
         await _testService.LagreSvarAsync(id, svar, markerFullfort, cancellationToken);
 
@@ -166,6 +166,32 @@ public sealed class FyllModel : PageModel
             await _auditLogger.LogAsync(
                 _currentUser.UserId, _currentUser.Role.ToString(), "FullforTest",
                 nameof(TestTildeling), id.ToString(), cancellationToken: cancellationToken);
+
+            // "FerdigNeste"/"FerdigHjem" går RETT til neste steg uten den tidligere
+            // "Ferdig!"-mellomsiden (bugliste punkt 1, se docs/beslutningslogg.md) — en
+            // eventuell GyldighetsAdvarsel bæres videre via TempData og vises som en
+            // engangsbanner på målsiden i stedet. "Ferdig" (ingen neste test å velge mellom)
+            // beholder den opprinnelige "Ferdig!"-siden UENDRET — der er den ikke redundant.
+            if (Handling is "FerdigNeste" or "FerdigHjem")
+            {
+                var skaaring = await _testService.BeregnSkaaringAsync(id, cancellationToken);
+                if (skaaring?.GyldighetsAdvarsel is not null)
+                {
+                    TempData["GyldighetsAdvarselForrigeTest"] = skaaring.GyldighetsAdvarsel;
+                }
+
+                if (Handling == "FerdigNeste")
+                {
+                    await LastNesteIkkeFullforteAsync(id, cancellationToken);
+                    if (NesteIkkeFullforteTildelingId is not null)
+                    {
+                        return RedirectToPage(new { id = NesteIkkeFullforteTildelingId.Value });
+                    }
+                }
+
+                return RedirectToPage("/MinSide", new { area = "Pasientportal" });
+            }
+
             return RedirectToPage(new { id });
         }
 

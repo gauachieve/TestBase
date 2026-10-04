@@ -46,12 +46,11 @@ public sealed class Core10Skaaringsberegner : ITestSkaaringsberegnerMedLedd
 
         var fortolkning =
             $"Sumskår {raaSkaar}/{Maks} — " +
-            (overGrense ? $"OVER den kliniske grensen ({KlinuskCutoff}), som indikerer klinisk signifikant distress." : $"under den kliniske grensen ({KlinuskCutoff}).") +
-            " CORE-10 er et bredt distressmål, ikke tilstrekkelig alene for å stille diagnose.";
+            (overGrense ? $"OVER den kliniske grensen ({KlinuskCutoff}), som indikerer et klinisk signifikant nivå av symptomer og plager." : $"under den kliniske grensen ({KlinuskCutoff}).");
 
         var indikatorer = new List<TestSkaaringIndikator>
         {
-            new("Klinisk signifikant distress", overGrense ? "Over grense" : "Under grense", !overGrense)
+            new("Klinisk signifikant symptomnivå", overGrense ? "Over grense" : "Under grense", !overGrense)
         };
 
         var selvskadingVerdi = RaVerdi(2); // Ledd 3

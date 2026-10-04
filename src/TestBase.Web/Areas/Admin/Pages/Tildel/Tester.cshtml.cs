@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
+using TestBase.Shared.Data;
+using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Domain.Tester;
 using TestBase.Shared.Security;
@@ -14,16 +17,18 @@ public sealed class TesterModel : PageModel
     private readonly PlanlagtTildelingService _planlagtTildelingService;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuditLogger _auditLogger;
+    private readonly AppDbContext _db;
 
     public TesterModel(
         TestService testService, TestTildelingsService tildelingsService, PlanlagtTildelingService planlagtTildelingService,
-        ICurrentUserContext currentUser, IAuditLogger auditLogger)
+        ICurrentUserContext currentUser, IAuditLogger auditLogger, AppDbContext db)
     {
         _testService = testService;
         _tildelingsService = tildelingsService;
         _planlagtTildelingService = planlagtTildelingService;
         _currentUser = currentUser;
         _auditLogger = auditLogger;
+        _db = db;
     }
 
     /// <summary>Se Behandlerportal-motstykket for full begrunnelse av alle Plan*-feltene.</summary>
@@ -58,6 +63,18 @@ public sealed class TesterModel : PageModel
     [BindProperty]
     public Varslingspreferanse Varslingsmetode { get; set; } = Varslingspreferanse.Begge;
 
+    /// <summary>
+    /// Bugliste punkt 13: KUN relevant når minst én valgt test er Test.FyllesUtAvBehandler.
+    /// Admin kan tildele til EN HVILKEN SOM HELST pasient (ikke begrenset til egne, i motsetning
+    /// til en behandler) — null betyr "bruk pasientens egen behandler" (uendret oppførsel fra før
+    /// dette feltet fantes), en eksplisitt verdi overstyrer hvem som får oppgaven OG rapporten.
+    /// Se TestTildeling.AnsvarligBehandlerId sin XML-doc for hele bakgrunnen.
+    /// </summary>
+    [BindProperty]
+    public long? AnsvarligBehandlerId { get; set; }
+
+    public IReadOnlyList<Behandler> AktiveBehandlere { get; private set; } = Array.Empty<Behandler>();
+
     public IReadOnlyList<TestService.KategoriMedTester> KategoriTre { get; private set; } = Array.Empty<TestService.KategoriMedTester>();
     public IReadOnlyList<PasientMedBehandlernavn> ValgtePasienter { get; private set; } = Array.Empty<PasientMedBehandlernavn>();
     public IReadOnlyDictionary<long, int> EstimertMinutterPerTestId { get; private set; } = new Dictionary<long, int>();
@@ -75,6 +92,7 @@ public sealed class TesterModel : PageModel
         PasientIderCsv = csv;
         await LastValgtePasienterAsync(csv, cancellationToken);
         KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken: cancellationToken);
+        await LastAktiveBehandlereAsync(cancellationToken);
 
         var alleTestIder = KategoriTre.SelectMany(k => k.Tester).Select(t => t.Id).Distinct().ToList();
         var antallLedd = await _testService.HentAntallLeddPerTestAsync(alleTestIder, cancellationToken);
@@ -85,6 +103,7 @@ public sealed class TesterModel : PageModel
     {
         await LastValgtePasienterAsync(PasientIderCsv, cancellationToken);
         KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken: cancellationToken);
+        await LastAktiveBehandlereAsync(cancellationToken);
 
         if (!ValgtePasienter.Any())
         {
@@ -104,7 +123,7 @@ public sealed class TesterModel : PageModel
             pasientIder, testIder, behandlerId: null, administratorId: HentAdministratorId(),
             onsketHonorarKrPerTestId: new Dictionary<long, decimal?>(),
             baseUrl: $"{Request.Scheme}://{Request.Host}",
-            varslingsmetode: Varslingsmetode, cancellationToken: cancellationToken);
+            varslingsmetode: Varslingsmetode, ansvarligBehandlerId: AnsvarligBehandlerId, cancellationToken: cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "TildelTesterBatch",
@@ -187,6 +206,15 @@ public sealed class TesterModel : PageModel
         var onskedeIder = ParseIder(csv).ToHashSet();
         var tilgjengelige = await _tildelingsService.HentTilgjengeligePasienterAsync(null, cancellationToken);
         ValgtePasienter = tilgjengelige.Where(p => onskedeIder.Contains(p.Pasient.Id)).ToList();
+    }
+
+    /// <summary>Bugliste punkt 13: kandidatlisten for "ansvarlig behandler"-dropdownen. Sortering
+    /// skjer i MINNET, ikke via EF OrderBy — Visningsnavn er en beregnet C#-property EF Core ikke
+    /// kan oversette til SQL (kjent fallgruve, se CLAUDE.md).</summary>
+    private async Task LastAktiveBehandlereAsync(CancellationToken cancellationToken)
+    {
+        var behandlere = await _db.Behandlere.Where(b => b.Status == BehandlerStatus.Aktiv).ToListAsync(cancellationToken);
+        AktiveBehandlere = behandlere.OrderBy(b => b.Visningsnavn).ToList();
     }
 
     private static IReadOnlyList<long> ParseIder(string csv) =>

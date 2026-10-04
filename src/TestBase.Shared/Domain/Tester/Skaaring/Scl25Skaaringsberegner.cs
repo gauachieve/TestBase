@@ -40,8 +40,9 @@ public sealed class Scl25Skaaringsberegner : ITestSkaaringsberegnerMedLedd
         var fortolkning =
             $"Gjennomsnittsskår {totalSnitt:0.00} (av skala 1-4) — " +
             (overGrense ? "OVER grensen 1,75, som indikerer klinisk signifikant symptomtrykk." : "under grensen 1,75.") +
-            $" Delskalaer: angst {angstSnitt:0.00}, depresjon {depresjonSnitt:0.00}. " +
-            "SCL-25 er et bredt screeningverktøy, ikke tilstrekkelig alene for å stille diagnose.";
+            "\n\nDelskalaer:\n" +
+            $"• Angst: {angstSnitt:0.00}\n" +
+            $"• Depresjon: {depresjonSnitt:0.00}";
 
         var indikatorer = new List<TestSkaaringIndikator>
         {

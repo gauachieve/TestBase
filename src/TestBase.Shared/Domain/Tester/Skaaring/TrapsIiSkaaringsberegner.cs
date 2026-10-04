@@ -89,6 +89,23 @@ public sealed class TrapsIiSkaaringsberegner : ITestSkaaringsberegnerMedLedd
             diagnose = "Kriteriene for verken PTSD eller kompleks PTSD er oppfylt ut fra denne besvarelsen.";
         }
 
+        // Bugliste punkt 12, 2026-10-04: disse lå TIDLIGERE som individuelle Indikator-badger
+        // (opptil 15 stykker, ÉN per bekreftet Del 1-spørsmål) — rendret i SAMME rad som de 9
+        // diagnostiske badgene øverst i rapporten, og dominerte/"så wonky ut" nettopp fordi en
+        // pasient med mange bekreftede traumer kunne få et dusin+ lange, røde tekst-badger
+        // blandet inn blant de egentlige diagnose-indikatorene. Flyttet til en ren punktliste i
+        // selve Fortolkning-teksten i stedet (samme mønster som CORE-OM/EDE-Q/SCL-25 sine
+        // delskala-punktlister, bugliste punkt 6) — Indikatorer inneholder nå KUN de 9 faste
+        // diagnostiske badgene, uavhengig av hvor mange traumer som ble bekreftet.
+        var del1JaLedd = alleLedd.Take(AntallDel1JaNei)
+            .Where(ledd => svarPerLeddId.TryGetValue(ledd.Id, out var v) && v == "Ja")
+            .ToList();
+        string? annenHendelseTekst = AntallDel1JaNei < alleLedd.Count &&
+            svarPerLeddId.TryGetValue(alleLedd[AntallDel1JaNei].Id, out var annenTekst) &&
+            !string.IsNullOrWhiteSpace(annenTekst)
+            ? annenTekst
+            : null;
+
         var fortolkning = $"{diagnose} PTSD-skåre (gjenopplevelse/unngåelse/fare): {ptsdSkaar}/{MaksPerCluster}. " +
                            $"DSO-skåre (selvorganisering): {dsoSkaar}/{MaksPerCluster}. " +
                            $"Klynger — Gjenopplevelse (Re): {reSkaar}/{MaksPerDelklynge}, Unngåelse (Av): {avSkaar}/{MaksPerDelklynge}, " +
@@ -97,6 +114,13 @@ public sealed class TrapsIiSkaaringsberegner : ITestSkaaringsberegnerMedLedd
                            "Hver klynge krever minst ett ledd besvart «Moderat» eller over for å telle som diagnostisk til stede " +
                            "(kriteriet nedenfor), i tillegg til funksjonstap. Klinisk vurdering skal alltid ha forrang ved uenighet " +
                            "med den automatiske skåren.";
+
+        if (del1JaLedd.Count > 0 || annenHendelseTekst is not null)
+        {
+            fortolkning += "\n\nBekreftede traumeeksponeringer:\n" +
+                string.Join("\n", del1JaLedd.Select(ledd => $"• {ledd.Sporsmalstekst}")) +
+                (annenHendelseTekst is not null ? $"\n• Annet: {annenHendelseTekst}" : "");
+        }
 
         var indikatorer = new List<TestSkaaringIndikator>
         {
@@ -110,24 +134,6 @@ public sealed class TrapsIiSkaaringsberegner : ITestSkaaringsberegnerMedLedd
             new("Negativt selvbilde (Nsc)", $"Nsc (negativt selvbilde): {nscSkaar}/{MaksPerDelklynge}" + (nscDx ? " — til stede" : ""), !nscDx),
             new("Relasjonsvansker (Dr)", $"Dr (relasjonsvansker): {drSkaar}/{MaksPerDelklynge}" + (drDx ? " — til stede" : ""), !drDx)
         };
-
-        // Kun Indikator.Verdi vises i rapport-UI-et (se Rapport.cshtml, begge Areas) — Navn brukes
-        // ikke der, så teksten som skal leses MÅ ligge i Verdi selv (samme mønster som
-        // MiniStrukturdemoSkaaringsberegner).
-        var del1JaLedd = alleLedd.Take(AntallDel1JaNei)
-            .Where(ledd => svarPerLeddId.TryGetValue(ledd.Id, out var v) && v == "Ja")
-            .ToList();
-        foreach (var ledd in del1JaLedd)
-        {
-            indikatorer.Add(new TestSkaaringIndikator("Bekreftet traumeeksponering", $"Bekreftet: {ledd.Sporsmalstekst}", false));
-        }
-
-        if (AntallDel1JaNei < alleLedd.Count &&
-            svarPerLeddId.TryGetValue(alleLedd[AntallDel1JaNei].Id, out var annenHendelseTekst) &&
-            !string.IsNullOrWhiteSpace(annenHendelseTekst))
-        {
-            indikatorer.Add(new TestSkaaringIndikator("Bekreftet traumeeksponering (annet, beskrevet)", $"Bekreftet (annet): {annenHendelseTekst}", false));
-        }
 
         return new TestSkaaring(raaSkaar, maks, prosentSkaar, fortolkning, indikatorer);
     }

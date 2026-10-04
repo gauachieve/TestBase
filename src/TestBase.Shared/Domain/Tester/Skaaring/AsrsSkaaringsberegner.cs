@@ -44,7 +44,7 @@ public sealed class AsrsSkaaringsberegner : ITestSkaaringsberegnerMedLedd
         var positivScreening = antallOverTerskel >= 4;
         var fortolkning = positivScreening
             ? $"{antallOverTerskel} av 6 spørsmål i Del A er over sin terskel — sterkt konsistent med voksen-ADHD. " +
-              "Anbefaler videre klinisk utredning. ASRS er et screeningverktøy, ikke tilstrekkelig alene for å stille diagnose."
+              "Anbefaler videre klinisk utredning."
             : $"{antallOverTerskel} av 6 spørsmål i Del A er over sin terskel — mindre konsistent med voksen-ADHD " +
               "basert på screeneren alene, men klinisk vurdering bør uansett ta hensyn til Del B og øvrig anamnese.";
 

@@ -41,6 +41,39 @@
         document.getElementById('rapportVerktoylinje')?.setAttribute('hidden', '');
     }
 
+    // Bugliste punkt 8 (2026-10-04): grafene (SVG, tegnet direkte i selve sidevisningen) fantes
+    // ALDRI i #rapportKopierMal — en helt separat, skjult markup-blokk som aldri delte DOM med de
+    // synlige <svg>-elementene. Hver graf har et data-rapport-graf="<nøkkel>"-attributt på den
+    // LEVENDE, synlige <svg>-en, og en matchende tom <img data-rapport-graf-plassholder="<nøkkel>">
+    // inni kopier-malen. Rett før kopiering: rendre hver synlige SVG til en PNG-bitmap med
+    // html2canvas (samme biblioteket tilbakemeldingswidgeten allerede bruker, vendoret lokalt —
+    // se wwwroot/js/vendor/html2canvas.min.js) og sett den som src på matchende plassholder.
+    // Bitmap fremfor rå SVG-markup i selve utklippstavle-nyttelasten: mange journalsystemers
+    // rich text-felt stripper eller feilrendrer inline SVG ved innliming, et <img> med en
+    // data:-URI limes inn pålitelig overalt.
+    async function fyllInnGrafBitmaps() {
+        if (typeof html2canvas !== 'function') {
+            return;
+        }
+        var plassholdere = document.querySelectorAll('[data-rapport-graf-plassholder]');
+        for (var i = 0; i < plassholdere.length; i++) {
+            var plassholder = plassholdere[i];
+            var nokkel = plassholder.getAttribute('data-rapport-graf-plassholder');
+            var kilde = document.querySelector('[data-rapport-graf="' + nokkel + '"]');
+            if (!kilde || plassholder.src) {
+                continue; // allerede fylt inn (f.eks. gjenbrukt mellom "Kopier resultat"/"Kopier alt"), eller grafen finnes ikke på denne siden
+            }
+            try {
+                var lerret = await html2canvas(kilde, { backgroundColor: '#ffffff', scale: 2 });
+                plassholder.src = lerret.toDataURL('image/png');
+            } catch (e) {
+                // Svelges bevisst — en mislykket graf-bitmap skal aldri hindre resten av
+                // kopieringen (tekst/tabeller) fra å fungere, se samme prinsipp som
+                // tilbakemeldingswidgetens skjermbilde-fangst.
+            }
+        }
+    }
+
     // #rapportKopierMal er en SKJULT (hidden), inline-stylet mal separat fra selve
     // sidevisningen (som er stylet via eksterne CSS-klasser journalsystemer ikke ser).
     // #rapportKopierResultat er en adresserbar underboks INNI den malen — "Kopier resultat"
@@ -53,6 +86,8 @@
         if (!innhold) {
             return;
         }
+
+        await fyllInnGrafBitmaps();
 
         var tekst = innhold.textContent.replace(/\n\s*\n+/g, '\n\n').trim();
         var html = innhold.innerHTML;

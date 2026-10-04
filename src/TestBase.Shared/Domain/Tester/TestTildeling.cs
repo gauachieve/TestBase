@@ -49,4 +49,20 @@ public sealed class TestTildeling
     /// pasienten (se Behandlerportal/Pasienter/Rapport.cshtml.cs).
     /// </summary>
     public DateTimeOffset? RapportForkastetUtc { get; set; }
+
+    /// <summary>
+    /// Bugliste punkt 13 (2026-10-04): hvem som får OPPGAVEN (for Test.FyllesUtAvBehandler)
+    /// og den ferdige RAPPORTEN for akkurat DENNE tildelingen — satt EKSPLISITT kun når noen
+    /// aktivt velger en annen behandler enn pasientens egen ved tildelingstidspunktet (se
+    /// Admin/Tildel/Tester.cshtml.cs). Null (det vanlige) betyr "bruk Pasient.BehandlerId" —
+    /// identisk med oppførselen FØR dette feltet fantes, så eksisterende tildelinger/behandler-
+    /// initiert tildeling (som alltid tildeler til EGNE pasienter) er helt upåvirket.
+    /// Rotårsaken dette feltet fikser: en administrator kunne tildele en FyllesUtAvBehandler-test
+    /// til EN HVILKEN SOM HELST pasient (ikke begrenset til egne, som en behandler er), og
+    /// oppgaven/rapporten ble deretter stille utledet fra Pasient.BehandlerId alene — usynlig
+    /// for ALLE hvis den peker på en arkivert/feil/manglende behandler. Les ALLTID via
+    /// TestService sine hjelpemetoder (f.eks. HentIkkeFullforteForBehandlerAsync), ikke direkte,
+    /// slik at fallback-logikken (AnsvarligBehandlerId ?? Pasient.BehandlerId) forblir ett sted.
+    /// </summary>
+    public long? AnsvarligBehandlerId { get; set; }
 }

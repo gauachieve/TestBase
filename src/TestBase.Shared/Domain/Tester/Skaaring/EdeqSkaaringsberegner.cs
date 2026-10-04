@@ -52,9 +52,11 @@ public sealed class EdeqSkaaringsberegner : ITestSkaaringsberegnerMedLedd
         var fortolkning =
             $"Globalskår (snitt av 4 delskalaer) {globalSnitt:0.00} av 6 — " +
             (overGrense ? "OVER den mye siterte grensen 4,0, som indikerer klinisk signifikant spiseforstyrrelsessymptomatologi." : "under grensen 4,0.") +
-            $" Delskalaer: Restriksjon {restriksjonSnitt:0.00}, Spisebekymring {spisebekymringSnitt:0.00}, " +
-            $"Figurbekymring {figurbekymringSnitt:0.00}, Vektbekymring {vektbekymringSnitt:0.00}. " +
-            "EDE-Q er et screeningverktøy, ikke tilstrekkelig alene for å stille diagnose.";
+            "\n\nDelskalaer:\n" +
+            $"• Restriksjon: {restriksjonSnitt:0.00}\n" +
+            $"• Spisebekymring: {spisebekymringSnitt:0.00}\n" +
+            $"• Figurbekymring: {figurbekymringSnitt:0.00}\n" +
+            $"• Vektbekymring: {vektbekymringSnitt:0.00}";
 
         var indikatorer = new List<TestSkaaringIndikator>
         {

@@ -17,7 +17,11 @@ public sealed class GaditTestSeeder : IInnebygdTestSeeder
     public string Kode => "gadit";
 
     /// <summary>Kort, pasientvennlig navn (2026-09-20) — se ItqTestSeeder.Navn for begrunnelse.</summary>
-    public const string Navn = "Spillavhengighet ICD-11 GADIT";
+    // "Dataspillavhengighet" (ikke "spillavhengighet") — bugliste punkt 10: "spill" leses på norsk
+    // primært som gambling, forvirrende for en test om gaming/dataspill (ICD-11 Gaming Disorder).
+    // "Dataspillavhengighet" er det etablerte norske begrepet brukt av bl.a. Helsebiblioteket,
+    // NHI og Medietilsynet ved ICD-11s offisielle opptak av diagnosen i 2019.
+    public const string Navn = "Dataspillavhengighet ICD-11 GADIT";
 
     public const string SkalaFrekvens = "4:Hver dag,3:De fleste dager,2:Noen dager,1:Sjelden,0:Aldri";
 

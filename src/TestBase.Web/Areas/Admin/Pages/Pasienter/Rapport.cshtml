@@ -65,10 +65,12 @@ else
                         }
                         <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong></p>
                     }
-                    @* For SCID-5-PF er dette dobbelt opp med stolpediagrammet under. *@
+                    @* For SCID-5-PF er dette dobbelt opp med stolpediagrammet under, og for MPFI-24
+                       (bugliste punkt 7) er badge-boksene dobbelt opp med radar-hexagonene under —
+                       Fortolkning-teksten beholdes uansett, den er IKKE redundant med noen graf. *@
                     @if (Model.Scid5PfBar is null)
                     {
-                        @if (Model.Skaaring.Indikatorer is { Count: > 0 })
+                        @if (Model.Skaaring.Indikatorer is { Count: > 0 } && Model.MpfiFleksibilitetRadar is null)
                         {
                             <div class="rapport-indikatorer">
                             @foreach (var indikator in Model.Skaaring.Indikatorer)
