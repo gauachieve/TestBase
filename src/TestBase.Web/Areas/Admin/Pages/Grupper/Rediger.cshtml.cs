@@ -159,7 +159,9 @@ public sealed class RedigerModel : PageModel
             return Page();
         }
 
-        await _grupper.OppdaterAsync(Id, Navn, TestIder, StartDato, SluttDato, cancellationToken);
+        await _grupper.OppdaterAsync(
+            Id, Navn, TestIder, baseUrl: $"{Request.Scheme}://{Request.Host}",
+            startDato: StartDato, sluttDato: SluttDato, cancellationToken: cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "OppdaterGruppe",

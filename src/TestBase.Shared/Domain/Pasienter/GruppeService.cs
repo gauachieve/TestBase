@@ -82,6 +82,7 @@ public sealed class GruppeService
 {
     private readonly AppDbContext _db;
     private readonly TestService _testService;
+    private readonly TestTildelingsService _tildelingsService;
     private readonly IMemoryCache _cache;
 
     /// <summary>
@@ -95,10 +96,11 @@ public sealed class GruppeService
     /// </summary>
     private static readonly TimeSpan QrOppslagCacheTid = TimeSpan.FromSeconds(10);
 
-    public GruppeService(AppDbContext db, TestService testService, IMemoryCache cache)
+    public GruppeService(AppDbContext db, TestService testService, TestTildelingsService tildelingsService, IMemoryCache cache)
     {
         _db = db;
         _testService = testService;
+        _tildelingsService = tildelingsService;
         _cache = cache;
     }
 
@@ -120,7 +122,9 @@ public sealed class GruppeService
         _db.Grupper.Add(gruppe);
         await _db.SaveChangesAsync(cancellationToken);
 
-        await SettTilordnedeTesterAsync(gruppe.Id, testIder, cancellationToken);
+        // baseUrl: null — en splitter ny gruppe har aldri noen eksisterende medlemmer å
+        // etterfylle/varsle (se SettTilordnedeTesterAsync), så den grenen tas aldri her uansett.
+        await SettTilordnedeTesterAsync(gruppe.Id, testIder, behandlerId, baseUrl: null, cancellationToken);
         return gruppe;
     }
 
@@ -195,8 +199,14 @@ public sealed class GruppeService
         return gruppe;
     }
 
+    /// <summary>
+    /// <paramref name="baseUrl"/> kreves her (i motsetning til OpprettAsync) fordi en redigering
+    /// KAN legge til en test i en gruppe som allerede har aktive medlemmer — se
+    /// SettTilordnedeTesterAsync for selve etterfyllings-/varslingslogikken (bugliste 2026-10-05
+    /// punkt 38).
+    /// </summary>
     public async Task<bool> OppdaterAsync(
-        long gruppeId, string navn, IReadOnlyCollection<long> testIder,
+        long gruppeId, string navn, IReadOnlyCollection<long> testIder, string baseUrl,
         DateOnly? startDato = null, DateOnly? sluttDato = null, CancellationToken cancellationToken = default)
     {
         var gruppe = await _db.Grupper.FirstOrDefaultAsync(g => g.Id == gruppeId, cancellationToken);
@@ -209,18 +219,34 @@ public sealed class GruppeService
         gruppe.StartDato = startDato;
         gruppe.SluttDato = sluttDato;
         await _db.SaveChangesAsync(cancellationToken);
-        await SettTilordnedeTesterAsync(gruppeId, testIder, cancellationToken);
+        await SettTilordnedeTesterAsync(gruppeId, testIder, gruppe.BehandlerId, baseUrl, cancellationToken);
         return true;
     }
 
-    private async Task SettTilordnedeTesterAsync(long gruppeId, IReadOnlyCollection<long> testIder, CancellationToken cancellationToken)
+    /// <summary>
+    /// Bugliste 2026-10-05 punkt 38 ("no info was sent when i sent out homework to patient"):
+    /// å legge en NY test til i en gruppes testliste via Rediger ga TIDLIGERE kun en
+    /// GruppeTestTilordning-rad — INGEN TestTildeling og INGEN varsel til gruppens allerede
+    /// eksisterende, aktive medlemmer. Kun et HELT NYTT medlem (via BliPasient-QR-registrering,
+    /// se Pages/BliPasient/Index.cshtml.cs) fikk noensinne en reell tildeling+varsel for en
+    /// gruppes tester — stille, ingen feil, ingen logglinje, så bugen var usynlig med mindre man
+    /// visste nøyaktig hvor man skulle lete. Etterfyller nå de NYE testene til alle gruppens
+    /// aktive medlemmer (samme TildelOgVarsleAsync-kall som BliPasient bruker for et nytt
+    /// medlem), ekskludert en pasient som allerede har EN tildeling av akkurat den testen fra før
+    /// (unngår en duplikat-utsending om en test fjernes og legges til igjen, eller allerede var
+    /// individuelt tildelt). baseUrl er null KUN fra OpprettAsync (helt ny gruppe, aldri noen
+    /// medlemmer ennå) — branchen under tas da aldri uansett siden `medlemmer` alltid er tom.
+    /// </summary>
+    private async Task SettTilordnedeTesterAsync(
+        long gruppeId, IReadOnlyCollection<long> testIder, long behandlerId, string? baseUrl, CancellationToken cancellationToken)
     {
         var eksisterende = await _db.GruppeTestTilordninger.Where(t => t.GruppeId == gruppeId).ToListAsync(cancellationToken);
         _db.GruppeTestTilordninger.RemoveRange(eksisterende.Where(t => !testIder.Contains(t.TestId)));
 
         var eksisterendeTestIder = eksisterende.Select(t => t.TestId).ToHashSet();
+        var nyeTestIder = testIder.Where(id => !eksisterendeTestIder.Contains(id)).ToList();
         var na = DateTimeOffset.UtcNow;
-        _db.GruppeTestTilordninger.AddRange(testIder.Where(id => !eksisterendeTestIder.Contains(id)).Select(testId => new GruppeTestTilordning
+        _db.GruppeTestTilordninger.AddRange(nyeTestIder.Select(testId => new GruppeTestTilordning
         {
             GruppeId = gruppeId,
             TestId = testId,
@@ -228,6 +254,41 @@ public sealed class GruppeService
         }));
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        if (nyeTestIder.Count == 0 || baseUrl is null)
+        {
+            return;
+        }
+
+        var medlemmer = await _db.Pasienter
+            .Where(p => p.GruppeId == gruppeId && p.Status == PasientStatus.Aktiv)
+            .ToListAsync(cancellationToken);
+        if (medlemmer.Count == 0)
+        {
+            return;
+        }
+
+        var medlemIder = medlemmer.Select(m => m.Id).ToList();
+        var harAlleredeSett = (await _db.TestTildelinger
+            .Where(t => medlemIder.Contains(t.PasientId) && nyeTestIder.Contains(t.TestId))
+            .Select(t => new { t.PasientId, t.TestId })
+            .ToListAsync(cancellationToken))
+            .Select(x => (x.PasientId, x.TestId))
+            .ToHashSet();
+
+        foreach (var medlem in medlemmer)
+        {
+            var manglendeTestIder = nyeTestIder.Where(testId => !harAlleredeSett.Contains((medlem.Id, testId))).ToList();
+            if (manglendeTestIder.Count == 0)
+            {
+                continue;
+            }
+            await _tildelingsService.TildelOgVarsleAsync(
+                new List<long> { medlem.Id }, manglendeTestIder,
+                behandlerId: behandlerId, administratorId: null,
+                onsketHonorarKrPerTestId: new Dictionary<long, decimal?>(),
+                baseUrl: baseUrl, varslingsmetode: medlem.Varslingspreferanse, cancellationToken: cancellationToken);
+        }
     }
 
     /// <summary>Antall "prøv systemet"-pasienter (intet personnummer, se RegistrerViaQrAsync) i gruppen — til bruk på "Slett prøvedata"-knappen.</summary>
