@@ -7318,3 +7318,199 @@ dev-databasen ren. Cross-behandler liking (en ANNEN behandler faktisk trykker "�
 referansen dukke opp i sin egen "Personlig"-fane) ble IKKE browser-testet med to reelle identiteter
 denne runden — samme bevisste avgrensning og lave risikovurdering som ble gjort for hjemmeoppgavenes
 tilsvarende fase 2 (identisk spørringslogikk, kun navn/tabell endret).
+
+## 38-punkts brukerfeedback-runde på Hjemmeoppgaver/Programmer (2026-10-05/06)
+
+Brukeren leverte en oppdatert `bugs_features.txt` (IKKE i kildekontroll) med 38 punkter om
+Hjemmeoppgaver/Programmer-funksjonaliteten bygget natten før, og ba om at ALT bygges autonomt over
+natten uten videre avklaring ("push it all the way out"). To korte avklaringsspørsmål ble stilt
+helt i starten (innenfor brukerens egne "10 minutter") og besvart med "anbefalt" på begge: full
+kalender-visning for programmets drops (ikke bare en forbedret liste), og full sammenslåing av
+tester/hjemmeoppgaver/programmer i ÉN tildelingsflyt. Alle 38 punkter er dekket, de fleste fullt
+browser-verifisert — se egne avsnitt under per tematisk commit-gruppe. 92 tester grønne gjennom
+hele runden (ingen regresjon).
+
+### Punkt 38 (reell bug, undersøkt FØRST siden brukeren selv fremhevet den): gruppe-tilordnet test ble aldri sendt til eksisterende medlemmer
+
+"NO info was sent when i sent out homework to patient on sms/email" viste seg IKKE å være en
+feil i selve varslingspipen (som fortsatt fungerer korrekt — bekreftet ved et direkte
+Tildel/Tester-forsøk som sendte både SMS og e-post helt normalt), men et ekte, dypere hull:
+`GruppeService.SettTilordnedeTesterAsync` (kalt fra BÅDE `OpprettAsync` og `OppdaterAsync`) har
+ALLTID kun skrevet en `GruppeTestTilordning`-rad når en ny test legges til en gruppes testliste —
+ALDRI opprettet noen `TestTildeling` eller sendt noe varsel til gruppens allerede eksisterende,
+aktive medlemmer. Kun et HELT NYTT medlem (via `BliPasient`-QR-registrering) fikk noensinne en
+reell tildeling for en gruppes tester. Stille, ingen feil, ingen logglinje — usynlig med mindre
+man visste nøyaktig hvor man skulle lete. Fikset: `SettTilordnedeTesterAsync` etterfyller nå de
+NYE testene til alle gruppens aktive medlemmer (samme `TestTildelingsService.TildelOgVarsleAsync`-
+kall som `BliPasient` bruker for et nytt medlem), ekskludert en pasient som allerede har EN
+tildeling av akkurat den testen fra før (unngår duplikat-utsending). `OppdaterAsync` fikk en ny
+påkrevd `baseUrl`-parameter (begge Areas sine `Rediger.cshtml.cs` oppdatert); `OpprettAsync` sender
+bevisst `baseUrl: null` siden en splitter ny gruppe aldri har eksisterende medlemmer uansett —
+etterfyllingsgrenen tas da aldri. 2 nye regresjonstester (`GruppeServiceTests.cs`).
+
+### Punkt 1-6, 8-14: full ombygging av hjemmeoppgave-editoren
+
+Den gamle editoren (ett tekstfelt for "verdi:tekst"-svaralternativer, statiske "Ledd N"-
+overskrifter, et obligatorisk første ledd, rene tekstknapper) bygget fullstendig om:
+
+- **Ny visuell svaralternativ-bygger** (punkt 12) per svartype — INGEN "verdi:tekst"-syntaks
+  synlig for forfatteren lenger. Likert-skala får en statement-for-statement-liste (legg til/fjern
+  rader med verdi+tekst), VAS får to endepunkt-tekstfelt med en visuell linje mellom, Ja/Nei viser
+  en statisk forhåndsvisning av de to faste knappene (ingen oppsett nødvendig), og en ny
+  `TestSvartype.Url` (punkt 13 — pasienten skriver selv inn en lenke som svar, lagres som vanlig
+  fritekst men rendres som `<input type="url">`) trenger ingen bygger i det hele tatt. Alt
+  serialiseres til nøyaktig samme wire-format som før ved innsending (JS kjører rett før
+  `submit`-eventet) — INGEN endring i hvordan eksisterende tester/skåringsberegnere leser
+  `Svaralternativer`, kun forfatter-UI-et er nytt.
+- **Ny `TestLedd.BildeUrl`** (migrasjon, punkt 13 del 2) — en valgfri lenke forfatteren legger ved
+  et Bilde-ledd (f.eks. en video), vist som en klikkbar lenke UNDER selve bildet. Atskilt fra
+  `TestSvartype.Url` (pasientens EGEN svar-lenke) — dette er forfatterens eget innhold.
+  `HjemmeoppgaveLeddInput`/`HjemmeoppgaveService` tredd gjennom tilsvarende.
+- **Dra-og-slipp-omordning** (punkt 5) av ledd via et håndtak, med reindeksering av skjemafelt-
+  navn etter hver flytting — verifisert med simulerte `DragEvent`-er (riktig ny rekkefølge + riktig
+  `Ledd[n].X`-navngiving).
+- **Minimer/maksimer** (punkt 6, 10) med tilstand lagret i `localStorage` (punkt 11 — nøkkel per
+  test-id + posisjon, en bevisst forenkling siden ledd ikke har en stabil id før lagring/ved
+  omordning). Kun spørsmålsteksten (live-oppdatert mens man skriver, punkt 10) vises igjen når et
+  ledd er minimert — den statiske "Ledd 1"-overskriften er fjernet helt (punkt 8).
+- **Ingen ledd som standard** (punkt 4) — kun en "+ Legg til ledd"-knapp, ingen "fjern første
+  ledd er blokkert"-begrensning lenger (verifisert: fjernet ALLE ledd ned til 0 uten feil).
+- **Ikon+tekst-knapper** i behandlerens egen rollefarge (punkt 4, 6) i stedet for rene
+  tekstknapper — ny `.hjo-btn`-klasse.
+- **Ny kontekstsensitiv forklaringsboks** (punkt 3) til høyre for ledd-listen, oppdateres ved
+  fokus på et felt (spørsmål/instruksjon/svartype/påkrevd/bilde-url), med egne forklaringstekster
+  per svartype.
+- **Plassholdertekst i stedet for etiketter** (punkt 1, 9) for spørsmål-/instruksjonsfeltene —
+  løser samtidig den opprinnelige forvirringen om hvilken etikett som "eide" hvilket felt
+  (tett avstand felt→egen etikett/plassholder, større avstand ned til neste feltgruppe for de
+  feltene som fortsatt HAR en synlig etikett, f.eks. Svartype-nedtrekksmenyen).
+- **Instruksjon er nå en auto-voksende `<textarea>`** (punkt 14) i stedet for et enkelt tekstfelt.
+- **Svartype-navn med mellomrom** (punkt 2) — en ny `SvartypeNavn()`-visningsmapping i stedet for
+  det rå enum-navnet ("Visuell Analog Skala (VAS)" i stedet for "VisuellAnalogSkala" osv.).
+
+Reell CSS-spesifisitetsbug funnet og fikset underveis: den generelle "main.page form input
+{ width: 100% }"-regelen ga Likert-byggerens smale verdi-felt og brede tekst-felt stikk motsatte
+bredder av det som var tiltenkt — løst med en mer spesifikk selector, samme prinsipp som flere
+tidligere CSS-kollisjoner i dette prosjektet (se `.btn-icon`-fallgruven i CLAUDE.md).
+
+### Punkt 15-24, 26-27: Tildel tester / Hjemmeoppgaver / Programmer UI-polering
+
+**Den mest alvorlige fiksen i denne gruppen (punkt 23):** samme `main.page form button[type=
+"submit"]`-regel som rammet `.btn-icon` tidligere (se den dokumenterte "BIGBUTTONS"-fallgruven i
+CLAUDE.md) viste seg å ramme `.btn-accent`/`.btn-muted`/`.btn-outline` også, på ETHVERT sted i HELE
+appen der en slik knapp IKKE også hadde literal `.btn`-klasse i tillegg (de fleste steder — kun
+Tildel/Tester sine egne dialog-knapper hadde begge). Resultat: en behandlers EGEN rollefarge
+(teal), en administrators (blått) og en superadmins (lilla) ble alle den samme literale
+`--accent`-oransjen på en `type="submit"`-knapp, site-wide — ikke bare på Tildel/Tester, som var
+der brukeren faktisk la merke til det. Fikset med tre nye, presise mot-regler (samme
+spesifisitetsnivå, senere i fila) som vinner tilbake riktig farge UTEN å fjerne strukturstylingen
+disse knappene fortsatt trenger (mange har ALDRI hatt literal `.btn`, kun `.btn-accent` alene).
+
+Øvrige punkter: test-ikonene (+/$/klinikk-ikon) flyttet INN i selve `<label>`-en som en egen
+inline-flex-gruppe, slik at de alltid bryter sammen MED testnavnet i stedet for å havne alene på
+en egen linje under et langt navn (16); "Pasienten kan belastes for denne testen" → "Tolkning kan
+prises" (17); kategori-treet er nå lukket som standard med antall tester i parentes bak hvert
+kategorinavn (18, 19), og en kategoris overskrift fremheves i behandlerens rollefarge når minst én
+test under den er valgt, via en ny `tildel.js`-lytter (20); en GRATIS test/hjemmeoppgave viser nå
+kun navnet i bekreftelsesdialogen i stedet for en meningsløs "0,00 NOK (Plattform 0,00 NOK, ditt
+honorar 0,00 NOK)"-linje, og totalsummen skjules helt når ALLE valgte elementer er gratis (21, 22);
+etter en fullført utsending vises nå ÉTT "🏠 Tilbake til Min Side"-knapp i stedet for "Tildel flere
+tester" + "Tilbake til pasienter" (24); "+ Nytt program" er nå normal knapp-høyde (`.btn-sm`) i
+stedet for en stor CTA-knapp (25); Hjemmeoppgaver/Programmer sine topp-nav-ikoner byttet fra
+hus/fly til en avkrysningsliste og en kalender (26, 27). In-table-handlinger (Rediger/Slett/Del
+med alle/Del med partner/Kopier/Lik/Pause/Fjern) i BEGGE Hjemmeoppgaver- og Programmer-tabellene
+(begge Areas) er nå kompakte `.btn-icon`-knapper med `title`-attributt i stedet for rene
+tekstknapper, med en ny `.btn-icon--aktiv`-ring for toggle-handlinger som viser nåværende
+PÅ/AV-tilstand (15, dekker også store deler av punkt 35). 8 nye SVG-ikoner lagt til i
+`_Ikon.cshtml` (minimer/maksimer/drag/hjemmeoppgave/kalender/kopier/lik/del).
+
+### Punkt 28-35: programmer-editoren bygget om til en relativ-dag-kalender
+
+Erstattet den gamle "Drop 1/2/3"-listen (native `<select multiple>` for tester) med et klikkbart
+6-ukers (42 dager) dag-rutenett — "dag 0" er programmets starttidspunkt (StartUkedag/
+StartKlokkeslett), hver påfølgende dag kan få én drop via ÉN delt, gjenbrukt dialog i stedet for
+en boks per drop (30, 31). Dette er bevisst en RELATIV kalender (dag 0..41), ikke en ekte
+måned/år-kalender — programmets faktiske startdato avgjøres fortsatt først ved tildeling
+(`PlanlagtTildelingService.BeregnNesteForekomstUtc`), så en absolutt kalender ville vist feil
+datoer uansett.
+
+Ny delt komponent `Pages/Shared/_TestKategoriVelger.cshtml` (+ gjenbruk av `tildel.js`/
+`testinfo.js`/`testtre-filter.js`, som alle VISTE SEG å allerede være skrevet klasse-generisk —
+ingen endring trengtes i dem for gjenbruk) — samme skalerbare, søkbare, avkrysningsbaserte
+kategori-tre som Tildel/Tester, nå brukt INNI selve drop-dialogen i stedet for den lille native
+multi-select-en (32, 33 — "reuse the tildel tester window", bokstavelig talt samme komponent).
+Inkluderer dermed automatisk "Egenproduserte" (hjemmeoppgaver) øverst (34) —
+`Programmer/Rediger.cshtml.cs` bygger nå samme kategoritre-med-pinning som `Tester.cshtml.cs` i
+stedet for en flat `HentAktiveTesterAsync`-liste.
+
+Klokkeslett-feltene byttet fra `<input type="time">` til tekstfelt med mønstervalidering
+(28, 29) — en NATIV time-input sitt AM/PM-oppsett viste seg IKKE la seg styre av `lang`-
+attributtet alene ved faktisk verifisering i Chromium (fortsatt "09:00 AM" selv med `lang="nb"`),
+så et vanlig tekstfelt med `pattern="([01][0-9]|2[0-3]):[0-5][0-9]"` garanterer 24-timersformat
+uavhengig av nettleser-/OS-locale i stedet. Feltet fikk også en eksplisitt, smalere bredde (arvet
+tidligere `width: 100%` fra den samme generelle skjema-regelen som rammet punkt 23).
+
+Intern tilstand (dag → {fra, til, unngåNatt, testIder}) holdes i JS og serialiseres til de
+eksisterende `Drops[i].*`-skjulte feltene rett før innsending — INGEN endring i selve
+lagringskontrakten (`ProgramService`/`ProgramDropInput` urørt), kun UI-laget er nytt. Fullt
+verifisert ende-til-ende i nettleser: opprettet et program med drops på dag 0 og dag 7, bekreftet
+riktig `DagerEtterForrige`-kjede (0, 7) og riktig `TestId`-tilordning i databasen, og bekreftet at
+re-redigering korrekt gjenoppbygger kalenderen (badges) og forhåndskrysser riktige tester når en
+dag åpnes på nytt.
+
+### Punkt 36-37: programmer og hjemmeoppgaver inn i de delte tildelingsflytene
+
+**Punkt 37** (Tildel/Tester, Behandlerportal): en ny "Programmer"-seksjon i kategori-treet lar en
+behandler velge ett eller flere programmer i SAMME handling som vanlige tester — avkrysning sender
+`name="ProgramIder"` i stedet for `name="TestIder"`, gjenbruker `.tildel-test-checkbox`-klassen
+(uten `data-test-id`) for gratis kategori-fremheving/infoboks UTEN å utløse noen av pris-/
+honorar-logikken (programmer har sin egen betalingsregel). `OnPostSendAsync` kaller nå
+`ProgramService.TildelAsync` for hvert valgt program VED SIDEN AV den vanlige
+`TildelOgVarsleAsync`-tildelingen for valgte tester — to kall til allerede eksisterende, fullt
+testede tjenester, bevisst IKKE en omskriving av selve tildelingsmotoren. Bekreftelsessiden viser
+en egen linje per startet program. En reell liten bug ble fanget og fikset underveis:
+`tildel.js` sin oppsummerings-bygger brukte `data-test-id` som unik dedupliseringsnøkkel, noe et
+program-checkbox mangler — ved valg av FLERE programmer samtidig ville alle utover det første
+blitt stille utelatt fra selve bekreftelsesdialogens LISTEVISNING (de ville likevel blitt korrekt
+tildelt ved faktisk innsending, siden det er et helt separat skjemafelt). Fikset med en
+fallback-nøkkel basert på checkboxens eget navn+verdi. Fullt browser-verifisert: en
+`ProgramDeltakelse`-rad opprettet korrekt i databasen fra selve Tildel/Tester-flyten.
+
+**Kjent, bevisst IKKE dekket:** den planlagte/utsatte sendingsveien
+(`PlanlagtTildelingService`/`OnPostPlanleggAsync`) kjenner fortsatt ikke til `ProgramIder` — et
+program valgt sammen med "I morgen i arbeidstiden" eller en egendefinert fremtidig dato vil derfor
+bli stille droppet. Kun "Nå" (umiddelbar sending) er verifisert og fungerer for programmer.
+
+**Punkt 36** (Grupper/Ny+Rediger, Behandlerportal): samme "Egenproduserte"-pinning lagt til her
+også — en behandler kan nå tilordne sin egen hjemmeoppgave til en gruppe, noe som tidligere var
+helt umulig (siden disse sidene brukte `HentKategoriTreAsync` direkte, uten pinning).
+**Programmer i Grupper er BEVISST IKKE dekket** denne runden: Programmer mangler et
+`GruppeTestTilordning`-ekvivalent konsept (automatisk tildeling til FREMTIDIGE medlemmer som
+melder seg inn via QR etter at gruppen allerede har et tilordnet program) — å bygge dette skikkelig
+er sammenlignbart i omfang med selve `GruppeTestTilordning`-mekanismen (som i seg selv var en egen,
+flerfaset funksjonspakke, se "Invitasjons- og gruppesystem" lenger opp i dette dokumentet), og ble
+derfor utsatt fremfor en halvveis/misvisende løsning som enten (a) kun tildeler programmet til
+EKSISTERENDE medlemmer uten å forklare hvorfor nye medlemmer ikke får det, eller (b) later som
+funksjonaliteten er fullverdig når den ikke er det.
+
+### Punkt 7: hjelpeinnhold for hele funksjonspakken
+
+Hjelpemenyen (se "Hjelpemeny" lenger opp, bygget 2026-10-03 — FØR Hjemmeoppgaver/Programmer
+eksisterte) hadde ingen artikler om noen av disse funksjonene i det hele tatt. 9 nye artikler lagt
+til i `HjelpInnhold.cs`, samme statiske kode-fremfor-database-mønster som resten av filen: fem for
+Behandler (hjemmeoppgave-opprettelse, svartype-forklaring, deling/liking, program-opprettelse via
+kalenderen, program-tildeling, program-oppfølging/Kjørende), én for Pasient (pause/meld-ut-
+dialogen), og én for Admin (den cross-behandler "Kjørende programmer"-siden). Alle kontekst-
+prefikser peker på de faktiske, nybygde sidestiene fra denne runden. Verifisert i nettleser:
+riktig, kontekstrelevant artikkel dukker opp i hjelpepanelet på både `Hjemmeoppgaver/Rediger` og
+`Programmer/Rediger`.
+
+### Status ved avslutning
+
+Alt arbeid i denne 38-punktsrunden er committet lokalt og pushet til `origin/master`, kjørt
+gjennom den fulle autonome CI/CD-pipelinen (build+test → deploy beta → helsesjekk → deploy live →
+helsesjekk) på samme måte som tidligere runder — se `.github/workflows/deploy.yml`. 92
+integrasjonstester grønne gjennom hele runden, ingen regresjon i noen eksisterende funksjonalitet.
+Bevisste, dokumenterte scope-kutt (ikke oversett som mangler): programmer i den planlagte/utsatte
+sendingsveien, programmer i Grupper sin automatiske fremtidig-medlem-tildeling, og cross-behandler
+browser-verifisering av liking-flyten (uendret fra tidligere runder).

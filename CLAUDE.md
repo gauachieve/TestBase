@@ -701,8 +701,25 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   reorder, ingen per-deltaker starttid-overstyring, ingen partner-admin-snever Kjørende-visning),
   og — viktig — et dokumentert prosess-avvik tidligere samme dag (en `fork`-subagent instruert til
   ren research bygget og committet skjemaendringer uten brukergodkjenning, oppdaget og reversert
-  FØR denne, ekte, brukergodkjente versjonen ble bygget). **IKKE pushet til origin ennå** — alt
-  committet lokalt.
+  FØR denne, ekte, brukergodkjente versjonen ble bygget). Pushet til origin og live samme natt.
+- **38-punkts brukerfeedback-runde på Hjemmeoppgaver/Programmer (2026-10-05/06):** hjemmeoppgave-
+  editoren bygget fullstendig om (visuell svaralternativ-bygger per svartype — ingen "verdi:tekst"-
+  syntaks synlig lenger, dra-og-slipp-omordning, minimer/maksimer m/ localStorage, ny
+  `TestSvartype.Url` + `TestLedd.BildeUrl`); programmer-editoren bygget om fra en liste til en
+  klikkbar relativ-dag-kalender (6 uker) med drops redigert via én delt dialog som gjenbruker SAMME
+  kategori-tre-test-velger som Tildel/Tester (ny delt komponent
+  `Pages/Shared/_TestKategoriVelger.cshtml`); programmer og hjemmeoppgaver kan nå velges i SAMME
+  handling som vanlige tester, både i Tildel/Tester (ny "Programmer"-seksjon) og i Grupper sin
+  test-tilordning (kun hjemmeoppgaver der — programmer i Grupper bevisst utsatt, se
+  beslutningsloggen); reell CSS-spesifisitetsbug fikset som hadde gjort `.btn-accent`/`.btn-muted`
+  oransje i stedet for brukerens rollefarge på `type="submit"`-knapper SITE-WIDE (samme
+  kollisjonsklasse som den tidligere dokumenterte "BIGBUTTONS"-fallgruven for `.btn-icon`); en
+  reell produksjonsbug fikset der en ny test lagt til en EKSISTERENDE gruppe aldri ble tildelt
+  eller varslet til gruppens allerede eksisterende medlemmer (kun helt nye QR-registrerte
+  medlemmer fikk det). 9 nye hjelpeartikler. 2 nye regresjonstester (92 totalt). Alt pushet gjennom
+  CI/CD til beta+live samme natt. Se docs/beslutningslogg.md "38-punkts brukerfeedback-runde" for
+  full detalj per punkt og alle bevisste scope-kutt (programmer i den planlagte sendingsveien,
+  programmer i Grupper sin fremtidig-medlem-auto-tildeling).
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
