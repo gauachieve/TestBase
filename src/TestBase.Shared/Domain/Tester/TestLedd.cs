@@ -49,4 +49,13 @@ public sealed class TestLedd
 
     /// <summary>MIME-type for BildeData (alltid "image/jpeg" fra squashing-skriptet i dag) — lagret eksplisitt fremfor å anta, i tilfelle et fremtidig format legges til.</summary>
     public string? BildeContentType { get; set; }
+
+    /// <summary>
+    /// Bugliste 2026-10-05 punkt 13: en valgfri lenke forfatteren legger ved et Bilde-ledd (f.eks.
+    /// en video/lydfil/ekstern ressurs), vist som en klikkbar lenke UNDER selve bildet. Atskilt fra
+    /// TestSvartype.Url (der PASIENTEN selv skriver inn en lenke som sitt svar) — dette feltet er
+    /// forfatterens EGET innhold, akkurat som BildeData, aldri noe pasienten fyller ut. Null for
+    /// ethvert annet ledd.
+    /// </summary>
+    public string? BildeUrl { get; set; }
 }

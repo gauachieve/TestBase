@@ -32,6 +32,7 @@ public sealed class RedigerModel : PageModel
         public bool ErPaakrevd { get; set; }
         public string? BildeData { get; set; }
         public string? BildeContentType { get; set; }
+        public string? BildeUrl { get; set; }
     }
 
     [BindProperty]
@@ -58,7 +59,9 @@ public sealed class RedigerModel : PageModel
     {
         if (id is null)
         {
-            Ledd.Add(new LeddFormRad());
+            // Bugliste 2026-10-05 punkt 4: INGEN ledd som standard lenger — forfatteren starter
+            // med en tom liste og trykker selv "+ Legg til ledd" for det første, i stedet for å
+            // måtte fjerne et forhåndsutfylt tomt ledd de ikke ba om.
             return Page();
         }
 
@@ -77,18 +80,17 @@ public sealed class RedigerModel : PageModel
 
         // Flat liste — nøyaktig én TestSide, se HjemmeoppgaveService.OpprettAsync.
         var innhold = await _hjemmeoppgaveService.HentTestLeddForRedigeringAsync(test.Id, cancellationToken);
-        Ledd = innhold.Count == 0
-            ? new List<LeddFormRad> { new() }
-            : innhold.Select(l => new LeddFormRad
-            {
-                Sporsmalstekst = l.Sporsmalstekst,
-                Instruksjon = l.Instruksjon,
-                Svartype = l.Svartype,
-                Svaralternativer = l.Svaralternativer,
-                ErPaakrevd = l.ErPaakrevd,
-                BildeData = l.BildeData,
-                BildeContentType = l.BildeContentType
-            }).ToList();
+        Ledd = innhold.Select(l => new LeddFormRad
+        {
+            Sporsmalstekst = l.Sporsmalstekst,
+            Instruksjon = l.Instruksjon,
+            Svartype = l.Svartype,
+            Svaralternativer = l.Svaralternativer,
+            ErPaakrevd = l.ErPaakrevd,
+            BildeData = l.BildeData,
+            BildeContentType = l.BildeContentType,
+            BildeUrl = l.BildeUrl
+        }).ToList();
 
         return Page();
     }
@@ -109,7 +111,7 @@ public sealed class RedigerModel : PageModel
         }
 
         var leddInput = gyldigeLedd.Select(l => new HjemmeoppgaveLeddInput(
-            l.Sporsmalstekst, l.Instruksjon, l.Svartype, l.Svaralternativer, l.ErPaakrevd, l.BildeData, l.BildeContentType)).ToList();
+            l.Sporsmalstekst, l.Instruksjon, l.Svartype, l.Svaralternativer, l.ErPaakrevd, l.BildeData, l.BildeContentType, l.BildeUrl)).ToList();
 
         if (id is null)
         {

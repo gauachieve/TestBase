@@ -146,6 +146,14 @@ else
                                  alt="@ledd.Sporsmalstekst" style="border-radius: 8px;"
                                  onclick="this.classList.toggle('bilde-utvidet')" class="hjemmeoppgave-bilde" />
                         }
+                        @if (!string.IsNullOrWhiteSpace(ledd.BildeUrl))
+                        {
+                            <p><a href="@ledd.BildeUrl" target="_blank" rel="noopener noreferrer">@ledd.BildeUrl</a></p>
+                        }
+                    }
+                    else if (ledd.Svartype == TestSvartype.Url)
+                    {
+                        <input type="url" name="Svar_@ledd.Id" value="@eksisterende" placeholder="https://…" style="width: 100%; max-width: 480px;" />
                     }
                     else
                     {

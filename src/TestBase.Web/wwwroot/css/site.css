@@ -1757,3 +1757,86 @@ textarea.kommentarfelt {
    en begrenset forhåndsvisning. */
 .hjemmeoppgave-bilde { max-width: 320px; transition: max-width 0.15s ease; cursor: zoom-in; }
 .hjemmeoppgave-bilde.bilde-utvidet { max-width: 100%; cursor: zoom-out; }
+
+/* ---------- Hjemmeoppgave-editor (bugliste 2026-10-05 punkt 1-14) ---------- */
+
+/* Punkt 1: tett avstand mellom et felt og SIN EGEN etikett/plassholder, større avstand ned til
+   neste felt-gruppe — løser forvirringen om hvilken etikett som "eier" hvilket felt. */
+.hjo-felt-gruppe { margin-bottom: 1.1rem; }
+.hjo-felt-gruppe label { display: block; margin-bottom: 0.3rem; font-weight: 600; font-size: 0.92rem; }
+.hjo-felt-gruppe input[type="text"],
+.hjo-felt-gruppe input[type="url"],
+.hjo-felt-gruppe select,
+.hjo-felt-gruppe textarea { width: 100%; max-width: 480px; }
+
+/* Punkt 3: to-kolonners oppsett — ledd-listen til venstre, en klebrig forklaringsboks til høyre. */
+.hjo-editor-layout { display: flex; gap: 1.5rem; align-items: flex-start; }
+.hjo-ledd-liste { flex: 1 1 auto; min-width: 0; }
+.hjo-forklaring-panel {
+  flex: 0 0 260px;
+  position: sticky;
+  top: 1rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+.hjo-forklaring-panel h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
+.hjo-forklaring-panel p { margin: 0; font-size: 0.88rem; color: var(--ink-soft); line-height: 1.5; }
+@media (max-width: 860px) {
+  .hjo-editor-layout { flex-direction: column; }
+  .hjo-forklaring-panel { position: static; flex-basis: auto; width: 100%; }
+}
+
+/* Ledd-rad + header (punkt 5/6/8/10) */
+.hjo-ledd { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.85rem 1rem; margin-bottom: 1rem; background: var(--bg); }
+.hjo-ledd--drar { opacity: 0.35; }
+.hjo-ledd-header { display: flex; align-items: center; gap: 0.6rem; }
+.hjo-drag-handle { cursor: grab; color: var(--muted); flex: 0 0 auto; display: inline-flex; }
+.hjo-drag-handle:active { cursor: grabbing; }
+.hjo-ledd-header-tekst { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hjo-ledd-knapper { display: flex; gap: 0.4rem; flex: 0 0 auto; }
+.hjo-ledd-innhold { margin-top: 0.85rem; }
+.hjo-ledd--minimert .hjo-ledd-innhold { display: none; }
+
+/* Punkt 4/6: ikon+tekst-knapper i behandlerens egen rollefarge. */
+.hjo-btn {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  background: var(--rolle-accent, var(--success));
+  color: var(--rolle-accent-tekst, #fff);
+  border: none; border-radius: 999px; padding: 0.35rem 0.75rem;
+  font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+.hjo-btn:hover { background: var(--rolle-accent-dark, var(--success-dark)); transform: translateY(-1px); }
+.hjo-btn svg { flex: 0 0 auto; }
+.hjo-btn-stor { padding: 0.55rem 1.1rem; font-size: 0.95rem; }
+.hjo-fjern-knapp { background: var(--fare); }
+.hjo-fjern-knapp:hover { background: var(--fare-dark); }
+
+/* Punkt 9: ingen etikett over spørsmål/instruksjon-feltene — plassholder-tekst i stedet. */
+.hjo-sporsmal-input { font-weight: 600; }
+.hjo-instruksjon-input { resize: none; overflow: hidden; min-height: 2.2rem; } /* punkt 14: vokser automatisk, se autogrow-logikken i JS */
+
+/* Punkt 12: visuell svaralternativ-bygger (ingen "verdi:tekst"-syntaks synlig). */
+.hjo-svarbygger { margin-bottom: 1.1rem; }
+.hjo-statement-liste { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.5rem; }
+.hjo-statement-rad { display: flex; gap: 0.4rem; align-items: center; }
+/* Må vinne over den generelle "main.page form input { width: 100% }"-regelen (høyere
+   spesifisitet der) — se docs/beslutningslogg.md for samme type kollisjon. */
+main.page form .hjo-statement-rad input.hjo-statement-verdi { width: 3.2rem; flex: 0 0 3.2rem; text-align: center; }
+main.page form .hjo-statement-rad input.hjo-statement-tekst { width: auto; flex: 1 1 auto; max-width: 380px; }
+.hjo-fjern-statement { background: transparent; border: 1px solid var(--border); border-radius: 50%; width: 1.8rem; height: 1.8rem; cursor: pointer; color: var(--muted); flex: 0 0 auto; }
+.hjo-fjern-statement:hover { color: var(--fare); border-color: var(--fare); }
+
+.hjo-vas-rad { display: flex; align-items: center; gap: 0.6rem; max-width: 560px; }
+main.page form .hjo-vas-rad input { width: auto; flex: 1 1 160px; }
+.hjo-vas-linje { flex: 0 0 60px; height: 3px; border-radius: 999px; background: linear-gradient(90deg, var(--border), var(--rolle-accent, var(--accent))); }
+
+.hjo-janei-forhandsvisning { display: flex; gap: 0.5rem; }
+.hjo-janei-pille { display: inline-block; padding: 0.4rem 1.2rem; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-soft); color: var(--ink-soft); font-size: 0.88rem; }
+
+.hjo-hjelpetekst-liten { font-size: 0.85rem; color: var(--muted); margin: 0; }
+
+.hjo-bilde-felt .hjo-bilde-forhandsvisning { max-width: 200px; display: block; margin: 0.5rem 0; border-radius: 6px; }
+.hjo-bilde-url-input { margin-top: 0.5rem; }

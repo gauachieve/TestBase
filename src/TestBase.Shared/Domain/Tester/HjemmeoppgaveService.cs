@@ -7,7 +7,7 @@ namespace TestBase.Shared.Domain.Tester;
 /// <summary>Ett ledd i en hjemmeoppgave slik forfatteren (behandleren) har bygget den i editoren.</summary>
 public sealed record HjemmeoppgaveLeddInput(
     string Sporsmalstekst, string? Instruksjon, TestSvartype Svartype, string? Svaralternativer,
-    bool ErPaakrevd, string? BildeData, string? BildeContentType);
+    bool ErPaakrevd, string? BildeData, string? BildeContentType, string? BildeUrl = null);
 
 public enum HjemmeoppgaveSlettResultat { IkkeFunnet, IngenTilgang, Slettet, ArkivertIStedet }
 
@@ -76,7 +76,8 @@ public sealed class HjemmeoppgaveService
                 // uansett hva editoren måtte ha sendt inn (forsvar i dybden, se TestLedd.ErPaakrevd).
                 ErPaakrevd = !erBilde && input.ErPaakrevd,
                 BildeData = erBilde ? input.BildeData : null,
-                BildeContentType = erBilde ? input.BildeContentType : null
+                BildeContentType = erBilde ? input.BildeContentType : null,
+                BildeUrl = erBilde ? input.BildeUrl : null
             });
         }
         await _db.SaveChangesAsync(cancellationToken);
@@ -197,7 +198,7 @@ public sealed class HjemmeoppgaveService
         await _db.SaveChangesAsync(cancellationToken);
 
         await LeggTilLeddRaderAsync(kopiSide.Id, originalLedd.Select(l =>
-            new HjemmeoppgaveLeddInput(l.Sporsmalstekst, l.Instruksjon, l.Svartype, l.Svaralternativer, l.ErPaakrevd, l.BildeData, l.BildeContentType)
+            new HjemmeoppgaveLeddInput(l.Sporsmalstekst, l.Instruksjon, l.Svartype, l.Svaralternativer, l.ErPaakrevd, l.BildeData, l.BildeContentType, l.BildeUrl)
         ).ToList(), cancellationToken);
 
         // Hadde behandleren likt originalen fra før — nå har de sin egen kopi i stedet, referansen

@@ -3,6 +3,18 @@
 @using TestBase.Shared.Domain.Tester
 @{
     ViewData["Title"] = Model.TestId is null ? "Ny hjemmeoppgave" : "Rediger hjemmeoppgave";
+
+    // Bugliste 2026-10-05 punkt 2: visningsnavn MED mellomrom i stedet for det rå enum-navnet.
+    string SvartypeNavn(TestSvartype t) => t switch
+    {
+        TestSvartype.LikertSkala => "Likert-skala",
+        TestSvartype.VisuellAnalogSkala => "Visuell Analog Skala (VAS)",
+        TestSvartype.JaNei => "Ja / Nei",
+        TestSvartype.Fritekst => "Fritekst",
+        TestSvartype.Bilde => "Bilde",
+        TestSvartype.Url => "Lenke (URL)",
+        _ => t.ToString()
+    };
 }
 
 <h1>@(Model.TestId is null ? "Ny hjemmeoppgave" : "Rediger hjemmeoppgave")</h1>
@@ -16,119 +28,174 @@
     <p style="color: @(Model.LeddLaast ? "#b06000" : "darkred");">@Model.Feilmelding</p>
 }
 
-<form method="post" data-disable-on-submit="Lagrer …">
-    <div>
-        <label for="Navn">Navn</label><br />
+<form method="post" data-disable-on-submit="Lagrer …" id="hjemmeoppgaveSkjema">
+    <div class="hjo-felt-gruppe">
+        <label for="Navn">Navn</label>
         <input type="text" id="Navn" name="Navn" value="@Model.Navn" required style="width: 100%; max-width: 480px;" />
     </div>
-    <div>
-        <label for="Beskrivelse">Forklaring (vist til pasienten før de starter)</label><br />
+    <div class="hjo-felt-gruppe">
+        <label for="Beskrivelse">Forklaring (vist til pasienten før de starter)</label>
         <textarea id="Beskrivelse" name="Beskrivelse" rows="3" style="width: 100%; max-width: 480px;">@Model.Beskrivelse</textarea>
     </div>
 
     <h2>Ledd</h2>
     <p><em>Marker et ledd som "påkrevd" for å kreve svar før pasienten kan levere inn.</em></p>
 
-    <div id="hjemmeoppgaveLeddListe">
-    @for (var i = 0; i < Model.Ledd.Count; i++)
-    {
-        var ledd = Model.Ledd[i];
-        <div class="hjemmeoppgave-ledd-rad" style="border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 1rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong class="hjemmeoppgave-ledd-nummer">Ledd @(i + 1)</strong>
-                <button type="button" class="hjemmeoppgave-fjern-ledd btn-muted">Fjern</button>
+    <div class="hjo-editor-layout">
+        <div id="hjemmeoppgaveLeddListe" class="hjo-ledd-liste">
+        @for (var i = 0; i < Model.Ledd.Count; i++)
+        {
+            var ledd = Model.Ledd[i];
+            <div class="hjo-ledd" data-index="@i">
+                <div class="hjo-ledd-header">
+                    <span class="hjo-drag-handle" draggable="true" title="Dra for å endre rekkefølge"><partial name="_Ikon" model="@("drag")" /></span>
+                    <span class="hjo-ledd-header-tekst">@(string.IsNullOrWhiteSpace(ledd.Sporsmalstekst) ? "(Nytt ledd)" : ledd.Sporsmalstekst)</span>
+                    <div class="hjo-ledd-knapper">
+                        <button type="button" class="hjo-btn hjo-minimer-knapp"><partial name="_Ikon" model="@("minimer")" /><span>Minimer</span></button>
+                        <button type="button" class="hjo-btn hjo-fjern-knapp"><partial name="_Ikon" model="@("slett")" /><span>Fjern</span></button>
+                    </div>
+                </div>
+                <div class="hjo-ledd-innhold">
+                    <div class="hjo-felt-gruppe">
+                        <input type="text" class="hjo-sporsmal-input" name="Ledd[@i].Sporsmalstekst" data-feltnavn="Sporsmalstekst" value="@ledd.Sporsmalstekst" placeholder="Spørsmål eller tekst til pasienten" />
+                    </div>
+                    <div class="hjo-felt-gruppe">
+                        <textarea class="hjo-instruksjon-input" name="Ledd[@i].Instruksjon" data-feltnavn="Instruksjon" rows="1" placeholder="Instruksjon (valgfritt)">@ledd.Instruksjon</textarea>
+                    </div>
+                    <div class="hjo-felt-gruppe hjo-svartype-gruppe">
+                        <label>Svartype</label>
+                        <select name="Ledd[@i].Svartype" data-feltnavn="Svartype">
+                            @foreach (TestSvartype type in Enum.GetValues(typeof(TestSvartype)))
+                            {
+                                <option value="@type" selected="@(ledd.Svartype == type)">@SvartypeNavn(type)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="hjo-svarbygger hjo-svarbygger-likert">
+                        <label>Svaralternativer</label>
+                        <div class="hjo-statement-liste"></div>
+                        <button type="button" class="hjo-btn hjo-legg-til-statement"><partial name="_Ikon" model="@("pluss")" /><span>Legg til svaralternativ</span></button>
+                    </div>
+                    <div class="hjo-svarbygger hjo-svarbygger-vas">
+                        <label>Svaralternativer (endepunkter)</label>
+                        <div class="hjo-vas-rad">
+                            <input type="text" class="hjo-vas-lav-tekst" placeholder="Tekst ved laveste verdi (f.eks. «Svært dårlig»)" />
+                            <div class="hjo-vas-linje" aria-hidden="true"></div>
+                            <input type="text" class="hjo-vas-hoy-tekst" placeholder="Tekst ved høyeste verdi (f.eks. «Svært bra»)" />
+                        </div>
+                    </div>
+                    <div class="hjo-svarbygger hjo-svarbygger-janei">
+                        <label>Slik ser det ut for pasienten</label>
+                        <div class="hjo-janei-forhandsvisning"><span class="hjo-janei-pille">Ja</span><span class="hjo-janei-pille">Nei</span></div>
+                    </div>
+                    <div class="hjo-svarbygger hjo-svarbygger-url">
+                        <p class="hjo-hjelpetekst-liten">Pasienten skriver inn en lenke som svar på dette leddet.</p>
+                    </div>
+                    <input type="hidden" name="Ledd[@i].Svaralternativer" data-feltnavn="Svaralternativer" value="@ledd.Svaralternativer" />
+
+                    <div class="hjo-felt-gruppe hjo-bilde-felt">
+                        <label>Bilde</label>
+                        <input type="file" accept="image/*" class="hjo-bilde-fil" />
+                        @if (!string.IsNullOrEmpty(ledd.BildeData))
+                        {
+                            <img class="hjo-bilde-forhandsvisning" src="data:@(ledd.BildeContentType ?? "image/jpeg");base64,@ledd.BildeData" />
+                        }
+                        else
+                        {
+                            <img class="hjo-bilde-forhandsvisning" hidden />
+                        }
+                        <input type="hidden" name="Ledd[@i].BildeData" data-feltnavn="BildeData" value="@ledd.BildeData" />
+                        <input type="hidden" name="Ledd[@i].BildeContentType" data-feltnavn="BildeContentType" value="@ledd.BildeContentType" />
+                        <input type="url" class="hjo-bilde-url-input" name="Ledd[@i].BildeUrl" data-feltnavn="BildeUrl" value="@ledd.BildeUrl" placeholder="Valgfri lenke vist under bildet (f.eks. en video)" />
+                    </div>
+                    <div class="hjo-felt-gruppe hjo-paakrevd-felt">
+                        <label><input type="checkbox" name="Ledd[@i].ErPaakrevd" data-feltnavn="ErPaakrevd" value="true" checked="@ledd.ErPaakrevd" /> Påkrevd</label>
+                    </div>
+                </div>
             </div>
-            <div>
-                <label>Spørsmål/tekst</label><br />
-                <input type="text" name="Ledd[@i].Sporsmalstekst" data-feltnavn="Sporsmalstekst" value="@ledd.Sporsmalstekst" style="width: 100%; max-width: 480px;" />
-            </div>
-            <div>
-                <label>Instruksjon (valgfritt)</label><br />
-                <input type="text" name="Ledd[@i].Instruksjon" data-feltnavn="Instruksjon" value="@ledd.Instruksjon" style="width: 100%; max-width: 480px;" />
-            </div>
-            <div>
-                <label>Svartype</label><br />
-                <select name="Ledd[@i].Svartype" data-feltnavn="Svartype">
-                    @foreach (TestSvartype type in Enum.GetValues(typeof(TestSvartype)))
-                    {
-                        <option value="@type" selected="@(ledd.Svartype == type)">@type</option>
-                    }
-                </select>
-            </div>
-            <div class="hjemmeoppgave-svaralternativer-felt">
-                <label>Svaralternativer (format: verdi:tekst,verdi:tekst)</label><br />
-                <input type="text" name="Ledd[@i].Svaralternativer" data-feltnavn="Svaralternativer" value="@ledd.Svaralternativer" style="width: 100%; max-width: 480px;" />
-            </div>
-            <div class="hjemmeoppgave-bilde-felt">
-                <label>Bilde</label><br />
-                <input type="file" accept="image/*" class="hjemmeoppgave-bilde-fil" />
-                @if (!string.IsNullOrEmpty(ledd.BildeData))
-                {
-                    <img class="hjemmeoppgave-bilde-forhandsvisning" src="data:@(ledd.BildeContentType ?? "image/jpeg");base64,@ledd.BildeData" style="max-width: 200px; display: block; margin-top: 0.5rem;" />
-                }
-                else
-                {
-                    <img class="hjemmeoppgave-bilde-forhandsvisning" hidden style="max-width: 200px; display: block; margin-top: 0.5rem;" />
-                }
-                <input type="hidden" name="Ledd[@i].BildeData" data-feltnavn="BildeData" value="@ledd.BildeData" />
-                <input type="hidden" name="Ledd[@i].BildeContentType" data-feltnavn="BildeContentType" value="@ledd.BildeContentType" />
-            </div>
-            <div class="hjemmeoppgave-paakrevd-felt">
-                <label><input type="checkbox" name="Ledd[@i].ErPaakrevd" data-feltnavn="ErPaakrevd" value="true" checked="@ledd.ErPaakrevd" /> Påkrevd</label>
-            </div>
+        }
         </div>
-    }
+
+        <aside class="hjo-forklaring-panel">
+            <h3 id="hjoForklaringTittel">Hjelp</h3>
+            <p id="hjoForklaringTekst">Klikk i et felt til venstre for å se en forklaring her.</p>
+        </aside>
     </div>
 
     <template id="hjemmeoppgaveLeddMal">
-        <div class="hjemmeoppgave-ledd-rad" style="border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 1rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong class="hjemmeoppgave-ledd-nummer">Ledd</strong>
-                <button type="button" class="hjemmeoppgave-fjern-ledd btn-muted">Fjern</button>
+        <div class="hjo-ledd">
+            <div class="hjo-ledd-header">
+                <span class="hjo-drag-handle" draggable="true" title="Dra for å endre rekkefølge"><partial name="_Ikon" model="@("drag")" /></span>
+                <span class="hjo-ledd-header-tekst">(Nytt ledd)</span>
+                <div class="hjo-ledd-knapper">
+                    <button type="button" class="hjo-btn hjo-minimer-knapp"><partial name="_Ikon" model="@("minimer")" /><span>Minimer</span></button>
+                    <button type="button" class="hjo-btn hjo-fjern-knapp"><partial name="_Ikon" model="@("slett")" /><span>Fjern</span></button>
+                </div>
             </div>
-            <div>
-                <label>Spørsmål/tekst</label><br />
-                <input type="text" data-feltnavn="Sporsmalstekst" style="width: 100%; max-width: 480px;" />
-            </div>
-            <div>
-                <label>Instruksjon (valgfritt)</label><br />
-                <input type="text" data-feltnavn="Instruksjon" style="width: 100%; max-width: 480px;" />
-            </div>
-            <div>
-                <label>Svartype</label><br />
-                <select data-feltnavn="Svartype">
-                    @foreach (TestSvartype type in Enum.GetValues(typeof(TestSvartype)))
-                    {
-                        <option value="@type" selected="@(type == TestSvartype.Fritekst)">@type</option>
-                    }
-                </select>
-            </div>
-            <div class="hjemmeoppgave-svaralternativer-felt">
-                <label>Svaralternativer (format: verdi:tekst,verdi:tekst)</label><br />
-                <input type="text" data-feltnavn="Svaralternativer" style="width: 100%; max-width: 480px;" />
-            </div>
-            <div class="hjemmeoppgave-bilde-felt">
-                <label>Bilde</label><br />
-                <input type="file" accept="image/*" class="hjemmeoppgave-bilde-fil" />
-                <img class="hjemmeoppgave-bilde-forhandsvisning" hidden style="max-width: 200px; display: block; margin-top: 0.5rem;" />
-                <input type="hidden" data-feltnavn="BildeData" />
-                <input type="hidden" data-feltnavn="BildeContentType" />
-            </div>
-            <div class="hjemmeoppgave-paakrevd-felt">
-                <label><input type="checkbox" data-feltnavn="ErPaakrevd" value="true" /> Påkrevd</label>
+            <div class="hjo-ledd-innhold">
+                <div class="hjo-felt-gruppe">
+                    <input type="text" class="hjo-sporsmal-input" data-feltnavn="Sporsmalstekst" placeholder="Spørsmål eller tekst til pasienten" />
+                </div>
+                <div class="hjo-felt-gruppe">
+                    <textarea class="hjo-instruksjon-input" data-feltnavn="Instruksjon" rows="1" placeholder="Instruksjon (valgfritt)"></textarea>
+                </div>
+                <div class="hjo-felt-gruppe hjo-svartype-gruppe">
+                    <label>Svartype</label>
+                    <select data-feltnavn="Svartype">
+                        @foreach (TestSvartype type in Enum.GetValues(typeof(TestSvartype)))
+                        {
+                            <option value="@type" selected="@(type == TestSvartype.Fritekst)">@SvartypeNavn(type)</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="hjo-svarbygger hjo-svarbygger-likert">
+                    <label>Svaralternativer</label>
+                    <div class="hjo-statement-liste"></div>
+                    <button type="button" class="hjo-btn hjo-legg-til-statement"><partial name="_Ikon" model="@("pluss")" /><span>Legg til svaralternativ</span></button>
+                </div>
+                <div class="hjo-svarbygger hjo-svarbygger-vas">
+                    <label>Svaralternativer (endepunkter)</label>
+                    <div class="hjo-vas-rad">
+                        <input type="text" class="hjo-vas-lav-tekst" placeholder="Tekst ved laveste verdi (f.eks. «Svært dårlig»)" />
+                        <div class="hjo-vas-linje" aria-hidden="true"></div>
+                        <input type="text" class="hjo-vas-hoy-tekst" placeholder="Tekst ved høyeste verdi (f.eks. «Svært bra»)" />
+                    </div>
+                </div>
+                <div class="hjo-svarbygger hjo-svarbygger-janei">
+                    <label>Slik ser det ut for pasienten</label>
+                    <div class="hjo-janei-forhandsvisning"><span class="hjo-janei-pille">Ja</span><span class="hjo-janei-pille">Nei</span></div>
+                </div>
+                <div class="hjo-svarbygger hjo-svarbygger-url">
+                    <p class="hjo-hjelpetekst-liten">Pasienten skriver inn en lenke som svar på dette leddet.</p>
+                </div>
+                <input type="hidden" data-feltnavn="Svaralternativer" />
+
+                <div class="hjo-felt-gruppe hjo-bilde-felt">
+                    <label>Bilde</label>
+                    <input type="file" accept="image/*" class="hjo-bilde-fil" />
+                    <img class="hjo-bilde-forhandsvisning" hidden />
+                    <input type="hidden" data-feltnavn="BildeData" />
+                    <input type="hidden" data-feltnavn="BildeContentType" />
+                    <input type="url" class="hjo-bilde-url-input" data-feltnavn="BildeUrl" placeholder="Valgfri lenke vist under bildet (f.eks. en video)" />
+                </div>
+                <div class="hjo-felt-gruppe hjo-paakrevd-felt">
+                    <label><input type="checkbox" data-feltnavn="ErPaakrevd" value="true" /> Påkrevd</label>
+                </div>
             </div>
         </div>
     </template>
 
-    <button type="button" id="hjemmeoppgaveLeggTilLedd" class="btn-muted">+ Legg til ledd</button>
+    <p><button type="button" id="hjemmeoppgaveLeggTilLedd" class="hjo-btn hjo-btn-stor"><partial name="_Ikon" model="@("pluss")" /><span>Legg til ledd</span></button></p>
 
     <h2>Takk-side (vist etter innsending)</h2>
-    <div>
-        <label for="BelonningsTittel">Overskrift</label><br />
+    <div class="hjo-felt-gruppe">
+        <label for="BelonningsTittel">Overskrift</label>
         <input type="text" id="BelonningsTittel" name="BelonningsTittel" value="@Model.BelonningsTittel" placeholder="Ferdig!" style="width: 100%; max-width: 480px;" />
     </div>
-    <div>
-        <label for="Belonningstekst">Melding</label><br />
+    <div class="hjo-felt-gruppe">
+        <label for="Belonningstekst">Melding</label>
         <textarea id="Belonningstekst" name="Belonningstekst" rows="3" style="width: 100%; max-width: 480px;">@Model.Belonningstekst</textarea>
     </div>
 

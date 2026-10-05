@@ -19,5 +19,14 @@ public enum TestSvartype
     /// se TestLedd.BildeData/BildeContentType. ALDRI en TestSvar-rad, ALDRI ErPaakrevd=true (kan
     /// ikke "besvares"). Kun gyldig på en Test.ErHjemmeoppgave-test.
     /// </summary>
-    Bilde
+    Bilde,
+
+    /// <summary>
+    /// Bugliste 2026-10-05 punkt 13: PASIENTEN skriver inn en lenke som sitt svar (f.eks. et bilde
+    /// de har lastet opp et annet sted, en video de har tatt opp selv) — lagret som vanlig fritekst
+    /// i TestSvar.SvarVerdi, kun forskjellig ved at Fyll.cshtml rendrer et &lt;input type="url"&gt;
+    /// med URL-validering i stedet for en fri tekstboks. IKKE det samme som TestLedd.BildeUrl
+    /// (forfatterens EGEN lenke under et Bilde-ledd).
+    /// </summary>
+    Url
 }
