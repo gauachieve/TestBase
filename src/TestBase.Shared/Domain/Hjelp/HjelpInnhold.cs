@@ -78,6 +78,11 @@ public static class HjelpInnhold
             "<p>Ja — når du registrerer deg kan du velge om du vil varsles på SMS, e-post, eller begge deler. Mangler du kontaktinfo for det du valgte, bruker vi automatisk det du faktisk har oppgitt.</p>",
             KunPasient, Array.Empty<string>(), false, "Min profil"),
 
+        new("pas-program-pause",
+            "Jeg er med i et program og får stadig nye tester — kan jeg pause eller melde meg ut?",
+            "<p>Ja. På utfyllingssiden for en test som er en del av et program, finner du en knapp nederst for å <strong>pause eller melde deg ut</strong>. <strong>Pause</strong> stopper fremtidige utsendinger midlertidig til du (eller behandleren din) starter det opp igjen. <strong>Meld meg ut</strong> stopper det for godt. Testen du eventuelt er midt i akkurat nå, blir ikke påvirket uansett hva du velger.</p>",
+            KunPasient, new[] { "/Pasientportal/Tester/Fyll" }, false, "Fylle ut tester"),
+
         // ---------- Behandler ----------
         new("beh-tildele-test",
             "Hvordan tildeler jeg en test til en pasient?",
@@ -129,6 +134,37 @@ public static class HjelpInnhold
             "<p>Trykk <strong>Inviter kollega</strong> i menyen, fyll inn kontaktinformasjonen, og en invitasjonslenke sendes automatisk. Kollegaen din fullfører selv resten av registreringen og logger deretter inn med BankID på vanlig måte.</p>",
             KunBehandler, new[] { "/Behandlerportal/Behandlere/Inviter" }, false, "Konto"),
 
+        // ---------- Behandler: Hjemmeoppgaver og programmer (2026-10-05/06) ----------
+        new("beh-hjemmeoppgave-lage",
+            "Hvordan lager jeg min egen hjemmeoppgave?",
+            "<p>Gå til <strong>Hjemmeoppgaver</strong> og trykk <strong>+ Opprett</strong>. Legg til ett eller flere ledd med <strong>+ Legg til ledd</strong> — hvert ledd har et spørsmål/tekst, en valgfri instruksjon, og en svartype. Dra i håndtaket (⠿) til venstre for et ledd for å endre rekkefølgen, og trykk <strong>Minimer</strong> for å få bedre oversikt når du har mange ledd. Marker et ledd som <strong>Påkrevd</strong> hvis pasienten må svare før de kan levere inn.</p>",
+            KunBehandler, new[] { "/Behandlerportal/Hjemmeoppgaver/Rediger" }, true, "Hjemmeoppgaver"),
+
+        new("beh-hjemmeoppgave-svartyper",
+            "Hva betyr de ulike svartypene i hjemmeoppgave-editoren?",
+            "<p><strong>Likert-skala:</strong> pasienten velger ett av flere faste alternativer du selv lister opp (f.eks. «Aldri» til «Alltid»). <strong>Visuell Analog Skala (VAS):</strong> en glidebryter mellom to ytterpunkter du navngir. <strong>Ja/Nei:</strong> to faste knapper, ingenting å sette opp. <strong>Fritekst:</strong> et fritt tekstsvar. <strong>Bilde:</strong> rent visningsinnhold du selv legger inn (f.eks. en illustrasjon) — pasienten svarer ikke på dette, og du kan legge til en valgfri lenke (f.eks. til en video) som vises under bildet. <strong>Lenke (URL):</strong> pasienten skriver selv inn en lenke som sitt svar.</p>",
+            KunBehandler, new[] { "/Behandlerportal/Hjemmeoppgaver/Rediger" }, false, "Hjemmeoppgaver"),
+
+        new("beh-hjemmeoppgave-dele",
+            "Kan jeg dele hjemmeoppgaven min med andre behandlere?",
+            "<p>Ja — fra <strong>Hjemmeoppgaver</strong>-listen kan du dele en egen hjemmeoppgave med alle behandlere i systemet, eller kun med kollegene i din egen partner (hvis du har en). Andre behandlere kan <strong>like</strong> den for å få en referanse i sin egen «Personlig»-fane, og lage sin egen redigerbare kopi derfra — originalen din påvirkes aldri av dette.</p>",
+            KunBehandler, new[] { "/Behandlerportal/Hjemmeoppgaver" }, false, "Hjemmeoppgaver"),
+
+        new("beh-program-lage",
+            "Hvordan lager jeg et program?",
+            "<p>Gå til <strong>Programmer</strong> og trykk <strong>+ Nytt program</strong>. Sett først ukedag og klokkeslett for når programmet skal starte — dette blir «Dag 0» i kalenderen under. Klikk deretter på en hvilken som helst dag i kalenderen for å legge til en «drop»: et tidsvindu (tester sendes ut på et tilfeldig tidspunkt innenfor vinduet) og hvilke tester/hjemmeoppgaver som skal inngå. En dag med en drop får en grønn ramme og viser antall tester. Du kan ha så mange drops du vil, spredt over flere uker.</p>",
+            KunBehandler, new[] { "/Behandlerportal/Programmer/Rediger" }, true, "Hjemmeoppgaver og programmer"),
+
+        new("beh-program-tildele",
+            "Hvordan tildeler jeg et program til en pasient?",
+            "<p>Du kan enten trykke <strong>Tildel</strong> direkte på programmet i <strong>Programmer</strong>-listen (for én pasient eller en hel gruppe, der alle medlemmene starter samme kalenderdag), eller velge programmet i «Programmer»-seksjonen i den vanlige <strong>Tildel tester</strong>-flyten sammen med vanlige tester — begge deler sendes da ut i én og samme handling. Kun den aller første testen i det aller første drop-et kan noensinne koste pasienten noe; resten av programmet er alltid gratis.</p>",
+            KunBehandler, new[] { "/Behandlerportal/Programmer/Tildel", "/Behandlerportal/Tildel" }, true, "Hjemmeoppgaver og programmer"),
+
+        new("beh-program-kjorende",
+            "Hvordan følger jeg opp et program som allerede er i gang?",
+            "<p>Fanen <strong>Kjørende</strong> på Programmer-siden viser alle aktive programdeltakelser du selv har tildelt, med antall gjenstående drops og antall deltakere. Du kan <strong>pause</strong> (stopper fremtidige drops midlertidig) eller <strong>fjerne</strong> (melder ut for godt) en hel gruppe- eller enkeltpasient-tildeling samlet. En pasient kan også pause eller melde seg selv ut fra utfyllingssiden — du får da en egen oppgave på Min side om det.</p>",
+            KunBehandler, new[] { "/Behandlerportal/Programmer" }, false, "Hjemmeoppgaver og programmer"),
+
         // ---------- Admin ----------
         new("adm-legge-til-behandler",
             "Hvordan legger jeg til en ny behandler?",
@@ -164,5 +200,10 @@ public static class HjelpInnhold
             "Hvor ser jeg tilbakemeldinger fra brukerne?",
             "<p>Under <strong>Tilbakemeldinger</strong> finner du alt som er sendt inn via tilbakemeldingsknappen nederst til høyre på hver side, inkludert automatisk vedlagte skjermbilder og tekniske feilmeldinger.</p>",
             KunAdmin, new[] { "/Admin/Tilbakemeldinger" }, false, "Administrasjon"),
+
+        new("adm-kjorende-programmer",
+            "Hva viser \"Kjørende programmer\"?",
+            "<p>En samlet oversikt over ALLE aktive programdeltakelser i systemet, uansett hvilken behandler som tildelte dem — vist som «(behandlernavn) Programnavn» med antall gjenstående drops og antall deltakere. Du kan pause eller fjerne (melde ut for godt) en hel tildeling herfra, på samme måte som en behandler kan for sine egne.</p>",
+            KunAdmin, new[] { "/Admin/Programmer/Kjorende" }, false, "Administrasjon"),
     };
 }
