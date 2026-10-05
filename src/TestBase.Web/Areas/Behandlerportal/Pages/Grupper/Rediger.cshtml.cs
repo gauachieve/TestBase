@@ -11,13 +11,15 @@ public sealed class RedigerModel : PageModel
 {
     private readonly GruppeService _grupper;
     private readonly TestService _testService;
+    private readonly HjemmeoppgaveService _hjemmeoppgaveService;
     private readonly IAuditLogger _auditLogger;
     private readonly ICurrentUserContext _currentUser;
 
-    public RedigerModel(GruppeService grupper, TestService testService, IAuditLogger auditLogger, ICurrentUserContext currentUser)
+    public RedigerModel(GruppeService grupper, TestService testService, HjemmeoppgaveService hjemmeoppgaveService, IAuditLogger auditLogger, ICurrentUserContext currentUser)
     {
         _grupper = grupper;
         _testService = testService;
+        _hjemmeoppgaveService = hjemmeoppgaveService;
         _auditLogger = auditLogger;
         _currentUser = currentUser;
     }
@@ -161,7 +163,15 @@ public sealed class RedigerModel : PageModel
 
     private async Task LastKategoriTreAsync(CancellationToken cancellationToken)
     {
-        KategoriTre = await _testService.HentKategoriTreAsync(cancellationToken: cancellationToken);
+        var tre = await _testService.HentKategoriTreAsync(cancellationToken: cancellationToken);
+        // Bugliste 2026-10-05 punkt 36: samme "Egenproduserte"-pinning som Tildel/Tester.
+        var hjemmeoppgaver = await _hjemmeoppgaveService.HentTilgjengeligeForTildelingAsync(HentBehandlerId(), cancellationToken);
+        if (hjemmeoppgaver.Count > 0)
+        {
+            var egenprodusert = new TestKategori { Id = -1, Navn = "Egenproduserte", OpprettetUtc = DateTimeOffset.UtcNow };
+            tre = new[] { new TestService.KategoriMedTester(egenprodusert, hjemmeoppgaver) }.Concat(tre).ToList();
+        }
+        KategoriTre = tre;
         var testIder = KategoriTre.SelectMany(k => k.Tester).Select(t => t.Id).Distinct().ToList();
         var antallLedd = await _testService.HentAntallLeddPerTestAsync(testIder, cancellationToken);
         EstimertMinutterPerTestId = antallLedd.ToDictionary(kv => kv.Key, kv => Math.Max(1, (int)Math.Ceiling(kv.Value * 15.0 / 60)));
