@@ -14,6 +14,15 @@
 @if (Model.Resultat is not null)
 {
     <h2>Tildeling fullført</h2>
+    @if (Model.ProgramResultat.Any())
+    {
+        <ul>
+        @foreach (var p in Model.ProgramResultat)
+        {
+            <li>Programmet «@p.ProgramNavn» startet for @p.AntallTildelt pasient(er). Første drop fyres av automatisk når programmets starttidspunkt inntreffer.</li>
+        }
+        </ul>
+    }
     @if (Model.Resultat.PerPasient.Any(r => r.Lenker.Any()))
     {
         <ul>
@@ -143,6 +152,36 @@ else if (Model.ValgtePasienter.Any())
                     }
                     </ul>
                 }
+            </details>
+        }
+        @if (Model.TilgjengeligeProgrammer.Any())
+        {
+            // Bugliste 2026-10-05 punkt 37: "tildel tester" inkluderte tidligere ikke programmer
+            // i det hele tatt — en behandler måtte til en helt egen side (Programmer/Tildel) for
+            // å starte et program, og kunne ikke gjøre det i SAMME handling som å sende ut tester.
+            // Gjenbruker .tildel-test-checkbox (uten data-test-id — rammer ingen av tildel.js sin
+            // pris-/kategorisynk, men FÅR den generiske "fremhev valgt kategori"-oppførselen og en
+            // enkel infoboks gratis) + et EGET name="ProgramIder" i stedet for "TestIder", slik at
+            // TesterModel.OnPostSendAsync kan skille de to og kalle ProgramService.TildelAsync for
+            // hver valgt program VED SIDEN AV den vanlige TildelOgVarsleAsync-tildelingen, i stedet
+            // for å skrive om selve tildelingsmotoren.
+            <details>
+                <summary>Programmer (@Model.TilgjengeligeProgrammer.Count)</summary>
+                <ul>
+                @foreach (var program in Model.TilgjengeligeProgrammer)
+                {
+                    <li data-sok="@program.Navn.ToLowerInvariant()">
+                        <label>
+                            <input type="checkbox" name="ProgramIder" value="@program.Id" class="tildel-test-checkbox"
+                                   data-test-navn="@program.Navn" data-beskrivelse="@program.Forklaring" />
+                            <span class="tildel-test-navn-rad">
+                                <span>@program.Navn</span>
+                                <span class="tildel-ikon" title="Program — flere tester over tid"><partial name="_Ikon" model="@("kalender")" /></span>
+                            </span>
+                        </label>
+                    </li>
+                }
+                </ul>
             </details>
         }
         </div>

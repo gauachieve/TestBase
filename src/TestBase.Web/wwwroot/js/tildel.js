@@ -218,7 +218,10 @@
 
         testeListe.innerHTML = '';
         document.querySelectorAll('.tildel-test-checkbox:checked').forEach(function (checkbox) {
-            var testId = checkbox.getAttribute('data-test-id');
+            // data-test-id finnes ikke på et program-checkbox (se "Programmer"-seksjonen i
+            // Tester.cshtml, bugliste punkt 37) — bruk checkbox sin egen value (unik uansett type)
+            // som nøkkel i stedet, ellers ble kun det FØRSTE valgte programmet vist her.
+            var testId = checkbox.getAttribute('data-test-id') || ('cb:' + checkbox.name + ':' + checkbox.value);
             if (seddeTestIder[testId]) {
                 return;
             }
@@ -289,7 +292,7 @@
         apneKnapp.addEventListener('click', function () {
             var valgteCheckboxer = document.querySelectorAll('.tildel-test-checkbox:checked');
             if (valgteCheckboxer.length === 0) {
-                alert('Velg minst én test før du går videre.');
+                alert('Velg minst én test eller ett program før du går videre.');
                 return;
             }
 

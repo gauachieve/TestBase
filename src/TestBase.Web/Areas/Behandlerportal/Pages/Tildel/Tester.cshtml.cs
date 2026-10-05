@@ -19,17 +19,19 @@ public sealed class TesterModel : PageModel
     private readonly HjemmeoppgaveService _hjemmeoppgaveService;
     private readonly TestTildelingsService _tildelingsService;
     private readonly PlanlagtTildelingService _planlagtTildelingService;
+    private readonly ProgramService _programService;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuditLogger _auditLogger;
 
     public TesterModel(
         TestService testService, HjemmeoppgaveService hjemmeoppgaveService, TestTildelingsService tildelingsService,
-        PlanlagtTildelingService planlagtTildelingService, ICurrentUserContext currentUser, IAuditLogger auditLogger)
+        PlanlagtTildelingService planlagtTildelingService, ProgramService programService, ICurrentUserContext currentUser, IAuditLogger auditLogger)
     {
         _testService = testService;
         _hjemmeoppgaveService = hjemmeoppgaveService;
         _tildelingsService = tildelingsService;
         _planlagtTildelingService = planlagtTildelingService;
+        _programService = programService;
         _currentUser = currentUser;
         _auditLogger = auditLogger;
     }
@@ -64,6 +66,10 @@ public sealed class TesterModel : PageModel
     [BindProperty]
     public List<long> TestIder { get; set; } = new();
 
+    /// <summary>Bugliste 2026-10-05 punkt 37: programmer valgt i SAMME tildelingsbatch som tester, se "Programmer"-seksjonen i Tester.cshtml.</summary>
+    [BindProperty]
+    public List<long> ProgramIder { get; set; } = new();
+
     /// <summary>Valgt i oppsummerings-dialogen — overstyrer pasientens egen lagrede Varslingspreferanse for denne batchen, se TestTildelingsService.TildelOgVarsleAsync.</summary>
     [BindProperty]
     public Varslingspreferanse Varslingsmetode { get; set; } = Varslingspreferanse.Begge;
@@ -87,8 +93,10 @@ public sealed class TesterModel : PageModel
     public IReadOnlyDictionary<long, decimal> SistBrukteHonorarPerTestId { get; private set; } = new Dictionary<long, decimal>();
     public IReadOnlyDictionary<long, int> EstimertMinutterPerTestId { get; private set; } = new Dictionary<long, int>();
     public IReadOnlyList<PasientMedBehandlernavn> ValgtePasienter { get; private set; } = Array.Empty<PasientMedBehandlernavn>();
+    public IReadOnlyList<Behandlingsprogram> TilgjengeligeProgrammer { get; private set; } = Array.Empty<Behandlingsprogram>();
     public string? Feilmelding { get; private set; }
     public TildelingsBatchResultat? Resultat { get; private set; }
+    public IReadOnlyList<(string ProgramNavn, int AntallTildelt)> ProgramResultat { get; private set; } = Array.Empty<(string, int)>();
 
     /// <summary>Brukes av tildel.js til å speile TestPrisberegner.Beregn client-side for en levende pris-forhåndsvisning i oppsummerings-dialogen.</summary>
     public PrisingskontekstForBehandler Prisingskontekst { get; private set; } = new(false, new Dictionary<long, decimal>(), 0m);
@@ -105,6 +113,7 @@ public sealed class TesterModel : PageModel
         await LastValgtePasienterAsync(csv, cancellationToken);
         var behandlerId = HentBehandlerId();
         KategoriTre = await LastKategoriTreMedHjemmeoppgaverAsync(behandlerId, cancellationToken);
+        TilgjengeligeProgrammer = await _programService.HentPersonligAsync(behandlerId, cancellationToken);
 
         var alleTester = KategoriTre.SelectMany(k => k.Tester).GroupBy(t => t.Id).Select(g => g.First()).ToList();
         var sisteHonorar = new Dictionary<long, decimal>();
@@ -131,7 +140,9 @@ public sealed class TesterModel : PageModel
     {
         HonorarKr = LesHonorarFraSkjema();
         await LastValgtePasienterAsync(PasientIderCsv, cancellationToken);
-        KategoriTre = await LastKategoriTreMedHjemmeoppgaverAsync(HentBehandlerId(), cancellationToken);
+        var behandlerIdForKategori = HentBehandlerId();
+        KategoriTre = await LastKategoriTreMedHjemmeoppgaverAsync(behandlerIdForKategori, cancellationToken);
+        TilgjengeligeProgrammer = await _programService.HentPersonligAsync(behandlerIdForKategori, cancellationToken);
 
         if (!ValgtePasienter.Any())
         {
@@ -140,13 +151,44 @@ public sealed class TesterModel : PageModel
         }
 
         var testIder = TestIder.Distinct().ToList();
-        if (testIder.Count == 0)
+        var programIder = ProgramIder.Distinct().ToList();
+        if (testIder.Count == 0 && programIder.Count == 0)
         {
-            Feilmelding = "Velg minst én test.";
+            Feilmelding = "Velg minst én test eller ett program.";
             return Page();
         }
 
         var pasientIder = ValgtePasienter.Select(p => p.Pasient.Id).ToList();
+
+        // Bugliste 2026-10-05 punkt 37: et program startes nå i SAMME handling som en vanlig
+        // test-utsending, via et ekstra kall til DEN ALLEREDE EKSISTERENDE, fullt testede
+        // ProgramService.TildelAsync — bevisst IKKE en omskriving av selve tildelingsmotoren for
+        // å "virkelig" slå sammen de to systemene, se docs/beslutningslogg.md.
+        if (programIder.Count > 0)
+        {
+            var programResultat = new List<(string, int)>();
+            var tilgjengeligeNavn = TilgjengeligeProgrammer.ToDictionary(p => p.Id, p => p.Navn);
+            foreach (var programId in programIder)
+            {
+                var antall = await _programService.TildelAsync(
+                    programId, pasientIder, gruppeId: null, behandlerId: behandlerIdForKategori, administratorId: null, cancellationToken);
+                programResultat.Add((tilgjengeligeNavn.GetValueOrDefault(programId, "(ukjent program)"), antall));
+            }
+            ProgramResultat = programResultat;
+        }
+
+        if (testIder.Count == 0)
+        {
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(), "TildelProgramBatch",
+                nameof(Behandlingsprogram), AuditBatch.EntityId(programIder),
+                $"ProgramIder {string.Join(",", programIder)}; PasientIder {string.Join(",", pasientIder)}", cancellationToken);
+            Resultat = new TildelingsBatchResultat(pasientIder.Select(id => new TildeltPasientResultat(
+                id, ValgtePasienter.FirstOrDefault(p => p.Pasient.Id == id)?.Pasient.Navn, Array.Empty<TestLenke>(), false, false, null)).ToList(),
+                Array.Empty<BehandlerOppgave>());
+            return Page();
+        }
+
         var onsketHonorarKrPerTestId = testIder.ToDictionary(id => id, id => HonorarKr.GetValueOrDefault(id));
         Resultat = await _tildelingsService.TildelOgVarsleAsync(
             pasientIder, testIder, behandlerId: HentBehandlerId(), administratorId: null,
