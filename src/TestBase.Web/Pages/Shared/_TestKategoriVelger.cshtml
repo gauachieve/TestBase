@@ -1,0 +1,67 @@
+@model TestBase.Web.Pages.Shared.TestKategoriVelgerModel
+@*
+    Delt test-velger (bugliste 2026-10-05 punkt 33/34): SAMME kategori-tre-med-avkrysning-mønster
+    som Tildel/Tester (søk, kollapset som standard, antall per kategori, "Egenproduserte" pinnet
+    øverst — inkluderer dermed ALLTID hjemmeoppgaver, punkt 34) — gjenbrukt her i stedet for
+    duplisert markup, slik at BÅDE Tildel/Tester OG program-drop-dialogen (Programmer/Rediger)
+    bruker nøyaktig samme komponent. wwwroot/js/tildel.js (checkbox-sync+kategori-fremheving),
+    testinfo.js (forklaringsboks) og testtre-filter.js (søk) er ALLE allerede skrevet generisk
+    (class-baserte selektorer, ingen hardkodede ID-er) og fungerer derfor uendret her.
+*@
+<div class="tildel-med-info">
+    <div>
+        <label for="@(Model.IdPrefix)TestSok">Søk i tester</label><br />
+        <input type="search" id="@(Model.IdPrefix)TestSok" data-tredfilter="#@(Model.IdPrefix)KategoriTre" placeholder="Søk i testnavn …" />
+    </div>
+    <div class="tildel-kategori-tre" id="@(Model.IdPrefix)KategoriTre">
+        @foreach (var kategori in Model.KategoriTre)
+        {
+            <details>
+                <summary>@kategori.Kategori.Navn (@kategori.Tester.Count)</summary>
+                @if (!kategori.Tester.Any())
+                {
+                    <p><em>Ingen tester i denne kategorien ennå.</em></p>
+                }
+                else
+                {
+                    <ul>
+                    @foreach (var test in kategori.Tester)
+                    {
+                        var visningsnavn = test.Navn + (string.IsNullOrEmpty(test.OversettelseNotat) ? "" : $" ({test.OversettelseNotat})");
+                        <li data-sok="@visningsnavn.ToLowerInvariant()">
+                            <label class="@(test.FyllesUtAvBehandler ? "tildel-test-klinikerutfylt" : "")">
+                                <input type="checkbox"
+                                       @(Model.CheckboxNavn is null ? "" : $"name=\"{Model.CheckboxNavn}\"")
+                                       value="@test.Id" class="tildel-test-checkbox" data-test-id="@test.Id"
+                                       data-test-navn="@visningsnavn"
+                                       data-beskrivelse="@test.Beskrivelse"
+                                       data-rapport-introduksjon="@test.RapportIntroduksjon"
+                                       checked="@(Model.ForhaandsvalgteTestIder.Contains(test.Id))" />
+                                <span class="tildel-test-navn-rad">
+                                    <span>@test.Navn @if (!string.IsNullOrEmpty(test.OversettelseNotat))
+                                        {
+                                            <em>(@test.OversettelseNotat)</em>
+                                        }</span>
+                                    @if (test.ErHjemmeoppgave)
+                                    {
+                                        <span class="tildel-ikon" title="Egenprodusert hjemmeoppgave"><partial name="_Ikon" model="@("hjemmeoppgave")" /></span>
+                                    }
+                                    @if (test.FyllesUtAvBehandler)
+                                    {
+                                        <span class="tildel-ikon" title="Fylles ut av deg (behandler), ikke pasienten"><partial name="_Ikon" model="@("klinikk")" /></span>
+                                    }
+                                </span>
+                            </label>
+                        </li>
+                    }
+                    </ul>
+                }
+            </details>
+        }
+    </div>
+    <aside class="test-infoboks skjult"></aside>
+</div>
+
+<script src="~/js/tildel.js" asp-append-version="true"></script>
+<script src="~/js/testinfo.js" asp-append-version="true"></script>
+<script src="~/js/testtre-filter.js" asp-append-version="true"></script>

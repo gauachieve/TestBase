@@ -1,5 +1,6 @@
 @page "{id:long?}"
 @model TestBase.Web.Areas.Behandlerportal.Pages.Programmer.RedigerModel
+@using TestBase.Web.Pages.Shared
 @{
     ViewData["Title"] = Model.ProgramId is null ? "Nytt program" : "Rediger program";
     var ukedager = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday };
@@ -7,6 +8,7 @@
         [DayOfWeek.Monday] = "Mandag", [DayOfWeek.Tuesday] = "Tirsdag", [DayOfWeek.Wednesday] = "Onsdag",
         [DayOfWeek.Thursday] = "Torsdag", [DayOfWeek.Friday] = "Fredag", [DayOfWeek.Saturday] = "Lørdag", [DayOfWeek.Sunday] = "Søndag"
     };
+    const int AntallDager = 42;
 }
 
 <h1>@(Model.ProgramId is null ? "Nytt program" : "Rediger program")</h1>
@@ -20,100 +22,92 @@
     <p style="color: @(Model.DropsLaast ? "#b06000" : "darkred");">@Model.Feilmelding</p>
 }
 
-<form method="post" data-disable-on-submit="Lagrer …">
-    <div>
-        <label for="Navn">Navn</label><br />
+<form method="post" data-disable-on-submit="Lagrer …" id="programSkjema">
+    <div class="hjo-felt-gruppe">
+        <label for="Navn">Navn</label>
         <input type="text" id="Navn" name="Navn" value="@Model.Navn" required style="width: 100%; max-width: 480px;" />
     </div>
-    <div>
-        <label for="Forklaring">Forklaring</label><br />
+    <div class="hjo-felt-gruppe">
+        <label for="Forklaring">Forklaring</label>
         <textarea id="Forklaring" name="Forklaring" rows="3" style="width: 100%; max-width: 480px;">@Model.Forklaring</textarea>
     </div>
-    <div>
-        <label for="StartUkedag">Programmet starter på</label><br />
-        <select id="StartUkedag" name="StartUkedag">
+    <div class="hjo-felt-gruppe">
+        <label for="StartUkedag">Programmet starter på</label>
+        <select id="StartUkedag" name="StartUkedag" style="width: auto; display: inline-block;">
             @foreach (var dag in ukedager)
             {
                 <option value="@dag" selected="@(Model.StartUkedag == dag)">@ukedagNavn[dag]</option>
             }
         </select>
         kl.
-        <input type="time" name="StartKlokkeslett" value="@Model.StartKlokkeslett" />
-        <p><em>Neste forekomst av denne ukedagen (norsk tid) regnes ut automatisk når programmet tildeles.</em></p>
+        @* Bugliste 2026-10-05 punkt 28: en NATIV <input type="time"> sitt AM/PM-oppsett styres av
+           nettleserens/OS-ens locale, IKKE av lang-attributtet alene (bekreftet ved verifisering —
+           lang="nb" endret ingenting i Chromium her). Vanlig tekstfelt med mønstervalidering
+           garanterer 24-timersformat uansett miljø. *@
+        <input type="text" name="StartKlokkeslett" value="@Model.StartKlokkeslett" class="program-klokkeslett-input"
+               inputmode="numeric" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" placeholder="09:00" title="Klokkeslett i 24-timersformat, f.eks. 09:00" />
+        <p><em>Neste forekomst av denne ukedagen (norsk tid) regnes ut automatisk når programmet tildeles. "Dag 0" under er den dagen.</em></p>
     </div>
 
     <h2>Drops</h2>
-    <p><em>Første drop fyres av på selve starttidspunktet over. Hver påfølgende drop er et antall dager ETTER forrige drop, innenfor sitt eget fra-til-tidsvindu (randomisert).</em></p>
+    <p><em>Klikk på en dag for å legge til eller endre en drop den dagen. Dag 0 er programmets starttidspunkt over.</em></p>
 
-    <div id="programDropListe">
-    @for (var i = 0; i < Model.Drops.Count; i++)
+    <div class="program-kalender" id="programKalender">
+    @for (var uke = 0; uke < AntallDager / 7; uke++)
     {
-        var drop = Model.Drops[i];
-        <div class="program-drop-rad" style="border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 1rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong class="program-drop-nummer">Drop @(i + 1)</strong>
-                <button type="button" class="program-fjern-drop btn-muted">Fjern</button>
-            </div>
-            <div>
-                <label>Dager etter forrige drop (0 for første)</label><br />
-                <input type="number" min="0" name="Drops[@i].DagerEtterForrige" data-feltnavn="DagerEtterForrige" value="@drop.DagerEtterForrige" />
-            </div>
-            <div>
-                <label>Tidsvindu (fra–til, randomisert)</label><br />
-                <input type="time" name="Drops[@i].FraKlokkeslett" data-feltnavn="FraKlokkeslett" value="@drop.FraKlokkeslett" />
-                –
-                <input type="time" name="Drops[@i].TilKlokkeslett" data-feltnavn="TilKlokkeslett" value="@drop.TilKlokkeslett" />
-            </div>
-            <div>
-                <label><input type="checkbox" name="Drops[@i].UnngaaNatt" data-feltnavn="UnngaaNatt" value="true" checked="@drop.UnngaaNatt" /> Unngå natt (22:00–07:00)</label>
-            </div>
-            <div>
-                <label>Tester (i rekkefølge — ctrl/cmd+klikk for flere)</label><br />
-                <select name="Drops[@i].TestIder" data-feltnavn="TestIder" multiple size="6" style="width: 100%; max-width: 480px;">
-                    @foreach (var test in Model.TilgjengeligeTester.OrderBy(t => t.Navn))
-                    {
-                        <option value="@test.Id" selected="@drop.TestIder.Contains(test.Id)">@test.Navn</option>
-                    }
-                </select>
+        <div class="program-kalender-uke">
+            <div class="program-kalender-ukenummer">Uke @(uke + 1)</div>
+            <div class="program-kalender-rad">
+            @for (var kol = 0; kol < 7; kol++)
+            {
+                var dag = uke * 7 + kol;
+                <button type="button" class="program-dag-celle" data-dag="@dag">
+                    <span class="program-dag-nummer">Dag @dag</span>
+                    <span class="program-dag-badge" hidden></span>
+                </button>
+            }
             </div>
         </div>
     }
     </div>
 
-    <template id="programDropMal">
-        <div class="program-drop-rad" style="border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 1rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong class="program-drop-nummer">Drop</strong>
-                <button type="button" class="program-fjern-drop btn-muted">Fjern</button>
-            </div>
-            <div>
-                <label>Dager etter forrige drop (0 for første)</label><br />
-                <input type="number" min="0" data-feltnavn="DagerEtterForrige" value="1" />
-            </div>
-            <div>
-                <label>Tidsvindu (fra–til, randomisert)</label><br />
-                <input type="time" data-feltnavn="FraKlokkeslett" value="09:00" />
-                –
-                <input type="time" data-feltnavn="TilKlokkeslett" value="18:00" />
-            </div>
-            <div>
-                <label><input type="checkbox" data-feltnavn="UnngaaNatt" value="true" checked /> Unngå natt (22:00–07:00)</label>
-            </div>
-            <div>
-                <label>Tester (i rekkefølge — ctrl/cmd+klikk for flere)</label><br />
-                <select data-feltnavn="TestIder" multiple size="6" style="width: 100%; max-width: 480px;">
-                    @foreach (var test in Model.TilgjengeligeTester.OrderBy(t => t.Navn))
-                    {
-                        <option value="@test.Id">@test.Navn</option>
-                    }
-                </select>
-            </div>
+    <div id="programDropFelterSkjult" hidden></div>
+
+    @{
+        var kumulativDag = 0;
+        var eksisterendeDrops = new List<object>();
+        for (var i = 0; i < Model.Drops.Count; i++)
+        {
+            if (i > 0) { kumulativDag += Model.Drops[i].DagerEtterForrige; }
+            eksisterendeDrops.Add(new { dag = kumulativDag, fra = Model.Drops[i].FraKlokkeslett, til = Model.Drops[i].TilKlokkeslett, unngaaNatt = Model.Drops[i].UnngaaNatt, testIder = Model.Drops[i].TestIder });
+        }
+    }
+    <script id="programEksisterendeDrops" type="application/json">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(eksisterendeDrops))</script>
+
+    <dialog id="programDropDialog">
+        <h2 id="programDropDialogTittel">Drop på dag 0</h2>
+        <div class="hjo-felt-gruppe">
+            <label>Tidsvindu (fra–til, randomisert)</label>
+            <input type="text" id="programDropFra" class="program-klokkeslett-input" value="09:00"
+                   inputmode="numeric" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" placeholder="09:00" title="Klokkeslett i 24-timersformat, f.eks. 09:00" />
+            –
+            <input type="text" id="programDropTil" class="program-klokkeslett-input" value="18:00"
+                   inputmode="numeric" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" placeholder="18:00" title="Klokkeslett i 24-timersformat, f.eks. 18:00" />
         </div>
-    </template>
+        <div class="hjo-felt-gruppe">
+            <label><input type="checkbox" id="programDropUnngaaNatt" checked /> Unngå natt (22:00–07:00)</label>
+        </div>
 
-    <button type="button" id="programLeggTilDrop" class="btn-muted">+ Legg til drop</button>
+        <partial name="_TestKategoriVelger" model="@(new TestKategoriVelgerModel { KategoriTre = Model.KategoriTre, IdPrefix = "drop" })" />
 
-    <p><button type="submit" class="btn-accent">Lagre</button></p>
+        <p>
+            <button type="button" id="programDropAvbryt" class="hjo-btn hjo-btn-stor"><partial name="_Ikon" model="@("tilbakekall")" /><span>Avbryt</span></button>
+            <button type="button" id="programDropFjern" class="hjo-btn hjo-btn-stor hjo-fjern-knapp" hidden><partial name="_Ikon" model="@("slett")" /><span>Fjern drop</span></button>
+            <button type="button" id="programDropLagre" class="hjo-btn hjo-btn-stor"><partial name="_Ikon" model="@("godkjenn")" /><span>Lagre drop</span></button>
+        </p>
+    </dialog>
+
+    <p><button type="submit" class="btn-accent">Lagre program</button></p>
 </form>
 
 <script src="~/js/program-editor.js" asp-append-version="true"></script>

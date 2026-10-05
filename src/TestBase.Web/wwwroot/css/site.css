@@ -1870,3 +1870,33 @@ main.page form .hjo-vas-rad input { width: auto; flex: 1 1 160px; }
 
 .hjo-bilde-felt .hjo-bilde-forhandsvisning { max-width: 200px; display: block; margin: 0.5rem 0; border-radius: 6px; }
 .hjo-bilde-url-input { margin-top: 0.5rem; }
+
+/* ---------- Program-kalender (bugliste 2026-10-05 punkt 28-35) ---------- */
+
+/* Punkt 29: "kl."-boksen var bred fordi den ARVET "main.page form input { width: 100% }" — en
+   klokkeslett-input trenger ikke mer enn ca. like bredt som selve nedtrekksvelgeren som åpnes. */
+main.page form input.program-klokkeslett-input { width: 7.5rem; display: inline-block; }
+
+.program-kalender { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; max-width: 760px; }
+.program-kalender-uke { display: flex; align-items: center; gap: 0.5rem; }
+.program-kalender-ukenummer { flex: 0 0 4rem; font-size: 0.8rem; color: var(--muted); }
+.program-kalender-rad { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem; flex: 1 1 auto; }
+.program-dag-celle {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.15rem; min-height: 3rem; border: 1px solid var(--border); border-radius: 6px;
+  background: #fff; cursor: pointer; padding: 0.3rem 0.2rem; font: inherit;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.program-dag-celle:hover { border-color: var(--rolle-accent, var(--accent)); }
+.program-dag-nummer { font-size: 0.72rem; color: var(--muted); }
+.program-dag-badge {
+  font-size: 0.68rem; font-weight: 700; color: #fff; background: var(--rolle-accent, var(--accent));
+  border-radius: 999px; padding: 0.1rem 0.45rem;
+}
+.program-dag-celle--har-drop { border-color: var(--rolle-accent-dark, var(--accent-dark)); background: var(--bg-soft); }
+@media (max-width: 640px) {
+  .program-kalender-ukenummer { flex-basis: 2.4rem; font-size: 0.7rem; }
+  .program-dag-nummer { font-size: 0.62rem; }
+}
+
+#programDropDialog { max-width: 640px; width: 92vw; max-height: 85vh; overflow-y: auto; }

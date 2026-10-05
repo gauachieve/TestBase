@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using TestBase.Shared.Domain.Tester;
 using TestBase.Shared.Security;
+using TestBase.Web.Pages.Shared;
 
 namespace TestBase.Web.Areas.Behandlerportal.Pages.Programmer;
 
@@ -15,12 +16,14 @@ public sealed class RedigerModel : PageModel
 {
     private readonly ProgramService _programService;
     private readonly TestService _testService;
+    private readonly HjemmeoppgaveService _hjemmeoppgaveService;
     private readonly ICurrentUserContext _currentUser;
 
-    public RedigerModel(ProgramService programService, TestService testService, ICurrentUserContext currentUser)
+    public RedigerModel(ProgramService programService, TestService testService, HjemmeoppgaveService hjemmeoppgaveService, ICurrentUserContext currentUser)
     {
         _programService = programService;
         _testService = testService;
+        _hjemmeoppgaveService = hjemmeoppgaveService;
         _currentUser = currentUser;
     }
 
@@ -52,15 +55,14 @@ public sealed class RedigerModel : PageModel
     public bool DropsLaast { get; private set; }
     public string? Feilmelding { get; private set; }
     public bool Lagret { get; private set; }
-    public IReadOnlyList<Test> TilgjengeligeTester { get; private set; } = Array.Empty<Test>();
+    public IReadOnlyList<TestService.KategoriMedTester> KategoriTre { get; private set; } = Array.Empty<TestService.KategoriMedTester>();
 
     public async Task<IActionResult> OnGetAsync(long? id, CancellationToken cancellationToken)
     {
-        TilgjengeligeTester = await _testService.HentAktiveTesterAsync(cancellationToken);
+        KategoriTre = await LastKategoriTreMedHjemmeoppgaverAsync(HentBehandlerId(), cancellationToken);
 
         if (id is null)
         {
-            Drops.Add(new DropFormRad());
             return Page();
         }
 
@@ -83,16 +85,14 @@ public sealed class RedigerModel : PageModel
         Forklaring = program.Forklaring;
         StartUkedag = program.StartUkedag;
         StartKlokkeslett = program.StartKlokkeslett.ToString(@"hh\:mm");
-        Drops = medDrops.Drops.Count == 0
-            ? new List<DropFormRad> { new() }
-            : medDrops.Drops.Select(d => new DropFormRad
-            {
-                DagerEtterForrige = d.DagerEtterForrige,
-                FraKlokkeslett = d.FraKlokkeslett.ToString(@"hh\:mm"),
-                TilKlokkeslett = d.TilKlokkeslett.ToString(@"hh\:mm"),
-                UnngaaNatt = d.UnngaaNatt,
-                TestIder = medDrops.TestIderPerDropId.GetValueOrDefault(d.Id, new List<long>())
-            }).ToList();
+        Drops = medDrops.Drops.Select(d => new DropFormRad
+        {
+            DagerEtterForrige = d.DagerEtterForrige,
+            FraKlokkeslett = d.FraKlokkeslett.ToString(@"hh\:mm"),
+            TilKlokkeslett = d.TilKlokkeslett.ToString(@"hh\:mm"),
+            UnngaaNatt = d.UnngaaNatt,
+            TestIder = medDrops.TestIderPerDropId.GetValueOrDefault(d.Id, new List<long>())
+        }).ToList();
 
         return Page();
     }
@@ -100,7 +100,7 @@ public sealed class RedigerModel : PageModel
     public async Task<IActionResult> OnPostAsync(long? id, CancellationToken cancellationToken)
     {
         ProgramId = id;
-        TilgjengeligeTester = await _testService.HentAktiveTesterAsync(cancellationToken);
+        KategoriTre = await LastKategoriTreMedHjemmeoppgaverAsync(HentBehandlerId(), cancellationToken);
 
         if (string.IsNullOrWhiteSpace(Navn))
         {
@@ -151,4 +151,17 @@ public sealed class RedigerModel : PageModel
 
     private long HentBehandlerId() =>
         long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var id) ? id : 0;
+
+    /// <summary>Samme mønster som Tildel/Tester.cshtml.cs — pinner "Egenproduserte" øverst (bugliste 2026-10-05 punkt 34).</summary>
+    private async Task<IReadOnlyList<TestService.KategoriMedTester>> LastKategoriTreMedHjemmeoppgaverAsync(long behandlerId, CancellationToken cancellationToken)
+    {
+        var tre = await _testService.HentKategoriTreAsync(_currentUser.PartnerId, cancellationToken);
+        var hjemmeoppgaver = await _hjemmeoppgaveService.HentTilgjengeligeForTildelingAsync(behandlerId, cancellationToken);
+        if (hjemmeoppgaver.Count == 0)
+        {
+            return tre;
+        }
+        var egenprodusert = new TestKategori { Id = -1, Navn = "Egenproduserte", OpprettetUtc = DateTimeOffset.UtcNow };
+        return new[] { new TestService.KategoriMedTester(egenprodusert, hjemmeoppgaver) }.Concat(tre).ToList();
+    }
 }
