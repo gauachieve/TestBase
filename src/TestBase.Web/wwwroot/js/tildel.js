@@ -10,6 +10,20 @@
 // tildeling er alltid "IkkePåkrevd"), så alt her degraderer stille til bare
 // testnavn uten pris når data-minste-pris ikke finnes.
 (function () {
+    // Bugliste 2026-10-05 punkt 20: fremhev en kategoris overskrift når minst én av testene
+    // under den er valgt, slik at man ser hvor man faktisk har krysset av uten å måtte åpne
+    // hver eneste kategori for å sjekke.
+    function oppdaterKategoriFremheving(details) {
+        if (!details) {
+            return;
+        }
+        var harValgt = Array.prototype.some.call(details.querySelectorAll('.tildel-test-checkbox'), function (cb) { return cb.checked; });
+        var summary = details.querySelector('summary');
+        if (summary) {
+            summary.classList.toggle('tildel-kategori-valgt', harValgt);
+        }
+    }
+
     document.addEventListener('change', function (hendelse) {
         if (!hendelse.target.matches('.tildel-test-checkbox')) {
             return;
@@ -17,6 +31,7 @@
         var testId = hendelse.target.getAttribute('data-test-id');
         document.querySelectorAll('.tildel-test-checkbox[data-test-id="' + testId + '"]').forEach(function (checkbox) {
             checkbox.checked = hendelse.target.checked;
+            oppdaterKategoriFremheving(checkbox.closest('details'));
         });
     });
 
@@ -213,7 +228,11 @@
             var pris = beregnForTest(checkbox, smsGebyrKr);
             var punkt = document.createElement('li');
 
-            if (pris) {
+            // Bugliste 2026-10-05 punkt 21: en GRATIS test (totalKr 0) har likevel et gyldig
+            // pris-objekt (se beregnForTest — kun fraværet av data-minste-pris på Admin-siden gir
+            // null), så den viste tidligere en meningsløs "0,00 NOK per pasient (Plattform 0,00
+            // NOK, ditt honorar 0,00 NOK)"-linje. Vis kun testnavnet når det faktisk ikke koster noe.
+            if (pris && pris.totalKr > 0) {
                 harPrising = true;
                 sumTotal += pris.totalKr;
                 sumPlattform += pris.plattformAndel;

@@ -44,12 +44,12 @@
                 <td>
                     @if (erEgen)
                     {
-                        <a href="/Behandlerportal/Hjemmeoppgaver/Rediger/@test.Id">Rediger</a>
+                        <a class="btn-icon" href="/Behandlerportal/Hjemmeoppgaver/Rediger/@test.Id" title="Rediger" aria-label="Rediger"><partial name="_Ikon" model="@("rediger")" /></a>
 
                         <form method="post" asp-page-handler="DelMedAlle" style="display: inline;">
                             <input type="hidden" name="testId" value="@test.Id" />
                             <input type="hidden" name="verdi" value="@((!test.ErDeltMedAlle).ToString())" />
-                            <button type="submit">@(test.ErDeltMedAlle ? "Avslutt deling (alle)" : "Del med alle")</button>
+                            <button type="submit" class="btn-icon @(test.ErDeltMedAlle ? "btn-icon--aktiv" : "")" title="@(test.ErDeltMedAlle ? "Avslutt deling (alle)" : "Del med alle")" aria-label="@(test.ErDeltMedAlle ? "Avslutt deling (alle)" : "Del med alle")"><partial name="_Ikon" model="@("del")" /></button>
                         </form>
 
                         @if (Model.HarPartner)
@@ -57,24 +57,24 @@
                             <form method="post" asp-page-handler="DelMedPartner" style="display: inline;">
                                 <input type="hidden" name="testId" value="@test.Id" />
                                 <input type="hidden" name="verdi" value="@((!test.ErDeltMedPartner).ToString())" />
-                                <button type="submit">@(test.ErDeltMedPartner ? "Avslutt deling (partner)" : "Del med partner")</button>
+                                <button type="submit" class="btn-icon btn-icon--partner @(test.ErDeltMedPartner ? "btn-icon--aktiv" : "")" title="@(test.ErDeltMedPartner ? "Avslutt deling (partner)" : "Del med partner")" aria-label="@(test.ErDeltMedPartner ? "Avslutt deling (partner)" : "Del med partner")"><partial name="_Ikon" model="@("behandlere")" /></button>
                             </form>
                         }
 
                         <form method="post" asp-page-handler="Slett" style="display: inline;" onsubmit="return confirm('Slette denne hjemmeoppgaven?');">
                             <input type="hidden" name="testId" value="@test.Id" />
-                            <button type="submit" class="btn-muted">Slett</button>
+                            <button type="submit" class="btn-icon btn-icon--slett" title="Slett" aria-label="Slett"><partial name="_Ikon" model="@("slett")" /></button>
                         </form>
                     }
                     else
                     {
                         <form method="post" asp-page-handler="Kopier" style="display: inline;">
                             <input type="hidden" name="testId" value="@test.Id" />
-                            <button type="submit">Rediger (lager kopi)</button>
+                            <button type="submit" class="btn-icon" title="Rediger (lager kopi)" aria-label="Rediger (lager kopi)"><partial name="_Ikon" model="@("kopier")" /></button>
                         </form>
                         <form method="post" asp-page-handler="FjernLiking" style="display: inline;">
                             <input type="hidden" name="testId" value="@test.Id" />
-                            <button type="submit" class="btn-muted">Fjern fra personlig</button>
+                            <button type="submit" class="btn-icon btn-icon--muted" title="Fjern fra personlig" aria-label="Fjern fra personlig"><partial name="_Ikon" model="@("tilbakekall")" /></button>
                         </form>
                     }
                 </td>
@@ -89,13 +89,13 @@
                 <td>
                     @if (erLikt)
                     {
-                        <span>👍 Likt — se i Personlig</span>
+                        <span class="btn-icon btn-icon--aktiv" title="Likt — se i Personlig" aria-label="Likt"><partial name="_Ikon" model="@("lik")" /></span>
                     }
                     else
                     {
                         <form method="post" asp-page-handler="Lik" style="display: inline;">
                             <input type="hidden" name="testId" value="@test.Id" />
-                            <button type="submit">👍 Lik</button>
+                            <button type="submit" class="btn-icon" title="Lik" aria-label="Lik"><partial name="_Ikon" model="@("lik")" /></button>
                         </form>
                     }
                 </td>
@@ -110,13 +110,13 @@
                 <td>
                     @if (erLikt)
                     {
-                        <span>👍 Likt — se i Personlig</span>
+                        <span class="btn-icon btn-icon--aktiv" title="Likt — se i Personlig" aria-label="Likt"><partial name="_Ikon" model="@("lik")" /></span>
                     }
                     else
                     {
                         <form method="post" asp-page-handler="Lik" style="display: inline;">
                             <input type="hidden" name="testId" value="@test.Id" />
-                            <button type="submit">👍 Lik</button>
+                            <button type="submit" class="btn-icon" title="Lik" aria-label="Lik"><partial name="_Ikon" model="@("lik")" /></button>
                         </form>
                     }
                 </td>

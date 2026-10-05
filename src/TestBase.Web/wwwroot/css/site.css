@@ -780,6 +780,13 @@ main.page .btn-icon--slett:disabled {
 main.page .btn-icon--partner { background: var(--accent); }
 main.page .btn-icon--partner:hover { background: var(--accent-dark); }
 
+/* Bugliste 2026-10-05 punkt 15: en TOGGLE-handling (f.eks. "del med alle") vist som
+   ikon-knapp trenger en synlig PÅ/AV-tilstand siden teksten som før fortalte dette er
+   borte — en ring + mørkere bakgrunn når handlingen allerede er aktiv. */
+main.page .btn-icon--aktiv { background: var(--rolle-accent-dark, var(--success-dark)); box-shadow: 0 0 0 2px var(--rolle-accent, var(--success)) inset; }
+main.page .btn-icon--muted { background: var(--muted); }
+main.page .btn-icon--muted:hover { background: var(--ink-soft); }
+
 /* Primary forms (innlogging, opprett/inviter/fyll ut) -> card */
 main.page form:not([style*="display:inline"]) {
   background: #fff;
@@ -841,15 +848,25 @@ main.page form input[type="range"] { width: 100%; accent-color: var(--accent); }
 main.page form input[type="checkbox"],
 main.page form input[type="radio"] { accent-color: var(--accent); width: auto; }
 
-/* :not(.btn-icon) er nødvendig — uten den vinner denne regelen (høyere
-   spesifisitet enn "main.page .btn-icon") over knappens EGEN styling for
-   enhver egenskap begge setter, siden radhandlings-knappene (Frys/Arkiver/
-   Godkjenn/Slett m.m.) også har type="submit". Symptomet var knapper som ble
-   brede rektangler (padding 0.75rem 1.5rem i stedet for btn-icon sin faste
-   30×30px), med ikonet dyttet ned i hjørnet (display:inline-block i stedet
-   for btn-icon sin inline-flex-sentrering) og feil farge (var(--accent)
-   oransje i stedet for btn-icon sin egen bakgrunnsfarge) — se bugliste-runden
-   "BIGBUTTONS". */
+/* :not(.btn-icon) er nødvendig — uten den vinner denne regelen (høyere spesifisitet enn
+   "main.page .btn-icon") over knappens EGEN styling for enhver egenskap begge setter, siden
+   radhandlings-knappene (Frys/Arkiver/Godkjenn/Slett m.m.) også har type="submit". Symptomet var
+   knapper som ble brede rektangler (padding 0.75rem 1.5rem i stedet for btn-icon sin faste
+   30×30px), med ikonet dyttet ned i hjørnet (display:inline-block i stedet for btn-icon sin
+   inline-flex-sentrering) og feil farge (var(--accent) oransje i stedet for btn-icon sin egen
+   bakgrunnsfarge) — se bugliste-runden "BIGBUTTONS".
+
+   Bugliste 2026-10-05 punkt 23 — SAMME kollisjonsklasse, mye bredere: denne regelen's `background:
+   var(--accent)` (literal oransje) vinner over `.btn-accent`/`.btn-muted`/`.btn-outline` sin EGEN
+   farge på ETHVERT `<button type="submit" class="btn-accent">` som ikke OGSÅ har literal `.btn` i
+   class-lista — de fleste steder i kodebasen skriver kun "btn-accent", ikke "btn btn-accent" (kun
+   Tildel/Tester sine dialog-knapper hadde begge). En behandlers EGEN rollefarge (teal), en
+   administrators (blått) og en superadmins (lilla) ble dermed alle den samme literale
+   --accent-oransjen i stedet, på SAMTLIGE sider i appen med en type="submit".btn-accent-knapp,
+   ikke bare Tildel/Tester. Strukturen (padding/uppercase/radius osv.) fra DENNE regelen er
+   fortsatt riktig å beholde for disse knappene (mange har ALDRI hatt literal .btn, kun
+   .btn-accent, og ville mistet all form uten den) — kun selve fargen må vinnes tilbake, se de tre
+   spesifikke mot-reglene rett under (samme spesifisitet, men senere i fila + egen klasse). */
 main.page form button[type="submit"]:not(.btn-icon) {
   display: inline-block;
   font-weight: 700;
@@ -866,6 +883,12 @@ main.page form button[type="submit"]:not(.btn-icon) {
   margin-right: 0.5rem;
 }
 main.page form button[type="submit"]:not(.btn-icon):hover { background: var(--accent-dark); }
+main.page form button[type="submit"].btn-accent { background: var(--rolle-accent); color: var(--rolle-accent-tekst); }
+main.page form button[type="submit"].btn-accent:hover { background: var(--rolle-accent-dark); }
+main.page form button[type="submit"].btn-muted { background: transparent; border-color: var(--border); color: var(--muted); }
+main.page form button[type="submit"].btn-muted:hover { background: var(--bg-soft); border-color: var(--muted); color: var(--ink-soft); }
+main.page form button[type="submit"].btn-outline { background: transparent; border-color: var(--ink); color: var(--ink); }
+main.page form button[type="submit"].btn-outline:hover { background: var(--ink); color: #fff; }
 
 /* Feilmeldinger (p style="color: darkred;") */
 main.page p[style*="color: darkred"] {
@@ -971,6 +994,8 @@ main.page form#tildelForm { max-width: 760px; }
   background: #fff;
 }
 .tildel-kategori-tre summary { cursor: pointer; font-weight: 700; color: var(--ink); padding: 0.3rem 0; }
+/* Bugliste 2026-10-05 punkt 20: mørk, rollefarget overskrift når minst én test i kategorien er valgt. */
+.tildel-kategori-tre summary.tildel-kategori-valgt { color: var(--rolle-accent-dark, var(--success-dark)); }
 .tildel-kategori-tre ul { list-style: none; padding-left: 0.5rem; margin: 0.4rem 0 0; }
 .tildel-kategori-tre li { margin-bottom: 0.3rem; }
 .tildel-kanal-ikon { opacity: 0.3; margin-right: 0.3rem; }
@@ -989,6 +1014,11 @@ main.page form#tildelForm { max-width: 760px; }
 }
 .tildel-test-forklaring span { display: inline-flex; align-items: center; gap: 0.3rem; }
 .tildel-ikon { display: inline-flex; align-items: center; margin-left: 0.3rem; color: var(--accent-dark); vertical-align: middle; }
+/* Bugliste 2026-10-05 punkt 16: ikonene lå som SØSKEN til <label>, utenfor dens inline-flyt — på
+   et smalt vindu/langt testnavn kunne de derfor havne på en egen linje under navnet i stedet for
+   rett ved siden av. Nå en inline-flex-gruppe INNI selve label-en (samme tekstenhet som navnet),
+   slik at de alltid bryter sammen MED navnet, ikke uavhengig av det. */
+.tildel-test-navn-rad { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 0.15rem; }
 .tildel-test-klinikerutfylt { text-decoration: underline; text-decoration-color: var(--accent-dark); text-underline-offset: 3px; }
 
 dialog#oppsummeringDialog, dialog#grupperapportDialog, dialog#honorarDialog {

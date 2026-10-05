@@ -87,8 +87,8 @@ else if (Model.ValgtePasienter.Any())
         <div class="tildel-kategori-tre" id="tildelKategoriTre">
         @foreach (var kategori in Model.KategoriTre)
         {
-            <details open>
-                <summary>@kategori.Kategori.Navn</summary>
+            <details>
+                <summary>@kategori.Kategori.Navn (@kategori.Tester.Count)</summary>
                 @if (!kategori.Tester.Any())
                 {
                     <p><em>Ingen tester i denne kategorien ennå.</em></p>

@@ -63,20 +63,20 @@
         }
         </ul>
     }
-    <p><a href="/Behandlerportal/Tildel/Pasienter">Tildel flere tester</a></p>
+    <p><a href="/Behandlerportal/MinSide" class="btn-accent"><partial name="_Ikon" model="@("hus")" /> Tilbake til Min Side</a></p>
 }
 else if (Model.PlanlagtOpprettet)
 {
     <h2>Utsending planlagt</h2>
     <p>Sendes @Model.PlanlagtTidspunktVisning?.ToString("g").</p>
-    <p><a href="/Behandlerportal/Tildel/Pasienter">Tildel flere tester</a></p>
+    <p><a href="/Behandlerportal/MinSide" class="btn-accent"><partial name="_Ikon" model="@("hus")" /> Tilbake til Min Side</a></p>
 }
 else if (Model.ValgtePasienter.Any())
 {
     <p>Tildeler til: <strong>@string.Join(", ", Model.ValgtePasienter.Select(p => p.Pasient.Navn ?? "(ikke fullført)"))</strong></p>
 
     <p class="tildel-test-forklaring">
-        <span><partial name="_Ikon" model="@("pluss")" /> Pasienten kan belastes for denne testen</span>
+        <span><partial name="_Ikon" model="@("pluss")" /> Tolkning kan prises</span>
         <span><partial name="_Ikon" model="@("dollar")" /> Koster praksisen noe per gjennomføring</span>
         <span><partial name="_Ikon" model="@("klinikk")" /> <span class="tildel-test-klinikerutfylt">Fylles ut av deg (behandler), ikke pasienten</span></span>
     </p>
@@ -97,8 +97,8 @@ else if (Model.ValgtePasienter.Any())
         <div class="tildel-kategori-tre" id="tildelKategoriTre">
         @foreach (var kategori in Model.KategoriTre)
         {
-            <details open>
-                <summary>@kategori.Kategori.Navn</summary>
+            <details>
+                <summary>@kategori.Kategori.Navn (@kategori.Tester.Count)</summary>
                 @if (!kategori.Tester.Any())
                 {
                     <p><em>Ingen tester i denne kategorien ennå.</em></p>
@@ -120,24 +120,25 @@ else if (Model.ValgtePasienter.Any())
                                        data-storste-pris="@test.StorstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                                        data-typisk-honorar="@test.TypiskBehandlerHonorarKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                                        data-partner-andel="@Model.Prisingskontekst.EffektivPartnerAndelPerTestId.GetValueOrDefault(test.Id).ToString(System.Globalization.CultureInfo.InvariantCulture)" />
-                                @test.Navn
-                                @if (!string.IsNullOrEmpty(test.OversettelseNotat))
-                                {
-                                    <em>(@test.OversettelseNotat)</em>
-                                }
+                                <span class="tildel-test-navn-rad">
+                                    <span>@test.Navn @if (!string.IsNullOrEmpty(test.OversettelseNotat))
+                                        {
+                                            <em>(@test.OversettelseNotat)</em>
+                                        }</span>
+                                    @if (test.StorstePrisKr > 0)
+                                    {
+                                        <span class="tildel-ikon" title="Tolkning kan prises"><partial name="_Ikon" model="@("pluss")" /></span>
+                                    }
+                                    @if (test.HarKostnadPerGjennomforing)
+                                    {
+                                        <span class="tildel-ikon" title="Koster praksisen noe per gjennomføring"><partial name="_Ikon" model="@("dollar")" /></span>
+                                    }
+                                    @if (test.FyllesUtAvBehandler)
+                                    {
+                                        <span class="tildel-ikon" title="Fylles ut av deg (behandler), ikke pasienten"><partial name="_Ikon" model="@("klinikk")" /></span>
+                                    }
+                                </span>
                             </label>
-                            @if (test.StorstePrisKr > 0)
-                            {
-                                <span class="tildel-ikon" title="Pasienten kan belastes for denne testen"><partial name="_Ikon" model="@("pluss")" /></span>
-                            }
-                            @if (test.HarKostnadPerGjennomforing)
-                            {
-                                <span class="tildel-ikon" title="Koster praksisen noe per gjennomføring"><partial name="_Ikon" model="@("dollar")" /></span>
-                            }
-                            @if (test.FyllesUtAvBehandler)
-                            {
-                                <span class="tildel-ikon" title="Fylles ut av deg (behandler), ikke pasienten"><partial name="_Ikon" model="@("klinikk")" /></span>
-                            }
                         </li>
                     }
                     </ul>
@@ -217,4 +218,7 @@ else
     <p>Ingen gyldige pasienter valgt. <a href="/Behandlerportal/Tildel/Pasienter">Gå tilbake til steg 1</a>.</p>
 }
 
-<p><a href="/Behandlerportal/Pasienter">Tilbake til pasienter</a></p>
+@if (Model.Resultat is null && !Model.PlanlagtOpprettet)
+{
+    <p><a href="/Behandlerportal/Pasienter">Tilbake til pasienter</a></p>
+}

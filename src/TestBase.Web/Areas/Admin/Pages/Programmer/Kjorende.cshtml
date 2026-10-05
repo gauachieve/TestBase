@@ -37,14 +37,14 @@ else
                         {
                             <input type="hidden" name="deltakelseIder" value="@id" />
                         }
-                        <button type="submit">Pause</button>
+                        <button type="submit" class="btn-icon" title="Pause" aria-label="Pause"><partial name="_Ikon" model="@("frys")" /></button>
                     </form>
                     <form method="post" asp-page-handler="Fjern" style="display: inline;" onsubmit="return confirm('Fjerne alle fra programmet? Fremtidige drops kanselleres.');">
                         @foreach (var id in rad.DeltakelseIder)
                         {
                             <input type="hidden" name="deltakelseIder" value="@id" />
                         }
-                        <button type="submit" class="btn-muted">Fjern</button>
+                        <button type="submit" class="btn-icon btn-icon--slett" title="Fjern" aria-label="Fjern"><partial name="_Ikon" model="@("slett")" /></button>
                     </form>
                 </td>
             </tr>
