@@ -8,5 +8,12 @@ namespace TestBase.Shared.Providers;
 /// </summary>
 public interface IEmailSender
 {
-    Task SendAsync(string toEmail, string subject, string body, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// <paramref name="body"/> er alltid ren tekst (fallback for e-postklienter uten HTML-støtte).
+    /// <paramref name="htmlBody"/> er valgfri — når satt, sendes den som den rikere HTML-varianten
+    /// av meldingen (f.eks. en fargelagt knapp, se bugliste 2026-10-06 punkt 8/9). Lagt til SIST i
+    /// signaturen MED default-verdi slik at eksisterende positional-kall ikke knekker (se kjent
+    /// fallgruve i CLAUDE.md om å aldri sette inn en ny parameter midt i en signatur).
+    /// </summary>
+    Task SendAsync(string toEmail, string subject, string body, CancellationToken cancellationToken = default, string? htmlBody = null);
 }

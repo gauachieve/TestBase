@@ -5,16 +5,16 @@ namespace TestBase.IntegrationTests.TestDoubles;
 /// <summary>Erstatter MockEmailSender i test-verten — se CapturingSmsSender for begrunnelse.</summary>
 public sealed class CapturingEmailSender : IEmailSender
 {
-    public sealed record SendtEpost(string Til, string Emne, string Body, DateTimeOffset SendtUtc);
+    public sealed record SendtEpost(string Til, string Emne, string Body, DateTimeOffset SendtUtc, string? HtmlBody = null);
 
     private readonly List<SendtEpost> _sendt = new();
     private readonly object _lock = new();
 
-    public Task SendAsync(string toEmail, string subject, string body, CancellationToken cancellationToken = default)
+    public Task SendAsync(string toEmail, string subject, string body, CancellationToken cancellationToken = default, string? htmlBody = null)
     {
         lock (_lock)
         {
-            _sendt.Add(new SendtEpost(toEmail, subject, body, DateTimeOffset.UtcNow));
+            _sendt.Add(new SendtEpost(toEmail, subject, body, DateTimeOffset.UtcNow, htmlBody));
         }
         return Task.CompletedTask;
     }

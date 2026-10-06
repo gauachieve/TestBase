@@ -24,9 +24,14 @@ public sealed class AzureEmailSender : IEmailSender
         _logger = logger;
     }
 
-    public async Task SendAsync(string toEmail, string subject, string body, CancellationToken cancellationToken = default)
+    public async Task SendAsync(string toEmail, string subject, string body, CancellationToken cancellationToken = default, string? htmlBody = null)
     {
-        var melding = new EmailMessage(_senderAddress, toEmail, new EmailContent(subject) { PlainText = body });
+        var innhold = new EmailContent(subject) { PlainText = body };
+        if (!string.IsNullOrEmpty(htmlBody))
+        {
+            innhold.Html = htmlBody;
+        }
+        var melding = new EmailMessage(_senderAddress, toEmail, innhold);
 
         try
         {
