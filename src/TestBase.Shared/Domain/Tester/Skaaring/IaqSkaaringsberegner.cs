@@ -3,24 +3,37 @@ namespace TestBase.Shared.Domain.Tester.Skaaring;
 /// <summary>
 /// IAQ-skåring: diagnostisk algoritme sitert direkte fra kildeartikkelen
 /// (se IaqTestSeeder) — ikke bare en terskelsum. Ledd 0-7 er symptomledd
-/// (0-4), ledd 8 er funksjonsspørsmålet (Ja/Nei).
+/// (0-4), ledd 8 er funksjonsspørsmålet (Ja/Nei). Krever ekte TestLeddId-
+/// oppslag (ITestSkaaringsberegnerMedLedd) for å identifisere HVILKE ledd
+/// som er de to "kjernesymptom"-leddene, UAVHENGIG av om et tidligere ledd
+/// ble hoppet over — samme rotårsak-klasse som GADIT-krasjen
+/// (docs/beslutningslogg.md "Reell 500-feil i GADIT-skåring"). Rammet reelt
+/// live 2026-10-06 (ArgumentOutOfRangeException, `svar[i]` på en ufullstendig
+/// besvarelse) — se "Reell 500-feil ved IAQ-rapportvisning" i beslutningsloggen.
 /// </summary>
-public sealed class IaqSkaaringsberegner : ITestSkaaringsberegner
+public sealed class IaqSkaaringsberegner : ITestSkaaringsberegnerMedLedd
 {
     private const int Maks = 32; // 8 ledd × 4 poeng
     private const int MinstEndossertForDiagnose = 4;
 
     public string TestKode => "iaq";
 
-    public TestSkaaring BeregnSkaaring(IReadOnlyList<TestSvar> svar)
+    public TestSkaaring BeregnSkaaring(IReadOnlyList<TestSvar> svar) =>
+        throw new NotSupportedException("IAQ krever ledd-informasjon for å identifisere kjernesymptom-leddene — bruk BeregnSkaaringMedLedd.");
+
+    public TestSkaaring BeregnSkaaringMedLedd(IReadOnlyList<TestSvar> svar, IReadOnlyList<TestLedd> alleLedd)
     {
-        var symptomPoeng = Enumerable.Range(0, 8).Select(i => int.Parse(svar[i].SvarVerdi)).ToList();
+        var svarPerLeddId = svar.ToDictionary(s => s.TestLeddId, s => s.SvarVerdi);
+        int SymptomPoeng(int indeks) =>
+            indeks < alleLedd.Count && svarPerLeddId.TryGetValue(alleLedd[indeks].Id, out var v) && int.TryParse(v, out var p) ? p : 0;
+
+        var symptomPoeng = Enumerable.Range(0, 8).Select(SymptomPoeng).ToList();
         var raaSkaar = symptomPoeng.Sum();
         var prosentSkaar = (int)Math.Round(raaSkaar * 100m / Maks);
 
         var antallEndossert = symptomPoeng.Count(p => p >= 3);
         var kjerneEndossert = symptomPoeng[0] >= 3 || symptomPoeng[1] >= 3;
-        var funksjonstap = svar[8].SvarVerdi == "Ja";
+        var funksjonstap = alleLedd.Count > 8 && svarPerLeddId.TryGetValue(alleLedd[8].Id, out var fv) && fv == "Ja";
         var kriterierOppfylt = antallEndossert >= MinstEndossertForDiagnose && kjerneEndossert && funksjonstap;
 
         var fortolkning = kriterierOppfylt

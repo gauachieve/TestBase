@@ -7657,3 +7657,36 @@ delt-med-partner i samme test siden de deler rotårsak) — 94/94 totalt, alle g
 eksisterende `PartnerbehandlerKanIkkeTildeleTestUtenforAllowList`-testen (admin-forfattede tester
 skal FORTSATT håndheves) ble kjørt på nytt og er uendret grønn, bekrefter at fiksen ikke åpner noe
 sikkerhetshull for den opprinnelige, tiltenkte bruken av allow-listen.
+
+## Reell 500-feil ved IAQ-rapportvisning (2026-10-06)
+
+Brukeren rapporterte en feil på live ved å åpne en rapport. Diagnostisert direkte via
+`az webapp log tail` mot `app-testbase-tk46vyxboocho`/`rg-testbase-test`: en
+`ArgumentOutOfRangeException` i `IaqSkaaringsberegner.BeregnSkaaring` (linje 17, `svar[i]`), kalt
+fra `Behandlerportal/Pasienter/Rapport.cshtml.cs` → `TestService.BeregnSkaaringAsync`.
+
+**Rotårsak:** SAMME mønster som GADIT-krasjen (2026-09-23) og det allerede dokumenterte,
+gjenstående funnet for ITQ/PHQ-9 — `IaqSkaaringsberegner` indekserte `svar` POSISJONSBASERT
+(`svar[0..7]` = de 8 symptomleddene, `svar[8]` = funksjonsspørsmålet), men
+`TestService.LagreSvarAsync` hopper stille over ubesvarte ledd uten å hindre "Fullfort". En
+pasient som hoppet over ETT symptomledd fikk dermed en forskjøvet/for kort `svar`-liste — et
+indeksoppslag utenfor listens grenser kastet umiddelbart, i stedet for GADITs mer "myke" feil
+(verdi på feil posisjon).
+
+**Fiks:** `IaqSkaaringsberegner` implementerer nå `ITestSkaaringsberegnerMedLedd` (samme mønster
+som CORE-10/ASRS/SCL-25 m.fl.) — slår opp hvert symptomledds faktiske svar via `TestLedd.Id`,
+ikke listeposisjon. Siden alle 8 symptomledd deler SAMME Likert-skala (ren verdibasert
+klassifisering, GADITs løsning, er derfor umulig — man kan ikke skille "ledd 1" fra "ledd 2" på
+verdi alene), var ekte ledd-id-oppslag nødvendig, ikke bare en try/catch. Et ubesvart symptomledd
+bidrar nå naturlig med 0 til summen og telles ikke som "endossert", uten å krasje eller forskyve
+noe annet ledd. `BeregnSkaaring` (det gamle, posisjonsbaserte grensesnittet) kaster nå eksplisitt
+`NotSupportedException` i stedet for å late som den fortsatt er trygg å kalle direkte.
+
+Ny regresjonstest (`Iaq_HoppetOverSymptomleddKrasjerIkkeOgForskyverIkkePosisjon`,
+`SkaaringsberegnereTests.cs`) reproduserer nøyaktig scenarioet (ledd 2, ett av de to
+kjernesymptom-leddene, ubesvart) og bekrefter korrekt sum OG korrekt "IKKE oppfylt"-konklusjon.
+Den eksisterende IAQ-testen omskrevet til å bruke `BeregnSkaaringMedLedd` i stedet for det nå
+utilgjengelige `BeregnSkaaring`. 95/95 tester grønne. **Ikke fikset:** samme kjente sårbarhet i
+`ItqSkaaringsberegner` (ren listeposisjon) og `Phq9Skaaringsberegner` (`svar.Take(9)`) — begge
+re-flagget flere ganger tidligere uten å bli rettet, se "Åtte nye innebygde tester fra
+Helsebiblioteket" og senere omtaler. Bør ryddes i samme runde ved neste anledning.

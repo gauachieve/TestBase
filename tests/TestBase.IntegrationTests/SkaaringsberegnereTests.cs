@@ -351,11 +351,32 @@ public sealed class SkaaringsberegnereTests
     [Fact]
     public void Iaq_KriterierKreverBaadeNokEndosserteLeddOgBekreftetFunksjonstap()
     {
-        var svar = Svar("3", "3", "3", "3", "0", "0", "0", "0", "Ja");
-        var resultat = new IaqSkaaringsberegner().BeregnSkaaring(svar);
+        var par = new (int, string?)[] { (1, "3"), (2, "3"), (3, "3"), (4, "3"), (5, "0"), (6, "0"), (7, "0"), (8, "0"), (9, "Ja") };
+        var (alleLedd, svar) = LeddOgSvar(par);
+        var resultat = new IaqSkaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
 
         Assert.Contains("er oppfylt", resultat.Fortolkning);
         Assert.Equal(12, resultat.RaaSkaar);
+    }
+
+    [Fact]
+    public void Iaq_HoppetOverSymptomleddKrasjerIkkeOgForskyverIkkePosisjon()
+    {
+        // Reell 500-feil på live 2026-10-06: en pasient som ikke besvarte ett symptomledd
+        // fikk ArgumentOutOfRangeException ved `svar[i]` (posisjonsbasert, se GADIT-mønsteret).
+        // Ledd 2 (indeks 1, ett av de to "kjernesymptom"-leddene) er her UBESVART.
+        var par = new (int, string?)[]
+        {
+            (1, "0"), (2, null), (3, "3"), (4, "3"), (5, "3"), (6, "3"), (7, "0"), (8, "0"), (9, "Ja")
+        };
+        var (alleLedd, svar) = LeddOgSvar(par);
+        var resultat = new IaqSkaaringsberegner().BeregnSkaaringMedLedd(svar, alleLedd);
+
+        // Ledd 2 mangler -> bidrar 0 til summen, men kjerneEndossert er likevel sann siden ledd 1 (indeks 0)
+        // er under terskel men ledd 2 mangler helt -- kjernekriteriet her hviler på de fire andre (3-6) >= 3,
+        // altså 4 endosserte, men INGEN av kjerneleddene (1,2) er >= 3 -> kriteriet skal IKKE være oppfylt.
+        Assert.Equal(12, resultat.RaaSkaar); // 0+0+3+3+3+3+0+0
+        Assert.Contains("IKKE oppfylt", resultat.Fortolkning);
     }
 
     [Fact]

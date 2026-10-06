@@ -751,6 +751,16 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   `Test.ErHjemmeoppgave`-tester fra denne allow-list-sjekken. To nye regresjonstester (94 totalt).
   Se docs/beslutningslogg.md "Reell produksjonsbug: hjemmeoppgaver kunne ikke tildeles..." for full
   analyse.
+- **Reell 500-feil ved IAQ-rapportvisning rettet (2026-10-06, samme dag):** brukeren meldte en
+  krasj ved å åpne en rapport på live — diagnostisert via `az webapp log tail`:
+  `IaqSkaaringsberegner` indekserte svarlisten POSISJONSBASERT (`svar[0..8]`), samme sårbarhets-
+  klasse som GADIT-krasjen (2026-09-23). En pasient som hoppet over ett symptomledd fikk
+  `ArgumentOutOfRangeException` i stedet for GADITs mykere feil. Fikset med
+  `ITestSkaaringsberegnerMedLedd` (ekte `TestLedd.Id`-oppslag, samme mønster som CORE-10/ASRS) —
+  verdibasert klassifisering (GADITs løsning) var umulig her siden alle 8 symptomledd deler samme
+  Likert-skala. Ny regresjonstest (95 totalt). Se docs/beslutningslogg.md "Reell 500-feil ved
+  IAQ-rapportvisning" for full analyse. **IKKE fikset:** samme kjente, allerede flaggede
+  sårbarhet i `ItqSkaaringsberegner`/`Phq9Skaaringsberegner` — gjenstår fortsatt.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
