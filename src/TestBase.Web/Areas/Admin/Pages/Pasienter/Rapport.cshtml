@@ -69,6 +69,10 @@ else
                         }
                         <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong></p>
                     }
+                    @if (Model.AntallUbesvart > 0)
+                    {
+                        <p class="rapport-ubesvart-tall">@Model.AntallUbesvart av @Model.AntallLedd spørsmål sto ubesvart.</p>
+                    }
                     @* For SCID-5-PF er dette dobbelt opp med stolpediagrammet under, og for MPFI-24
                        (bugliste punkt 7) er badge-boksene dobbelt opp med radar-hexagonene under —
                        Fortolkning-teksten beholdes uansett, den er IKKE redundant med noen graf. *@
@@ -85,6 +89,29 @@ else
                         }
                         <p class="rapport-fortolkning">@Model.Skaaring.Fortolkning</p>
                     }
+                </div>
+            }
+            else if (Model.Test?.ErHjemmeoppgave == true)
+            {
+                @* Se Behandlerportal-motstykket sin kommentar — samme begrunnelse. *@
+                <div class="rapport-seksjon">
+                    <span class="rapport-seksjon-tittel">Svaroversikt</span>
+                    @if (Model.AntallUbesvart > 0)
+                    {
+                        <p class="rapport-ubesvart-tall">@Model.AntallUbesvart av @Model.AntallLedd spørsmål sto ubesvart.</p>
+                    }
+                    <table class="rapport-svartabell">
+                        <thead><tr><th>Spørsmål</th><th>Svar</th></tr></thead>
+                        <tbody>
+                        @foreach (var rad in Model.Sider.SelectMany(s => s.Svar))
+                        {
+                            <tr>
+                                <td>@rad.Sporsmal</td>
+                                <td>@rad.SvarLabel</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
                 </div>
             }
 

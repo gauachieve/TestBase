@@ -101,6 +101,10 @@ else
                     }
                     <p>Råskår: <strong>@Model.Skaaring.RaaSkaar / @Model.Skaaring.RaaSkaarMaks</strong></p>
                 }
+                @if (Model.AntallUbesvart > 0)
+                {
+                    <p class="rapport-ubesvart-tall">@Model.AntallUbesvart av @Model.AntallLedd spørsmål sto ubesvart.</p>
+                }
                 @* For SCID-5-PF er dette dobbelt opp med stolpediagrammet under (som viser akkurat
                    det samme, per forstyrrelse, i et bedre format) — se docs/beslutningslogg.md.
                    For MPFI-24 (bugliste punkt 7) er KUN badge-boksene (f.eks. "3.00/3.50") dobbelt
@@ -119,6 +123,33 @@ else
                     }
                     <p class="rapport-fortolkning">@Model.Skaaring.Fortolkning</p>
                 }
+            </div>
+        }
+        else if (Model.ErHjemmeoppgaveRapport)
+        {
+            @* Bugliste 2026-10-06 punkt 13: en hjemmeoppgave har ALDRI noen TestSkaaring (fritt
+               forfattet av behandler, ingen cutoff/sumskår gir mening) — forsiden viste derfor
+               tidligere INGENTING før man bladde til side 2. Viser nå de rå svarene (råskår for
+               tallsvar, selve svaret for andre typer) direkte her i stedet, samme tabell som
+               senere sider bruker likevel. *@
+            <div class="rapport-seksjon">
+                <span class="rapport-seksjon-tittel">Svaroversikt</span>
+                @if (Model.AntallUbesvart > 0)
+                {
+                    <p class="rapport-ubesvart-tall">@Model.AntallUbesvart av @Model.AntallLedd spørsmål sto ubesvart.</p>
+                }
+                <table class="rapport-svartabell">
+                    <thead><tr><th>Spørsmål</th><th>Svar</th></tr></thead>
+                    <tbody>
+                    @foreach (var rad in Model.Sider.SelectMany(s => s.Svar))
+                    {
+                        <tr>
+                            <td>@rad.Sporsmal</td>
+                            <td>@rad.SvarLabel</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
             </div>
         }
 

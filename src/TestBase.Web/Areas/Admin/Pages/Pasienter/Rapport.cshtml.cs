@@ -51,6 +51,10 @@ public sealed class RapportModel : PageModel
     public List<SideMedSvar> Sider { get; private set; } = new();
     public bool IkkeGodkjentEnna { get; private set; }
 
+    /// <summary>Se Behandlerportal-motstykket sin XML-doc — samme "-"-sentinel-telling.</summary>
+    public int AntallLedd { get; private set; }
+    public int AntallUbesvart { get; private set; }
+
     public int TotalAntallArk => 1 + Sider.Count;
 
     public async Task<IActionResult> OnGetAsync(long id, CancellationToken cancellationToken)
@@ -117,6 +121,9 @@ public sealed class RapportModel : PageModel
             }).ToList();
             return new SideMedSvar(side, svar);
         }).ToList();
+
+        AntallLedd = innhold.AlleLedd.Count(l => l.Svartype != TestSvartype.Bilde);
+        AntallUbesvart = innhold.AlleLedd.Count(l => l.Svartype != TestSvartype.Bilde && !innhold.EksisterendeSvar.ContainsKey(l.Id));
 
         return Page();
     }

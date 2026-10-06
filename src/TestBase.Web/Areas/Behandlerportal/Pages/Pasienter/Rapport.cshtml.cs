@@ -83,6 +83,17 @@ public sealed class RapportModel : PageModel
     public List<SideMedSvar> Sider { get; private set; } = new();
     public IReadOnlyList<SkaaringHistorikkPunkt> Historikk { get; private set; } = Array.Empty<SkaaringHistorikkPunkt>();
 
+    /// <summary>
+    /// Bugliste 2026-10-06 punkt 14: hvor mange av testens besvarbare ledd (Bilde-ledd telles
+    /// IKKE med — rent visningsinnhold, aldri et spørsmål) som faktisk STÅR UBESVART (samme
+    /// "-"-sentinel som TestService.HentTildelingMedInnholdAsync sin EksisterendeSvar-oppslag
+    /// allerede bruker for et manglende svar). Vises i Resultat-seksjonen for enhver test —
+    /// 0 er det vanlige/forventede, men gjort synlig uansett siden et par ubesvarte ledd ikke
+    /// nødvendigvis trigger testens egen Test.MaksUbesvartProsent-GyldighetsAdvarsel.
+    /// </summary>
+    public int AntallLedd { get; private set; }
+    public int AntallUbesvart { get; private set; }
+
     /// <summary>Ferdigberegnet SVG-geometri for "utvikling over tid"-grafen — null når det er &lt;2 besvarelser å vise (se UtviklingsGrafBeregner).</summary>
     public UtviklingsGrafData? UtviklingsGraf { get; private set; }
 
@@ -278,6 +289,9 @@ public sealed class RapportModel : PageModel
             }).ToList();
             return new SideMedSvar(side, svar);
         }).ToList();
+
+        AntallLedd = innhold.AlleLedd.Count(l => l.Svartype != TestSvartype.Bilde);
+        AntallUbesvart = innhold.AlleLedd.Count(l => l.Svartype != TestSvartype.Bilde && !innhold.EksisterendeSvar.ContainsKey(l.Id));
 
         if (Test.Kode is not null)
         {
