@@ -63,6 +63,18 @@
         <input type="search" id="testSok" data-fane-sok placeholder="Søk i pasient, test …" />
     </div>
 
+    @if (Model.IkkeFullfort.Any())
+    {
+        <div data-fane-rad="ikke-besvart" data-sok="" hidden style="margin: 0.75rem 0;">
+            <form method="post" asp-page-handler="SlettAlleIkkeBesvarte"
+                  onsubmit="return confirm('Slette ALLE @Model.IkkeFullfort.Count ikke-besvarte tildelinger permanent? Dette kan ikke angres.');">
+                <button type="submit" class="btn-muted btn-sm">
+                    <partial name="_Ikon" model="@("slett")" /> Fjern alle ubesvarte (@Model.IkkeFullfort.Count)
+                </button>
+            </form>
+        </div>
+    }
+
     @if (!Model.VenterPaaGodkjenning.Any() && !Model.IkkeFullfort.Any() && !Model.Godkjente.Any())
     {
         <p>Ingen tester å vise ennå.</p>

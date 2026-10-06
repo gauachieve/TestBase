@@ -110,7 +110,39 @@ public sealed class MinSideModel : PageModel
                 nameof(TestTildeling), id.ToString(), cancellationToken: cancellationToken);
         }
 
-        return RedirectToPage();
+        // Bugliste 2026-10-06 punkt 12: behold brukeren på "ikke besvart"-fanen i stedet for å
+        // hoppe tilbake til "venter på godkjenning" (faner.js sin default) — se faner.js.
+        return Redirect(Url.Page("./MinSide")! + "#ikke-besvart");
+    }
+
+    /// <summary>
+    /// Bugliste 2026-10-06 punkt 11: en samle-knapp som sletter ALLE behandlerens ikke-besvarte
+    /// tildelinger i ett klikk — ikke sensitivt lagringsmessig siden tildelingen ikke inneholder
+    /// noen pasientbesvarelse ennå (se TestService.SlettIkkeFullfortTildelingAsync sin egen
+    /// sjekk mot at en FULLFØRT tildeling aldri kan slettes denne veien).
+    /// </summary>
+    public async Task<IActionResult> OnPostSlettAlleIkkeBesvarteAsync(CancellationToken cancellationToken)
+    {
+        var behandlerId = HentBehandlerId();
+        var ikkeFullfort = await _testService.HentIkkeFullforteForBehandlerAsync(behandlerId, cancellationToken);
+        var antallSlettet = 0;
+        foreach (var rad in ikkeFullfort)
+        {
+            if (await _testService.SlettIkkeFullfortTildelingAsync(rad.Tildeling.Id, behandlerId, cancellationToken))
+            {
+                antallSlettet++;
+            }
+        }
+
+        if (antallSlettet > 0)
+        {
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(), "SlettAlleIkkeBesvarteTildelinger",
+                nameof(TestTildeling), AuditBatch.EntityId(ikkeFullfort.Select(r => r.Tildeling.Id).ToList()),
+                $"{antallSlettet} tildeling(er) slettet", cancellationToken);
+        }
+
+        return Redirect(Url.Page("./MinSide")! + "#ikke-besvart");
     }
 
     /// <summary>Invaliderer gjeldende QR-kode/lenke umiddelbart — se Behandler.PasientInviteQrToken.</summary>

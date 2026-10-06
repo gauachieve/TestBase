@@ -13,7 +13,13 @@
             return;
         }
 
-        var aktivFane = faneKnapper[0].getAttribute('data-fane');
+        // Bugliste 2026-10-06 punkt 12: en handling (f.eks. "slett ubesvart tildeling") som
+        // POSTer og redirecter tilbake til siden skal kunne holde brukeren på SAMME fane i
+        // stedet for å alltid hoppe tilbake til den første — serveren kan derfor legge ved
+        // f.eks. "#ikke-besvart" på redirect-URL-en, lest her ved lasting.
+        var faneFraUrl = (window.location.hash || '').replace('#', '');
+        var faneFinnesHer = Array.prototype.some.call(faneKnapper, function (k) { return k.getAttribute('data-fane') === faneFraUrl; });
+        var aktivFane = faneFinnesHer ? faneFraUrl : faneKnapper[0].getAttribute('data-fane');
 
         function oppdater() {
             var sok = (sokInput && sokInput.value || '').trim().toLowerCase();
