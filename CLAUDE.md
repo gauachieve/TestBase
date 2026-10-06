@@ -738,6 +738,19 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   tabellkolonner (hopper bevisst over enhver tabell med `colspan`, se fallgruve-lista). Alle 18
   punkter browser-verifisert, 92 tester grønne, fem tematiske commits pushet. Se
   docs/beslutningslogg.md "18-punkts brukerfeedback-runde #2" for full detalj per punkt.
+- **Reell produksjonsbug rettet: hjemmeoppgaver kunne ikke tildeles for en partner-tilknyttet
+  behandler (2026-10-06, samme dag):** brukeren rapporterte "assigns a homework test, says sent,
+  never goes out" på live — diagnostisert via nedlastede App Service-logger (ingen
+  `INSERT INTO test_tildelinger` i det hele tatt denne dagen). Rotårsak: `TestTildelingsService.
+  TildelOgVarsleAsync` sin `PartnerTestTilganger`-allow-list-håndhevelse (ment for det admin-
+  forfattede testkatalog-biblioteket) filtrerte STILLE bort ENHVER hjemmeoppgave for en partner-
+  tilknyttet behandler, siden `HjemmeoppgaveService.OpprettAsync` BEVISST aldri gir en partner
+  automatisk tilgang (dokumentert i klassens egen XML-doc helt fra hjemmeoppgave-fase 0 — men
+  aldri speilet i selve håndhevelsen). Rammet egen, delt-med-alle OG delt-med-partner
+  hjemmeoppgave likt, siden eksisterte siden 2026-10-04. Fikset ved å eksplisitt ekskludere
+  `Test.ErHjemmeoppgave`-tester fra denne allow-list-sjekken. To nye regresjonstester (94 totalt).
+  Se docs/beslutningslogg.md "Reell produksjonsbug: hjemmeoppgaver kunne ikke tildeles..." for full
+  analyse.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

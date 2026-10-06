@@ -7609,3 +7609,51 @@ hjemmeoppgave med ett bevisst ubesvart ledd for å bekrefte punkt 13/14 sammen. 
 integrasjonstester grønne gjennom hele runden, ingen regresjon. Fem commits, delt tematisk
 (programmer-editor/tildelingsflyt, SMS/e-post, Min side-sletting, rapportvisning,
 tabellpolish+delt-synlighet) — se commit-historikken for nøyaktig filomfang per tema.
+
+## Reell produksjonsbug: hjemmeoppgaver kunne ikke tildeles for en partner-tilknyttet behandler (2026-10-06)
+
+Brukeren rapporterte på live: "if i assign a test to a patient (it is a homework) it says it is
+sent out, but it never goes out" — bekreftet med brukeren at tildelingen IKKE engang vises på
+pasientens egen side (ikke bare et varslingsproblem).
+
+**Diagnose:** lastet ned dagens live App Service-logger (`az webapp log download`) og søkte etter
+`INSERT INTO test_tildelinger` — FINGEN forekomst i hele dagens logghistorikk, til tross for flere
+rapporterte tildelingsforsøk (både "Begge" og "Epost"-varslingsmetode prøvd). Dette utelukket et
+SMS/e-post-leveringsproblem (som ville krevd minst én `TestTildeling`-rad å varsle om) og pekte
+mot at selve tildelingen aldri ble opprettet.
+
+**Rotårsak:** `TestTildelingsService.TildelOgVarsleAsync` håndhever `PartnerTestTilganger`
+(Superadmin-kuratert allow-list for det ADMIN-FORFATTEDE, pris­satte testkatalog-biblioteket) for
+ENHVER partner-tilknyttet behandler sin tildeling — inkludert hjemmeoppgaver. Men
+`HjemmeoppgaveService.OpprettAsync` (hjemmeoppgavenes egen opprettelsesmetode, atskilt fra
+`TestService.OpprettTestAsync`) gir BEVISST ALDRI noen partner automatisk `PartnerTestTilgang`
+(dette var allerede eksplisitt dokumentert i klassens egen XML-doc fra fase 0 av hjemmeoppgave-
+arbeidet — "riktig for admin-forfattede tester... GALT for en hjemmeoppgave som skal starte
+PRIVAT") — men denne bevisste designbeslutningen ble aldri speilet i selve håndhevelsen.
+Resultatet: `testIder` ble filtrert til TOM for enhver hjemmeoppgave før selve tildelingsløkken
+kjørte. Siden den filtreringen skjer FØR løkken, ble heller ingen "Ikke tildelt"-forklaring
+generert (den mekanismen dekker kun `KreverBiologiskKjonn`/`FyllesUtAvBehandler`-avvisninger) —
+resultatet var en helt STILLE no-op med en `TildelingsBatchResultat` som så vellykket ut
+(`Model.Resultat is not null` → "Tildeling fullført"-overskriften vises), men uten noen synlig
+detalj siden `Lenker` var tom for alle pasienter.
+
+Denne bugen har eksistert siden hjemmeoppgaver ble lagt til (2026-10-04) — ikke noe introdusert av
+noen senere brukerfeedback-runde. Den rammer ENHVER partner-tilknyttet behandler som prøver å
+tildele EN HVILKEN SOM HELST hjemmeoppgave (egen, delt-med-alle fra en kollega, eller delt-med-
+partner fra en kollega) — ikke bare brukerens egen test.
+
+**Fiks:** `TildelOgVarsleAsync` henter nå FØRST hvilke av de valgte `testIder` som faktisk er
+hjemmeoppgaver (`Test.ErHjemmeoppgave`), og ekskluderer disse eksplisitt fra
+`PartnerTestTilganger`-håndhevelsen (en test slipper gjennom hvis den ENTEN er en hjemmeoppgave
+ELLER står på allow-listen) — ingen endring for admin-forfattede tester, som fortsatt håndheves
+akkurat som før. Siden ekskluderingen kun sjekker `ErHjemmeoppgave`-flagget (aldri eierskap),
+dekker den automatisk ALLE tre synlighetskildene en behandler kan tildele fra (egen, delt-med-
+alle, delt-med-partner) uten noen ekstra kode.
+
+To nye regresjonstester i `BetalingPipelineTests.cs`
+(`PartnerbehandlerKanTildeleEgenHjemmeoppgaveSelvOmDenIkkeErPaaAllowList` og
+`PartnerbehandlerKanTildeleKollegasDelteHjemmeoppgaver`, sistnevnte dekker BÅDE delt-med-alle og
+delt-med-partner i samme test siden de deler rotårsak) — 94/94 totalt, alle grønne. Den
+eksisterende `PartnerbehandlerKanIkkeTildeleTestUtenforAllowList`-testen (admin-forfattede tester
+skal FORTSATT håndheves) ble kjørt på nytt og er uendret grønn, bekrefter at fiksen ikke åpner noe
+sikkerhetshull for den opprinnelige, tiltenkte bruken av allow-listen.

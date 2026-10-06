@@ -206,13 +206,33 @@ public sealed class TestTildelingsService
         // (HentKategoriTreAsync) — en rå POST med en testId utenfor
         // PartnerTestTilgang skal ikke kunne opprette en tildeling for den, se
         // kjent fallgruve i CLAUDE.md om å kun gate i viewet.
+        //
+        // REELL BUG funnet og fikset 2026-10-06 (brukeren rapporterte: "assigns a homework test,
+        // says sent, never goes out" — bekreftet på live: INGEN ny TestTildeling-rad ble
+        // opprettet i det hele tatt, likevel viste siden "Tildeling fullført" uten feilmelding).
+        // PartnerTestTilganger er en Superadmin-kuratert allow-list for det ADMIN-FORFATTEDE,
+        // PRISEDE testkatalog-biblioteket (se docs/beslutningslogg.md "Partner System + Test
+        // Monetization") — en hjemmeoppgave (Test.ErHjemmeoppgave) havner ALDRI der, den har sin
+        // EGEN, separate eierskaps-/delingsmodell (Personlig/Delt/Partner-faner, se
+        // HjemmeoppgaveService). Filtreringen under FJERNET dermed stille enhver valgt
+        // hjemmeoppgave for en partner-tilknyttet behandler FØR selve tildelingsløkken — ingen
+        // TestTildeling ble opprettet, ingen varsel ble forsøkt (lenker.Count == 0), OG ingen
+        // "Ikke tildelt"-forklaring ble vist (den mekanismen dekker kun KreverBiologiskKjonn/
+        // FyllesUtAvBehandler-avvisninger, ikke denne tidligere filtreringen) — resultatet var en
+        // helt STILLE no-op med en misvisende suksessmelding. Hjemmeoppgaver ekskluderes nå
+        // eksplisitt fra denne allow-list-håndhevelsen.
+        var hjemmeoppgaveTestIder = await _db.Tester
+            .Where(t => testIder.Contains(t.Id) && t.ErHjemmeoppgave)
+            .Select(t => t.Id)
+            .ToListAsync(cancellationToken);
+
         if (behandlerPartnerId is not null)
         {
             var tillatteTestIder = await _db.PartnerTestTilganger
                 .Where(t => t.PartnerId == behandlerPartnerId.Value)
                 .Select(t => t.TestId)
                 .ToListAsync(cancellationToken);
-            testIder = testIder.Where(tillatteTestIder.Contains).ToList();
+            testIder = testIder.Where(id => hjemmeoppgaveTestIder.Contains(id) || tillatteTestIder.Contains(id)).ToList();
         }
 
         var tester = await _db.Tester.Where(t => testIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, cancellationToken);

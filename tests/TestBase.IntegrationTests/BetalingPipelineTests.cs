@@ -206,6 +206,143 @@ public sealed class BetalingPipelineTests
         Assert.DoesNotContain("Ikke tillatt test", synligeTestNavn);
     }
 
+    /// <summary>
+    /// Reell bug rapportert av brukeren på live 2026-10-06: "assigns a homework test to a patient,
+    /// says sent, never goes out". Rotårsak: TildelOgVarsleAsync sin PartnerTestTilgang-allow-
+    /// list-håndhevelse (lagt til for det admin-forfattede testkatalog-biblioteket) filtrerte
+    /// STILLE bort enhver hjemmeoppgave for en partner-tilknyttet behandler, siden
+    /// HjemmeoppgaveService.OpprettAsync BEVISST aldri gir noen partner automatisk
+    /// PartnerTestTilgang (se klassens egen XML-doc) — testIder endte tomt FØR selve
+    /// tildelingsløkken, så INGEN TestTildeling ble opprettet og INGEN "Ikke tildelt"-forklaring
+    /// ble vist (den mekanismen dekker kun KreverBiologiskKjonn/FyllesUtAvBehandler), bare en
+    /// tom, men "vellykket" TildelingsBatchResultat. Se docs/beslutningslogg.md for full analyse.
+    /// </summary>
+    [Fact]
+    public async Task PartnerbehandlerKanTildeleEgenHjemmeoppgaveSelvOmDenIkkeErPaaAllowList()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hjemmeoppgaveService = scope.ServiceProvider.GetRequiredService<HjemmeoppgaveService>();
+        var tildelingsService = scope.ServiceProvider.GetRequiredService<TestTildelingsService>();
+
+        var partner = new Partner { Navn = "Hjemmeoppgave-partner AS", OpprettetAvAdministratorId = 1, OpprettetUtc = DateTimeOffset.UtcNow };
+        db.Partnere.Add(partner);
+        await db.SaveChangesAsync();
+
+        var behandler = new Behandler
+        {
+            MobilNr = "+4790000004",
+            Email = "hjemmeoppgave-partner-test@example.test",
+            Fornavn = "Hjemmeoppgave",
+            Etternavn = "Partnerbehandler",
+            Status = BehandlerStatus.Aktiv,
+            PartnerId = partner.Id,
+            OpprettetUtc = DateTimeOffset.UtcNow
+        };
+        db.Behandlere.Add(behandler);
+        await db.SaveChangesAsync();
+
+        // Opprettet via HjemmeoppgaveService (IKKE TestService.OpprettTestAsync) — får derfor
+        // BEVISST ingen PartnerTestTilgang-rad, se klassens XML-doc.
+        var hjemmeoppgave = await hjemmeoppgaveService.OpprettAsync(
+            behandler.Id, "Pusteøvelse", null, null, null,
+            new List<HjemmeoppgaveLeddInput> { new("Hvordan føltes det?", null, TestSvartype.LikertSkala, "1:Dårlig,2:Bra", true, null, null) });
+
+        Assert.False(await db.PartnerTestTilganger.AnyAsync(t => t.PartnerId == partner.Id && t.TestId == hjemmeoppgave.Id));
+
+        var pasient = new Pasient
+        {
+            Personnummer = "01019088888",
+            MobilNr = "+4793000001",
+            Email = "hjemmeoppgave-pasient@example.test",
+            Navn = "Hjemmeoppgave Pasient",
+            BehandlerId = behandler.Id,
+            Status = PasientStatus.Aktiv,
+            OpprettetUtc = DateTimeOffset.UtcNow
+        };
+        db.Pasienter.Add(pasient);
+        await db.SaveChangesAsync();
+
+        var resultat = await tildelingsService.TildelOgVarsleAsync(
+            new[] { pasient.Id }, new[] { hjemmeoppgave.Id }, behandlerId: behandler.Id, administratorId: null,
+            onsketHonorarKrPerTestId: new Dictionary<long, decimal?>(),
+            baseUrl: "https://localhost", cancellationToken: CancellationToken.None);
+
+        var lenker = resultat.PerPasient.Single().Lenker;
+        Assert.Single(lenker);
+        Assert.Equal("Pusteøvelse", lenker[0].TestNavn);
+
+        var tildelinger = await db.TestTildelinger.Where(t => t.PasientId == pasient.Id).ToListAsync();
+        Assert.Single(tildelinger);
+        Assert.Equal(hjemmeoppgave.Id, tildelinger[0].TestId);
+    }
+
+    /// <summary>
+    /// Brukeren ba eksplisitt om bekreftelse på at fiksen over dekker ALLE hjemmeoppgaver en
+    /// behandler faktisk kan se/velge i tildelingsflyten — ikke bare egne. Siden
+    /// TildelOgVarsleAsync sin nye hjemmeoppgave-ekskludering kun sjekker Test.ErHjemmeoppgave
+    /// (aldri eierskap), skal dette gjelde uendret for en KOLLEGAS hjemmeoppgave delt med alle ELLER
+    /// delt kun med partneren — begge verifisert her i samme test siden de deler rotårsaken.
+    /// </summary>
+    [Fact]
+    public async Task PartnerbehandlerKanTildeleKollegasDelteHjemmeoppgaver()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hjemmeoppgaveService = scope.ServiceProvider.GetRequiredService<HjemmeoppgaveService>();
+        var tildelingsService = scope.ServiceProvider.GetRequiredService<TestTildelingsService>();
+
+        var partner = new Partner { Navn = "Delt-hjemmeoppgave-partner AS", OpprettetAvAdministratorId = 1, OpprettetUtc = DateTimeOffset.UtcNow };
+        db.Partnere.Add(partner);
+        await db.SaveChangesAsync();
+
+        var eier = new Behandler
+        {
+            MobilNr = "+4790000005", Email = "hjemmeoppgave-eier@example.test",
+            Fornavn = "Eier", Etternavn = "Behandler", Status = BehandlerStatus.Aktiv,
+            PartnerId = partner.Id, OpprettetUtc = DateTimeOffset.UtcNow
+        };
+        var tildelendeBehandler = new Behandler
+        {
+            MobilNr = "+4790000006", Email = "hjemmeoppgave-tildeler@example.test",
+            Fornavn = "Tildeler", Etternavn = "Behandler", Status = BehandlerStatus.Aktiv,
+            PartnerId = partner.Id, OpprettetUtc = DateTimeOffset.UtcNow
+        };
+        db.Behandlere.AddRange(eier, tildelendeBehandler);
+        await db.SaveChangesAsync();
+
+        var ledd = new List<HjemmeoppgaveLeddInput> { new("Hvordan føltes det?", null, TestSvartype.LikertSkala, "1:Dårlig,2:Bra", true, null, null) };
+        var deltMedAlle = await hjemmeoppgaveService.OpprettAsync(eier.Id, "Delt med alle-oppgave", null, null, null, ledd);
+        deltMedAlle.ErDeltMedAlle = true;
+        var deltMedPartner = await hjemmeoppgaveService.OpprettAsync(eier.Id, "Delt med partner-oppgave", null, null, null, ledd);
+        deltMedPartner.ErDeltMedPartner = true;
+        await db.SaveChangesAsync();
+
+        var pasient = new Pasient
+        {
+            Personnummer = "01019066666", MobilNr = "+4793000002", Email = "hjemmeoppgave-pasient2@example.test",
+            Navn = "Hjemmeoppgave Pasient 2", BehandlerId = tildelendeBehandler.Id, Status = PasientStatus.Aktiv,
+            OpprettetUtc = DateTimeOffset.UtcNow
+        };
+        db.Pasienter.Add(pasient);
+        await db.SaveChangesAsync();
+
+        var resultat = await tildelingsService.TildelOgVarsleAsync(
+            new[] { pasient.Id }, new[] { deltMedAlle.Id, deltMedPartner.Id },
+            behandlerId: tildelendeBehandler.Id, administratorId: null,
+            onsketHonorarKrPerTestId: new Dictionary<long, decimal?>(),
+            baseUrl: "https://localhost", cancellationToken: CancellationToken.None);
+
+        var lenker = resultat.PerPasient.Single().Lenker;
+        Assert.Equal(2, lenker.Count);
+        Assert.Contains(lenker, l => l.TestNavn == "Delt med alle-oppgave");
+        Assert.Contains(lenker, l => l.TestNavn == "Delt med partner-oppgave");
+
+        var tildelteTestIder = await db.TestTildelinger.Where(t => t.PasientId == pasient.Id).Select(t => t.TestId).ToListAsync();
+        Assert.Contains(deltMedAlle.Id, tildelteTestIder);
+        Assert.Contains(deltMedPartner.Id, tildelteTestIder);
+    }
+
     [Fact]
     public async Task TildelUtenPrising_ErIkkePakrevdOgSkaperIngenLedger()
     {
