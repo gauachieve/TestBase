@@ -7750,3 +7750,78 @@ VÅRT EGET, og eliminere advarselen fullstendig uansett brukerengasjement. Innti
 driftsbryter uten redeploy") kan brukes til å midlertidig slå TILBAKE til mock om reelle
 innlogginger blokkeres for mange nok brukere, uten redeploy — en avveining brukeren selv må ta,
 siden det også betyr å miste ekte BankID-identitetsbekreftelse i mellomtiden.
+
+## Ekte BankID for admin/behandler, del 10 — CNAME-domenet satt opp, men ny Idura-applikasjon ved et uhell slettet den ORIGINALE, godkjente BankID-klienten (2026-10-06/07)
+
+Oppfølging av del 9 (Chrome-lookalike-advarselen). Brukeren satte opp et ekte kundeeid domene hos
+Idura for å løse del 9 permanent, jf. Idura sin egen dokumentasjon om "custom domains" for
+produksjon (se `docs.idura.app/verify/getting-started/production/`,
+`docs.idura.app/verify/how-it-works/core-concepts/`):
+
+- **DNS** (`domene.no`, cPanel Zone Editor, samme sted som `www.psytest.no` ble satt opp — se
+  "Eget domene for test-miljøet"): CNAME `authorize.psytest.no` →
+  `70b99a19ce45bbd446ea094cc4ec41dff492974e.custom.idura.broker`. Verifisert fullt fungerende
+  (DNS-oppslag, gyldig AWS ACM-utstedt TLS-sertifikat spesifikt for `authorize.psytest.no`,
+  OIDC-discovery-dokument med `"issuer":"https://authorize.psytest.no"`) FØR noe ble endret i
+  appens config.
+- Idura krevde (ifølge deres eget dashbord) en HELT NY "Verify application" for det nye domenet —
+  ikke bare en omdirigering av den eksisterende. Opprettet med Client ID/Realm
+  `urn:my:application:identifier:251764`, platform "Regular Web Application", redirect URL satt
+  til `https://www.psytest.no/signin-bankid-innlogging` (bekreftet korrekt av brukeren).
+- `BANKID_IDURA_PRODUKSJON_AUTHORITY`/`CLIENT_ID`/`CLIENT_SECRET` oppdatert via `azd env set` +
+  `azd provision` til å peke på denne nye applikasjonen. **Underveis: to reelle feil fra min side**
+  (1) brukte feil variabelnavn første runde (`BANKID_IDURA_PRODUKSJON_CLIENTID`/`CLIENTSECRET`
+  uten understrek — `main.parameters.json` forventer `CLIENT_ID`/`CLIENT_SECRET` MED understrek),
+  satte verdier i helt ubrukte variabler uten at noen feil vistes; (2) kjedet et `azd env set`-kall
+  etter en `grep -v` med tom input i samme `&&`-kjede — `grep` returnerer exit 1 når ingen linjer
+  matcher, noe som stille avbrøt resten av kjeden. Begge rettet, bekreftet med `azd env get-values`
+  før `azd provision` ble kjørt for andre gang. Lærdom: ALDRI kjede et kommando som kan ha tom
+  stdout gjennom `grep -v` med `&&` foran noe som faktisk må kjøre — bruk separate kommandoer og
+  sjekk exit-kode eksplisitt.
+
+**Ny applikasjon fungerte ikke: `Got HTTP Status code from upstream: BadRequest` på selve
+`authorize.psytest.no/oauth2/authorize`-kallet, FØR noen BankID-interaksjon** — samme symptommønster
+som del 6 sin opprinnelige `acr_values=substantial`-feil (umiddelbar avvisning før BankID i det
+hele tatt involveres). Flere kandidater utelukket systematisk: ny `ClientSecret` generert da
+"Enable OAuth2 Code Flow" ble skrudd på i Idura-dashbordet (oppdatert, ingen endring), BankID
+biometri skrudd av i "eID Providers"-fanen (ingen endring), Idura sin EGEN innebygde testknapp for
+applikasjonen feilet IDENTISK (samme metode som løste del 7 — isolerer problemet bort fra vår egen
+app/redirect-URI/secret, akkurat som sist).
+
+**Avgjørende funn:** en e-post fra Stø (opprinnelig BankID-produksjonsgodkjenning, se del 4) viste
+at BankID-nivå-registreringen er låst til ÉN spesifikk, allerede godkjent klient:
+`client_id: psytestno_25eb8adf-bankid-prod`, redirect-URI
+`https://psytest-no.idura.broker/NOBankIdOidc/Callback` — dette er (mest sannsynlig) nøyaktig
+den samme verdien som har ligget i `BankId:IduraProduksjon:ClientId` hele tiden for det GAMLE
+domenet. Den NYE applikasjonen (`urn:my:application:identifier:251764`) er en HELT ANNEN klient
+BankID aldri har godkjent — konsistent med en umiddelbar avvisning FØR BankID-interaksjon, identisk
+symptommønster som del 6.
+
+**Uhellet:** i forsøk på å unngå forvirring mellom de to applikasjonene, slettet brukeren ved en
+feil den OPPRINNELIGE, allerede BankID-godkjente applikasjonen (`psytestno_25eb8adf-bankid-prod`)
+i stedet for (eller i tillegg til) den nye — ikke en lett reverserbar handling, ingen
+selvbetjent gjenoppretting funnet i Idura sitt dashbord. **Dette er nå en reell driftshendelse**:
+trolig mistet den ENESTE fungerende BankID-produksjonsklienten appen noensinne har hatt, uavhengig
+av del 9 sin Chrome-advarsel-sak. Siden Idura sin applikasjon mest sannsynlig ER selve
+systemet-av-rekord for koblingen mot BankID (ingen tegn til at en separat, uavhengig registrering
+hos BankID selv overlever en slettet Idura-applikasjon), er gjenoppretting fra Idura sin egen
+backend/sikkerhetskopi trolig eneste vei tilbake uten å måtte gjenta HELE den opprinnelige
+Stø-godkjenningsprosessen (del 4) på nytt.
+
+**Status 2026-10-07, uavklart:** brukeren sender en e-post til Idura support (IKKE Stø direkte —
+brukeren bekrefter all kontakt må gå via Idura) som ber om (1) gjenoppretting av den slettede
+applikasjonen fra backend, (2) hvis umulig: om en ny applikasjon kan kobles til samme allerede
+godkjente BankID-klient uten å gjenta Stø-godkjenningen, (3) om den NYE applikasjonen
+(`authorize.psytest.no`) kan arve samme godkjenning i stedet, slik at man slipper to separate
+BankID-registreringer.
+
+**Gjort samme dag:** `Miljo:EktBankIdProfesjonell` satt til `"false"` på live
+(`MILJO_EKT_BANKID_PROFESJONELL`, `azd env set` + `azd provision`) — IKKE den finere
+`EktBankIdInnstilling`-driftsbryteren (DB-rad, krever innlogging via `Admin/MinSide` for å endre,
+som selv kan være sirkulært blokkert av akkurat dette BankID-problemet), men den GROVERE
+"registrer schemaet i det hele tatt"-bryteren i `Program.cs` — unngår helt å måtte åpne
+produksjons-MySQL-en sin brannmur mot en lokal IP for en direkte radoppdatering, som ble vurdert og
+bevisst avvist som unødvendig risiko for en helsedata-database når samme resultat var oppnåelig med
+samme `azd env set`/`azd provision`-mønster som allerede var brukt for Authority/ClientID denne
+runden. Bekreftet: `Miljo__EktBankIdProfesjonell=false` på App Service, `/health` 200 OK. Admin/
+behandler-innlogging er dermed tilbake på mock inntil Idura-saken er avklart.
