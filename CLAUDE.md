@@ -761,6 +761,16 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   Likert-skala. Ny regresjonstest (95 totalt). Se docs/beslutningslogg.md "Reell 500-feil ved
   IAQ-rapportvisning" for full analyse. **IKKE fikset:** samme kjente, allerede flaggede
   sårbarhet i `ItqSkaaringsberegner`/`Phq9Skaaringsberegner` — gjenstår fortsatt.
+- **Ekte BankID, del 9 — Chrome blokkerer Iduras broker-callback som et "lookalike domain"
+  (2026-10-06, samme dag):** et ekte admin/behandler BankID-innloggingsforsøk endte i Chrome sin
+  egen "Did you mean psytest.no?"-advarselsside, IKKE vår app — midt i det doble OIDC-hoppet
+  (BankID → Iduras `psytest-no.idura.broker` → oss), på Iduras EGET domene som vi ikke
+  kontrollerer. Navnet Idura selv valgte (`psytest-no`, punktum→bindestrek + et annet domene)
+  trigger Chromes combosquatting-heuristikk. INGEN kodefiks mulig fra vår side — eskalert som en
+  anbefaling til Stø/Idura support (be om annet subdomenenavn eller et vanity-/CNAME-domene under
+  `psytest.no` selv). Bekreftet IKKE til stede i Edge (Google-proprietær Chrome-funksjon, ikke delt
+  Chromium-plattform) — Edge er et gyldig, kodefritt arbeidsrunde-alternativ i mellomtiden. Se
+  docs/beslutningslogg.md "Ekte BankID for admin/behandler, del 9" for full analyse.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

@@ -7690,3 +7690,63 @@ utilgjengelige `BeregnSkaaring`. 95/95 tester grønne. **Ikke fikset:** samme kj
 `ItqSkaaringsberegner` (ren listeposisjon) og `Phq9Skaaringsberegner` (`svar.Take(9)`) — begge
 re-flagget flere ganger tidligere uten å bli rettet, se "Åtte nye innebygde tester fra
 Helsebiblioteket" og senere omtaler. Bør ryddes i samme runde ved neste anledning.
+
+## Ekte BankID for admin/behandler, del 9 — Chrome blokkerer selve Idura-broker-callbacken som et "lookalike domain" (2026-10-06)
+
+Brukeren sendte et skjermbilde (`security_issue.png`) tatt RETT ETTER et ekte BankID-innloggingsforsøk (BankID-appen + passord fullført) — i stedet for å havne tilbake i appen, viste Chrome sin innebygde "Safety warning"-interstitial ("Did you mean psytest.no? The site you just tried to visit looks fake... Attackers sometimes mimic sites by making small, hard-to-see changes to the URL"). URL-en i adressefeltet var:
+
+```
+https://psytest-no.idura.broker/NOBankIdOidc/Callback?...&iss=https%3A%2F%2Fauth.bankid.no%2Fauth%2Frealms%2Fprod&code=...
+```
+
+**Diagnose (ingen kodeendring mulig — se hvorfor under):** Dette er IKKE en bug i vår egen kode.
+Flyten ved ekte BankID-innlogging er et dobbelt OIDC-hopp: BankID (`auth.bankid.no`, "iss"-verdien
+i URL-en bekrefter dette) → Iduras EGEN broker (`psytest-no.idura.broker/NOBankIdOidc/Callback`,
+Iduras interne mottak av BankIDs autorisasjonskode — IKKE vår `CallbackPath`) → Idura utsteder
+DERETTER sin egen kode og sender brukeren videre til vårt faktiske registrerte
+`redirect_uri` (`https://www.psytest.no/signin-bankid-innlogging`, se `Program.cs` linje ~346).
+Skjermbildet fanger akkurat det MIDTERSTE hoppet — Chrome griper inn FØR Idura rekker å
+sende brukeren videre til oss.
+
+Rotårsaken er domenenavnet Idura selv har tildelt produksjonstenanten:
+`psytest-no.idura.broker` (satt via `BANKID_IDURA_PRODUKSJON_AUTHORITY`, se
+`infra/main.bicep` linje 44-45 — vi har INGEN kontroll over dette navnet, Idura eier og
+administrerer `*.idura.broker`-domenet). Navnemønsteret — domenets eget navn ("psytest.no") med
+punktumet erstattet av en bindestrek, etterfulgt av et HELT ANNET domene (`idura.broker`) — er
+nøyaktig det klassiske "combosquatting"-mønsteret Chrome sin innebygde lookalike-domene-heuristikk
+(ikke Google Safe Browsing sin blokkeringsliste — dette er en ren klientside-algoritme, ingen
+ekstern oppføring å søke om fjerning fra) er bygget for å fange opp. Browseren sammenligner mot
+domener brukeren selv har høyt "engasjement" med (besynte ofte, bokmerket — bokmerkelinjen i
+skjermbildet har en "Logg inn"-bokmerke, konsistent med at nettopp DENNE brukeren/profilen har
+besøkt psytest.no ofte nok til å trigge sjekken) — rammer derfor mest sannsynlig primært
+administratorer/behandlere som logger inn gjentatte ganger i samme nettleserprofil, ikke
+nødvendigvis en helt fersk pasient-nettleser uten historikk. Siden ALLE ekte admin/behandler-
+innlogginger passerer nøyaktig dette hoppet, er dette potensielt et reelt, tilbakevendende
+blokkerende problem for enhver hyppig Chrome-bruker — ikke en engangsforekomst.
+
+**Bekreftet av brukeren samme dag: IKKE til stede i Edge.** Dette styrker diagnosen i stedet for å
+svekke den — selv om Edge er Chromium-basert (samme rendering-motor som Chrome), er selve
+"lookalike domain"-interstitial-siden ("Did you mean X?") en Google-proprietær Chrome-funksjon
+(drevet av Chrome sin egen Site Engagement-tjeneste, mest sannsynlig koblet mot brukerens
+Google-konto/Chrome-synk), IKKE en delt Chromium-plattformfunksjon eller en ekstern blokkerings-
+liste. Edge bruker i stedet Microsoft Defender SmartScreen for phishing-vern, som åpenbart ikke
+har denne spesifikke heuristikken for akkurat dette domenet. Praktisk konsekvens: dette rammer
+KUN Chrome-brukere (trolig proporsjonalt med hvor ofte akkurat den nettleserprofilen har besøkt
+psytest.no), ikke Edge/Safari/Firefox — en midlertidig arbeidsrunde for berørte brukere inntil
+Idura-saken er avklart er rett og slett "bruk Edge (eller en annen ikke-Chrome-nettleser) for
+admin/behandler-innlogging", uten at det krever noen kodeendring eller driftsbryter-omslag.
+
+**Hvorfor dette IKKE kan rettes i vår kode:** `options.CallbackPath` og `redirect_uri` i
+`Program.cs` peker allerede korrekt til VÅRT EGET domene — det er Iduras EGEN mellomliggende
+brokerdomene som trigger advarselen, et sted i flyten vi aldri selv kontrollerer eller server fra.
+
+**Anbefalt vei videre (ikke gjort, krever bruker/Idura):** eskaler til Stø/Idura support (samme
+kanal som del 7) og be om ENTEN (a) et brokersubdomene som ikke bokstavelig gjengir
+"psytest-no" (unngår combosquatting-mønsteret), ELLER (helst) (b) om Idura støtter et
+kunde-eid vanity-/CNAME-domene for broker-callbacken (f.eks. noe under `psytest.no` selv, som
+`bankid.psytest.no`) — det ville gjort hele hoppet skje på et domene Chrome ser som bokstavelig
+VÅRT EGET, og eliminere advarselen fullstendig uansett brukerengasjement. Inntil dette er avklart:
+`Admin/MinSide` sin "Ekte BankID"-driftsbryter (`EktBankIdInnstilling`, se "Ekte BankID —
+driftsbryter uten redeploy") kan brukes til å midlertidig slå TILBAKE til mock om reelle
+innlogginger blokkeres for mange nok brukere, uten redeploy — en avveining brukeren selv må ta,
+siden det også betyr å miste ekte BankID-identitetsbekreftelse i mellomtiden.
