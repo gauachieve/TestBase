@@ -256,8 +256,13 @@ public sealed class ProgramService
             .ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// INKLUDERER egne delte programmer (samme fiks/begrunnelse som HjemmeoppgaveService sin
+    /// HentDeltMedAlleAsync, bugliste 2026-10-06 punkt 17 — samme bug fantes her også, funnet ved
+    /// kodegjennomgang). Programmer/Index.cshtml skiller egen rad via erEgen, samme mønster.
+    /// </summary>
     public Task<List<Behandlingsprogram>> HentDeltMedAlleAsync(long behandlerId, CancellationToken cancellationToken = default) =>
-        _db.Behandlingsprogrammer.Where(p => !p.ErArkivert && p.ErDeltMedAlle && p.OpprettetAvBehandlerId != behandlerId)
+        _db.Behandlingsprogrammer.Where(p => !p.ErArkivert && p.ErDeltMedAlle)
             .OrderByDescending(p => p.OpprettetUtc).ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Behandlingsprogram>> HentDeltMedPartnerAsync(long behandlerId, CancellationToken cancellationToken = default)

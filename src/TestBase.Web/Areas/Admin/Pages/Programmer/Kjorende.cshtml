@@ -17,7 +17,7 @@
 }
 else
 {
-    <table>
+    <table border="1" cellpadding="6" cellspacing="0">
         <thead>
             <tr><th>Program</th><th>Startet</th><th>Gjenstående drops</th><th>Deltakere</th><th></th></tr>
         </thead>
@@ -32,14 +32,14 @@ else
                 <td>@rad.AntallGjenstaendeDrops</td>
                 <td>@deltakerTekst (@rad.AntallDeltakere)</td>
                 <td>
-                    <form method="post" asp-page-handler="Pause" style="display: inline;">
+                    <form method="post" asp-page-handler="Pause" style="display:inline;">
                         @foreach (var id in rad.DeltakelseIder)
                         {
                             <input type="hidden" name="deltakelseIder" value="@id" />
                         }
                         <button type="submit" class="btn-icon" title="Pause" aria-label="Pause"><partial name="_Ikon" model="@("frys")" /></button>
                     </form>
-                    <form method="post" asp-page-handler="Fjern" style="display: inline;" onsubmit="return confirm('Fjerne alle fra programmet? Fremtidige drops kanselleres.');">
+                    <form method="post" asp-page-handler="Fjern" style="display:inline;" onsubmit="return confirm('Fjerne alle fra programmet? Fremtidige drops kanselleres.');">
                         @foreach (var id in rad.DeltakelseIder)
                         {
                             <input type="hidden" name="deltakelseIder" value="@id" />

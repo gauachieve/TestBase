@@ -311,12 +311,19 @@ public sealed class HjemmeoppgaveService
     public Task<List<Test>> HentDeltMedAlleForAdminAsync(CancellationToken cancellationToken = default) =>
         _db.Tester.Where(t => t.ErHjemmeoppgave && t.ErAktiv && t.ErDeltMedAlle).OrderBy(t => t.Navn).ToListAsync(cancellationToken);
 
-    /// <summary>Delt med ALLE, fra enhver ANNEN behandler (ikke egne — de ligger allerede i "Personlig").</summary>
+    /// <summary>
+    /// Delt med ALLE — INKLUDERER nå egne delte hjemmeoppgaver (bugliste 2026-10-06 punkt 17:
+    /// "shared with partner and everyone, but shows in neither list" — en eier må kunne se SIN
+    /// EGEN oppgave i "Delt"-fanen som bekreftelse på at delingen faktisk virket, ikke bare i
+    /// "Personlig"). Viewet (Hjemmeoppgaver/Index.cshtml) skiller egen rad fra andres via
+    /// OpprettetAvBehandlerId == EgenBehandlerId, samme mønster som "Personlig"-fanen.
+    /// </summary>
     public Task<List<Test>> HentDeltMedAlleAsync(long behandlerId, CancellationToken cancellationToken = default) =>
-        _db.Tester.Where(t => t.ErHjemmeoppgave && t.ErAktiv && t.ErDeltMedAlle && t.OpprettetAvBehandlerId != behandlerId)
+        _db.Tester.Where(t => t.ErHjemmeoppgave && t.ErAktiv && t.ErDeltMedAlle)
             .OrderByDescending(t => t.OpprettetUtc).ToListAsync(cancellationToken);
 
-    /// <summary>Delt med partneren DENNE behandleren selv tilhører, fra enhver ANNEN behandler i samme partner.</summary>
+    /// <summary>Delt med partneren DENNE behandleren selv tilhører — inkluderer nå EGNE partner-delte
+    /// oppgaver også, se HentDeltMedAlleAsync sin XML-doc for samme begrunnelse.</summary>
     public async Task<IReadOnlyList<Test>> HentDeltMedPartnerAsync(long behandlerId, CancellationToken cancellationToken = default)
     {
         var partnerId = await _db.Behandlere.Where(b => b.Id == behandlerId).Select(b => b.PartnerId).FirstOrDefaultAsync(cancellationToken);
@@ -327,7 +334,7 @@ public sealed class HjemmeoppgaveService
         var partnerBehandlerIder = await _db.Behandlere.Where(b => b.PartnerId == partnerId).Select(b => b.Id).ToListAsync(cancellationToken);
         return await _db.Tester
             .Where(t => t.ErHjemmeoppgave && t.ErAktiv && t.ErDeltMedPartner
-                        && t.OpprettetAvBehandlerId != behandlerId && t.OpprettetAvBehandlerId != null
+                        && t.OpprettetAvBehandlerId != null
                         && partnerBehandlerIder.Contains(t.OpprettetAvBehandlerId.Value))
             .OrderByDescending(t => t.OpprettetUtc)
             .ToListAsync(cancellationToken);

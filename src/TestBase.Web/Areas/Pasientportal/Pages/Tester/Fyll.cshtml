@@ -211,12 +211,12 @@ else
                 <h2>Programmet ditt</h2>
                 <p><strong>Pause:</strong> du får ingen flere påminnelser midlertidig, men programmet fortsetter der det var når du selv ønsker å fortsette (be behandleren din om å gjenoppta det for deg).</p>
                 <p><strong>Meld meg ut:</strong> du får ALDRI flere påminnelser fra dette programmet igjen. Testen du er i gang med nå blir ikke påvirket.</p>
-                <form method="post" asp-page-handler="PauseProgram" style="display: inline;">
+                <form method="post" asp-page-handler="PauseProgram" style="display:inline;">
                     <input type="hidden" name="id" value="@Model.Innhold!.Tildeling.Id" />
                     <input type="hidden" name="deltakelseId" value="@Model.ProgramDeltakelseId" />
                     <button type="submit">Pause</button>
                 </form>
-                <form method="post" asp-page-handler="MeldUtProgram" style="display: inline;" onsubmit="return confirm('Sikker på at du vil melde deg helt ut av programmet? Dette kan ikke angres selv.');">
+                <form method="post" asp-page-handler="MeldUtProgram" style="display:inline;" onsubmit="return confirm('Sikker på at du vil melde deg helt ut av programmet? Dette kan ikke angres selv.');">
                     <input type="hidden" name="id" value="@Model.Innhold!.Tildeling.Id" />
                     <input type="hidden" name="deltakelseId" value="@Model.ProgramDeltakelseId" />
                     <button type="submit" class="btn-muted">Meld meg ut</button>

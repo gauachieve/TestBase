@@ -27,7 +27,7 @@
         <input type="search" data-fane-sok placeholder="Søk …" />
     </div>
 
-    <table>
+    <table border="1" cellpadding="6" cellspacing="0">
         <thead>
             <tr><th>Program</th><th>Startet</th><th>Gjenstående drops</th><th>Deltakere</th><th></th></tr>
         </thead>
@@ -41,14 +41,14 @@
                 <td>@rad.AntallGjenstaendeDrops</td>
                 <td>@rad.AntallDeltakere</td>
                 <td>
-                    <form method="post" asp-page-handler="PauseKjorende" style="display: inline;">
+                    <form method="post" asp-page-handler="PauseKjorende" style="display:inline;">
                         @foreach (var id in rad.DeltakelseIder)
                         {
                             <input type="hidden" name="deltakelseIder" value="@id" />
                         }
                         <button type="submit" class="btn-icon" title="Pause" aria-label="Pause"><partial name="_Ikon" model="@("frys")" /></button>
                     </form>
-                    <form method="post" asp-page-handler="FjernKjorende" style="display: inline;" onsubmit="return confirm('Fjerne alle fra programmet? Fremtidige drops kanselleres.');">
+                    <form method="post" asp-page-handler="FjernKjorende" style="display:inline;" onsubmit="return confirm('Fjerne alle fra programmet? Fremtidige drops kanselleres.');">
                         @foreach (var id in rad.DeltakelseIder)
                         {
                             <input type="hidden" name="deltakelseIder" value="@id" />
@@ -69,20 +69,20 @@
                     {
                         <a class="btn-icon" href="/Behandlerportal/Programmer/Rediger/@program.Id" title="Rediger" aria-label="Rediger"><partial name="_Ikon" model="@("rediger")" /></a>
                         <a class="btn-icon" href="/Behandlerportal/Programmer/Tildel/@program.Id" title="Tildel" aria-label="Tildel"><partial name="_Ikon" model="@("tildel")" /></a>
-                        <form method="post" asp-page-handler="DelMedAlle" style="display: inline;">
+                        <form method="post" asp-page-handler="DelMedAlle" style="display:inline;">
                             <input type="hidden" name="programId" value="@program.Id" />
                             <input type="hidden" name="verdi" value="@((!program.ErDeltMedAlle).ToString())" />
                             <button type="submit" class="btn-icon @(program.ErDeltMedAlle ? "btn-icon--aktiv" : "")" title="@(program.ErDeltMedAlle ? "Avslutt deling (alle)" : "Del med alle")" aria-label="@(program.ErDeltMedAlle ? "Avslutt deling (alle)" : "Del med alle")"><partial name="_Ikon" model="@("del")" /></button>
                         </form>
                         @if (Model.HarPartner)
                         {
-                            <form method="post" asp-page-handler="DelMedPartner" style="display: inline;">
+                            <form method="post" asp-page-handler="DelMedPartner" style="display:inline;">
                                 <input type="hidden" name="programId" value="@program.Id" />
                                 <input type="hidden" name="verdi" value="@((!program.ErDeltMedPartner).ToString())" />
                                 <button type="submit" class="btn-icon btn-icon--partner @(program.ErDeltMedPartner ? "btn-icon--aktiv" : "")" title="@(program.ErDeltMedPartner ? "Avslutt deling (partner)" : "Del med partner")" aria-label="@(program.ErDeltMedPartner ? "Avslutt deling (partner)" : "Del med partner")"><partial name="_Ikon" model="@("behandlere")" /></button>
                             </form>
                         }
-                        <form method="post" asp-page-handler="Slett" style="display: inline;" onsubmit="return confirm('Slette dette programmet?');">
+                        <form method="post" asp-page-handler="Slett" style="display:inline;" onsubmit="return confirm('Slette dette programmet?');">
                             <input type="hidden" name="programId" value="@program.Id" />
                             <button type="submit" class="btn-icon btn-icon--slett" title="Slett" aria-label="Slett"><partial name="_Ikon" model="@("slett")" /></button>
                         </form>
@@ -90,11 +90,11 @@
                     else
                     {
                         <a class="btn-icon" href="/Behandlerportal/Programmer/Tildel/@program.Id" title="Tildel" aria-label="Tildel"><partial name="_Ikon" model="@("tildel")" /></a>
-                        <form method="post" asp-page-handler="Kopier" style="display: inline;">
+                        <form method="post" asp-page-handler="Kopier" style="display:inline;">
                             <input type="hidden" name="programId" value="@program.Id" />
                             <button type="submit" class="btn-icon" title="Rediger (lager kopi)" aria-label="Rediger (lager kopi)"><partial name="_Ikon" model="@("kopier")" /></button>
                         </form>
-                        <form method="post" asp-page-handler="FjernLiking" style="display: inline;">
+                        <form method="post" asp-page-handler="FjernLiking" style="display:inline;">
                             <input type="hidden" name="programId" value="@program.Id" />
                             <button type="submit" class="btn-icon btn-icon--muted" title="Fjern fra personlig" aria-label="Fjern fra personlig"><partial name="_Ikon" model="@("tilbakekall")" /></button>
                         </form>
@@ -104,18 +104,23 @@
         }
         @foreach (var program in Model.DeltMedAlle)
         {
+            var erEgen = program.OpprettetAvBehandlerId == Model.EgenBehandlerId;
             var erLikt = Model.LikteProgramIder.Contains(program.Id);
             <tr data-fane-rad="delt" data-sok="@program.Navn.ToLowerInvariant()">
-                <td colspan="3">@program.Navn</td>
+                <td colspan="3">@program.Navn @(erEgen ? "(ditt eget)" : "")</td>
                 <td>@program.OpprettetUtc.ToString("g")</td>
                 <td>
-                    @if (erLikt)
+                    @if (erEgen)
+                    {
+                        <span class="btn-icon btn-icon--muted" title="Ditt eget — se i Personlig" aria-label="Ditt eget"><partial name="_Ikon" model="@("kalender")" /></span>
+                    }
+                    else if (erLikt)
                     {
                         <span class="btn-icon btn-icon--aktiv" title="Likt — se i Personlig" aria-label="Likt"><partial name="_Ikon" model="@("lik")" /></span>
                     }
                     else
                     {
-                        <form method="post" asp-page-handler="Lik" style="display: inline;">
+                        <form method="post" asp-page-handler="Lik" style="display:inline;">
                             <input type="hidden" name="programId" value="@program.Id" />
                             <button type="submit" class="btn-icon" title="Lik" aria-label="Lik"><partial name="_Ikon" model="@("lik")" /></button>
                         </form>
@@ -125,18 +130,23 @@
         }
         @foreach (var program in Model.DeltMedPartner)
         {
+            var erEgen = program.OpprettetAvBehandlerId == Model.EgenBehandlerId;
             var erLikt = Model.LikteProgramIder.Contains(program.Id);
             <tr data-fane-rad="partner" data-sok="@program.Navn.ToLowerInvariant()">
-                <td colspan="3">@program.Navn</td>
+                <td colspan="3">@program.Navn @(erEgen ? "(ditt eget)" : "")</td>
                 <td>@program.OpprettetUtc.ToString("g")</td>
                 <td>
-                    @if (erLikt)
+                    @if (erEgen)
+                    {
+                        <span class="btn-icon btn-icon--muted" title="Ditt eget — se i Personlig" aria-label="Ditt eget"><partial name="_Ikon" model="@("kalender")" /></span>
+                    }
+                    else if (erLikt)
                     {
                         <span class="btn-icon btn-icon--aktiv" title="Likt — se i Personlig" aria-label="Likt"><partial name="_Ikon" model="@("lik")" /></span>
                     }
                     else
                     {
-                        <form method="post" asp-page-handler="Lik" style="display: inline;">
+                        <form method="post" asp-page-handler="Lik" style="display:inline;">
                             <input type="hidden" name="programId" value="@program.Id" />
                             <button type="submit" class="btn-icon" title="Lik" aria-label="Lik"><partial name="_Ikon" model="@("lik")" /></button>
                         </form>
