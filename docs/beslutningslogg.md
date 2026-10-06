@@ -7514,3 +7514,98 @@ integrasjonstester grønne gjennom hele runden, ingen regresjon i noen eksistere
 Bevisste, dokumenterte scope-kutt (ikke oversett som mangler): programmer i den planlagte/utsatte
 sendingsveien, programmer i Grupper sin automatiske fremtidig-medlem-tildeling, og cross-behandler
 browser-verifisering av liking-flyten (uendret fra tidligere runder).
+
+## 18-punkts brukerfeedback-runde #2 på Hjemmeoppgaver/Programmer (2026-10-06)
+
+Ny `bugs_features.txt`-runde (18 punkter, samme autonome "push through without asking for
+opinions"-instruks som forrige runde) — implementert, testet og pushet samme natt/morgen.
+
+**Punkt 1 (reell, tidligere udokumentert CSS-fallgruve):** `style="display: inline;"` (MED
+mellomrom etter kolon) matcher ALDRI attributt-selektoren `[style*="display:inline"]` (uten
+mellomrom) — de to Hjemmeoppgaver/Programmer-sidene som ble bygget i FORRIGE runde arvet denne
+skrivemåten fra enda eldre kode og fikk dermed uønsket den brede "frittstående skjema"-kort-
+stylingen på hver inline action-knapp-form ("boxes around the inline buttons"). Rettet ved å
+normalisere til samme mellomromsfrie skrivemåte alle ANDRE (korrekt fungerende) steder i
+kodebasen allerede bruker — IKKE ved å endre selve CSS-selektoren, som dusinvis av andre, allerede
+korrekte forms er avhengige av. Lagt til i fallgruve-lista i CLAUDE.md.
+
+**Punkt 2-3 (program-drop-dialogen):** en til-nå aldri-faktisk-virkende `!important`-mangel
+funnet — `main.page form input.program-klokkeslett-input` (fra forrige rundes "Punkt 29"-fiks)
+har FAKTISK lavere spesifisitet enn den generelle `main.page form input:not([type=...])×6`-
+regelen (seks `:not()`-ledd teller som seks klasser i spesifisitetsberegningen), så
+klokkeslett-feltene ble likevel 100% brede og pakket om på hver sin linje i praksis — løst med
+`!important`, samme presedens som `.rapport-handlinger form` allerede bruker for akkurat dette
+problemet et annet sted i filen. Avbryt/Fjern/Lagre-knappene flyttet til toppen av dialogen.
+
+**Punkt 4-6 (den delte test-velgeren, `_TestKategoriVelger.cshtml`):** søkefeltet var en FLEX-
+søsken av selve kategori-treet (ikke et eget element over) — endret til et eget fullbredde-element
+over en ren CSS GRID (`60% 1fr`) for tre/infoboks. En tidligere flex-basert 60/40-splitt hadde
+samme `gap`-regnefeil som punkt 5/6 beskriver: `flex-basis: 60%` + `flex-basis: 38%` + en SEPARAT
+`gap` telles OPPÅ hverandre i en flex-rad, så summen overskred 100% og tvang kolonnene til å pakke
+om — CSS Grid sin `gap` trekkes derimot ALDRI fra kolonnesporene, løst presist der.
+
+**Punkt 7:** "Programmer"-tildelingsseksjonen i `Behandlerportal/Tildel/Tester` flyttet fra sist
+(etter ALLE kategorier) til rett under "Egenproduserte" (alltid kategori-tre-plass 0) — kategori-
+løkken splittet i to deler rundt en Razor-malert delegate (`Func<KategoriMedTester, object>`,
+IKKE en separat partial-fil — unngikk å måtte sende `EstimertMinutterPerTestId`/
+`Prisingskontekst` inn i en egen modellklasse).
+
+**Punkt 8-10 (SMS/e-post-innhold):** "Nye tester tildelt" brukte tidligere ORDRETT samme
+ren-tekst-melding for BÅDE SMS og e-post. Splittet i tre: SMS (punkt 10) er nå ALDRI en liste —
+kun ÉN lenke til FØRSTE test, uten testnavn, pluss behandlerens navn (`BygSmsMelding`); e-postens
+ren-tekst-fallback beholder den gamle, mer detaljerte oppførselen; en NY HTML-variant (punkt 8-9,
+`BygEpostHtml`) gir en overskrift, kort forklaring av hva PsyTest er, behandlerens navn, og ÉN
+fargelagt knapp til "Min side" i stedet for én lenke per test. `IEmailSender.SendAsync` fikk en
+ny, valgfri `htmlBody`-parameter satt SIST i signaturen (ikke midt i den — unngår å knekke
+eksisterende positional calls, se fallgruve-lista), `AzureEmailSender` setter nå faktisk
+`EmailContent.Html` (var FØR kun `PlainText` uansett innhold, uoppdaget siden ingen tidligere
+e-post trengte HTML).
+
+**Punkt 11-12 (Min side, "Ikke besvart"-fanen):** ny "Fjern alle ubesvarte (N)"-samle-knapp
+(`OnPostSlettAlleIkkeBesvarteAsync`, looper eksisterende `SlettIkkeFullfortTildelingAsync`).
+Sletting (enkelt ELLER samlet) sendte tidligere alltid brukeren tilbake til "Venter på
+godkjenning"-fanen (`faner.js` sin hardkodede default = første fane) etter redirect — løst
+generisk i `faner.js` (leser `window.location.hash` ved lasting, bruker den som aktiv fane hvis
+den matcher en reell fane i AKKURAT DENNE fane-beholderen), begge slette-handlerne redirecter nå
+til `...MinSide#ikke-besvart` i stedet for en ren `RedirectToPage()`.
+
+**Punkt 13-14 (rapportvisning):** en hjemmeoppgave-rapport viste tidligere INGENTING på forsiden
+(ingen `TestSkaaring` finnes for fritt forfattede hjemmeoppgaver — cutoff/sumskår gir ikke
+mening der) — ny "Svaroversikt"-seksjon på forsiden viser nå rå svar direkte (samme tabell som de
+påfølgende per-side-arkene bruker). Ny `AntallLedd`/`AntallUbesvart` (telt via den eksisterende
+"-"-sentinelen for manglende svar) vist som "X av Y spørsmål sto ubesvart" i BÅDE den vanlige
+Resultat-seksjonen og den nye Svaroversikten, kun når > 0. Gjort i begge Areas (Behandlerportal +
+Admin sine separate, nesten identiske Rapport-sider).
+
+**Punkt 15:** Hjemmeoppgaver/Programmer sine `<table>`-elementer (bygget forrige runde) manglet
+`border="1" cellpadding="6" cellspacing="0"` — site.css sin paddings-regel er gated bak
+`table[border]`, så disse tre tabellene hadde praktisk talt null cellepolstring. Lagt til.
+
+**Punkt 16:** `.fane-knapp` (delt av Min side, Grupper, Hjemmeoppgaver, Programmer) fikk en
+tydelig pille/chip-stil (bakgrunn i hvile, fylt rolle-farget aktiv-tilstand) i stedet for nesten
+usynlig flat tekst + tynn understrek — "hard to understand it is a clickable button".
+
+**Punkt 17 (reell, uoppdaget visningsbug):** en hjemmeoppgave/et program DELT med alle/partner
+viste seg ALDRI i "Delt"/"Partner"-fanene for EIEREN selv — `HentDeltMedAlleAsync`/
+`HentDeltMedPartnerAsync` ekskluderte eksplisitt `OpprettetAvBehandlerId == behandlerId`, så
+eieren fikk ingen visuell bekreftelse på at delingen faktisk virket. Fjernet ekskluderingen i
+BEGGE `HjemmeoppgaveService` og `ProgramService` (samme bug fantes i `ProgramService` sin
+`HentDeltMedAlleAsync` også, funnet ved kodegjennomgang — `HentDeltMedPartnerAsync` for programmer
+hadde den aldri). Viewet markerer nå egen rad med "(din egen)"/"(ditt eget)" + et nøytralt ikon i
+stedet for en meningsløs Lik-knapp på egen oppgave.
+
+**Punkt 18:** ny, generisk `wwwroot/js/tabell-tall-justering.js` (lastet globalt via
+`_Layout.cshtml`) senterjusterer automatisk enhver tabellkolonne der ALT innhold ser
+tallaktig/datoaktig ut (tall, prosent, beløp, `dd.mm.yyyy`, klokkeslett, brøk) — tekstkolonner
+(navn, status) og handlingskolonner (knapper/skjema/lenker) røres aldri. En tabell som inneholder
+NOEN `colspan`-celle hoppes bevisst helt over (en colspan forskyver DOM-cellenes indeks per rad,
+så ren posisjonsbasert kolonne-sammenligning ville gitt feil resultat for blandede rad-typer, som
+Hjemmeoppgaver/Programmer sine "Personlig"-rader med `colspan="3"` på navnecellen blandet med
+rader uten colspan i samme tabell) — tryggere å la en slik tabell stå urørt enn å risikere feil
+senterjustering.
+
+Alle 18 punkter browser-verifisert (Playwright), inkludert en reell ende-til-ende-utfylling av en
+hjemmeoppgave med ett bevisst ubesvart ledd for å bekrefte punkt 13/14 sammen. 92/92
+integrasjonstester grønne gjennom hele runden, ingen regresjon. Fem commits, delt tematisk
+(programmer-editor/tildelingsflyt, SMS/e-post, Min side-sletting, rapportvisning,
+tabellpolish+delt-synlighet) — se commit-historikken for nøyaktig filomfang per tema.
