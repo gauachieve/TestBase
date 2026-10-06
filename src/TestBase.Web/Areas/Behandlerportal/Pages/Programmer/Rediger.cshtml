@@ -86,6 +86,11 @@
 
     <dialog id="programDropDialog">
         <h2 id="programDropDialogTittel">Drop på dag 0</h2>
+        <p>
+            <button type="button" id="programDropAvbryt" class="hjo-btn hjo-btn-stor"><partial name="_Ikon" model="@("tilbakekall")" /><span>Avbryt</span></button>
+            <button type="button" id="programDropFjern" class="hjo-btn hjo-btn-stor hjo-fjern-knapp" hidden><partial name="_Ikon" model="@("slett")" /><span>Fjern drop</span></button>
+            <button type="button" id="programDropLagre" class="hjo-btn hjo-btn-stor"><partial name="_Ikon" model="@("godkjenn")" /><span>Lagre drop</span></button>
+        </p>
         <div class="hjo-felt-gruppe">
             <label>Tidsvindu (fra–til, randomisert)</label>
             <input type="text" id="programDropFra" class="program-klokkeslett-input" value="09:00"
@@ -99,12 +104,6 @@
         </div>
 
         <partial name="_TestKategoriVelger" model="@(new TestKategoriVelgerModel { KategoriTre = Model.KategoriTre, IdPrefix = "drop" })" />
-
-        <p>
-            <button type="button" id="programDropAvbryt" class="hjo-btn hjo-btn-stor"><partial name="_Ikon" model="@("tilbakekall")" /><span>Avbryt</span></button>
-            <button type="button" id="programDropFjern" class="hjo-btn hjo-btn-stor hjo-fjern-knapp" hidden><partial name="_Ikon" model="@("slett")" /><span>Fjern drop</span></button>
-            <button type="button" id="programDropLagre" class="hjo-btn hjo-btn-stor"><partial name="_Ikon" model="@("godkjenn")" /><span>Lagre drop</span></button>
-        </p>
     </dialog>
 
     <p><button type="submit" class="btn-accent">Lagre program</button></p>

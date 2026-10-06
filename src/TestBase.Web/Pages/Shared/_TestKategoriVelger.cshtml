@@ -8,11 +8,11 @@
     testinfo.js (forklaringsboks) og testtre-filter.js (søk) er ALLE allerede skrevet generisk
     (class-baserte selektorer, ingen hardkodede ID-er) og fungerer derfor uendret her.
 *@
+<div class="tildel-sok-rad">
+    <label for="@(Model.IdPrefix)TestSok">Søk i tester</label><br />
+    <input type="search" id="@(Model.IdPrefix)TestSok" data-tredfilter="#@(Model.IdPrefix)KategoriTre" placeholder="Søk i testnavn …" />
+</div>
 <div class="tildel-med-info">
-    <div>
-        <label for="@(Model.IdPrefix)TestSok">Søk i tester</label><br />
-        <input type="search" id="@(Model.IdPrefix)TestSok" data-tredfilter="#@(Model.IdPrefix)KategoriTre" placeholder="Søk i testnavn …" />
-    </div>
     <div class="tildel-kategori-tre" id="@(Model.IdPrefix)KategoriTre">
         @foreach (var kategori in Model.KategoriTre)
         {

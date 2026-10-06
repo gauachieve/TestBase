@@ -102,20 +102,23 @@ else if (Model.ValgtePasienter.Any())
             <input type="search" id="tildelTestSok" data-tredfilter="#tildelKategoriTre" placeholder="Søk i testnavn …" />
         </div>
 
-        <div class="tildel-med-info">
-        <div class="tildel-kategori-tre" id="tildelKategoriTre">
-        @foreach (var kategori in Model.KategoriTre)
-        {
-            <details>
-                <summary>@kategori.Kategori.Navn (@kategori.Tester.Count)</summary>
-                @if (!kategori.Tester.Any())
+        @{
+            // Bugliste 2026-10-06 punkt 7: "Programmer" skal ligge RETT UNDER "Egenproduserte"
+            // (alltid kategori-tre-elementet på plass 0, se LastKategoriTreMedHjemmeoppgaverAsync),
+            // ikke nederst etter ALLE kategoriene — løkken over kategoriene er derfor splittet i to
+            // deler med Programmer-blokken plassert mellom dem. En Razor-malert delegate (i stedet
+            // for en separat partial-fil) holder markupet DRY uten å måtte sende Model sine
+            // EstimertMinutterPerTestId/Prisingskontekst-oppslag inn i en egen modellklasse.
+            Func<TestBase.Shared.Domain.Tester.TestService.KategoriMedTester, object> kategoriBlokk = @<details>
+                <summary>@item.Kategori.Navn (@item.Tester.Count)</summary>
+                @if (!item.Tester.Any())
                 {
                     <p><em>Ingen tester i denne kategorien ennå.</em></p>
                 }
                 else
                 {
                     <ul>
-                    @foreach (var test in kategori.Tester)
+                    @foreach (var test in item.Tester)
                     {
                         var visningsnavn = test.Navn + (string.IsNullOrEmpty(test.OversettelseNotat) ? "" : $" ({test.OversettelseNotat})");
                         <li data-sok="@visningsnavn.ToLowerInvariant()">
@@ -152,7 +155,14 @@ else if (Model.ValgtePasienter.Any())
                     }
                     </ul>
                 }
-            </details>
+            </details>;
+        }
+
+        <div class="tildel-med-info">
+        <div class="tildel-kategori-tre" id="tildelKategoriTre">
+        @foreach (var kategori in Model.KategoriTre.Take(1))
+        {
+            @kategoriBlokk(kategori)
         }
         @if (Model.TilgjengeligeProgrammer.Any())
         {
@@ -183,6 +193,10 @@ else if (Model.ValgtePasienter.Any())
                 }
                 </ul>
             </details>
+        }
+        @foreach (var kategori in Model.KategoriTre.Skip(1))
+        {
+            @kategoriBlokk(kategori)
         }
         </div>
         <aside class="test-infoboks skjult"></aside>

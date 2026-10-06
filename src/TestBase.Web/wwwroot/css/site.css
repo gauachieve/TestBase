@@ -156,28 +156,43 @@ code {
 }
 .btn-muted:hover { background: var(--bg-soft); border-color: var(--muted); color: var(--ink-soft); }
 
-/* Fane-knapper (se wwwroot/js/faner.js) — brukt på Min side og Grupper-oversikten. */
+/* Fane-knapper (se wwwroot/js/faner.js) — brukt på Min side, Grupper-oversikten,
+   Hjemmeoppgaver/Programmer-oversiktene m.fl. Bugliste 2026-10-06 punkt 16: den gamle, nesten
+   usynlige "flat tekst + tynn understrek"-stilen ga ingen tydelig knapp-affordance ("hard to
+   understand it is a clickable button") — nå en pille/chip med synlig bakgrunn i hvile, tydeligere
+   hover, og en fylt, rolle-farget pille for den aktive fanen. */
 .fane-knapp {
-  background: transparent;
-  border: none;
-  border-bottom: 3px solid transparent;
-  padding: 0.6rem 1rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.5rem 1.1rem;
   font: inherit;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--ink-soft);
   cursor: pointer;
 }
-.fane-knapp:hover { color: var(--ink); }
-.fane-knapp.fane-aktiv { color: var(--rolle-accent, var(--accent)); border-bottom-color: var(--rolle-accent, var(--accent)); }
-.fane-rad { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem; flex-wrap: wrap; }
+.fane-knapp:hover { background: var(--border); color: var(--ink); }
+.fane-knapp.fane-aktiv {
+  background: var(--rolle-accent, var(--accent));
+  border-color: var(--rolle-accent, var(--accent));
+  color: var(--rolle-accent-tekst, #fff);
+}
+.fane-rad { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
 
-/* Test-infoboks (se wwwroot/js/testinfo.js) — vises til høyre på desktop, under treet på mobil. */
-.tildel-med-info { display: flex; gap: 1.5rem; align-items: flex-start; flex-wrap: wrap; }
-.tildel-med-info .tildel-kategori-tre { flex: 3 1 14rem; min-width: 12rem; }
+/* Test-infoboks (se wwwroot/js/testinfo.js) — vises til høyre på desktop, under treet på mobil.
+   Bugliste 2026-10-06 punkt 4-6: søkefeltet er nå et EGET fullbredde-element over denne raden
+   (_TestKategoriVelger.cshtml sin .tildel-sok-rad), ikke lenger en flex-søsken av selve treet —
+   og tre/infoboks er delt ca. 60/40 (ikke en fast px-bredde på infoboksen). */
+.tildel-sok-rad { margin-bottom: 0.75rem; }
+/* Grid (ikke flex) her: flex-basis-prosenter PLUSS en egen gap talte tidligere som ekstra bredde
+   oppå de 60/40 — fikk kolonnene til uønsket å pakke om på hver sin linje (bugliste 2026-10-06
+   punkt 5/6, "the unified look"-visningen var faktisk aldri 60/40 side om side i praksis). Grid sin
+   gap trekkes IKKE fra kolonnebreddene, så 60%/1fr holder seg presist side om side. */
+.tildel-med-info { display: grid; grid-template-columns: 60% 1fr; gap: 1.5rem; align-items: start; }
+.tildel-med-info .tildel-kategori-tre { min-width: 0; }
 .test-infoboks {
-  flex: 2 1 12rem;
-  min-width: 10rem;
-  max-width: 18rem;
+  min-width: 0;
+  max-width: none;
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   padding: 1rem;
@@ -188,7 +203,7 @@ code {
 }
 .test-infoboks.skjult { display: none; }
 @media (max-width: 720px) {
-  .tildel-med-info { flex-direction: column; }
+  .tildel-med-info { grid-template-columns: 1fr; }
   .test-infoboks { position: static; max-width: none; width: 100%; }
 }
 
@@ -1323,6 +1338,8 @@ dialog#oppsummeringDialog::backdrop, dialog#grupperapportDialog::backdrop, dialo
    (Razor sin standard @-interpolering HTML-encoder automatisk — trygt, men betyr at linjeskift
    MÅ komme fra CSS, ikke fra <br>/<li>-tagger i selve teksten). Se bugliste punkt 6. */
 .rapport-fortolkning { font-size: 0.96rem; white-space: pre-line; }
+/* Bugliste 2026-10-06 punkt 14: antall ubesvarte spørsmål på resultatsiden. */
+.rapport-ubesvart-tall { font-size: 0.88rem; color: #8a5a00; }
 
 /* Cutoff-linjer over resultat-fremdriftsbaren (ITestSkaaringsberegner.Histogramgrenser,
    samme prinsipp som Grupper/Aggregert sitt histogram) — se Rapport.cshtml.cs (begge Areas). */
@@ -1875,7 +1892,13 @@ main.page form .hjo-vas-rad input { width: auto; flex: 1 1 160px; }
 
 /* Punkt 29: "kl."-boksen var bred fordi den ARVET "main.page form input { width: 100% }" — en
    klokkeslett-input trenger ikke mer enn ca. like bredt som selve nedtrekksvelgeren som åpnes. */
-main.page form input.program-klokkeslett-input { width: 7.5rem; display: inline-block; }
+/* !important er nødvendig her: den generelle "main.page form input:not([type=...])×6"-regelen
+   (linje 829) har EGENTLIG høyere spesifisitet enn denne (hver :not([type=...]) teller som en
+   klasse i spesifisitetsberegningen — seks :not()-ledd gir klassetall 7, mot kun 2 her), så den
+   tidligere versjonen av denne regelen UTEN !important vant aldri i praksis (bugliste 2026-10-06
+   punkt 2 — klokkeslettboksene ble likevel 100% brede og pakket om på hver sin linje). Samme
+   mønster som .rapport-handlinger form sin !important-bruk et annet sted i denne filen. */
+main.page form input.program-klokkeslett-input { width: 7.5rem !important; display: inline-block; }
 
 .program-kalender { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; max-width: 760px; }
 .program-kalender-uke { display: flex; align-items: center; gap: 0.5rem; }
