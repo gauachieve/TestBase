@@ -1,0 +1,40 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Utbetalinger.IndexModel
+@{
+    ViewData["Title"] = "Utbetalinger";
+}
+
+<h1>Utbetalinger</h1>
+<p><em>Ett samlet månedlig oppgjør for behandlerhonorar og partnerandel. Genereres automatisk tidlig i måneden for forrige måned — ingen penger flyttes før du eksplisitt godkjenner en batch.</em></p>
+<p><a href="/Admin/Okonomi">← Økonomi (oversikt)</a></p>
+
+@if (!Model.Batcher.Any())
+{
+    <p><em>Ingen utbetalingsbatcher generert ennå.</em></p>
+}
+else
+{
+    <table border="1" cellpadding="6" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Periode</th>
+                <th>Status</th>
+                <th>Totalbeløp</th>
+                <th>Generert</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var batch in Model.Batcher)
+        {
+            <tr>
+                <td>@batch.Maned.ToString("D2")/@batch.Aar</td>
+                <td>@batch.Status</td>
+                <td>@batch.TotalBelopKr.ToString("0.00") kr</td>
+                <td>@batch.GenerertUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                <td><a class="btn btn-accent" href="/Admin/Utbetalinger/Detaljer/@batch.Id">Se detaljer</a></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

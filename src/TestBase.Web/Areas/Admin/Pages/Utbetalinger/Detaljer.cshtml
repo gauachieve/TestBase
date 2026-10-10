@@ -1,0 +1,64 @@
+@page "{id:long}"
+@model TestBase.Web.Areas.Admin.Pages.Utbetalinger.DetaljerModel
+@using TestBase.Shared.Domain.Utbetaling
+@{
+    ViewData["Title"] = "Utbetalingsbatch";
+}
+
+<h1>Utbetalingsbatch @Model.Batch!.Maned.ToString("D2")/@Model.Batch.Aar</h1>
+<p>Status: <strong>@Model.Batch.Status</strong> — totalt @Model.Batch.TotalBelopKr.ToString("0.00") kr</p>
+<p><a href="/Admin/Utbetalinger">← Alle utbetalingsbatcher</a></p>
+
+<table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Mottaker</th>
+            <th>Type</th>
+            <th>Beløp</th>
+            <th>Antall transaksjoner</th>
+            <th>Konto klar?</th>
+            <th>Status</th>
+            <th>Feilmelding</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var rad in Model.Linjer)
+    {
+        <tr>
+            <td>@rad.MottakerNavn</td>
+            <td>@rad.Linje.MottakerType</td>
+            <td>@rad.Linje.BelopKr.ToString("0.00") kr</td>
+            <td>@rad.Linje.AntallUnderliggendeTransaksjoner</td>
+            <td>@(rad.KontoKlarForUtbetaling ? "✓" : "Ikke fullført")</td>
+            <td>@rad.Linje.Status</td>
+            <td>@rad.Linje.SisteFeilmelding</td>
+            <td>
+                @if (rad.Linje.Status == UtbetalingsLinjeStatus.Utkast)
+                {
+                    <form method="post" asp-page-handler="AvvisLinje" style="display:inline;"
+                          onsubmit="return confirm('Utelate denne linjen fra utbetalingen? Beløpet blir IKKE betalt ut før noen ber om en ny linje senere.');">
+                        <input type="hidden" name="linjeId" value="@rad.Linje.Id" />
+                        <button type="submit" data-disable-on-submit="Avviser …">Avvis</button>
+                    </form>
+                }
+                @if (rad.Linje.Status == UtbetalingsLinjeStatus.Feilet)
+                {
+                    <form method="post" asp-page-handler="GjentaLinje" style="display:inline;">
+                        <input type="hidden" name="linjeId" value="@rad.Linje.Id" />
+                        <button type="submit" class="btn btn-accent" data-disable-on-submit="Prøver igjen …">Prøv igjen</button>
+                    </form>
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@if (Model.Linjer.Any(l => l.Linje.Status == UtbetalingsLinjeStatus.Utkast))
+{
+    <form method="post" asp-page-handler="GodkjennBatch"
+          onsubmit="return confirm('Godkjenne og betale ut alle linjer i Utkast-status nå? Dette flytter ekte penger via Stripe og kan ikke angres.');">
+        <button type="submit" class="btn btn-accent" data-disable-on-submit="Betaler ut …">Godkjenn og betal ut</button>
+    </form>
+}

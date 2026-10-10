@@ -1,0 +1,32 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.UtbetalingModel
+@{
+    ViewData["Title"] = "Utbetaling";
+}
+
+<h1>Utbetaling</h1>
+<p>Koble til en bankkonto for å motta honorar automatisk, én gang i måneden. Selve bankkontoen
+   samles inn og oppbevares av Stripe — ikke av oss.</p>
+
+@if (Model.Feilmelding is not null)
+{
+    <p class="feilmelding">@Model.Feilmelding</p>
+}
+
+@if (Model.Konto is null)
+{
+    <form method="post" asp-page-handler="StartOnboarding">
+        <button type="submit" class="btn btn-accent" data-disable-on-submit="Starter …">Koble til utbetalingskonto</button>
+    </form>
+}
+else if (Model.Konto.Status == TestBase.Shared.Domain.Utbetaling.StripeConnectStatus.OnboardingFullfort)
+{
+    <p><strong>✓ Tilkoblet.</strong> Honorar betales ut automatisk hver måned til kontoen du har registrert hos Stripe.</p>
+}
+else
+{
+    <p><strong>Tilkobling startet, men ikke fullført ennå.</strong> Fullfør registreringen hos Stripe for å kunne motta utbetaling.</p>
+    <form method="post" asp-page-handler="StartOnboarding">
+        <button type="submit" class="btn btn-accent" data-disable-on-submit="Starter …">Fortsett registrering hos Stripe</button>
+    </form>
+}

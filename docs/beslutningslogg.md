@@ -7825,3 +7825,84 @@ bevisst avvist som unødvendig risiko for en helsedata-database når samme resul
 samme `azd env set`/`azd provision`-mønster som allerede var brukt for Authority/ClientID denne
 runden. Bekreftet: `Miljo__EktBankIdProfesjonell=false` på App Service, `/health` 200 OK. Admin/
 behandler-innlogging er dermed tilbake på mock inntil Idura-saken er avklart.
+
+## Monthly Stripe Connect payout system (2026-10-10, tre faser, lokalt verifisert, IKKE deployet)
+
+Første byggesteg i den periodiserte økonomi-funksjonaliteten diskutert samme dag (se de tre
+oppgjørsrapport-designene — til behandler/admin/partner-admin — og kontoplan-oppsettet, bygget som
+et HTML-designforslag, IKKE implementert i selve appen ennå). Brukerens eksplisitte, ufravikelige
+krav: utbetaling til behandlere/partnere skal ALDRI være helautomatisk — systemet lager et
+forslag, en administrator må eksplisitt godkjenne før penger flyttes. Månedlig, ikke per
+transaksjon, siden hver Stripe-overføring koster noe. Full plan (`golden-yawning-naur.md`) laget
+via to research-/designagenter (kodebase-fakta + Plan-agent) og godkjent av brukeren før bygging.
+
+**Ny domenefolder `TestBase.Shared/Domain/Utbetaling/`:**
+- `UtbetalingsMottakerKonto` — én rad per behandler/partner sin Stripe Connect Express-konto.
+  Selve bankkontoen samles og oppbevares KUN av Stripe gjennom deres eget onboarding-skjema —
+  aldri i vår database. `PayoutsEnabled`/`DetailsSubmitted` oppdateres KUN av
+  `account.updated`-webhooken, ALDRI stolt på fra en retur-URL alene.
+- `UtbetalingsBatch`/`UtbetalingsLinje`/`UtbetalingsLinjePengebevegelse` — ett samlet
+  oppgjør per kalendermåned, én linje per mottaker, og en koblingstabell med UNIK INDEKS på
+  `PengebevegelseId` — dette ENE constraintet er selve vernet mot dobbel utbetaling, ikke
+  applikasjonslogikk. En avvist linje forblir permanent ekskludert (ingen stille
+  gjeninkludering neste måned).
+- `UtbetalingsOnboardingService`/`UtbetalingsBatchService` — delt onboarding-logikk, og
+  måned-for-måned-generering (ren DB-lesing/skriving, ALDRI noe Stripe-kall — penger flyttes
+  først ved eksplisitt admin-godkjenning).
+
+**Stripe-utvidelse** (`IStripeClient`/`StripePaymentClient`/`MockStripeClient`/
+`BetaSwitchingStripeClient`, samme mønster for alle fire som de to eksisterende metodene):
+`OpprettConnectKontoAsync`/`OpprettOnboardingLenkeAsync`/`OpprettOverforingAsync` — Express-konto,
+`Stripe.net` 52.4.1 trengte INGEN versjonsoppgradering (Connect-API-ene har vært med lenge).
+
+**Nye sider:** `Behandlerportal/Utbetaling` (egen onboarding) og
+`Behandlerportal/MinPartner/Utbetaling` (partnerens, allerede `PartnerAdminOmrade`-beskyttet via
+eksisterende mappekonvensjon). `Admin/Utbetalinger/Index`+`Detaljer` (ny
+`SuperadminOmrade`-beskyttet mappe, strengere enn `/Okonomi` siden denne faktisk flytter penger) —
+Detaljer-siden har Godkjenn/Avvis/Prøv-igjen, ett mislykket overføringsforsøk blokkerer ALDRI
+resten av batchen. `UtbetalingsBatchBakgrunnstjeneste` (timevis sjekkeintervall, grovere enn de
+2-minutters jobbene siden månedlig due-het ikke trenger minuttpresisjon) genererer batchen
+automatisk tidlig i måneden for FORRIGE måned.
+
+**Reelle funn og rettelser underveis, bekreftet i ekte nettleser/database, ikke bare lest i kode:**
+- Fase A: Stripe-kontoen manglet Connect-registrering OG v1 Accounts-støtte (nyere Stripe-kontoer
+  krever v2 som standard, et eget dashbord-unntak finnes for v1) — begge brukerens egne
+  dashbord-handlinger, ingen kodefeil.
+- Fase A: en reell "Invalid email address"-feil fra Stripe viste seg å IKKE være en Connect-bug,
+  men et artefakt av `ByttModus` (dev-rollebytte endrer KUN rolle-claimet, ikke bruker-IDen) som
+  kolliderte med en arkivert, tom-e-post testbehandler med samme ID som devadmin — IKKE en
+  reell produksjonsscenario-bug.
+- Fase B: `UtbetalingsBatchBakgrunnstjeneste` genererte FAKTISK en ekte batch helt automatisk fra
+  ekte historiske Pengebevegelse-rader mens appen kjørte i bakgrunnen under utvikling — brukt
+  direkte til verifisering i stedet for syntetisk testdata.
+- Fase B: en reell mangel funnet under verifisering — audit-logging per utbetalingslinje
+  (suksess/feil) skjedde KUN ved manuelt "Prøv igjen", ikke ved selve den initielle
+  batch-godkjenningen. Rettet ved å flytte loggingen inn i den delte
+  `ForsokOverforingAsync`-hjelpemetoden, bekreftet med en ny godkjenning+databasesjekk.
+- Fase C: `transfer.created`/`payout.failed`-webhooker verifisert med EKTE, korrekt HMAC-SHA256-
+  signerte test-hendelser (ingen Stripe CLI installert lokalt, signert manuelt med samme
+  `whsec_...`-hemmelighet som appen selv leser) — avdekket at Stripe.net 52.4.1 forventer en
+  SPESIFIKK `api_version`-streng ("2026-08-26.dahlia") og kaster `NullReferenceException` (ikke en
+  ryddig feilmelding) hvis feltet mangler helt — en reell, om enn mindre, Stripe.net-sårbarhet
+  verdt å huske ved fremtidig webhook-feilsøking. `transfer.created` bekreftet å flippe en linje
+  korrekt til Overfort; `payout.failed` bekreftet å identifisere riktig mottaker (Behandler #1,
+  den ekte Connect-kontoen fra fase A) og logge tydelig UTEN å gjette hvilken linje det gjaldt
+  (Stripes automatiske kontoutbetalinger kan dekke flere transfers samlet — ingen pålitelig
+  1:1-sporing uten et dypere balance-transaction-oppslag, bevisst IKKE bygget).
+
+**Nye regresjonstester:** `UtbetalingsBatchServiceTests.cs` (3 tester — korrekt gruppering/
+summering, idempotent batch-generering, og — viktigst — et EKTE bekreftet bevis på at
+dobbel-utbetaling-vernet faktisk virker) — 98 totalt, alle grønne. Ny migrasjon
+(`LeggTilUtbetalingsMottakerKonto` + `LeggTilUtbetalingsBatch`), begge rene (kun nye tabeller,
+ingen endring på eksisterende).
+
+**Åpne spørsmål avklart med brukeren underveis:** Stripe-gebyret absorberes av plattformen (ikke
+trukket fra mottakers beløp). **Ikke avklart/bygget:** partner-andelens "mottaker er partneren som
+helhet, ikke en bestemt kontaktperson"-antagelse, minimumsbeløp for utbetaling (ingen for v1), og
+om en arkivert behandler/partner med en alt-utkastet ubetalt linje fortsatt skal få utbetalt
+(antatt ja — arkivering stopper fremtidig opptjening, sletter ikke alt skyldes).
+
+**IKKE gjort:** ingen deploy til beta/live ennå — kun lokalt bygget og verifisert. De tre
+periodiserte oppgjørsrapportene (designforslaget fra tidligere samme dag) er fortsatt KUN en
+visuell mockup, ikke koblet til denne nye `UtbetalingsLinjePengebevegelse`-koblingstabellen som
+var bevisst designet for at de skal kunne gjenbruke den senere.

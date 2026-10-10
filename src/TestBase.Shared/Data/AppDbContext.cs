@@ -5,6 +5,7 @@ using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Domain.Tester;
 using TestBase.Shared.Domain.Tilbakemeldinger;
+using TestBase.Shared.Domain.Utbetaling;
 using TestBase.Shared.Security;
 
 namespace TestBase.Shared.Data;
@@ -62,6 +63,10 @@ public sealed class AppDbContext : DbContext
     public DbSet<ProgramDeltakelse> ProgramDeltakelser => Set<ProgramDeltakelse>();
     public DbSet<ProgramTildeling> ProgramTildelinger => Set<ProgramTildeling>();
     public DbSet<ProgramLiking> ProgramLikinger => Set<ProgramLiking>();
+    public DbSet<UtbetalingsMottakerKonto> UtbetalingsMottakerKontoer => Set<UtbetalingsMottakerKonto>();
+    public DbSet<UtbetalingsBatch> UtbetalingsBatcher => Set<UtbetalingsBatch>();
+    public DbSet<UtbetalingsLinje> UtbetalingsLinjer => Set<UtbetalingsLinje>();
+    public DbSet<UtbetalingsLinjePengebevegelse> UtbetalingsLinjePengebevegelser => Set<UtbetalingsLinjePengebevegelse>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -421,6 +426,48 @@ public sealed class AppDbContext : DbContext
             entity.HasIndex(p => p.TestTildelingId);
             entity.HasIndex(p => p.BehandlerId);
             entity.HasIndex(p => p.PartnerId);
+        });
+
+        modelBuilder.Entity<UtbetalingsMottakerKonto>(entity =>
+        {
+            entity.ToTable("utbetalings_mottaker_kontoer");
+            entity.HasKey(k => k.Id);
+            entity.Property(k => k.MottakerType).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.Property(k => k.StripeAccountId).HasMaxLength(128).IsRequired();
+            entity.Property(k => k.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+            entity.HasIndex(k => new { k.MottakerType, k.BehandlerId, k.PartnerId }).IsUnique();
+            entity.HasIndex(k => k.StripeAccountId);
+        });
+
+        modelBuilder.Entity<UtbetalingsBatch>(entity =>
+        {
+            entity.ToTable("utbetalings_batcher");
+            entity.HasKey(b => b.Id);
+            entity.Property(b => b.Status).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.Property(b => b.TotalBelopKr).HasColumnType("decimal(10,2)");
+            entity.HasIndex(b => new { b.Aar, b.Maned }).IsUnique();
+        });
+
+        modelBuilder.Entity<UtbetalingsLinje>(entity =>
+        {
+            entity.ToTable("utbetalings_linjer");
+            entity.HasKey(l => l.Id);
+            entity.Property(l => l.MottakerType).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.Property(l => l.BelopKr).HasColumnType("decimal(10,2)");
+            entity.Property(l => l.Status).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.Property(l => l.StripeTransferId).HasMaxLength(128);
+            entity.Property(l => l.SisteFeilmelding).HasMaxLength(500);
+            entity.HasIndex(l => l.UtbetalingsBatchId);
+            entity.HasIndex(l => l.BehandlerId);
+            entity.HasIndex(l => l.PartnerId);
+        });
+
+        modelBuilder.Entity<UtbetalingsLinjePengebevegelse>(entity =>
+        {
+            entity.ToTable("utbetalings_linje_pengebevegelser");
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.PengebevegelseId).IsUnique();
+            entity.HasIndex(x => x.UtbetalingsLinjeId);
         });
 
         modelBuilder.Entity<Tilbakemelding>(entity =>

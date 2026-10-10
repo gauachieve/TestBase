@@ -23,6 +23,17 @@ public sealed class BetaSwitchingStripeClient : IStripeClient
     public async Task<StripeStatusResultat> HentStatusAsync(string betalingsId, CancellationToken cancellationToken = default) =>
         await (await AktivKlientAsync(cancellationToken)).HentStatusAsync(betalingsId, cancellationToken);
 
+    public async Task<StripeConnectKontoResultat> OpprettConnectKontoAsync(string epost, CancellationToken cancellationToken = default) =>
+        await (await AktivKlientAsync(cancellationToken)).OpprettConnectKontoAsync(epost, cancellationToken);
+
+    public async Task<StripeOnboardingLenke> OpprettOnboardingLenkeAsync(
+        string stripeAccountId, string returnUrl, string refreshUrl, CancellationToken cancellationToken = default) =>
+        await (await AktivKlientAsync(cancellationToken)).OpprettOnboardingLenkeAsync(stripeAccountId, returnUrl, refreshUrl, cancellationToken);
+
+    public async Task<StripeOverforingResultat> OpprettOverforingAsync(
+        string stripeAccountId, decimal belopNok, string referanse, CancellationToken cancellationToken = default) =>
+        await (await AktivKlientAsync(cancellationToken)).OpprettOverforingAsync(stripeAccountId, belopNok, referanse, cancellationToken);
+
     private async Task<IStripeClient> AktivKlientAsync(CancellationToken cancellationToken)
     {
         var innstilling = await _innstillinger.HentAsync(cancellationToken);

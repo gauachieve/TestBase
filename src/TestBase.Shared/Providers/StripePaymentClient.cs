@@ -65,4 +65,81 @@ public sealed class StripePaymentClient : IStripeClient
             return new StripeStatusResultat(false, false, ex.StripeError?.Message ?? ex.Message);
         }
     }
+
+    public async Task<StripeConnectKontoResultat> OpprettConnectKontoAsync(string epost, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var options = new AccountCreateOptions
+            {
+                Type = "express",
+                Country = "NO",
+                Email = epost,
+                Capabilities = new AccountCapabilitiesOptions
+                {
+                    Transfers = new AccountCapabilitiesTransfersOptions { Requested = true }
+                }
+            };
+            var requestOptions = new RequestOptions { ApiKey = _secretKey };
+            var service = new AccountService();
+            var account = await service.CreateAsync(options, requestOptions, cancellationToken);
+
+            return new StripeConnectKontoResultat(true, account.Id, null);
+        }
+        catch (StripeException ex)
+        {
+            _logger.LogWarning(ex, "Stripe OpprettConnectKonto feilet: {Melding}", ex.StripeError?.Message);
+            return new StripeConnectKontoResultat(false, string.Empty, ex.StripeError?.Message ?? ex.Message);
+        }
+    }
+
+    public async Task<StripeOnboardingLenke> OpprettOnboardingLenkeAsync(
+        string stripeAccountId, string returnUrl, string refreshUrl, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var options = new AccountLinkCreateOptions
+            {
+                Account = stripeAccountId,
+                Type = "account_onboarding",
+                ReturnUrl = returnUrl,
+                RefreshUrl = refreshUrl
+            };
+            var requestOptions = new RequestOptions { ApiKey = _secretKey };
+            var service = new AccountLinkService();
+            var lenke = await service.CreateAsync(options, requestOptions, cancellationToken);
+
+            return new StripeOnboardingLenke(true, lenke.Url, null);
+        }
+        catch (StripeException ex)
+        {
+            _logger.LogWarning(ex, "Stripe OpprettOnboardingLenke feilet for {Id}: {Melding}", stripeAccountId, ex.StripeError?.Message);
+            return new StripeOnboardingLenke(false, null, ex.StripeError?.Message ?? ex.Message);
+        }
+    }
+
+    public async Task<StripeOverforingResultat> OpprettOverforingAsync(
+        string stripeAccountId, decimal belopNok, string referanse, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var options = new TransferCreateOptions
+            {
+                Amount = (long)Math.Round(belopNok * 100m, MidpointRounding.AwayFromZero),
+                Currency = "nok",
+                Destination = stripeAccountId,
+                Metadata = new Dictionary<string, string> { ["referanse"] = referanse }
+            };
+            var requestOptions = new RequestOptions { ApiKey = _secretKey };
+            var service = new TransferService();
+            var transfer = await service.CreateAsync(options, requestOptions, cancellationToken);
+
+            return new StripeOverforingResultat(true, transfer.Id, null);
+        }
+        catch (StripeException ex)
+        {
+            _logger.LogWarning(ex, "Stripe OpprettOverforing feilet mot {Id}: {Melding}", stripeAccountId, ex.StripeError?.Message);
+            return new StripeOverforingResultat(false, null, ex.StripeError?.Message ?? ex.Message);
+        }
+    }
 }

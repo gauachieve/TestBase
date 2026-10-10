@@ -32,4 +32,30 @@ public sealed class MockStripeClient : IStripeClient
         _logger.LogInformation("[MOCK Stripe] Simulerer statusoppslag for {Id}: betalt.", betalingsId);
         return Task.FromResult(new StripeStatusResultat(true, ErBetalt: true, ErrorMessage: null));
     }
+
+    public Task<StripeConnectKontoResultat> OpprettConnectKontoAsync(string epost, CancellationToken cancellationToken = default)
+    {
+        var fiktivId = $"acct_MOCK-{Guid.NewGuid():N}";
+        _logger.LogInformation("[MOCK Stripe] Simulerer opprettelse av Connect-konto {Id} for {Epost}.", fiktivId, epost);
+        return Task.FromResult(new StripeConnectKontoResultat(true, fiktivId, null));
+    }
+
+    public Task<StripeOnboardingLenke> OpprettOnboardingLenkeAsync(
+        string stripeAccountId, string returnUrl, string refreshUrl, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation(
+            "[MOCK Stripe] Simulerer onboarding-lenke for {Id} — peker rett til returnUrl siden ingen ekte onboarding skjer.",
+            stripeAccountId);
+        return Task.FromResult(new StripeOnboardingLenke(true, returnUrl, null));
+    }
+
+    public Task<StripeOverforingResultat> OpprettOverforingAsync(
+        string stripeAccountId, decimal belopNok, string referanse, CancellationToken cancellationToken = default)
+    {
+        var fiktivId = $"tr_MOCK-{Guid.NewGuid():N}";
+        _logger.LogInformation(
+            "[MOCK Stripe] Simulerer overføring {Id} på {Belop} kr til {KontoId} (referanse {Referanse}) — INGEN ekte penger flyttes.",
+            fiktivId, belopNok, stripeAccountId, referanse);
+        return Task.FromResult(new StripeOverforingResultat(true, fiktivId, null));
+    }
 }

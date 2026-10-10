@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Stripe;
 using TestBase.Shared.Domain.Tester;
+using TestBase.Shared.Domain.Utbetaling;
 
 namespace TestBase.Web.Security;
 
@@ -40,8 +41,8 @@ public static class PaymentWebhooks
         var logger = app.Logger;
         app.MapPost(VippsWebhookSti, (HttpContext context, IConfiguration config, TestService testService) =>
             HandleVippsWebhookAsync(context, config, testService, logger));
-        app.MapPost(StripeWebhookSti, (HttpContext context, IConfiguration config, TestService testService) =>
-            HandleStripeWebhookAsync(context, config, testService, logger));
+        app.MapPost(StripeWebhookSti, (HttpContext context, IConfiguration config, TestService testService, UtbetalingsOnboardingService onboarding, UtbetalingsBatchService utbetalingsBatcher) =>
+            HandleStripeWebhookAsync(context, config, testService, onboarding, utbetalingsBatcher, logger));
     }
 
     private static async Task<IResult> HandleVippsWebhookAsync(HttpContext context, IConfiguration config, TestService testService, ILogger logger)
@@ -156,10 +157,14 @@ public static class PaymentWebhooks
         return likhet;
     }
 
-    private static Task<IResult> HandleStripeWebhookAsync(HttpContext context, IConfiguration config, TestService testService, ILogger logger) =>
-        HandleStripeWebhookCoreAsync(context, config, testService, logger);
+    private static Task<IResult> HandleStripeWebhookAsync(
+        HttpContext context, IConfiguration config, TestService testService, UtbetalingsOnboardingService onboarding,
+        UtbetalingsBatchService utbetalingsBatcher, ILogger logger) =>
+        HandleStripeWebhookCoreAsync(context, config, testService, onboarding, utbetalingsBatcher, logger);
 
-    private static async Task<IResult> HandleStripeWebhookCoreAsync(HttpContext context, IConfiguration config, TestService testService, ILogger logger)
+    private static async Task<IResult> HandleStripeWebhookCoreAsync(
+        HttpContext context, IConfiguration config, TestService testService, UtbetalingsOnboardingService onboarding,
+        UtbetalingsBatchService utbetalingsBatcher, ILogger logger)
     {
         var webhookSecret = config["Stripe:WebhookSecret"];
         if (string.IsNullOrWhiteSpace(webhookSecret))
@@ -182,6 +187,39 @@ public static class PaymentWebhooks
                 TryParseTildelingId(referanse, out var tildelingId))
             {
                 await testService.MarkerBetalingBetaltAsync(tildelingId, BetalingMetode.Stripe, betalingsintensjon.Id, context.RequestAborted);
+            }
+            else if (hendelse.Type == "account.updated" && hendelse.Data.Object is Account konto)
+            {
+                // Eneste kilde vi stoler på for at Stripe Connect-onboarding faktisk er
+                // fullført — se UtbetalingsMottakerKonto sin klassekommentar.
+                await onboarding.OppdaterFraWebhookAsync(
+                    konto.Id, konto.PayoutsEnabled, konto.DetailsSubmitted, context.RequestAborted);
+            }
+            else if (hendelse.Type == "transfer.created" && hendelse.Data.Object is Transfer overforing)
+            {
+                // Sekundær bekreftelse — linjen settes normalt allerede synkront fra selve
+                // API-kallet i Admin/Utbetalinger, se UtbetalingsBatchService.BekreftOverforingAsync.
+                await utbetalingsBatcher.BekreftOverforingAsync(overforing.Id, context.RequestAborted);
+            }
+            else if (hendelse.Type == "payout.failed" && hendelse.Data.Object is Payout utbetaling)
+            {
+                // Dekker et SENERE feilpunkt enn selve Transfer-en (som kan ha lyktes) —
+                // se UtbetalingsBatchService.FinnMottakerVedStripeAccountIdAsync sin
+                // klassekommentar for hvorfor dette IKKE prøver å gjette hvilken linje
+                // det gjaldt. hendelse.Account er den tilkoblede kontoen Connect-hendelsen
+                // gjelder (satt av Stripe på alle forwarded Connect-hendelser).
+                var stripeAccountId = hendelse.Account;
+                if (!string.IsNullOrWhiteSpace(stripeAccountId))
+                {
+                    var mottakerKonto = await utbetalingsBatcher.FinnMottakerVedStripeAccountIdAsync(stripeAccountId, context.RequestAborted);
+                    logger.LogError(
+                        "Stripe payout.failed for konto {StripeAccountId} (mottaker: {MottakerType} #{MottakerId}) — " +
+                        "årsak: {Arsak}. Undersøk i Stripe sitt dashbord, bruk 'Prøv igjen' manuelt på riktig linje i Admin/Utbetalinger.",
+                        stripeAccountId,
+                        mottakerKonto?.MottakerType.ToString() ?? "ukjent",
+                        mottakerKonto?.BehandlerId ?? mottakerKonto?.PartnerId,
+                        utbetaling.FailureMessage ?? "(ingen årsak oppgitt)");
+                }
             }
 
             return Results.Ok();

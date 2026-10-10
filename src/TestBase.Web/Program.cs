@@ -63,6 +63,9 @@ builder.Services.AddScoped<PlanlagtTildelingService>();
 builder.Services.AddScoped<TestBase.Shared.Domain.Tilbakemeldinger.TilbakemeldingService>();
 builder.Services.AddHostedService<PlanlagtTildelingBakgrunnstjeneste>();
 builder.Services.AddHostedService<ProgramBakgrunnstjeneste>();
+builder.Services.AddScoped<TestBase.Shared.Domain.Utbetaling.UtbetalingsOnboardingService>();
+builder.Services.AddScoped<TestBase.Shared.Domain.Utbetaling.UtbetalingsBatchService>();
+builder.Services.AddHostedService<UtbetalingsBatchBakgrunnstjeneste>();
 
 // Skåringsmotor og innebygde, kode-definerte tester (fase 5 — bevist ut med WHO-5).
 builder.Services.AddScoped<ITestSkaaringsberegner, Who5Skaaringsberegner>();
@@ -586,6 +589,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeAreaFolder("Admin", "/Partnere", "SuperadminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Tester/Prising", "SuperadminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Okonomi", "SuperadminOmrade");
+    options.Conventions.AuthorizeAreaFolder("Admin", "/Utbetalinger", "SuperadminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Tilbakemeldinger", "AdminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Programmer", "AdminOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Behandlere", "BehandlerOmrade");

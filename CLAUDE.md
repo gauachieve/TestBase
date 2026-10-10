@@ -771,6 +771,23 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   `psytest.no` selv). Bekreftet IKKE til stede i Edge (Google-proprietær Chrome-funksjon, ikke delt
   Chromium-plattform) — Edge er et gyldig, kodefritt arbeidsrunde-alternativ i mellomtiden. Se
   docs/beslutningslogg.md "Ekte BankID for admin/behandler, del 9" for full analyse.
+- **Monthly Stripe Connect payout system (2026-10-10, tre faser, lokalt bygget og verifisert, IKKE
+  deployet):** behandlere/partnere kan koble til en Stripe Connect Express-konto
+  (`Behandlerportal/Utbetaling`, `Behandlerportal/MinPartner/Utbetaling`) — selve bankkontoen
+  samles kun av Stripe, aldri lagret hos oss. En bakgrunnstjeneste genererer automatisk et
+  månedlig utkast-oppgjør fra `Pengebevegelse`-loggen (ny `Utbetaling`-domenefolder:
+  `UtbetalingsMottakerKonto`/`UtbetalingsBatch`/`UtbetalingsLinje`/
+  `UtbetalingsLinjePengebevegelse` — sistnevntes unike indeks på `PengebevegelseId` er selve
+  dobbel-utbetaling-vernet). Penger flyttes ALDRI automatisk — kun en eksplisitt
+  Superadmin-godkjenning på ny `Admin/Utbetalinger`-side utløser faktiske Stripe-overføringer, og
+  ett mislykket forsøk blokkerer aldri resten av batchen. `transfer.created`/`payout.failed`-
+  webhooker lukker løkken for forsinkede feil. Fullt verifisert med ekte (ikke mock) Stripe
+  test-kall og manuelt HMAC-signerte webhook-hendelser siden Stripe CLI ikke var installert — se
+  docs/beslutningslogg.md "Monthly Stripe Connect payout system" for flere reelle funn underveis
+  (bl.a. en Stripe.net NullReferenceException ved manglende api_version, og en ren
+  test-harness-bug i `ByttModus` som IKKE var en reell Connect-feil). 98 tester grønne, to nye
+  migrasjoner, begge rene. De tre periodiserte oppgjørsrapportene designet tidligere samme dag er
+  fortsatt kun en visuell mockup, ikke koblet til dette ennå.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

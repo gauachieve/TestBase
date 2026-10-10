@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TestBase.Shared.Data;
 
@@ -11,9 +12,11 @@ using TestBase.Shared.Data;
 namespace TestBase.Shared.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261010195322_LeggTilUtbetalingsMottakerKonto")]
+    partial class LeggTilUtbetalingsMottakerKonto
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1597,127 +1600,6 @@ namespace TestBase.Shared.Migrations
                     b.HasIndex("Status");
 
                     b.ToTable("tilbakemeldinger", (string)null);
-                });
-
-            modelBuilder.Entity("TestBase.Shared.Domain.Utbetaling.UtbetalingsBatch", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<int>("Aar")
-                        .HasColumnType("int");
-
-                    b.Property<DateTimeOffset>("GenerertUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<long?>("GodkjentAvAdministratorId")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTimeOffset?>("GodkjentUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("Maned")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("varchar(16)");
-
-                    b.Property<decimal>("TotalBelopKr")
-                        .HasColumnType("decimal(10,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Aar", "Maned")
-                        .IsUnique();
-
-                    b.ToTable("utbetalings_batcher", (string)null);
-                });
-
-            modelBuilder.Entity("TestBase.Shared.Domain.Utbetaling.UtbetalingsLinje", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<int>("AntallForsok")
-                        .HasColumnType("int");
-
-                    b.Property<int>("AntallUnderliggendeTransaksjoner")
-                        .HasColumnType("int");
-
-                    b.Property<long?>("BehandlerId")
-                        .HasColumnType("bigint");
-
-                    b.Property<decimal>("BelopKr")
-                        .HasColumnType("decimal(10,2)");
-
-                    b.Property<string>("MottakerType")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("varchar(16)");
-
-                    b.Property<DateTimeOffset?>("OverfortUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<long?>("PartnerId")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("SisteFeilmelding")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("varchar(16)");
-
-                    b.Property<string>("StripeTransferId")
-                        .HasMaxLength(128)
-                        .HasColumnType("varchar(128)");
-
-                    b.Property<long>("UtbetalingsBatchId")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BehandlerId");
-
-                    b.HasIndex("PartnerId");
-
-                    b.HasIndex("UtbetalingsBatchId");
-
-                    b.ToTable("utbetalings_linjer", (string)null);
-                });
-
-            modelBuilder.Entity("TestBase.Shared.Domain.Utbetaling.UtbetalingsLinjePengebevegelse", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("PengebevegelseId")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("UtbetalingsLinjeId")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PengebevegelseId")
-                        .IsUnique();
-
-                    b.HasIndex("UtbetalingsLinjeId");
-
-                    b.ToTable("utbetalings_linje_pengebevegelser", (string)null);
                 });
 
             modelBuilder.Entity("TestBase.Shared.Domain.Utbetaling.UtbetalingsMottakerKonto", b =>
