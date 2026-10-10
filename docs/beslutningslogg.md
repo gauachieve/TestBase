@@ -7957,3 +7957,66 @@ bekymring akkurat nå.
 `azd provision` (brukeren kjørte selv dette kommandoparet etter at et tidligere forsøk fra Claude
 ble blokkert av Claude Code sin auto-mode-klassifiserer — en permission-grense verdt å huske for
 fremtidige liknende "slå på ekte BankID"-endringer).
+
+## Seks-punkts brukerfeedback-runde (2026-10-10)
+
+En ny `bugs_features.txt`-runde, rett etter at ekte BankID var gjenopprettet (del 11). Alle seks
+punkter browser-verifisert, 98 tester fortsatt grønne.
+
+1. **"+ Legg til pasient"/"Gruppeimport" på `Behandlerportal/Pasienter/Index` var rå `<a>`-lenker**
+   — stylet som `btn btn-accent`/`btn btn-outline` (samme klassepar som allerede brukt andre
+   steder).
+2. **Samme usynlige-knapp-mønster funnet flere andre steder via et `grep` over Admin-arealet** —
+   "+ Ny administrator"/"Vis slettede" (`Admin/Administratorer`), "+ Ny partner"/"Vis slettede"
+   (`Admin/Partnere`), "+ Ny test"/"Regenerer innebygde tester" (`Admin/Tester`), "+ Inviter ny
+   behandler"/"Vis slettede" (`Admin/Behandlere`), "+ Ny pasient"/"Vis slettede" (`Admin/Pasienter`)
+   — alle fikk `btn btn-accent`/`btn btn-outline btn-sm`. Samtidig funnet og rettet: en REELL CSS-
+   spesifisitetsbug (allerede dokumentert som fallgruve) på `Hjemmeoppgaver/Index.cshtml` og
+   `Programmer/Index.cshtml` — `class="btn-accent"` uten den medfølgende `btn`-klassen tapte mot
+   `main.page form button[type="submit"]:not(.btn-icon)` sin globale default-styling.
+3. **Administratorer fikk Aktiv/Arkivert-faner** (samme `faner.js`-mønster som Grupper/Pasienter)
+   — slettede rader (kun synlig via det eksisterende "Vis slettede"-query-parameteret) får bevisst
+   INGEN fane-tag, styres fortsatt av den gamle toggelen alene.
+4. **CAPTCHA droppet for ekte BankID-innlogging** — `Pages/Konto/LoggInn.cshtml.cs` sin
+   `OnPostAsync` sjekker nå `ErEktBankIdAktiv` FØR captcha-verifisering og `Challenge()`-er direkte
+   til BankID-schemaet uten å røre captcha-feltet i det hele tatt. Begrunnelse (brukerens egen):
+   selve BankID-identitetsbekreftelsen ER sikkerhetssperren for den innloggingsveien — captcha er
+   et bot-vern for IKKE-autentiserte forsøk (mock/personnummer-override-veien, der fortsatt
+   påkrevd), overflødig når BankID allerede er den faktiske porten. `OnPostPassordAsync`
+   (kun-utviklingsmiljø passordinnlogging) er bevisst URØRT, krever fortsatt captcha ubetinget.
+   IKKE verifiserbart mot ekte BankID lokalt (ingen ekte BankID-avtale i dev) — verifisert i stedet
+   at captcha fortsatt fungerer korrekt for BÅDE mock-BankID-stien og passord-stien (begge
+   uendret), og at reordreringen ikke har endret rekkefølgen av noe annet.
+5. **SMS-bekreftelse etter ekte BankID — IKKE en bug, ingen kodeendring.** Mekanismen brukeren
+   beskriver (BankID gjør nettleseren "betrodd" i en periode, hopper over SMS-2FA til perioden
+   utløper) finnes ALLEREDE og er aktiv: `BetroddEnhet` (tidsbegrenset DataProtection-cookie, 30
+   dager standard via `Auth:BetroddEnhetDager`), sjekket av `ToFaktorService.StartAsync`/
+   `ProfesjonellInnloggingService` før SMS-2FA kreves. Den SMS-en brukeren så var trolig den
+   FØRSTE innloggingen etter at ekte BankID nettopp ble gjenopprettet (del 11, samme dag) — ingen
+   betrodd enhet-cookie for akkurat den kontoen fantes ennå. Forventet at påfølgende innlogginger
+   fra samme nettleser/enhet innen 30 dager hopper over SMS automatisk; ikke noe å fikse i kode med
+   mindre brukeren rapporterer at SMS fortsatt kreves ved et SENERE, påfølgende innloggingsforsøk.
+6. **Generisk "velg flere rader + verktøylinje"-mønster** — ny `wwwroot/js/flervalg.js` (samme
+   konvensjonsfamilie som `faner.js`/`tabellfilter.js`): en `data-flervalg-beholder`-wrapper, rad-
+   avkrysninger (`data-flervalg-rad`), en valgfri "velg alle" (`data-flervalg-alle`, hopper bevisst
+   over rader skjult av fane-/søkefilter — "velg alle" betyr "velg alle SYNLIGE"), og en
+   verktøylinje (`data-flervalg-verktoylinje`) som vises/aktiveres kun når minst én rad er valgt.
+   Løst nestede-forms-begrensningen (avkrysninger i en tabell som OGSÅ har per-rad `<form>`-
+   elementer) med HTML5 sitt `form="id"`-attributt på hver avkrysning, pekende til en tom,
+   frittstående `<form>` utenfor tabellen. Implementert på to steder denne runden (brukerens egne
+   eksempler — "arkivere mange pasienter", "slette ubesvarte tester"), IKKE utvidet til ALLE tabeller
+   i appen ennå (Administratorer/Behandlere/Admin-Pasienter/Grupper/Partnere gjenstår, bevisst
+   scope-kutt for denne runden):
+   - `Behandlerportal/Pasienter/Index` — ny `OnPostArkiverValgteAsync` (arkiverer valgte, hopper
+     stille over allerede arkiverte i utvalget — aldri en vippe/gjenopprett-handling som enkelt-
+     rad-knappen).
+   - `Behandlerportal/MinSide` sin "Ikke besvart"-fane — ny `OnPostSlettValgteIkkeBesvarteAsync`,
+     supplerer (ikke erstatter) den eksisterende "Fjern alle ubesvarte"-knappen.
+   Begge bruker `AuditBatch.EntityId(...)` (ikke en rå kommaseparert liste — se den dokumenterte
+   `EntityId`-lengde-fallgruven). Verifisert fullt ende-til-ende i nettleser: valgte to pasienter →
+   "2 valgt"-teller + "Arkiver valgte"-knapp dukket opp → arkivering flyttet dem fra Aktiv- til
+   Arkivert-fanen korrekt, bekreftet i databasen at audit-loggen fikk `EntityId = "batch:2"` med de
+   fulle ID-ene i `details`. Samme mønster verifisert på MinSide (toolbar dukket opp ved valg, var
+   kun midlertidig usynlig ved første sjekk fordi den lå lenger ned på en lang side enn
+   startskjermbildet viste — IKKE en reell bug, bekreftet via `getBoundingClientRect`/
+   `getComputedStyle` og et scroll-til-element-skjermbilde).

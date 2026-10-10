@@ -22,11 +22,14 @@
             <input asp-for="PersonnummerOverride" autocomplete="off" placeholder="La stå tomt for fast test-personnummer" />
         </div>
     }
-    <div>
-        <label>@Model.CaptchaSporsmal</label><br />
-        <input asp-for="CaptchaSvar" autocomplete="off" inputmode="numeric" />
-        <input type="hidden" asp-for="CaptchaSignertFasit" />
-    </div>
+    @if (!Model.ErEktBankIdAktiv)
+    {
+        <div>
+            <label>@Model.CaptchaSporsmal</label><br />
+            <input asp-for="CaptchaSvar" autocomplete="off" inputmode="numeric" />
+            <input type="hidden" asp-for="CaptchaSignertFasit" />
+        </div>
+    }
     <button type="submit">Logg inn med BankID</button>
 </form>
 

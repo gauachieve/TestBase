@@ -51,7 +51,7 @@
 }
 
 <h2>Tester</h2>
-<div data-fane-beholder>
+<div data-fane-beholder data-flervalg-beholder>
     <div class="fane-rad" role="tablist">
         <button type="button" class="fane-knapp" data-fane="venter">Venter på godkjenning (@Model.VenterPaaGodkjenning.Count)</button>
         <button type="button" class="fane-knapp" data-fane="ikke-besvart">Ikke besvart (@Model.IkkeFullfort.Count)</button>
@@ -66,6 +66,14 @@
     @if (Model.IkkeFullfort.Any())
     {
         <div data-fane-rad="ikke-besvart" data-sok="" hidden style="margin: 0.75rem 0;">
+            <div data-flervalg-verktoylinje hidden style="margin-bottom: 0.5rem;">
+                <strong><span data-flervalg-antall>0</span> valgt</strong>
+                <button type="submit" form="ikkeBesvartFlervalgSkjema" class="btn btn-outline btn-sm">
+                    <partial name="_Ikon" model="@("slett")" /> Fjern valgte
+                </button>
+            </div>
+            <form id="ikkeBesvartFlervalgSkjema" method="post" asp-page-handler="SlettValgteIkkeBesvarte"
+                  onsubmit="return confirm('Slette de valgte ubesvarte tildelingene permanent? Dette kan ikke angres.');"></form>
             <form method="post" asp-page-handler="SlettAlleIkkeBesvarte"
                   onsubmit="return confirm('Slette ALLE @Model.IkkeFullfort.Count ikke-besvarte tildelinger permanent? Dette kan ikke angres.');">
                 <button type="submit" class="btn-muted btn-sm">
@@ -84,6 +92,7 @@
         <table border="1" cellpadding="6" cellspacing="0">
             <thead>
                 <tr>
+                    <th></th>
                     <th>Pasient</th>
                     <th>Test</th>
                     <th>Dato</th>
@@ -95,6 +104,7 @@
             {
                 var sok = $"{rad.PasientNavn} {rad.TestNavn}".ToLowerInvariant();
                 <tr data-fane-rad="venter" data-sok="@sok">
+                    <td></td>
                     <td>@(rad.PasientNavn ?? "(ikke fullført registrering)")</td>
                     <td>@rad.TestNavn</td>
                     <td>@rad.Tildeling.FullfortUtc?.ToString("g")</td>
@@ -105,6 +115,7 @@
             {
                 var sok = $"{rad.PasientNavn} {rad.TestNavn}".ToLowerInvariant();
                 <tr data-fane-rad="ikke-besvart" data-sok="@sok">
+                    <td><input type="checkbox" name="tildelingId" value="@rad.Tildeling.Id" form="ikkeBesvartFlervalgSkjema" data-flervalg-rad aria-label="Velg @rad.TestNavn for @rad.PasientNavn" /></td>
                     <td>@(rad.PasientNavn ?? "(ikke fullført registrering)")</td>
                     <td>@rad.TestNavn @(rad.FyllesUtAvBehandler ? "(fylles ut av deg)" : "")</td>
                     <td>@rad.Tildeling.TildeltUtc.ToString("d") (@rad.Tildeling.Status)</td>
@@ -128,6 +139,7 @@
             {
                 var sok = $"{rad.PasientNavn} {rad.TestNavn}".ToLowerInvariant();
                 <tr data-fane-rad="godkjent" data-sok="@sok">
+                    <td></td>
                     <td>@(rad.PasientNavn ?? "(ikke fullført registrering)")</td>
                     <td>@rad.TestNavn</td>
                     <td>@rad.Tildeling.RapportGodkjentUtc?.ToString("g")</td>
@@ -140,6 +152,7 @@
 </div>
 
 <script src="~/js/faner.js" asp-append-version="true"></script>
+<script src="~/js/flervalg.js" asp-append-version="true"></script>
 
 <h2>Meldinger (@Model.UlesteMeldinger.Count uleste)</h2>
 

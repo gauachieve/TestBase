@@ -6,7 +6,7 @@
 }
 
 <h1>Behandlere</h1>
-<p><a href="/Admin/Behandlere/Inviter">+ Inviter ny behandler</a></p>
+<p><a class="btn btn-accent" href="/Admin/Behandlere/Inviter">+ Inviter ny behandler</a></p>
 
 @if (Model.Feilmelding is not null)
 {
@@ -18,11 +18,11 @@
     <p>
         @if (Model.VisSlettede)
         {
-            <a href="/Admin/Behandlere">Skjul slettede</a>
+            <a class="btn btn-outline btn-sm" href="/Admin/Behandlere">Skjul slettede</a>
         }
         else
         {
-            <a href="/Admin/Behandlere?visSlettede=true">Vis slettede (kun Superadmin)</a>
+            <a class="btn btn-outline btn-sm" href="/Admin/Behandlere?visSlettede=true">Vis slettede (kun Superadmin)</a>
         }
     </p>
 }

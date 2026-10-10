@@ -5,7 +5,7 @@
 }
 
 <h1>Administratorer</h1>
-<p><a href="/Admin/Administratorer/Ny">+ Ny administrator</a></p>
+<p><a class="btn btn-accent" href="/Admin/Administratorer/Ny">+ Ny administrator</a></p>
 
 @if (Model.Feilmelding is not null)
 {
@@ -17,14 +17,20 @@
     <p>
         @if (Model.VisSlettede)
         {
-            <a href="/Admin/Administratorer">Skjul slettede</a>
+            <a class="btn btn-outline btn-sm" href="/Admin/Administratorer">Skjul slettede</a>
         }
         else
         {
-            <a href="/Admin/Administratorer?visSlettede=true">Vis slettede (kun Superadmin)</a>
+            <a class="btn btn-outline btn-sm" href="/Admin/Administratorer?visSlettede=true">Vis slettede (kun Superadmin)</a>
         }
     </p>
 }
+
+<div data-fane-beholder>
+    <div class="fane-rad" role="tablist">
+        <button type="button" class="fane-knapp" data-fane="aktive">Aktive (@Model.Administratorer.Count(a => !a.ErArkivert && !a.ErSlettet))</button>
+        <button type="button" class="fane-knapp" data-fane="arkivert">Arkivert (@Model.Administratorer.Count(a => a.ErArkivert && !a.ErSlettet))</button>
+    </div>
 
 <table border="1" cellpadding="6" cellspacing="0">
     <thead>
@@ -42,7 +48,8 @@
     <tbody>
     @foreach (var a in Model.Administratorer)
     {
-        <tr>
+        var fane = a.ErSlettet ? null : a.ErArkivert ? "arkivert" : "aktive";
+        <tr data-fane-rad="@fane" hidden="@(fane == "arkivert")">
             <td>@a.AdminId</td>
             <td>@a.FulltNavn</td>
             <td>@a.Email</td>
@@ -87,3 +94,6 @@
     }
     </tbody>
 </table>
+</div>
+
+<script src="~/js/faner.js" asp-append-version="true"></script>

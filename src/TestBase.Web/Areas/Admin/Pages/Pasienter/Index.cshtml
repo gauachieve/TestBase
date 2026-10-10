@@ -14,11 +14,11 @@
     <p>
         @if (Model.VisSlettede)
         {
-            <a href="/Admin/Pasienter">Skjul slettede</a>
+            <a class="btn btn-outline btn-sm" href="/Admin/Pasienter">Skjul slettede</a>
         }
         else
         {
-            <a href="/Admin/Pasienter?visSlettede=true">Vis slettede (kun Superadmin)</a>
+            <a class="btn btn-outline btn-sm" href="/Admin/Pasienter?visSlettede=true">Vis slettede (kun Superadmin)</a>
         }
     </p>
 }

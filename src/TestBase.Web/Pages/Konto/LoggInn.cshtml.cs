@@ -161,13 +161,12 @@ public sealed class LoggInnModel : PageModel
     /// </summary>
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
-        if (!_captcha.Verifiser(CaptchaSignertFasit, CaptchaSvar))
-        {
-            Feilmelding = "Feil svar på sikkerhetsspørsmålet.";
-            NyCaptcha();
-            return Page();
-        }
-
+        // Sjekkes FØR captcha (snudd 2026-10-10, bugliste punkt 4): selve BankID-
+        // identitetsbekreftelsen ER sikkerhetssperren for ekte BankID — et ekstra
+        // regnestykke her er bare friksjon på vei til Idura, ikke reell beskyttelse
+        // (ingenting skjer med kontoen vår før BankID selv har bekreftet identiteten).
+        // CAPTCHA er fortsatt nødvendig for mock-sporet (personnummer-override), som
+        // IKKE har noen tilsvarende ekte identitetsbekreftelse bak seg.
         ErEktBankIdAktiv = await HarEktBankIdAsync();
         if (ErEktBankIdAktiv)
         {
@@ -175,6 +174,13 @@ public sealed class LoggInnModel : PageModel
             props.Items["huskMeg"] = HuskMeg.ToString();
             props.Items["returnUrl"] = ReturnUrl;
             return Challenge(props, "BankIdInnlogging");
+        }
+
+        if (!_captcha.Verifiser(CaptchaSignertFasit, CaptchaSvar))
+        {
+            Feilmelding = "Feil svar på sikkerhetsspørsmålet.";
+            NyCaptcha();
+            return Page();
         }
 
         // Gates ved bruk, ikke bare i viewet — en rå POST kan sette denne uansett synlighet.

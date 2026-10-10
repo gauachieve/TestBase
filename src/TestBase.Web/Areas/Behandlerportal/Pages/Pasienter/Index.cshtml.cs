@@ -94,6 +94,43 @@ public sealed class IndexModel : PageModel
         CaptchaSignertFasit = utfordring.SignertFasit;
     }
 
+    /// <summary>
+    /// Arkiverer flere pasienter i ett steg (bugliste 2026-10-10 punkt 6) — i
+    /// motsetning til enkelt-raden sin OnPostArkiverAsync er dette ALDRI en
+    /// vippe: allerede arkiverte pasienter i utvalget hoppes stille over,
+    /// aldri gjenopprettet, siden en blandet batch (noen arkiverte, noen
+    /// ikke) ellers ville gitt uforutsigbare per-rad-utfall.
+    /// </summary>
+    public async Task<IActionResult> OnPostArkiverValgteAsync(long[] pasientId, CancellationToken cancellationToken)
+    {
+        if (pasientId.Length == 0)
+        {
+            return RedirectToPage();
+        }
+
+        var behandlerId = HentBehandlerId();
+        var pasienter = await _db.Pasienter
+            .Where(p => pasientId.Contains(p.Id) && p.BehandlerId == behandlerId && p.Status != PasientStatus.Arkivert)
+            .ToListAsync(cancellationToken);
+
+        foreach (var pasient in pasienter)
+        {
+            pasient.Status = PasientStatus.Arkivert;
+            pasient.ArkivertUtc = DateTimeOffset.UtcNow;
+        }
+        await _db.SaveChangesAsync(cancellationToken);
+
+        if (pasienter.Count > 0)
+        {
+            var ider = pasienter.Select(p => p.Id).ToList();
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(), "ArkiverFlerePasienter",
+                nameof(Pasient), AuditBatch.EntityId(ider), details: $"PasientIder {string.Join(",", ider)}", cancellationToken: cancellationToken);
+        }
+
+        return RedirectToPage();
+    }
+
     public async Task<IActionResult> OnPostArkiverAsync(long id, CancellationToken cancellationToken)
     {
         var behandlerId = HentBehandlerId();

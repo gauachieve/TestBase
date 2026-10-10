@@ -145,6 +145,36 @@ public sealed class MinSideModel : PageModel
         return Redirect(Url.Page("./MinSide")! + "#ikke-besvart");
     }
 
+    /// <summary>
+    /// Sletter et VALGT utvalg ikke-besvarte tildelinger (bugliste 2026-10-10 punkt 6)
+    /// — supplerer OnPostSlettAlleIkkeBesvarteAsync over (som fortsatt sletter
+    /// absolutt alle), for når behandler kun vil rydde opp noen få.
+    /// </summary>
+    public async Task<IActionResult> OnPostSlettValgteIkkeBesvarteAsync(long[] tildelingId, CancellationToken cancellationToken)
+    {
+        var behandlerId = HentBehandlerId();
+        var antallSlettet = 0;
+        var slettedeIder = new List<long>();
+        foreach (var id in tildelingId)
+        {
+            if (await _testService.SlettIkkeFullfortTildelingAsync(id, behandlerId, cancellationToken))
+            {
+                antallSlettet++;
+                slettedeIder.Add(id);
+            }
+        }
+
+        if (antallSlettet > 0)
+        {
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(), "SlettValgteIkkeBesvarteTildelinger",
+                nameof(TestTildeling), AuditBatch.EntityId(slettedeIder),
+                $"{antallSlettet} tildeling(er) slettet: {string.Join(",", slettedeIder)}", cancellationToken);
+        }
+
+        return Redirect(Url.Page("./MinSide")! + "#ikke-besvart");
+    }
+
     /// <summary>Invaliderer gjeldende QR-kode/lenke umiddelbart — se Behandler.PasientInviteQrToken.</summary>
     public async Task<IActionResult> OnPostRegenererQrAsync(CancellationToken cancellationToken)
     {
