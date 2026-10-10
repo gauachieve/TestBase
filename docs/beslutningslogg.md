@@ -7906,3 +7906,54 @@ om en arkivert behandler/partner med en alt-utkastet ubetalt linje fortsatt skal
 periodiserte oppgjørsrapportene (designforslaget fra tidligere samme dag) er fortsatt KUN en
 visuell mockup, ikke koblet til denne nye `UtbetalingsLinjePengebevegelse`-koblingstabellen som
 var bevisst designet for at de skal kunne gjenbruke den senere.
+
+## Ekte BankID for admin/behandler, del 11 — gjenopprettet etter den ved-et-uhell-slettede applikasjonen, FUNGERER nå ende-til-ende på live (2026-10-10)
+
+Oppfølging av del 10 (se der for selve uhellet). Idura support (Mikkel) bekreftet at BankID-
+registreringen hos Stø er knyttet til DOMENET (`psytest-no.idura.broker`), ikke til noen intern
+Idura-objekt-ID — en ny applikasjon med SAMME client_id (`psytestno_25eb8adf-bankid-prod`) på
+SAMME domene ville fungere igjen, ingen ny Stø-godkjenning nødvendig. Bevisst valgt FØR
+`authorize.psytest.no`-sporet (del 9s Chrome-advarsel-løsning) — det løser kun gjenoppretting, ikke
+lookalike-domenet, men gjenoppretting var mer tidskritisk (ekte innlogging hadde stått på mock en
+stund). `authorize.psytest.no` er en egen, separat oppfølging mot Stø senere (krever trolig en helt
+ny domene-godkjenning, ikke dekket av dette).
+
+**To reelle feil funnet underveis, begge i selve den gjenopprettede Idura-applikasjonen, ingen i
+koden:**
+1. Client ID/Realm-feltet ble stående på Iduras auto-genererte forslag
+   (`urn:my:application:identifier:216792`) i stedet for å bli overskrevet med det opprinnelige
+   `psytestno_25eb8adf-bankid-prod` — ga `{"error":"invalid_client","error_description":"No
+   application with client_id ... found"}` (403) fra Iduras egen `/oauth2/authorize`, FØR noen
+   BankID-interaksjon. Rettet ved å redigere feltet direkte i det eksisterende, allerede opprettede
+   applikasjonsobjektet (viste seg redigerbart i etterkant, ikke bare ved opprettelse).
+2. "Allowed redirect URL(s)" inneholdt kun de to URI-ene fra Støs opprinnelige e-post
+   (`https://psytest-no.idura.broker/NOBankIdOidc/Callback` og
+   `https://signatures.idura.app/nobankid/csc/callback`, begge for Iduras EGEN interne
+   BankID-mottak) — men IKKE vår egen apps faktiske callback
+   (`https://www.psytest.no/signin-bankid-innlogging`), som åpenbart også må stå der for at Idura
+   skal vite hvor den skal sende brukeren videre etter sin egen prosessering. Denne tredje URL-en
+   var tydeligvis lagt til som et eget steg ved det opprinnelige oppsettet (del 2-8), men fantes
+   ikke i Støs e-post og ble dermed glemt ved gjenoppretting. Ga `{"error":"invalid_request",
+   "error_description":"redirect_uri ... is not registered on client_id ..."}` (400). Rettet ved å
+   legge til URL-en som en tredje oppføring.
+
+**Verifisert ende-til-ende i ekte nettleser, ikke bare at redirecten så riktig ut:** etter begge
+rettelsene gikk innloggingsforsøket hele veien til `app.bankid.no` (ekte BankID-produksjon,
+`client_id=bankid-oidc-prod`), viste en ekte BankID-fødselsnummer-side korrekt merket "PsyTest.no"
+som relying party — brukeren fullførte selve innloggingen i egen nettleser (Claude gjorde bevisst
+ALDRI noe forsøk på å taste inn et fødselsnummer selv) og bekreftet at den fullførte vellykket.
+
+**Observert, ikke undersøkt videre:** selve den utgående scope-forespørselen til BankID inkluderte
+`sub_nnin sub_bankid` i tillegg til `openid profile` — samme "broker legger til scopes uavhengig av
+hva klienten faktisk ber om"-fenomen som allerede dokumentert i del 5. Siden "STØ avviste
+fødselsnummer-bestilling" eksplisitt konkluderte med at kun ÅPNE scopes (`openid`/`profile`) er
+ubetinget tilgjengelig og `nnin`/`nnin_altsub` krever egen juridisk godkjenning vi IKKE har, er
+antagelsen fortsatt at BankID ikke faktisk returnerer et personnummer-claim selv om det blir bedt
+om — men dette er IKKE bekreftet på nytt nå, kun re-observert. Verdt å sjekke eksplisitt (f.eks.
+hvilke claims som faktisk kommer tilbake i `OnTokenValidated`) ved anledning, ikke en blokkerende
+bekymring akkurat nå.
+
+`Miljo:EktBankIdProfesjonell` ble satt tilbake til `"true"` på live via `azd env set` +
+`azd provision` (brukeren kjørte selv dette kommandoparet etter at et tidligere forsøk fra Claude
+ble blokkert av Claude Code sin auto-mode-klassifiserer — en permission-grense verdt å huske for
+fremtidige liknende "slå på ekte BankID"-endringer).
