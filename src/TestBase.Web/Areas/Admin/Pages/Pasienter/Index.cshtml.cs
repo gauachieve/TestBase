@@ -66,6 +66,38 @@ public sealed class IndexModel : PageModel
         }).ToList();
     }
 
+    /// <summary>Gjenoppretter flere slettede pasienter i ett steg — kun tilgjengelig i "Vis slettede"-visningen, samme sperre som enkelt-rad-handleren.</summary>
+    public async Task<IActionResult> OnPostGjenopprettValgteFraSlettetAsync(long[] pasientId, CancellationToken cancellationToken)
+    {
+        if (!ErSuperadmin)
+        {
+            return Forbid();
+        }
+
+        var pasienter = await _db.Pasienter
+            .Where(p => pasientId.Contains(p.Id) && p.ErSlettet)
+            .ToListAsync(cancellationToken);
+
+        foreach (var pasient in pasienter)
+        {
+            pasient.ErSlettet = false;
+            pasient.SlettetUtc = null;
+            pasient.Status = PasientStatus.Invitert;
+            pasient.ArkivertUtc = null;
+        }
+        await _db.SaveChangesAsync(cancellationToken);
+
+        if (pasienter.Count > 0)
+        {
+            var ider = pasienter.Select(p => p.Id).ToList();
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(), "GjenopprettFlereSlettedePasienter",
+                nameof(Pasient), AuditBatch.EntityId(ider), details: $"PasientIder {string.Join(",", ider)}", cancellationToken: cancellationToken);
+        }
+
+        return RedirectToPage(new { visSlettede = true });
+    }
+
     public async Task<IActionResult> OnPostGjenopprettFraSlettetAsync(long id, CancellationToken cancellationToken)
     {
         if (!ErSuperadmin)

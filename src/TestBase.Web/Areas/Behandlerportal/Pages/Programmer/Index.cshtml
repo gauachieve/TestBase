@@ -11,7 +11,7 @@
     <p class="rapport-status-melding">@Model.Melding</p>
 }
 
-<div data-fane-beholder>
+<div data-fane-beholder data-flervalg-beholder>
     <div role="tablist" style="margin-bottom: 1rem;">
         <button type="button" data-fane="kjorende" class="fane-knapp">Kjørende (@Model.Kjorende.Count)</button>
         <button type="button" data-fane="personlig" class="fane-knapp">Personlig (@Model.Personlige.Count)</button>
@@ -27,15 +27,24 @@
         <input type="search" data-fane-sok placeholder="Søk …" />
     </div>
 
+    <div data-flervalg-verktoylinje hidden style="margin-bottom: 0.75rem;">
+        <strong><span data-flervalg-antall>0</span> valgt</strong>
+        <button type="submit" form="programFlervalgSkjema" asp-page-handler="SlettValgte" class="btn btn-outline btn-sm">
+            <partial name="_Ikon" model="@("slett")" /> Fjern valgte
+        </button>
+    </div>
+    <form id="programFlervalgSkjema" method="post" onsubmit="return confirm('Fjerne (eller arkivere, hvis i bruk) de valgte programmene?');"></form>
+
     <table border="1" cellpadding="6" cellspacing="0">
         <thead>
-            <tr><th>Program</th><th>Startet</th><th>Gjenstående drops</th><th>Deltakere</th><th></th></tr>
+            <tr><th><input type="checkbox" data-flervalg-alle aria-label="Velg alle" /></th><th>Program</th><th>Startet</th><th>Gjenstående drops</th><th>Deltakere</th><th></th></tr>
         </thead>
         <tbody>
         @foreach (var rad in Model.Kjorende)
         {
             var visningsnavn = rad.GruppeNavn is not null ? $"{rad.ProgramNavn} ({rad.GruppeNavn})" : $"{rad.ProgramNavn} — {rad.PasientNavn ?? "(ikke fullført)"}";
             <tr data-fane-rad="kjorende" data-sok="@visningsnavn.ToLowerInvariant()">
+                <td></td>
                 <td>@visningsnavn</td>
                 <td>@rad.Startet.ToString("g")</td>
                 <td>@rad.AntallGjenstaendeDrops</td>
@@ -62,6 +71,12 @@
         {
             var erEgen = program.OpprettetAvBehandlerId == Model.EgenBehandlerId;
             <tr data-fane-rad="personlig" data-sok="@program.Navn.ToLowerInvariant()">
+                <td>
+                    @if (erEgen)
+                    {
+                        <input type="checkbox" name="programId" value="@program.Id" form="programFlervalgSkjema" data-flervalg-rad aria-label="Velg @program.Navn" />
+                    }
+                </td>
                 <td colspan="3">@program.Navn @(erEgen ? "" : "(likt — referanse)")</td>
                 <td>@program.OpprettetUtc.ToString("g")</td>
                 <td>
@@ -107,6 +122,7 @@
             var erEgen = program.OpprettetAvBehandlerId == Model.EgenBehandlerId;
             var erLikt = Model.LikteProgramIder.Contains(program.Id);
             <tr data-fane-rad="delt" data-sok="@program.Navn.ToLowerInvariant()">
+                <td></td>
                 <td colspan="3">@program.Navn @(erEgen ? "(ditt eget)" : "")</td>
                 <td>@program.OpprettetUtc.ToString("g")</td>
                 <td>
@@ -133,6 +149,7 @@
             var erEgen = program.OpprettetAvBehandlerId == Model.EgenBehandlerId;
             var erLikt = Model.LikteProgramIder.Contains(program.Id);
             <tr data-fane-rad="partner" data-sok="@program.Navn.ToLowerInvariant()">
+                <td></td>
                 <td colspan="3">@program.Navn @(erEgen ? "(ditt eget)" : "")</td>
                 <td>@program.OpprettetUtc.ToString("g")</td>
                 <td>
@@ -163,3 +180,4 @@
 </div>
 
 <script src="~/js/faner.js" asp-append-version="true"></script>
+<script src="~/js/flervalg.js" asp-append-version="true"></script>

@@ -69,6 +69,40 @@ public sealed class IndexModel : PageModel
         return RedirectToPage();
     }
 
+    /// <summary>
+    /// Arkiverer flere behandlere i ett steg (bugliste 2026-10-10 punkt 6, oppfølging) — hopper
+    /// bevisst over allerede arkiverte/slettede rader i utvalget, ALDRI en vippe/gjenopprett
+    /// (samme prinsipp som Behandlerportal/Pasienter sin tilsvarende handler).
+    /// </summary>
+    public async Task<IActionResult> OnPostArkiverValgteAsync(long[] behandlerId, CancellationToken cancellationToken)
+    {
+        if (behandlerId.Length == 0)
+        {
+            return RedirectToPage();
+        }
+
+        var behandlere = await _db.Behandlere
+            .Where(b => behandlerId.Contains(b.Id) && b.Status != BehandlerStatus.Arkivert && !b.ErSlettet)
+            .ToListAsync(cancellationToken);
+
+        foreach (var behandler in behandlere)
+        {
+            behandler.Status = BehandlerStatus.Arkivert;
+            behandler.ArkivertUtc = DateTimeOffset.UtcNow;
+        }
+        await _db.SaveChangesAsync(cancellationToken);
+
+        if (behandlere.Count > 0)
+        {
+            var ider = behandlere.Select(b => b.Id).ToList();
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(), "ArkiverFlereBehandlere",
+                nameof(Behandler), AuditBatch.EntityId(ider), details: $"BehandlerIder {string.Join(",", ider)}", cancellationToken: cancellationToken);
+        }
+
+        return RedirectToPage();
+    }
+
     public async Task<IActionResult> OnPostArkiverAsync(long id, CancellationToken cancellationToken)
     {
         var behandler = await _db.Behandlere.FirstOrDefaultAsync(b => b.Id == id, cancellationToken);

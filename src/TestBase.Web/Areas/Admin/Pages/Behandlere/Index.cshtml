@@ -27,9 +27,19 @@
     </p>
 }
 
+<div data-flervalg-beholder>
+    <div data-flervalg-verktoylinje hidden style="margin: 0.75rem 0;">
+        <strong><span data-flervalg-antall>0</span> valgt</strong>
+        <button type="submit" form="behandlerFlervalgSkjema" asp-page-handler="ArkiverValgte" class="btn btn-outline" data-disable-on-submit="Arkiverer …">
+            <partial name="_Ikon" model="@("arkiver")" /> Arkiver valgte
+        </button>
+    </div>
+    <form id="behandlerFlervalgSkjema" method="post"></form>
+
 <table border="1" cellpadding="6" cellspacing="0">
     <thead>
         <tr>
+            <th><input type="checkbox" data-flervalg-alle aria-label="Velg alle" /></th>
             <th>Navn</th>
             <th>E-post</th>
             <th>Mobil</th>
@@ -44,6 +54,12 @@
     @foreach (var b in Model.Behandlere)
     {
         <tr>
+            <td>
+                @if (!b.ErSlettet && b.Status != BehandlerStatus.Arkivert)
+                {
+                    <input type="checkbox" name="behandlerId" value="@b.Id" form="behandlerFlervalgSkjema" data-flervalg-rad aria-label="Velg @b.Visningsnavn" />
+                }
+            </td>
             <td>@(b.Visningsnavn ?? "(ikke fullført)")</td>
             <td>@b.Email</td>
             <td>@b.MobilNr</td>
@@ -137,3 +153,6 @@
     }
     </tbody>
 </table>
+</div>
+
+<script src="~/js/flervalg.js" asp-append-version="true"></script>

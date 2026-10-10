@@ -56,6 +56,40 @@ public sealed class IndexModel : PageModel
         CaptchaSignertFasit = utfordring.SignertFasit;
     }
 
+    /// <summary>
+    /// Arkiverer flere administratorer i ett steg (bugliste 2026-10-10 punkt 6, oppfølging) —
+    /// hopper bevisst over Superadmin-kontoen og allerede arkiverte rader i utvalget, ALDRI en
+    /// vippe/gjenopprett (samme prinsipp som Behandlerportal/Pasienter sin tilsvarende handler).
+    /// </summary>
+    public async Task<IActionResult> OnPostArkiverValgteAsync(long[] administratorId, CancellationToken cancellationToken)
+    {
+        if (administratorId.Length == 0)
+        {
+            return RedirectToPage();
+        }
+
+        var administratorer = await _db.Administratorer
+            .Where(a => administratorId.Contains(a.Id) && !a.ErArkivert && !a.ErSlettet && !a.ErSuperadmin)
+            .ToListAsync(cancellationToken);
+
+        foreach (var administrator in administratorer)
+        {
+            administrator.ErArkivert = true;
+            administrator.ArkivertUtc = DateTimeOffset.UtcNow;
+        }
+        await _db.SaveChangesAsync(cancellationToken);
+
+        if (administratorer.Count > 0)
+        {
+            var ider = administratorer.Select(a => a.Id).ToList();
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(), "ArkiverFlereAdministratorer",
+                nameof(Administrator), AuditBatch.EntityId(ider), details: $"AdministratorIder {string.Join(",", ider)}", cancellationToken: cancellationToken);
+        }
+
+        return RedirectToPage();
+    }
+
     public async Task<IActionResult> OnPostArkiverAsync(long id, CancellationToken cancellationToken)
     {
         var administrator = await _db.Administratorer.FirstOrDefaultAsync(a => a.Id == id, cancellationToken);

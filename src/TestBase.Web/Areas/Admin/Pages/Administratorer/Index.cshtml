@@ -26,15 +26,24 @@
     </p>
 }
 
-<div data-fane-beholder>
+<div data-fane-beholder data-flervalg-beholder>
     <div class="fane-rad" role="tablist">
         <button type="button" class="fane-knapp" data-fane="aktive">Aktive (@Model.Administratorer.Count(a => !a.ErArkivert && !a.ErSlettet))</button>
         <button type="button" class="fane-knapp" data-fane="arkivert">Arkivert (@Model.Administratorer.Count(a => a.ErArkivert && !a.ErSlettet))</button>
     </div>
 
+    <div data-flervalg-verktoylinje hidden style="margin: 0.75rem 0;">
+        <strong><span data-flervalg-antall>0</span> valgt</strong>
+        <button type="submit" form="administratorFlervalgSkjema" asp-page-handler="ArkiverValgte" class="btn btn-outline" data-disable-on-submit="Arkiverer …">
+            <partial name="_Ikon" model="@("arkiver")" /> Arkiver valgte
+        </button>
+    </div>
+    <form id="administratorFlervalgSkjema" method="post"></form>
+
 <table border="1" cellpadding="6" cellspacing="0">
     <thead>
         <tr>
+            <th><input type="checkbox" data-flervalg-alle aria-label="Velg alle" /></th>
             <th>AdminId</th>
             <th>Navn</th>
             <th>E-post</th>
@@ -50,6 +59,12 @@
     {
         var fane = a.ErSlettet ? null : a.ErArkivert ? "arkivert" : "aktive";
         <tr data-fane-rad="@fane" hidden="@(fane == "arkivert")">
+            <td>
+                @if (!a.ErSlettet && !a.ErArkivert && !a.ErSuperadmin)
+                {
+                    <input type="checkbox" name="administratorId" value="@a.Id" form="administratorFlervalgSkjema" data-flervalg-rad aria-label="Velg @a.FulltNavn" />
+                }
+            </td>
             <td>@a.AdminId</td>
             <td>@a.FulltNavn</td>
             <td>@a.Email</td>
@@ -97,3 +112,4 @@
 </div>
 
 <script src="~/js/faner.js" asp-append-version="true"></script>
+<script src="~/js/flervalg.js" asp-append-version="true"></script>

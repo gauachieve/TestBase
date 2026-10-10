@@ -58,6 +58,28 @@ public sealed class IndexModel : PageModel
         ArkiverteGrupper = arkiverte.Select(TilRad).ToList();
     }
 
+    /// <summary>Arkiverer flere grupper i ett steg — samme bulk-mønster som Pasienter/Administratorer.</summary>
+    public async Task<IActionResult> OnPostArkiverValgteAsync(long[] gruppeId, CancellationToken cancellationToken)
+    {
+        var arkiverte = new List<long>();
+        foreach (var id in gruppeId)
+        {
+            if (await _grupper.ArkiverAsync(id, cancellationToken))
+            {
+                arkiverte.Add(id);
+            }
+        }
+
+        if (arkiverte.Count > 0)
+        {
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(), "ArkiverFlereGrupper",
+                nameof(Gruppe), AuditBatch.EntityId(arkiverte), details: $"GruppeIder {string.Join(",", arkiverte)}", cancellationToken: cancellationToken);
+        }
+
+        return RedirectToPage();
+    }
+
     public async Task<IActionResult> OnPostArkiverAsync(long id, CancellationToken cancellationToken)
     {
         if (await _grupper.ArkiverAsync(id, cancellationToken))

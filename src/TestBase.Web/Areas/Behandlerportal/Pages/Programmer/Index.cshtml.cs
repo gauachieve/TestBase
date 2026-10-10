@@ -47,6 +47,23 @@ public sealed class IndexModel : PageModel
         return Page();
     }
 
+    /// <summary>Fjerner/arkiverer flere EGNE programmer i ett steg.</summary>
+    public async Task<IActionResult> OnPostSlettValgteAsync(long[] programId, CancellationToken cancellationToken)
+    {
+        var antall = 0;
+        foreach (var id in programId)
+        {
+            if (await _programService.SlettAsync(id, HentBehandlerId(), cancellationToken))
+            {
+                antall++;
+            }
+        }
+
+        Melding = antall > 0 ? $"{antall} program(mer) fjernet/arkivert." : "Fant ingen av de valgte programmene.";
+        await LastAltAsync(cancellationToken);
+        return Page();
+    }
+
     public async Task<IActionResult> OnPostKopierAsync(long programId, CancellationToken cancellationToken)
     {
         var kopi = await _programService.KopierAsync(programId, HentBehandlerId(), cancellationToken);

@@ -56,6 +56,36 @@ public sealed class IndexModel : PageModel
         CaptchaSignertFasit = utfordring.SignertFasit;
     }
 
+    /// <summary>Arkiverer flere partnere i ett steg — hopper over allerede arkiverte/slettede i utvalget, ALDRI en vippe.</summary>
+    public async Task<IActionResult> OnPostArkiverValgteAsync(long[] partnerId, CancellationToken cancellationToken)
+    {
+        if (partnerId.Length == 0)
+        {
+            return RedirectToPage();
+        }
+
+        var partnere = await _db.Partnere
+            .Where(p => partnerId.Contains(p.Id) && !p.ErArkivert && !p.ErSlettet)
+            .ToListAsync(cancellationToken);
+
+        foreach (var partner in partnere)
+        {
+            partner.ErArkivert = true;
+            partner.ArkivertUtc = DateTimeOffset.UtcNow;
+        }
+        await _db.SaveChangesAsync(cancellationToken);
+
+        if (partnere.Count > 0)
+        {
+            var ider = partnere.Select(p => p.Id).ToList();
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(), "ArkiverFlerePartnere",
+                nameof(Partner), AuditBatch.EntityId(ider), details: $"PartnerIder {string.Join(",", ider)}", cancellationToken: cancellationToken);
+        }
+
+        return RedirectToPage();
+    }
+
     public async Task<IActionResult> OnPostArkiverAsync(long id, CancellationToken cancellationToken)
     {
         var partner = await _db.Partnere.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);

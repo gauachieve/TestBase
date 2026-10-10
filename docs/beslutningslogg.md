@@ -8020,3 +8020,60 @@ punkter browser-verifisert, 98 tester fortsatt grønne.
    kun midlertidig usynlig ved første sjekk fordi den lå lenger ned på en lang side enn
    startskjermbildet viste — IKKE en reell bug, bekreftet via `getBoundingClientRect`/
    `getComputedStyle` og et scroll-til-element-skjermbilde).
+
+## Flervalg utvidet til ALLE tabeller med grønne per-rad-knapper (2026-10-10, samme dag)
+
+Oppfølging av punkt 6 over — brukeren presiserte etter første runde: "I need it on ALL tables that
+have those green per row buttons. Admin pages, super admin, treater [behandler]." `flervalg.js`
+(uendret) tatt i bruk på seks flere steder, hver med en bulk-handler som følger EKSAKT samme
+mønster som de to opprinnelige (loop over valgte ID-er, `AuditBatch.EntityId(...)` for logging,
+ALDRI en vippe/gjenopprett via bulk når enkelt-rad-knappen vipper):
+
+- `Admin/Administratorer/Index` — ny `OnPostArkiverValgteAsync`, hopper over Superadmin-kontoen og
+  allerede arkiverte/slettede i utvalget (samme vern som enkelt-rad-handleren).
+- `Admin/Behandlere/Index` — ny `OnPostArkiverValgteAsync`.
+- `Admin/Grupper/Index` + `Behandlerportal/Grupper/Index` — ny `OnPostArkiverValgteAsync` på begge
+  (Behandlerportal-varianten filtrerer til kun EGNE grupper, samme eierskapssjekk som enkelt-rad).
+- `Admin/Partnere/Index` — ny `OnPostArkiverValgteAsync`.
+- `Admin/Pasienter/Index` — ny `OnPostGjenopprettValgteFraSlettetAsync`. Denne siden er BEVISST
+  skrivebeskyttet for vanlig pasient-administrasjon ("skjer hos den enkelte behandler", se
+  sidens egen doc-kommentar) — det ENESTE eksisterende per-rad-skrivegrepet er Superadmin sin
+  "Gjenopprett" for slettede pasienter, så bulk-versjonen dekker KUN det, med samme
+  `if (!ErSuperadmin) return Forbid();`-sperre som enkelt-rad-handleren. Ingen ny skrive-evne
+  lagt til administratorrollen her.
+- `Behandlerportal/Hjemmeoppgaver/Index` — ny `OnPostSlettValgteAsync`, kun på EGNE
+  ("Personlig"+`erEgen`) rader — "Delt"/"Partner"-radene har aldri hatt en slett-knapp i
+  utgangspunktet. Samme "sletter ELLER arkiverer hvis i bruk"-logikk som
+  `HjemmeoppgaveService.SlettAsync` allerede håndhever per enkelt-rad.
+- `Behandlerportal/Programmer/Index` — ny `OnPostSlettValgteAsync`, samme "egne rader
+  only"-begrensning. "Kjørende"-fanen fikk BEVISST ingen ny avkrysning — den har allerede sin
+  egen gruppe-nivå bulk-mekanisme (alle deltakelse-IDer i én skjult input-liste per rad, satt opp
+  i en tidligere fase) for Pause/Fjern, ingen grunn til å duplisere.
+
+**Ett reelt funn under verifisering, utenfor selve flervalg-koden:** dev-passord-innloggingen
+(`OnPostPassordAsync`, kun-utviklingsmiljø) signerer ALLTID inn med `UserRole.Utvikler`, UANSETT
+kontoens `Administrator.ErSuperadmin`-flagg — i motsetning til BankID-innloggingsveien, som
+korrekt utleder `UserRole.Superadmin` fra flagget (se `ProfesjonellInnloggingService.cs`). Dette
+er IKKE en bug i denne rundens flervalg-arbeid — det er en allerede eksisterende, bevisst
+forenkling i dev-passord-snarveien (Utvikler-rollen har uansett bredere tilgang enn Superadmin via
+policy) — men det betyr at `Model.ErSuperadmin`-gatede UI-elementer (f.eks. "Vis slettede" på
+Administratorer/Behandlere/Pasienter, og dermed også den nye bulk-gjenopprett-funksjonen på
+Pasienter) ALDRI vises når man er logget inn via dev-passord, selv om kontoen faktisk har
+`ErSuperadmin=1` i databasen. Verifisert korrekt oppførsel ved å midlertidig opprette en egen
+engangs-Superadmin-testkonto og logge inn via mock-BankID (som IMPLEMENTERER riktig rolleutledning)
+— "Skjul slettede"-knappen og avkrysningskolonnen dukket da korrekt opp. Testkontoen slettet
+igjen etter verifisering, ingen varige endringer i databasen. Verdt å huske for fremtidig lokal
+verifisering av ethvert `ErSuperadmin`-gatet UI: bruk mock-BankID-innlogging, ikke dev-passord.
+
+Samtidig fjernet et ufarlig, men meningsløst `onsubmit`-attributt som ved en feil havnet på en
+`<button>` i stedet for det omsluttende `<form>` i `Hjemmeoppgaver/Index.cshtml` (knapper har ikke
+et `onsubmit`-event — nettleseren ignorerer det stille, selve bekreftelsesdialogen virket likevel
+siden `<form id="hjemmeoppgaveFlervalgSkjema">` allerede hadde samme `onsubmit` korrekt plassert).
+
+To av de seks nye bulk-handlerne (`Admin/Grupper` og `Behandlerportal/Hjemmeoppgaver`) verifisert
+FULLT ende-til-ende i nettleser (valgte rad(er) → toolbar dukket opp → submit → riktig resultat:
+gruppe flyttet til Arkivert-fanen, hjemmeoppgave faktisk slettet). De resterende fire er
+visuelt/strukturelt verifisert (riktig avkrysningskolonne, riktig skjult/synlig per rolle og
+radtype, ingen layoutbrudd på tabeller med `colspan`) uten å faktisk utløse en destruktiv handling
+mot delt test-fixture-data brukt av andre deler av appen (f.eks. "Ukentlig oppfølging"-programmet,
+som har en aktiv kjørende deltakelse). 98 tester fortsatt grønne.

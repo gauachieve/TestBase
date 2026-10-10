@@ -23,9 +23,19 @@
     }
 </p>
 
+<div data-flervalg-beholder>
+    <div data-flervalg-verktoylinje hidden style="margin: 0.75rem 0;">
+        <strong><span data-flervalg-antall>0</span> valgt</strong>
+        <button type="submit" form="partnerFlervalgSkjema" asp-page-handler="ArkiverValgte" class="btn btn-outline" data-disable-on-submit="Arkiverer …">
+            <partial name="_Ikon" model="@("arkiver")" /> Arkiver valgte
+        </button>
+    </div>
+    <form id="partnerFlervalgSkjema" method="post"></form>
+
 <table border="1" cellpadding="6" cellspacing="0">
     <thead>
         <tr>
+            <th><input type="checkbox" data-flervalg-alle aria-label="Velg alle" /></th>
             <th>Navn</th>
             <th>Kontaktperson</th>
             <th>Abonnement</th>
@@ -37,6 +47,12 @@
     @foreach (var p in Model.Partnere)
     {
         <tr>
+            <td>
+                @if (!p.ErSlettet && !p.ErArkivert)
+                {
+                    <input type="checkbox" name="partnerId" value="@p.Id" form="partnerFlervalgSkjema" data-flervalg-rad aria-label="Velg @p.Navn" />
+                }
+            </td>
             <td>@p.Navn</td>
             <td>@(p.KontaktpersonNavn ?? "-")</td>
             <td>@(p.HarAktivtAbonnement ? "Aktivt" : "Ingen")</td>
@@ -81,3 +97,6 @@
     }
     </tbody>
 </table>
+</div>
+
+<script src="~/js/flervalg.js" asp-append-version="true"></script>

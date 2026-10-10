@@ -24,9 +24,19 @@
     }
     else
     {
+    <div data-flervalg-beholder>
+        <div data-flervalg-verktoylinje hidden style="margin: 0.75rem 0;">
+            <strong><span data-flervalg-antall>0</span> valgt</strong>
+            <button type="submit" form="gruppeFlervalgSkjema" asp-page-handler="ArkiverValgte" class="btn btn-outline" data-disable-on-submit="Arkiverer …">
+                <partial name="_Ikon" model="@("arkiver")" /> Arkiver valgte
+            </button>
+        </div>
+        <form id="gruppeFlervalgSkjema" method="post"></form>
+
         <table border="1" cellpadding="6" cellspacing="0">
             <thead>
                 <tr>
+                    <th><input type="checkbox" data-flervalg-alle aria-label="Velg alle" /></th>
                     <th>Navn</th>
                     <th>Pasienter</th>
                     <th>Opprettet</th>
@@ -39,6 +49,7 @@
             @foreach (var rad in Model.Grupper)
             {
                 <tr data-fane-rad="aktive" data-sok="@rad.Gruppe.Navn.ToLowerInvariant()">
+                    <td><input type="checkbox" name="gruppeId" value="@rad.Gruppe.Id" form="gruppeFlervalgSkjema" data-flervalg-rad aria-label="Velg @rad.Gruppe.Navn" /></td>
                     <td>@rad.Gruppe.Navn</td>
                     <td>@rad.AntallPasienter</td>
                     <td>@rad.Gruppe.OpprettetUtc.ToString("d")</td>
@@ -61,6 +72,7 @@
             @foreach (var rad in Model.ArkiverteGrupper)
             {
                 <tr data-fane-rad="arkivert" data-sok="@rad.Gruppe.Navn.ToLowerInvariant()" hidden>
+                    <td></td>
                     <td>@rad.Gruppe.Navn</td>
                     <td>@rad.AntallPasienter</td>
                     <td>@rad.Gruppe.OpprettetUtc.ToString("d")</td>
@@ -85,7 +97,9 @@
             }
             </tbody>
         </table>
+    </div>
     }
 </div>
 
 <script src="~/js/faner.js" asp-append-version="true"></script>
+<script src="~/js/flervalg.js" asp-append-version="true"></script>

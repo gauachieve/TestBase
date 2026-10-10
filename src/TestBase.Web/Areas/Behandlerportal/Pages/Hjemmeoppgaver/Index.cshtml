@@ -11,7 +11,7 @@
     <p class="rapport-status-melding">@Model.Melding</p>
 }
 
-<div data-fane-beholder>
+<div data-fane-beholder data-flervalg-beholder>
     <div role="tablist" style="margin-bottom: 1rem;">
         <button type="button" data-fane="personlig" class="fane-knapp">Personlig (@Model.Personlige.Count)</button>
         <button type="button" data-fane="delt" class="fane-knapp">Delt (@Model.DeltMedAlle.Count)</button>
@@ -26,9 +26,18 @@
         <input type="search" data-fane-sok placeholder="Søk i hjemmeoppgaver …" />
     </div>
 
+    <div data-flervalg-verktoylinje hidden style="margin-bottom: 0.75rem;">
+        <strong><span data-flervalg-antall>0</span> valgt</strong>
+        <button type="submit" form="hjemmeoppgaveFlervalgSkjema" asp-page-handler="SlettValgte" class="btn btn-outline btn-sm">
+            <partial name="_Ikon" model="@("slett")" /> Fjern valgte
+        </button>
+    </div>
+    <form id="hjemmeoppgaveFlervalgSkjema" method="post" onsubmit="return confirm('Slette (eller arkivere, hvis i bruk) de valgte hjemmeoppgavene?');"></form>
+
     <table border="1" cellpadding="6" cellspacing="0">
         <thead>
             <tr>
+                <th><input type="checkbox" data-flervalg-alle aria-label="Velg alle" /></th>
                 <th>Navn</th>
                 <th>Opprettet</th>
                 <th></th>
@@ -39,6 +48,12 @@
         {
             var erEgen = test.OpprettetAvBehandlerId == Model.EgenBehandlerId;
             <tr data-fane-rad="personlig" data-sok="@test.Navn.ToLowerInvariant()">
+                <td>
+                    @if (erEgen)
+                    {
+                        <input type="checkbox" name="testId" value="@test.Id" form="hjemmeoppgaveFlervalgSkjema" data-flervalg-rad aria-label="Velg @test.Navn" />
+                    }
+                </td>
                 <td>@test.Navn @(erEgen ? "" : "(likt — referanse)")</td>
                 <td>@test.OpprettetUtc.ToString("g")</td>
                 <td>
@@ -85,6 +100,7 @@
             var erEgen = test.OpprettetAvBehandlerId == Model.EgenBehandlerId;
             var erLikt = Model.LikteTestIder.Contains(test.Id);
             <tr data-fane-rad="delt" data-sok="@test.Navn.ToLowerInvariant()">
+                <td></td>
                 <td>@test.Navn @(erEgen ? "(din egen)" : "")</td>
                 <td>@test.OpprettetUtc.ToString("g")</td>
                 <td>
@@ -111,6 +127,7 @@
             var erEgen = test.OpprettetAvBehandlerId == Model.EgenBehandlerId;
             var erLikt = Model.LikteTestIder.Contains(test.Id);
             <tr data-fane-rad="partner" data-sok="@test.Navn.ToLowerInvariant()">
+                <td></td>
                 <td>@test.Navn @(erEgen ? "(din egen)" : "")</td>
                 <td>@test.OpprettetUtc.ToString("g")</td>
                 <td>
@@ -163,3 +180,4 @@
 </div>
 
 <script src="~/js/faner.js" asp-append-version="true"></script>
+<script src="~/js/flervalg.js" asp-append-version="true"></script>

@@ -53,6 +53,35 @@ public sealed class IndexModel : PageModel
         return Page();
     }
 
+    /// <summary>Sletter (eller arkiverer, se SlettAsync) flere EGNE hjemmeoppgaver i ett steg.</summary>
+    public async Task<IActionResult> OnPostSlettValgteAsync(long[] testId, CancellationToken cancellationToken)
+    {
+        var slettet = 0;
+        var arkivertIStedet = 0;
+        foreach (var id in testId)
+        {
+            var resultat = await _hjemmeoppgaveService.SlettAsync(id, HentBehandlerId(), cancellationToken);
+            if (resultat == HjemmeoppgaveSlettResultat.Slettet)
+            {
+                slettet++;
+            }
+            else if (resultat == HjemmeoppgaveSlettResultat.ArkivertIStedet)
+            {
+                arkivertIStedet++;
+            }
+        }
+
+        Melding = (slettet, arkivertIStedet) switch
+        {
+            (0, 0) => "Fant ingen av de valgte hjemmeoppgavene.",
+            (_, 0) => $"{slettet} hjemmeoppgave(r) slettet.",
+            (0, _) => $"{arkivertIStedet} hjemmeoppgave(r) var i bruk og ble arkivert i stedet for slettet.",
+            _ => $"{slettet} slettet, {arkivertIStedet} var i bruk og ble arkivert i stedet."
+        };
+        await LastAltAsync(cancellationToken);
+        return Page();
+    }
+
     public async Task<IActionResult> OnPostKopierAsync(long testId, CancellationToken cancellationToken)
     {
         var kopi = await _hjemmeoppgaveService.KopierAsync(testId, HentBehandlerId(), cancellationToken);

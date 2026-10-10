@@ -28,7 +28,7 @@
     var arkiverteRader = Model.Rader.Where(r => r.Pasient.Status == PasientStatus.Arkivert).ToList();
 }
 
-<div data-fane-beholder>
+<div data-fane-beholder data-flervalg-beholder>
     <div class="fane-rad" role="tablist">
         <button type="button" class="fane-knapp" data-fane="aktive">Aktive (@aktiveRader.Count)</button>
         <button type="button" class="fane-knapp" data-fane="arkivert">Arkivert (@arkiverteRader.Count)</button>
@@ -40,9 +40,24 @@
                placeholder="Søk i navn, behandler, gruppe, mobil, e-post, personnummer, status …" />
     </div>
 
+    @if (Model.VisSlettede)
+    {
+        <div data-flervalg-verktoylinje hidden style="margin: 0.75rem 0;">
+            <strong><span data-flervalg-antall>0</span> valgt</strong>
+            <button type="submit" form="pasientFlervalgSkjema" asp-page-handler="GjenopprettValgteFraSlettet" class="btn btn-outline" data-disable-on-submit="Gjenoppretter …">
+                <partial name="_Ikon" model="@("gjenopprett")" /> Gjenopprett valgte
+            </button>
+        </div>
+        <form id="pasientFlervalgSkjema" method="post"></form>
+    }
+
     <table id="pasientTabell" border="1" cellpadding="6" cellspacing="0">
         <thead>
             <tr>
+                @if (Model.VisSlettede)
+                {
+                    <th><input type="checkbox" data-flervalg-alle aria-label="Velg alle" /></th>
+                }
                 <th>Navn</th>
                 <th>Partner</th>
                 <th>Behandler</th>
@@ -67,6 +82,15 @@
             var fane = p.Status == PasientStatus.Arkivert ? "arkivert" : "aktive";
             var sok = $"{p.Navn} {rad.PartnerNavn} {rad.BehandlerNavn} {p.Gruppe?.Navn} {p.MobilNr} {p.Email} {p.Personnummer} {p.Status}".ToLowerInvariant();
             <tr data-fane-rad="@fane" data-sok="@sok">
+                @if (Model.VisSlettede)
+                {
+                    <td>
+                        @if (p.ErSlettet)
+                        {
+                            <input type="checkbox" name="pasientId" value="@p.Id" form="pasientFlervalgSkjema" data-flervalg-rad aria-label="Velg @p.Navn" />
+                        }
+                    </td>
+                }
                 <td>@(p.Navn ?? "(ikke fullført)")</td>
                 <td>@(rad.PartnerNavn ?? "-")</td>
                 <td>@(rad.BehandlerNavn ?? "-")</td>
@@ -99,3 +123,4 @@
 </div>
 
 <script src="~/js/faner.js" asp-append-version="true"></script>
+<script src="~/js/flervalg.js" asp-append-version="true"></script>
