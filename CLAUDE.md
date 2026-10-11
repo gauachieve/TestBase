@@ -900,6 +900,19 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   hub-siden) lar klinikk-admin endre Navn/Kontaktperson/Kontakt-e-post/Kontakt-mobil selv — IKKE
   `HarAktivtAbonnement`, fortsatt Superadmin-only. Verifisert med skjermbilder i begge roller.
   101 tester grønne, ingen migrasjon.
+- **Klinikk-oppdatering, del 4 — undernav manglet på Pasienter-siden + reelt avvik rettet
+  (2026-10-11, samme dag):** "Pasienter i min klinikk" pekte til `Pasienter/Index.cshtml`, UTENFOR
+  MinPartner-mappen — fikk aldri `_MinKlinikkNav`. Lagt til via en eksplisitt `~/Areas/...`-sti
+  (partial-navnoppslag finner den ikke automatisk på tvers av mapper). Samtidig oppdaget et REELT
+  avvik fra forrige rundes løfte: siden har fra før en `ViserHelePartnerskapet`-modus som viser
+  ALLE klinikkens pasienter for en klinikk-admin (bygget i "bulk-flytt pasienter"-runden) —
+  motsier brukerens eksplisitte "kun mine egne pasienter"-krav. Ny `KunEgne`-spørreparameter
+  (`?kunEgne=true`, sendt av knappen) tvinger egen-visning uten å røre den vanlige topp-nav
+  "Pasienter"-lenken sin uendrede, bredere oppførsel (fortsatt nødvendig for bulk-flytt-
+  funksjonen) — båret videre gjennom alle redirect-kall så visningen ikke hopper tilbake etter en
+  handling. Verifisert: samme konto ser "Pasienter i Testpartner AS" (3, hele klinikken) via
+  topp-nav, men "Mine pasienter" (0, egne) via klinikk-knappen. 101 tester grønne, ingen
+  migrasjon.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

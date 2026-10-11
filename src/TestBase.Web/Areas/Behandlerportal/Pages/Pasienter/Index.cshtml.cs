@@ -46,21 +46,39 @@ public sealed class IndexModel : PageModel
     public List<PasientRad> Rader { get; private set; } = new();
 
     /// <summary>
-    /// True for en partner-admin — da vises ALLE pasienter for ALLE behandlere
-    /// i partnerskapet (med Behandler-kolonne), ikke bare egne, samme prinsipp
+    /// Satt fra "Pasienter i min klinikk"-knappen (_MinKlinikkNav.cshtml) — tvinger EGNE
+    /// pasienter selv for en klinikk-admin, se "Klinikk-oppdatering, del 4" i
+    /// docs/beslutningslogg.md. Den vanlige topp-nav "Pasienter"-lenken (uten dette
+    /// parameteret) beholder den opprinnelige, bredere ViserHelePartnerskapet-oppførselen
+    /// uendret (bulk-flytt-funksjonen under er fortsatt avhengig av den).
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public bool KunEgne { get; set; }
+
+    /// <summary>
+    /// True for en partner-admin (og ikke eksplisitt bedt om KunEgne) — da vises ALLE pasienter
+    /// for ALLE behandlere i partnerskapet (med Behandler-kolonne), ikke bare egne, samme prinsipp
     /// som Admin/Pasienter viser på tvers av alle behandlere. En vanlig
     /// partner-tilknyttet (men ikke partner-admin) behandler ser fortsatt kun
     /// egne pasienter.
     /// </summary>
     public bool ViserHelePartnerskapet { get; private set; }
     public string? PartnerNavn { get; private set; }
+    public bool ErPartnerAdministrator => _currentUser.ErPartnerAdministrator;
+    public bool ErPartnerMedlem => _currentUser.PartnerId is not null;
+    public int AntallTilgjengeligeTester { get; private set; }
 
     /// <summary>Bugliste 2026-10-11 punkt 4 — ALLE behandlere i klinikken, for "Bytt behandler for valgte"-nedtrekksmenyen. Tom/ubrukt når !ViserHelePartnerskapet.</summary>
     public IReadOnlyList<Behandler> BehandlereIKlinikken { get; private set; } = Array.Empty<Behandler>();
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
-        ViserHelePartnerskapet = _currentUser.ErPartnerAdministrator && _currentUser.PartnerId is not null;
+        ViserHelePartnerskapet = _currentUser.ErPartnerAdministrator && _currentUser.PartnerId is not null && !KunEgne;
+
+        if (_currentUser.PartnerId is not null)
+        {
+            AntallTilgjengeligeTester = await _db.PartnerTestTilganger.CountAsync(t => t.PartnerId == _currentUser.PartnerId, cancellationToken);
+        }
 
         List<Pasient> pasienter;
         Dictionary<long, string?> behandlerNavnById = new();
@@ -114,7 +132,7 @@ public sealed class IndexModel : PageModel
     {
         if (pasientId.Length == 0)
         {
-            return RedirectToPage();
+            return RedirectToPage(new { KunEgne });
         }
 
         var behandlerId = HentBehandlerId();
@@ -144,7 +162,7 @@ public sealed class IndexModel : PageModel
             }
         }
 
-        return RedirectToPage();
+        return RedirectToPage(new { KunEgne });
     }
 
     /// <summary>
@@ -161,7 +179,7 @@ public sealed class IndexModel : PageModel
     {
         if (!_currentUser.ErPartnerAdministrator || _currentUser.PartnerId is null || pasientId.Length == 0)
         {
-            return RedirectToPage();
+            return RedirectToPage(new { KunEgne });
         }
 
         var partnerId = _currentUser.PartnerId.Value;
@@ -192,7 +210,7 @@ public sealed class IndexModel : PageModel
                 nameof(Pasient), AuditBatch.EntityId(ider), details: $"PasientIder {string.Join(",", ider)}; NyBehandlerId {nyBehandlerId}", cancellationToken: cancellationToken);
         }
 
-        return RedirectToPage();
+        return RedirectToPage(new { KunEgne });
     }
 
     public async Task<IActionResult> OnPostArkiverAsync(long id, CancellationToken cancellationToken)
@@ -221,7 +239,7 @@ public sealed class IndexModel : PageModel
             }
         }
 
-        return RedirectToPage();
+        return RedirectToPage(new { KunEgne });
     }
 
     /// <summary>Kun mulig når pasienten allerede er arkivert — håndhevet server-side.</summary>
@@ -250,7 +268,7 @@ public sealed class IndexModel : PageModel
                 nameof(Pasient), pasient.Id.ToString(), cancellationToken: cancellationToken);
         }
 
-        return RedirectToPage();
+        return RedirectToPage(new { KunEgne });
     }
 
     private long HentBehandlerId() =>

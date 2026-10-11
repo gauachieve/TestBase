@@ -8587,3 +8587,34 @@ Fullt verifisert i nettleser (skjermbilder) med BÅDE ekte admin-konto (alle 6 k
 felter" + lagre-roundtrip bekreftet i database) og en midlertidig degradert ikke-admin-konto (kun
 "Min klinikk"/"Behandlere i min klinikk", ingen "Editer felter", fortsatt tydelig adskilte
 knapper). 101 tester grønne, ingen migrasjon.
+
+### Klinikk-oppdatering, del 4: manglende undernav på Pasienter-siden + en reell avvik fra forrige rundes løfte (2026-10-11, samme dag)
+
+Brukeren rapporterte: "Sub-navigation does not work for 'pasienter i min klinikk'". Rotårsak:
+"Pasienter i min klinikk"-knappen lenker til `Behandlerportal/Pasienter/Index.cshtml` — en side
+UTENFOR `MinPartner`-mappen, som derfor aldri inkluderte den nye `_MinKlinikkNav`-partialen (den
+ligger kun på selve MinPartner-sidene).
+
+**Et reelt avvik oppdaget underveis**: forrige rundes beslutning om å gjenbruke denne siden hvilte
+på en antagelse om at den KUN viser egne pasienter — feil for en klinikk-admin. Siden har allerede
+(fra en tidligere runde, "Klinikk-admin: bulk-flytt pasienter") en bevisst `ViserHelePartnerskapet`-
+modus som viser ALLE klinikkens pasienter for enhver klinikk-admin, uansett inngang — inkludert via
+denne knappen. Det var altså en reell motsigelse med brukerens EKSPLISITTE krav fra forrige runde
+("Knappen 'pasienter' skal kun liste mine egne pasienter").
+
+**Fiksen dekker begge deler**: persistent-nav-partialen lagt til på `Pasienter/Index.cshtml` (vist
+kun når behandleren tilhører en klinikk, `ErPartnerMedlem`) via en eksplisitt `~/...`-sti (siden
+partialen fysisk ligger i en annen mappe — `<partial>` sin navnoppslag finner den ellers ikke på
+tvers av mapper). I tillegg en ny `KunEgne`-spørreparameter (`[BindProperty(SupportsGet = true)]`)
+som "Pasienter i min klinikk"-knappen nå sender (`?kunEgne=true`) — tvinger EGEN-pasient-visning
+selv for en klinikk-admin, uten å røre den opprinnelige, bredere `ViserHelePartnerskapet`-
+oppførselen for den vanlige topp-nav "Pasienter"-lenken (fortsatt nødvendig for
+"Bytt behandler for valgte"-bulkfunksjonen). `KunEgne` bæres videre gjennom alle seks
+`RedirectToPage()`-kall i siden (arkiver/slett/bulk-handlinger) slik at visningen ikke hopper
+tilbake til hele-klinikken-modus etter en handling.
+
+Verifisert i nettleser: den vanlige topp-nav "Pasienter"-lenken viser fortsatt "Pasienter i
+Testpartner AS" (3 aktive, hele klinikken) med undernav nå synlig; "Pasienter i min
+klinikk"-knappen viser korrekt "Mine pasienter" (0 aktive for denne spesifikke admin-kontoen, som
+ikke selv har noen egne pasienter — beviser at filteret faktisk virker, ikke bare viser samme
+liste med ny tittel). 101 tester grønne, ingen migrasjon.

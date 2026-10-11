@@ -6,7 +6,15 @@
     ViewData["BredSide"] = true;
 }
 
-<h1>@(Model.ViserHelePartnerskapet ? $"Pasienter i {Model.PartnerNavn}" : "Mine pasienter")</h1>
+@if (Model.ErPartnerMedlem)
+{
+    <partial name="~/Areas/Behandlerportal/Pages/MinPartner/_MinKlinikkNav.cshtml" model="new TestBase.Web.Areas.Behandlerportal.Pages.MinPartner.MinKlinikkNavModel(Model.ErPartnerAdministrator, Model.AntallTilgjengeligeTester)" />
+    <h2>@(Model.ViserHelePartnerskapet ? $"Pasienter i {Model.PartnerNavn}" : "Mine pasienter")</h2>
+}
+else
+{
+    <h1>Mine pasienter</h1>
+}
 <p>
     <a class="btn btn-accent" href="/Behandlerportal/Pasienter/Ny">+ Legg til pasient</a>
     <a class="btn btn-outline" href="/Behandlerportal/Pasienter/Gruppeimport">Gruppeimport</a>
