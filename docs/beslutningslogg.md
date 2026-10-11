@@ -8431,3 +8431,25 @@ foreldreløs rad som korrekt falt tilbake til "(ukjent test)"/"—" i stedet for
 klinikk-admin sitt Partneroppgjør viste korrekt "Demo Behandlersen, 1 test, 30 kr". Alle tre
 Oppsett-lagre-handlere verifisert med en ekte lagring+omlasting (bekreftet i database). 101
 tester grønne.
+
+### Reell, kortvarig live-nedetid under denne deployen (2026-10-11, samme dag)
+
+CI/CD-pipelinen sin `deploy-live`-jobb feilet på selve helsesjekken (6 forsøk, 503/504, ~10 min)
+etter at `azd deploy` selv rapporterte suksess — `www.psytest.no` svarte faktisk ikke på NOEN
+forespørsel (bekreftet med egen `curl` + `az webapp log tail`, som viste et helt stille, hengende
+container-oppstart: ingen EF-logger, ingen unntak, bare total stillhet i over 10 minutter etter
+"Running the command: dotnet TestBase.Web.dll"). Beta sin `deploy-beta`-jobb, med NØYAKTIG samme
+build/migrasjon, hadde passert sin egen helsesjekk rett før — sterkt tegn på at dette IKKE var en
+kodefeil i selve migrasjonen/modellen, men en isolert, langsom container-kaldstart spesifikt på
+live-instansen. Et `az webapp restart` (etter nedlastede App Service-logger bekreftet at
+containeren virkelig hang, ikke bare var treg) løste det — live ble bekreftet friskt igjen (`200`
+på `/health`, `302` på `/Admin/Okonomi` som forventet for en uinnlogget forespørsel) noen minutter
+senere, KJØRENDE DEN NYE KODEN (ingen rollback av selve koden ble nødvendig — en forberedt
+rollback til forrige commit via `git checkout`+`azd deploy` ble startet som sikkerhetsnett, men
+selve `azd deploy`-kommandoen ble blokkert av verktøyets egen "Production Deploy"-godkjenningsgate
+før den fikk kjøre, og ble overflødig da restarten løste problemet). Reell live-nedetid: fra rundt
+kl. 11:23 til kl. 11:38 UTC (~15 minutter), ingen datakorrupsjon eller tapte brukerhandlinger
+observert (ingen andre feil enn at appen ikke svarte på HTTP). Root cause for selve kaldstart-
+hengingen er IKKE fullt forklart (ingen unntak i loggene å peke på) — hvis mønsteret gjentar seg
+ved en fremtidig deploy, bør CI/CD-pipelinens helsesjekk utvides med en automatisk
+`az webapp restart`-retry FØR den gir opp, i stedet for å kun rapportere feil.
