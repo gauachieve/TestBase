@@ -2,9 +2,12 @@
 @*
     "Tildelte tester"-fanens innhold — delt mellom Tildel/Pasienter (steg 1) og Tildel/Tester
     (steg 2), begge Areas, se IkkeFullforteFaneModel sin kommentar. asp-page-handler i skjemaene
-    under løses mot den VERTS-siden som inkluderer denne partial-en — "Paaminn"/"SlettIkkeFullfort"
-    må derfor finnes som handlere på enhver side som bruker denne (se Pasienter.cshtml.cs OG
-    Tester.cshtml.cs i begge Areas).
+    under løses mot den VERTS-siden som inkluderer denne partial-en — "Paaminn"/"SlettIkkeFullfort"/
+    "PaaminnValgte"/"SlettValgte" må derfor finnes som handlere på enhver side som bruker denne
+    (se Pasienter.cshtml.cs OG Tester.cshtml.cs i begge Areas). Multiselect (bugliste 2026-10-11,
+    oppfølging del 3) bruker SAMME data-flervalg-* mønster som Pasienter/Index — egen, nøstet
+    data-flervalg-beholder her, atskilt fra en evt. annen flervalg-beholder andre steder på
+    vertssiden.
 *@
 <h2>Tildelte tester — ikke fullført</h2>
 <p><em>@Model.Beskrivelse</em></p>
@@ -18,54 +21,82 @@
 }
 else
 {
-    <table border="1" cellpadding="6" cellspacing="0">
-        <thead>
-            <tr>
-                <th>Pasient</th>
-                <th>Test</th>
-                <th>Tildelt</th>
-                <th>Status</th>
-                <th>Automatisk påminnelse</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-        @foreach (var rad in Model.Rader)
-        {
-            <tr>
-                <td>@(rad.PasientNavn ?? "(ikke fullført)")</td>
-                <td>@rad.TestNavn</td>
-                <td>@rad.Tildeling.TildeltUtc.ToString("g")</td>
-                <td>@rad.Tildeling.Status</td>
-                <td>
-                @if (rad.Tildeling.SistPaaminnetUtc is not null)
-                {
-                    <text>Påminnet @rad.Tildeling.SistPaaminnetUtc.Value.ToString("g")</text>
-                }
-                else if (rad.Tildeling.AutomatiskPaaminnelseEtterDager is int dager)
-                {
-                    <text>Aktiv (@dager dager)</text>
-                }
-                else
-                {
-                    <text>Av</text>
-                }
-                </td>
-                <td>
-                    @if (!rad.FyllesUtAvBehandler)
+    <div data-flervalg-beholder>
+        <div data-flervalg-verktoylinje hidden style="margin: 0.75rem 0;">
+            <strong><span data-flervalg-antall>0</span> valgt</strong>
+            <button type="submit" form="ikkeFullforteFlervalgSkjema" asp-page-handler="PaaminnValgte" class="btn btn-outline" data-disable-on-submit="Sender …">
+                <partial name="_Ikon" model="@("paaminn")" /> Påminn valgte
+            </button>
+            <button type="submit" form="ikkeFullforteFlervalgSkjema" asp-page-handler="SlettValgte" class="btn btn-outline"
+                    onclick="return confirm('Slette valgte tildelinger permanent?');" data-disable-on-submit="Sletter …">
+                <partial name="_Ikon" model="@("slett")" /> Slett valgte
+            </button>
+        </div>
+        <form id="ikkeFullforteFlervalgSkjema" method="post"></form>
+
+        <table border="1" cellpadding="6" cellspacing="0">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" data-flervalg-alle aria-label="Velg alle" /></th>
+                    <th>Pasient</th>
+                    <th>Test</th>
+                    <th>Tildelt</th>
+                    <th>Status</th>
+                    <th>Automatisk påminnelse</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var rad in Model.Rader)
+            {
+                <tr>
+                    <td><input type="checkbox" name="tildelingId" value="@rad.Tildeling.Id" form="ikkeFullforteFlervalgSkjema" data-flervalg-rad aria-label="Velg tildeling" /></td>
+                    <td>
+                        @(rad.PasientNavn ?? "(ikke fullført)")
+                        @if (!string.IsNullOrWhiteSpace(rad.PasientMobilNr) || !string.IsNullOrWhiteSpace(rad.PasientEpost))
+                        {
+                            <br /><small style="color: var(--muted);">@rad.PasientMobilNr @rad.PasientEpost</small>
+                        }
+                    </td>
+                    <td>@rad.TestNavn</td>
+                    <td>@rad.Tildeling.TildeltUtc.ToString("g")</td>
+                    <td>@rad.Tildeling.Status</td>
+                    <td>
+                    @if (rad.Tildeling.SistPaaminnetUtc is not null)
                     {
-                        <form method="post" asp-page-handler="Paaminn" style="display:inline;" data-disable-on-submit="Sender …">
-                            <input type="hidden" name="tildelingId" value="@rad.Tildeling.Id" />
-                            <button type="submit" class="btn btn-outline btn-sm">Påminn</button>
-                        </form>
+                        <text>Påminnet @rad.Tildeling.SistPaaminnetUtc.Value.ToString("g")</text>
                     }
-                    <form method="post" asp-page-handler="SlettIkkeFullfort" style="display:inline;" onsubmit="return confirm('Slette denne tildelingen permanent?');" data-disable-on-submit="Sletter …">
-                        <input type="hidden" name="tildelingId" value="@rad.Tildeling.Id" />
-                        <button type="submit" class="btn btn-outline btn-sm">Slett</button>
-                    </form>
-                </td>
-            </tr>
-        }
-        </tbody>
-    </table>
+                    else if (rad.Tildeling.AutomatiskPaaminnelseEtterDager is int dager)
+                    {
+                        <text>Aktiv (@dager dager)</text>
+                    }
+                    else
+                    {
+                        <text>Av</text>
+                    }
+                    </td>
+                    <td>
+                        @if (!rad.FyllesUtAvBehandler)
+                        {
+                            <form method="post" asp-page-handler="Paaminn" style="display:inline;" data-disable-on-submit="Sender …">
+                                <input type="hidden" name="tildelingId" value="@rad.Tildeling.Id" />
+                                <button type="submit" class="btn-icon" title="Påminn" aria-label="Påminn @(rad.PasientNavn ?? "pasient")">
+                                    <partial name="_Ikon" model="@("paaminn")" />
+                                </button>
+                            </form>
+                        }
+                        <form method="post" asp-page-handler="SlettIkkeFullfort" style="display:inline;" onsubmit="return confirm('Slette denne tildelingen permanent?');" data-disable-on-submit="Sletter …">
+                            <input type="hidden" name="tildelingId" value="@rad.Tildeling.Id" />
+                            <button type="submit" class="btn-icon btn-icon--slett" title="Slett" aria-label="Slett tildeling">
+                                <partial name="_Ikon" model="@("slett")" />
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
 }
+
+<script src="~/js/flervalg.js" asp-append-version="true"></script>

@@ -979,7 +979,16 @@ public sealed class TestService
         return true;
     }
 
-    public sealed record TildelingMedTestOgPasient(TestTildeling Tildeling, string TestNavn, long PasientId, string? PasientNavn, bool FyllesUtAvBehandler = false);
+    /// <summary>
+    /// PasientMobilNr/PasientEpost lagt til (bugliste 2026-10-11, oppfølging del 2): en pasient
+    /// uten fullført profil har PasientNavn == null, og flere slike rader i samme liste (f.eks.
+    /// en hel QR-registrert konferansegruppe) er da umulig å skille fra hverandre med kun "(ikke
+    /// fullført)" vist flere ganger på rad — se _IkkeFullforteFane.cshtml som bruker disse som
+    /// fallback-identifikator.
+    /// </summary>
+    public sealed record TildelingMedTestOgPasient(
+        TestTildeling Tildeling, string TestNavn, long PasientId, string? PasientNavn, bool FyllesUtAvBehandler = false,
+        string? PasientMobilNr = null, string? PasientEpost = null);
 
     /// <summary>Fullførte tester som venter på behandlers godkjenning — behandlers oppgaveliste, jf. beslutningsloggen.</summary>
     public async Task<IReadOnlyList<TildelingMedTestOgPasient>> HentUgodkjenteFullforteForBehandlerAsync(
@@ -1133,12 +1142,14 @@ public sealed class TestService
         var tester = await _db.Tester.Where(t => testIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, cancellationToken);
 
         var pasientIder = tildelinger.Select(t => t.PasientId).Distinct().ToList();
-        var pasientNavn = await _db.Pasienter.Where(p => pasientIder.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Navn, cancellationToken);
+        var pasienter = await _db.Pasienter.Where(p => pasientIder.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => new { p.Navn, p.MobilNr, p.Email }, cancellationToken);
 
         return tildelinger
             .Select(t => new TildelingMedTestOgPasient(
-                t, tester.GetValueOrDefault(t.TestId)?.Navn ?? "(ukjent test)", t.PasientId, pasientNavn.GetValueOrDefault(t.PasientId),
-                tester.GetValueOrDefault(t.TestId)?.FyllesUtAvBehandler ?? false))
+                t, tester.GetValueOrDefault(t.TestId)?.Navn ?? "(ukjent test)", t.PasientId, pasienter.GetValueOrDefault(t.PasientId)?.Navn,
+                tester.GetValueOrDefault(t.TestId)?.FyllesUtAvBehandler ?? false,
+                pasienter.GetValueOrDefault(t.PasientId)?.MobilNr, pasienter.GetValueOrDefault(t.PasientId)?.Email))
             .ToList();
     }
 

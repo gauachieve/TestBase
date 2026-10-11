@@ -165,6 +165,32 @@ public sealed class TesterModel : PageModel
         return Redirect(Url.Page("./Tester")! + "#tildelte");
     }
 
+    /// <summary>Bugliste 2026-10-11, oppfølging del 3 — multiselect-variant av OnPostPaaminnAsync.</summary>
+    public async Task<IActionResult> OnPostPaaminnValgteAsync(List<long> tildelingId, CancellationToken cancellationToken)
+    {
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        var antallSendt = 0;
+        foreach (var id in tildelingId.Distinct())
+        {
+            if (await _tildelingsService.PaaminnUbesvartTestAsync(id, baseUrl, behandlerId: null, cancellationToken))
+            {
+                antallSendt++;
+            }
+        }
+        TempData["PaaminnelseMelding"] = $"Påminnelse sendt for {antallSendt} av {tildelingId.Distinct().Count()} valgte tildelinger.";
+        return Redirect(Url.Page("./Tester")! + "#tildelte");
+    }
+
+    /// <summary>Bugliste 2026-10-11, oppfølging del 3 — multiselect-variant av OnPostSlettIkkeFullfortAsync.</summary>
+    public async Task<IActionResult> OnPostSlettValgteAsync(List<long> tildelingId, CancellationToken cancellationToken)
+    {
+        foreach (var id in tildelingId.Distinct())
+        {
+            await _testService.SlettIkkeFullfortTildelingAsync(id, behandlerId: null, cancellationToken);
+        }
+        return Redirect(Url.Page("./Tester")! + "#tildelte");
+    }
+
     /// <summary>Se Behandlerportal-motstykket for full begrunnelse.</summary>
     public async Task<IActionResult> OnPostPlanleggAsync(CancellationToken cancellationToken)
     {

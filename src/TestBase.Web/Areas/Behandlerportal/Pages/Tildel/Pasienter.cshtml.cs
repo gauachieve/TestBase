@@ -92,6 +92,34 @@ public sealed class PasienterModel : PageModel
         return Redirect(Url.Page("./Pasienter")! + "#tildelte");
     }
 
+    /// <summary>Bugliste 2026-10-11, oppfølging del 3 — multiselect-variant av OnPostPaaminnAsync.</summary>
+    public async Task<IActionResult> OnPostPaaminnValgteAsync(List<long> tildelingId, CancellationToken cancellationToken)
+    {
+        var behandlerId = HentBehandlerId();
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        var antallSendt = 0;
+        foreach (var id in tildelingId.Distinct())
+        {
+            if (await _tildelingsService.PaaminnUbesvartTestAsync(id, baseUrl, behandlerId, cancellationToken))
+            {
+                antallSendt++;
+            }
+        }
+        TempData["PaaminnelseMelding"] = $"Påminnelse sendt for {antallSendt} av {tildelingId.Distinct().Count()} valgte tildelinger.";
+        return Redirect(Url.Page("./Pasienter")! + "#tildelte");
+    }
+
+    /// <summary>Bugliste 2026-10-11, oppfølging del 3 — multiselect-variant av OnPostSlettIkkeFullfortAsync.</summary>
+    public async Task<IActionResult> OnPostSlettValgteAsync(List<long> tildelingId, CancellationToken cancellationToken)
+    {
+        var behandlerId = HentBehandlerId();
+        foreach (var id in tildelingId.Distinct())
+        {
+            await _testService.SlettIkkeFullfortTildelingAsync(id, behandlerId, cancellationToken);
+        }
+        return Redirect(Url.Page("./Pasienter")! + "#tildelte");
+    }
+
     private async Task LastIkkeFullforteAsync(CancellationToken cancellationToken)
     {
         var raw = await _testService.HentIkkeFullforteForBehandlerAsync(HentBehandlerId(), cancellationToken);

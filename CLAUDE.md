@@ -832,6 +832,18 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   å unngå firedoblet markup — Paaminn/SlettIkkeFullfort-handlerne måtte dupliseres til BEGGE
   PasienterModel-klassene siden asp-page-handler løses mot vertssiden. 98 tester grønne, ingen
   migrasjon.
+- **Samme dag, oppfølging del 3: multiselect + kompakte ikon-knapper + synlig pasient-identitet på
+  "Tildelte tester"** — brukerens fire punkter fra et nytt skjermbilde (89-raders live-tabell):
+  lagt til data-flervalg-multiselect (samme mønster som Pasienter/Index) med bulk "Påminn valgte"/
+  "Slett valgte"; byttet brede tekstknapper til samme kompakte `.btn-icon`/`.btn-icon--slett`
+  30×30px-konvensjon som resten av sidens radhandlinger allerede bruker (ny "paaminn"-ikon lagt
+  til i _Ikon.cshtml); `TestService.TildelingMedTestOgPasient` fikk `PasientMobilNr`/
+  `PasientEpost` vist under et navnløst "(ikke fullført)" slik at identiske rader kan skilles fra
+  hverandre. **Regel fremover (brukerens eksplisitte ønske)**: enhver ny tabell med radhandlinger
+  skal bruke btn-icon-konvensjonen (aldri brede tekstknapper), og enhver tabell der bulk-handling
+  er rimelig skal ha data-flervalg-mønsteret fra FØRSTE commit, ikke lagt til i etterkant — denne
+  runden var et tilfelle av en ny tabell som ikke fulgte en allerede etablert konvensjon. 98
+  tester grønne, ingen migrasjon.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

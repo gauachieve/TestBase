@@ -8288,3 +8288,53 @@ Fullt verifisert lokalt i nettleser (Playwright): fanen viser riktig antall og i
 på steg 1 i BEGGE Areas (Behandlerportal 4, Admin 65), "Påminn"-knappen sender og redirecter
 tilbake til riktig fane med bekreftelsesmelding og oppdatert "Påminnet …"-tidspunkt. 98 tester
 fortsatt grønne, ingen migrasjon (kun view-/handler-lag).
+
+### Oppfølging samme dag, del 3: multiselect, kompakte ikon-knapper, og synlig pasient-identitet
+
+Brukeren så fanen på live (nytt skjermbilde, 89 ubesvarte tildelinger i en konferansegruppe) og ga
+fire konkrete tilbakemeldinger: (1) ingen multiselect — "gjør det til en regel for alle tabeller";
+(2) handlingsknappene var brede tekst-knapper som ble presset utenfor viewets høyre kant (bare
+synlig som avkuttede hakeparenteser i skjermbildet); (3) de burde være små og stå på linje, som
+resten av sidens radhandlinger; (4) en rad med `PasientNavn == null` viser "(ikke fullført)" for
+ALLE slike rader likt — umulig å vite hvilken faktisk pasient en gitt rad gjelder, spesielt synlig
+i en 89-raders konferansegruppe der de fleste aldri fullførte profilen sin.
+
+Fikset i samme delte partial (`_IkkeFullforteFane.cshtml`):
+- **Multiselect**: samme `data-flervalg-*`-mønster som allerede brukt på `Pasienter/Index` (se
+  "Utvid flervalg til alle tabeller" fra tidligere runde) — "velg alle"-avkrysning i hodet, en
+  avkrysning per rad, en verktøylinje (skjult til ≥1 rad er valgt) med "Påminn valgte"/
+  "Slett valgte". Nye handlere `OnPostPaaminnValgteAsync`/`OnPostSlettValgteAsync` (tar
+  `List<long> tildelingId`, looper med `.Distinct()`) lagt til på ALLE FIRE PageModel-klassene
+  (samme asp-page-handler-løses-mot-vertssiden-begrensning som de eksisterende enkelthandlerne).
+- **Kompakte, linjestilte knapper**: byttet fra brede tekstknapper (`btn btn-outline btn-sm`) til
+  samme `.btn-icon`/`.btn-icon--slett` 30×30px-ikonknapper som ALLEREDE er sidens etablerte
+  konvensjon for radhandlinger (Rediger/Arkiver/Slett på Pasienter/Index m.fl.) — ny "paaminn"
+  (bjelle-)ikon lagt til i `_Ikon.cshtml` siden ingen fantes fra før. Dette var BEVISST samme
+  konvensjon som allerede eksisterte andre steder, ikke en ny stil oppfunnet for anledningen —
+  rotårsaken til at knappene havnet utenfor viewet var nettopp at denne ene tabellen IKKE fulgte
+  den etablerte btn-icon-konvensjonen.
+- **Synlig pasient-identitet**: `TestService.TildelingMedTestOgPasient` fikk to nye valgfrie felt,
+  `PasientMobilNr`/`PasientEpost` (populert i `BerikMedTestOgPasientAsync`, samme spørring som
+  allerede henter `Navn`) — vist som en liten grå linje under "(ikke fullført)" i Pasient-cellen.
+  Løser IKKE problemet ved å finne på et navn, men gir det faktiske, allerede-innsamlede
+  kontaktpunktet (telefon/e-post) som ER hvordan man uansett når pasienten — verifisert at to
+  visuelt identiske "(ikke fullført)"-rader nå faktisk kan skilles fra hverandre.
+
+**Regel for "alle tabeller" (brukerens eksplisitte ønske)**: btn-icon-konvensjonen for kompakte,
+linjestilte radhandlinger og data-flervalg-mønsteret for bulk-handlinger er ALLEREDE den etablerte
+stilen i kodebasen (se "Utvid flervalg til alle tabeller" og de mange btn-icon-fallgruvene i
+CLAUDE.md) — denne runden var et tilfelle av en NY tabell (laget tidligere samme dag) som ikke
+fulgte den etablerte konvensjonen fra start. Fremover: enhver ny tabell med radhandlinger skal
+bruke `.btn-icon`/`.btn-icon--slett`-knapper (ALDRI brede tekstknapper for radhandlinger), og
+enhver tabell der bulk-sletting/bulk-varsling er en rimelig handling skal bruke
+`data-flervalg-beholder`-mønsteret fra første commit, ikke legges til i etterkant. Ikke en
+retroaktiv full gjennomgang av HVER eksisterende tabell i denne runden (for stort omfang,
+ikke eksplisitt bedt om) — kun denne ene tabellen, pluss selve regelen dokumentert her for
+fremtidige tabeller.
+
+Fullt verifisert i nettleser (Playwright): "velg alle" markerer alle rader, verktøylinjen vises
+med riktig antall, "Påminn valgte" sender SMS/e-post-påminnelse til alle valgte og viser
+"Påminnelse sendt for 4 av 4 valgte tildelinger.", knappene vises nå kompakt på linje (grønn
+bjelle + rød søppelkasse) i stedet for avkuttet utenfor viewet, og Admin sin 65-raders liste
+viser nå distinkte telefon/e-post-linjer per rad i stedet for identiske "(ikke fullført)". 98
+tester fortsatt grønne, ingen migrasjon.
