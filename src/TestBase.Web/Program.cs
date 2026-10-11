@@ -68,6 +68,8 @@ builder.Services.AddHostedService<AutomatiskPaaminnelseBakgrunnstjeneste>();
 builder.Services.AddScoped<TestBase.Shared.Domain.Utbetaling.UtbetalingsOnboardingService>();
 builder.Services.AddScoped<TestBase.Shared.Domain.Utbetaling.UtbetalingsBatchService>();
 builder.Services.AddHostedService<UtbetalingsBatchBakgrunnstjeneste>();
+builder.Services.AddScoped<OkonomiRapportService>();
+builder.Services.AddScoped<AdminOkonomiOppsettService>();
 
 // Skåringsmotor og innebygde, kode-definerte tester (fase 5 — bevist ut med WHO-5).
 builder.Services.AddScoped<ITestSkaaringsberegner, Who5Skaaringsberegner>();

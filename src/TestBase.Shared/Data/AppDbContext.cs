@@ -56,6 +56,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<PlanlagtTildeling> PlanlagteTildelinger => Set<PlanlagtTildeling>();
     public DbSet<BetaBetalingsinnstilling> BetaBetalingsinnstillinger => Set<BetaBetalingsinnstilling>();
     public DbSet<EktBankIdInnstilling> EktBankIdInnstillinger => Set<EktBankIdInnstilling>();
+    public DbSet<AdminOkonomiOppsett> AdminOkonomiOppsett => Set<AdminOkonomiOppsett>();
     public DbSet<Tilbakemelding> Tilbakemeldinger => Set<Tilbakemelding>();
     public DbSet<HjemmeoppgaveLiking> HjemmeoppgaveLikinger => Set<HjemmeoppgaveLiking>();
     public DbSet<Behandlingsprogram> Behandlingsprogrammer => Set<Behandlingsprogram>();
@@ -132,6 +133,8 @@ public sealed class AppDbContext : DbContext
             entity.Property(b => b.PaaminnelseKanal).HasConversion<string>().HasMaxLength(16).IsRequired();
             entity.Property(b => b.PasientInviteQrToken).HasMaxLength(64);
             entity.Property(b => b.BankIdSubjekt).HasMaxLength(128);
+            entity.Property(b => b.HonorarinntektEtikett).HasMaxLength(256);
+            entity.Property(b => b.HonorarinntektKonto).HasMaxLength(16);
             entity.HasIndex(b => b.PartnerId);
             entity.HasIndex(b => b.PasientInviteQrToken).IsUnique();
             entity.HasIndex(b => b.BankIdSubjekt).IsUnique();
@@ -356,6 +359,27 @@ public sealed class AppDbContext : DbContext
             entity.Property(p => p.KontaktpersonNavn).HasMaxLength(256);
             entity.Property(p => p.KontaktEpost).HasMaxLength(256);
             entity.Property(p => p.KontaktMobilNr).HasMaxLength(32);
+            entity.Property(p => p.Organisasjonsnummer).HasMaxLength(32);
+            entity.Property(p => p.Kontonummer).HasMaxLength(64);
+            entity.Property(p => p.PartnerandelEtikett).HasMaxLength(256);
+            entity.Property(p => p.PartnerandelKonto).HasMaxLength(16);
+        });
+
+        modelBuilder.Entity<AdminOkonomiOppsett>(entity =>
+        {
+            entity.ToTable("admin_okonomi_oppsett");
+            entity.HasKey(o => o.Id);
+            entity.Property(o => o.Organisasjonsnummer).HasMaxLength(32);
+            entity.Property(o => o.HprNummerFirma).HasMaxLength(32);
+            entity.Property(o => o.SalgsinntektEtikett).HasMaxLength(256);
+            entity.Property(o => o.SalgsinntektKonto).HasMaxLength(16);
+            entity.Property(o => o.BetalingsgebyrEtikett).HasMaxLength(256);
+            entity.Property(o => o.BetalingsgebyrKonto).HasMaxLength(16);
+            entity.Property(o => o.BehandlerHonorarEtikett).HasMaxLength(256);
+            entity.Property(o => o.BehandlerHonorarKonto).HasMaxLength(16);
+            entity.Property(o => o.PartnerprovisjonEtikett).HasMaxLength(256);
+            entity.Property(o => o.PartnerprovisjonKonto).HasMaxLength(16);
+            entity.Property(o => o.UtbetalingKontonummer).HasMaxLength(64);
         });
 
         modelBuilder.Entity<PartnerTestTilgang>(entity =>

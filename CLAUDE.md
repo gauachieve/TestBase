@@ -855,6 +855,21 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   ny, synlig "Min klinikk"-seksjon direkte på `Behandlerportal/MinSide` (i tillegg til, ikke i
   stedet for, toppnavigasjonen). Verifisert med en ekte lokal klinikk-admin-testkonto. 98 tester
   grønne, ingen migrasjon.
+- **Periodiserte oppgjør, del 2 — "de fine rapportene" faktisk bygget og koblet til appen
+  (2026-10-11, samme dag):** de tre designforslagene fra "Monthly Stripe Connect payout system"
+  (2026-10-10) er nå ekte sider, ikke en mockup. Ny `OkonomiRapportService` leser den eksisterende
+  `Pengebevegelse`-loggen periodisert på kalendermåned — admin ser ALLE transaksjoner (pivotert
+  per `TestTildelingId` til Pasientpris/Honorar/Platt.andel/Partnerandel), behandler ser kun eget
+  honorar, klinikk-admin ser partnerandel gruppert per behandler (et reelt datafunn: selve
+  `PartnerAndel`-raden bærer IKKE `BehandlerId`, måtte slås opp via tildelingen). Ny singleton
+  `AdminOkonomiOppsett` + nye felt på `Behandler`/`Partner` for hver parts egen kontoplan-etikett/
+  -konto (ren informasjon, faller tilbake til `OkonomiOppsettStandard`-konstantene fra
+  designforslaget). Tre eksisterende sider (`Admin/Okonomi/Index`, `Behandlerportal/Utbetaling`,
+  `MinPartner/Utbetaling`) fikk nye faner — INGEN nye nav-lenker trengtes, de gjenbruker nøyaktig
+  det forrige rundens "Min utbetaling"/"Klinikkutbetaling"-knapper allerede åpner. 3 nye
+  regresjonstester (101 totalt), fullt verifisert i nettleser mot EKTE lokale data (ikke ny
+  syntetisk testdata) i alle tre roller + alle tre "Lagre oppsett"-handlere. Ny migrasjon, ren
+  tillegg.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

@@ -27,6 +27,14 @@ public sealed class Behandler
     public string? Arbeidsadresse { get; set; }
     public string? Tittel { get; set; }
 
+    /// <summary>
+    /// Egen kontoplan-etikett/-konto for honorarinntekt i periodiserte oppgjør
+    /// (se Behandlerportal/Utbetaling.cshtml sin "Oppsett"-fane) — faller
+    /// tilbake til OkonomiOppsettStandard.BehandlerHonorarinntekt når null/tom.
+    /// </summary>
+    public string? HonorarinntektEtikett { get; set; }
+    public string? HonorarinntektKonto { get; set; }
+
     public bool HprGodkjent { get; set; }
     public DateTimeOffset? HprGodkjentUtc { get; set; }
     public long? HprGodkjentAvAdministratorId { get; set; }

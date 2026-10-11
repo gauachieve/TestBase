@@ -1382,6 +1382,51 @@ dialog#oppsummeringDialog::backdrop, dialog#grupperapportDialog::backdrop, dialo
 .rapport-svartabell td { padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--border); }
 .rapport-svartabell tr:nth-child(even) td { background: var(--bg-soft); }
 
+/* Periodiserte oppgjørsrapporter (Admin/Okonomi, Behandlerportal/Utbetaling,
+   MinPartner/Utbetaling — se docs/beslutningslogg.md "Periodiserte oppgjør,
+   del 2"). Gjenbruker .rapport-ark/.rapport-seksjon ovenfor; disse klassene
+   dekker kun det som var nytt i designforslaget: tallkolonner, sum-rad,
+   nøkkeltall-fliser og kontoplan-/oppsett-skjemaene. */
+.rapport-tabellramme { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+.rapport-tabellramme .rapport-svartabell { min-width: 28rem; }
+.rapport-svartabell td.tall, .rapport-svartabell th.tall { text-align: right; white-space: nowrap; }
+.rapport-svartabell td.ref { color: var(--muted); font-size: 0.82rem; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+.rapport-svartabell tr.sum td { font-weight: 800; color: var(--ink); border-top: 2px solid var(--border); background: var(--bg-soft); }
+
+.rapport-stat-rad { display: flex; flex-wrap: wrap; gap: 0.9rem; margin: 1rem 0 0; }
+.rapport-stat-tile { flex: 1 1 9rem; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 0.9rem; background: var(--bg-soft); }
+.rapport-stat-tile .rapport-stat-verdi { font-size: 1.25rem; font-weight: 800; color: var(--ink); }
+.rapport-stat-tile .rapport-stat-etikett { font-size: 0.74rem; color: var(--muted); margin-top: 0.1rem; }
+.rapport-stat-tile.rapport-stat-fremheving .rapport-stat-verdi { color: var(--accent-dark); }
+
+.rapport-felt-gruppe { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.2rem; }
+.rapport-felt { display: flex; flex-direction: column; gap: 0.35rem; }
+.rapport-felt label { font-size: 0.78rem; font-weight: 700; color: var(--ink); }
+.rapport-felt-hjelp { font-size: 0.76rem; color: var(--muted); margin-top: 0.4rem; }
+
+.rapport-kontoplan-rad, .rapport-kontoplan-header {
+  display: grid; grid-template-columns: 1fr 7rem 7rem; gap: 0.6rem; align-items: center;
+}
+.rapport-kontoplan-rad { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+.rapport-kontoplan-header {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted);
+  padding-bottom: 0.4rem; border-bottom: 1px solid var(--border);
+}
+.rapport-kontoplan-type {
+  font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 0.25rem 0.5rem; border-radius: 999px; text-align: center;
+}
+.rapport-kontoplan-type--inntekt { background: color-mix(in srgb, var(--success) 20%, transparent); color: var(--success-dark); }
+.rapport-kontoplan-type--kostnad { background: color-mix(in srgb, var(--fare) 20%, transparent); color: var(--fare); }
+
+.rapport-periodevelger { display: flex; flex-wrap: wrap; align-items: end; gap: 0.6rem; margin-bottom: 1.4rem; }
+.rapport-periodevelger label { font-size: 0.78rem; font-weight: 700; color: var(--ink); display: block; margin-bottom: 0.25rem; }
+
+@media (max-width: 640px) {
+  .rapport-felt-gruppe { grid-template-columns: 1fr; }
+  .rapport-kontoplan-rad, .rapport-kontoplan-header { grid-template-columns: 1fr; gap: 0.3rem; }
+}
+
 /* "Utvikling over tid"-grafen (se Pages/Shared/_UtviklingsGraf.cshtml og
    UtviklingsGrafBeregner) — generisk for ALLE tester med ≥2 fullførte
    besvarelser, ikke bare WHO-5 VAS. */

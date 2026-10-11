@@ -8375,3 +8375,59 @@ pasienter"-runden): "Min utbetaling" vises og åpner riktig side for en vanlig b
 "Klinikkutbetaling" + "Min klinikk"-seksjonen med alle fire lenker vises korrekt for klinikk-admin,
 og "Automatisk utsendelse til nye/avsluttede pasienter"-lenken på Min side leder riktig til
 `MinPartner/AutomatiskUtsendelse`. 98 tester grønne, ingen migrasjon.
+
+## Periodiserte oppgjør, del 2 — "de fine rapportene" faktisk koblet til appen (2026-10-11, samme dag)
+
+Oppfølging av brukerens spørsmål "I see no way to get the nice looking reports you mocked up. Are
+they not implemented?" — svaret var "nei, kun en frittstående mockup" (se forrige seksjon). Bedt
+om å bygge dem og deploye: de tre designforslagene fra "Monthly Stripe Connect payout system"
+(Artifact `Periodiserte oppgjør`, publisert 2026-10-10) er nå ekte, databasedrevne sider, ikke en
+statisk mockup.
+
+**Ny tjeneste `OkonomiRapportService`** (TestBase.Shared/Domain/Tester/) — rene LES-operasjoner mot
+den allerede eksisterende `Pengebevegelse`-loggen, periodisert på kalendermåned (samme
+`PeriodeRange`-mønster som `UtbetalingsBatchService`):
+- `HentAdminRapportAsync` — ALLE transaksjoner i perioden, grupperes per `TestTildelingId` og
+  PIVOTERES til kolonner (Pasientpris/Honorar/Platt.andel/Partnerandel) fra de opptil 4
+  Pengebevegelse-radene samme tildeling skrev. Et REELT datafunn underveis: `PartnerAndel`-raden
+  bærer IKKE `BehandlerId` (kun `PartnerId`, se `TestService.MarkerBetalingBetaltAsync`) — måtte
+  derfor hente behandler via PasientBetalingMottatt/BehandlerHonorar-radene i SAMME gruppe i
+  stedet.
+- `HentBehandlerRapportAsync` — kun egen `BehandlerHonorar`, filtrert på behandlerId+periode.
+- `HentPartnerRapportAsync` — kun egen `PartnerAndel`, gruppert per behandler. SAMME
+  BehandlerId-hull som over, løst annerledes her: slår opp `TestTildeling.TildeltAvBehandlerId`
+  via `TestTildelingId` siden PartnerAndel-raden selv ikke har det.
+
+**Ny singleton-innstilling `AdminOkonomiOppsett`** (mønster lånt fra `EktBankIdInnstilling`) +
+to nye felt-par på `Behandler` (`HonorarinntektEtikett`/`Konto`) og fire nye felt på `Partner`
+(`Organisasjonsnummer`/`Kontonummer`/`PartnerandelEtikett`/`Konto`) — rene informasjonsfelt for
+bokføringsforslaget, faller tilbake til `OkonomiOppsettStandard`-konstantene (hentet rett fra
+designforslaget: 3100/7770/6560/6960) når null. `Partner.Kontonummer` er, som
+`Behandler.Kontonummer`, BEVISST informasjon — selve utbetalingen går fortsatt via Stripe Connect
+(`UtbetalingsMottakerKonto`), urørt av dette.
+
+**Tre sider fikk nye faner** (gjenbruker ALLEREDE eksisterende nav-knapper fra forrige runde,
+ingen nye lagt til): `Admin/Okonomi/Index.cshtml` ("Oversikt"/"Periodisert
+oppgjør"/"Oppsett"), `Behandlerportal/Utbetaling.cshtml` ("Tilkobling"/"Honorarutskrift"/
+"Oppsett"), `Behandlerportal/MinPartner/Utbetaling.cshtml` ("Tilkobling"/"Partneroppgjør"/
+"Oppsett") — samme `data-fane-beholder`/faner.js-mønster som resten av appen, periodevelgeren er
+et GET-skjema med `action="?#fanenavn"` (henter hash-bevaring gratis, i stedet for et JS-hack) og
+"Lagre oppsett" er et POST som redirecter tilbake med `#oppsett`-hash (samme mønster som
+"Tildelte tester"-fanen fra tidligere i dag).
+
+**Ny CSS** i site.css: `.rapport-tabellramme`/`.rapport-stat-rad`/`-tile`/`.rapport-kontoplan-
+rad`/`-header`/`-type`/`.rapport-felt-gruppe`/`.rapport-periodevelger` — rene TILLEGG til de
+allerede eksisterende `.rapport-ark`/`.rapport-seksjon`/`.rapport-introduksjon`/
+`.rapport-svartabell` (bekreftet at designforslaget allerede brukte SAMME CSS-variabelnavn som
+appen, siden det var bevisst tegnet til å matche). Ingen eksisterende rapportside påvirket.
+
+Ny migrasjon `LeggTilOkonomiOppsett` (ren tillegg, 6 kolonner + 1 ny tabell, ingen rename). 3 nye
+regresjonstester (`OkonomiRapportServiceTests.cs`, 101 totalt) — dekker pivoteringen, periode-
+filtrering, og spesifikt PartnerAndel-sin-manglende-BehandlerId-oppslaget. Fullt verifisert i
+nettleser mot EKTE lokale data (ikke syntetisk testdata bygget for anledningen): Admin sitt
+september 2026-oppgjør viste korrekt 3 transaksjoner (370/200/90/30 kr sum, inkl. en eldre,
+foreldreløs rad som korrekt falt tilbake til "(ukjent test)"/"—" i stedet for å krasje), behandler
+14 sin Honorarutskrift viste korrekt KUN sine egne 100 kr (ikke andre behandleres), og
+klinikk-admin sitt Partneroppgjør viste korrekt "Demo Behandlersen, 1 test, 30 kr". Alle tre
+Oppsett-lagre-handlere verifisert med en ekte lagring+omlasting (bekreftet i database). 101
+tester grønne.

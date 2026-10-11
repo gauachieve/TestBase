@@ -2,73 +2,283 @@
 @model TestBase.Web.Areas.Admin.Pages.Okonomi.IndexModel
 @{
     ViewData["Title"] = "Økonomi";
+    var manedNavn = System.Globalization.CultureInfo.GetCultureInfo("nb-NO").DateTimeFormat.GetMonthName(Model.ValgtManed);
+    var periodeTekst = $"{new DateTime(Model.ValgtAar, Model.ValgtManed, 1):dd.MM.yyyy}–{new DateTime(Model.ValgtAar, Model.ValgtManed, DateTime.DaysInMonth(Model.ValgtAar, Model.ValgtManed)):dd.MM.yyyy}";
 }
 
 <h1>Økonomi</h1>
-<p><em>Periodisert visning — måned for måned i inneværende år, summert per tidligere kalenderår. Format/tekst avklares senere.</em></p>
 <p><a href="/Admin/Utbetalinger">Utbetalinger →</a></p>
 
-<h2>Inneværende år</h2>
-<table border="1" cellpadding="6" cellspacing="0">
-    <thead>
-        <tr>
-            <th>Periode</th>
-            <th>Inntekt fra salg</th>
-            <th>Utgift til salg</th>
-            <th>Netto</th>
-        </tr>
-    </thead>
-    <tbody>
-    @foreach (var rad in Model.MånederIInneværendeÅr)
-    {
-        <tr>
-            <td>@rad.Etikett</td>
-            <td>@rad.InntektKr.ToString("0.00") kr</td>
-            <td>@rad.UtgiftKr.ToString("0.00") kr</td>
-            <td>@rad.NettoKr.ToString("0.00") kr</td>
-        </tr>
-    }
-    @if (!Model.MånederIInneværendeÅr.Any())
-    {
-        <tr><td colspan="4"><em>Ingen bevegelser registrert ennå i år.</em></td></tr>
-    }
-    </tbody>
-    <tfoot>
-        <tr style="font-weight: bold;">
-            <td>@Model.HittilIÅr.Etikett</td>
-            <td>@Model.HittilIÅr.InntektKr.ToString("0.00") kr</td>
-            <td>@Model.HittilIÅr.UtgiftKr.ToString("0.00") kr</td>
-            <td>@Model.HittilIÅr.NettoKr.ToString("0.00") kr</td>
-        </tr>
-    </tfoot>
-</table>
+<div data-fane-beholder>
+    <div class="fane-rad" role="tablist">
+        <button type="button" class="fane-knapp" data-fane="oversikt">Oversikt</button>
+        <button type="button" class="fane-knapp" data-fane="periodisert">Periodisert oppgjør</button>
+        <button type="button" class="fane-knapp" data-fane="oppsett">Oppsett</button>
+    </div>
 
-<h2>Tidligere år</h2>
-@if (!Model.TidligereÅr.Any())
-{
-    <p><em>Ingen avsluttede kalenderår med bevegelser ennå.</em></p>
-}
-else
-{
-    <table border="1" cellpadding="6" cellspacing="0">
-        <thead>
-            <tr>
-                <th>År</th>
-                <th>Inntekt fra salg</th>
-                <th>Utgift til salg</th>
-                <th>Netto</th>
-            </tr>
-        </thead>
-        <tbody>
-        @foreach (var rad in Model.TidligereÅr)
+    <div data-fane-rad="oversikt" hidden>
+        <p><em>Periodisert visning — måned for måned i inneværende år, summert per tidligere kalenderår.</em></p>
+
+        <h2>Inneværende år</h2>
+        <table border="1" cellpadding="6" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>Periode</th>
+                    <th>Inntekt fra salg</th>
+                    <th>Utgift til salg</th>
+                    <th>Netto</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var rad in Model.MånederIInneværendeÅr)
+            {
+                <tr>
+                    <td>@rad.Etikett</td>
+                    <td>@rad.InntektKr.ToString("0.00") kr</td>
+                    <td>@rad.UtgiftKr.ToString("0.00") kr</td>
+                    <td>@rad.NettoKr.ToString("0.00") kr</td>
+                </tr>
+            }
+            @if (!Model.MånederIInneværendeÅr.Any())
+            {
+                <tr><td colspan="4"><em>Ingen bevegelser registrert ennå i år.</em></td></tr>
+            }
+            </tbody>
+            <tfoot>
+                <tr style="font-weight: bold;">
+                    <td>@Model.HittilIÅr.Etikett</td>
+                    <td>@Model.HittilIÅr.InntektKr.ToString("0.00") kr</td>
+                    <td>@Model.HittilIÅr.UtgiftKr.ToString("0.00") kr</td>
+                    <td>@Model.HittilIÅr.NettoKr.ToString("0.00") kr</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <h2>Tidligere år</h2>
+        @if (!Model.TidligereÅr.Any())
         {
-            <tr>
-                <td>@rad.Etikett</td>
-                <td>@rad.InntektKr.ToString("0.00") kr</td>
-                <td>@rad.UtgiftKr.ToString("0.00") kr</td>
-                <td>@rad.NettoKr.ToString("0.00") kr</td>
-            </tr>
+            <p><em>Ingen avsluttede kalenderår med bevegelser ennå.</em></p>
         }
-        </tbody>
-    </table>
-}
+        else
+        {
+            <table border="1" cellpadding="6" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>År</th>
+                        <th>Inntekt fra salg</th>
+                        <th>Utgift til salg</th>
+                        <th>Netto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var rad in Model.TidligereÅr)
+                {
+                    <tr>
+                        <td>@rad.Etikett</td>
+                        <td>@rad.InntektKr.ToString("0.00") kr</td>
+                        <td>@rad.UtgiftKr.ToString("0.00") kr</td>
+                        <td>@rad.NettoKr.ToString("0.00") kr</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    <div data-fane-rad="periodisert" hidden>
+        <form method="get" action="?#periodisert" class="rapport-periodevelger">
+            <div>
+                <label for="aar">År</label>
+                <select id="aar" name="Aar">
+                    @for (var aar = DateTimeOffset.UtcNow.Year; aar >= DateTimeOffset.UtcNow.Year - 3; aar--)
+                    {
+                        <option value="@aar" selected="@(aar == Model.ValgtAar)">@aar</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label for="maaned">Måned</label>
+                <select id="maaned" name="Maaned">
+                    @for (var m = 1; m <= 12; m++)
+                    {
+                        <option value="@m" selected="@(m == Model.ValgtManed)">@System.Globalization.CultureInfo.GetCultureInfo("nb-NO").DateTimeFormat.GetMonthName(m)</option>
+                    }
+                </select>
+            </div>
+            <button type="submit" class="btn btn-accent">Vis</button>
+        </form>
+
+        <div class="rapport-ark">
+            <div class="rapport-hjornedekor"></div>
+            <div class="rapport-tittelblokk">
+                <span class="rapport-tittel-stor">Regnskapsoppgjør</span>
+                <span class="rapport-tittel-liten">@manedNavn @Model.ValgtAar</span>
+            </div>
+            <div class="rapport-metarad">
+                <span>Firma: <strong>GGPsykolog AS</strong></span>
+                <span>Periode: <strong>@periodeTekst</strong></span>
+                <span>Transaksjoner: <strong>@Model.PeriodisertRapport.Rader.Count</strong></span>
+            </div>
+
+            <p class="rapport-introduksjon">
+                <strong>Ingen pasientnavn.</strong> Behandlernavn er med (admin trenger å vite hvem som skal ha
+                utbetalt hva). Pasientbetaling er salgsinntekt for helsetjeneste, unntatt mva — samme mva-status
+                som hos behandler/partner, uansett hvem som fører den.
+            </p>
+
+            @if (!Model.PeriodisertRapport.Rader.Any())
+            {
+                <p><em>Ingen betalte transaksjoner i denne perioden.</em></p>
+            }
+            else
+            {
+                <div class="rapport-seksjon">
+                    <span class="rapport-seksjon-tittel">Alle transaksjoner</span>
+                    <div class="rapport-tabellramme">
+                        <table class="rapport-svartabell">
+                            <thead>
+                                <tr>
+                                    <th>Dato</th><th>Ref.</th><th>Behandler</th><th>Test</th>
+                                    <th class="tall">Pasientpris</th><th class="tall">Honorar</th>
+                                    <th class="tall">Platt.andel</th><th class="tall">Partnerandel</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var rad in Model.PeriodisertRapport.Rader)
+                            {
+                                <tr>
+                                    <td>@rad.Dato.ToString("dd.MM.yyyy")</td>
+                                    <td class="ref">T-@rad.TestTildelingId</td>
+                                    <td>@(rad.BehandlerNavn ?? "—")</td>
+                                    <td>@rad.TestNavn</td>
+                                    <td class="tall">@rad.PasientprisKr.ToString("N2") kr</td>
+                                    <td class="tall">@rad.HonorarKr.ToString("N2") kr</td>
+                                    <td class="tall">@rad.PlattformAndelKr.ToString("N2") kr</td>
+                                    <td class="tall">@(rad.PartnerAndelKr is { } p ? $"{p:N2} kr" : "—")</td>
+                                </tr>
+                            }
+                            <tr class="sum">
+                                <td colspan="4">Sum for perioden (@Model.PeriodisertRapport.Rader.Count transaksjoner)</td>
+                                <td class="tall">@Model.PeriodisertRapport.SumPasientpris.ToString("N2") kr</td>
+                                <td class="tall">@Model.PeriodisertRapport.SumHonorar.ToString("N2") kr</td>
+                                <td class="tall">@Model.PeriodisertRapport.SumPlattformAndel.ToString("N2") kr</td>
+                                <td class="tall">@Model.PeriodisertRapport.SumPartnerAndel.ToString("N2") kr</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="rapport-stat-rad">
+                    <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@Model.PeriodisertRapport.SumPasientpris.ToString("N2") kr</div><div class="rapport-stat-etikett">Pasientbetalinger inn</div></div>
+                    <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@Model.PeriodisertRapport.SumHonorar.ToString("N2") kr</div><div class="rapport-stat-etikett">Honorar utbetalt behandlere</div></div>
+                    <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@Model.PeriodisertRapport.SumPartnerAndel.ToString("N2") kr</div><div class="rapport-stat-etikett">Andel utbetalt partnere</div></div>
+                    <div class="rapport-stat-tile rapport-stat-fremheving"><div class="rapport-stat-verdi">@Model.PeriodisertRapport.SumPlattformAndel.ToString("N2") kr</div><div class="rapport-stat-etikett">Netto plattforminntekt</div></div>
+                </div>
+
+                <div class="rapport-seksjon" style="margin-top: 1.6rem;">
+                    <span class="rapport-seksjon-tittel">Bokføringsforslag</span>
+                    <p class="rapport-introduksjon">Kontoene hentes fra Oppsett-fanen, ikke hardkodet.</p>
+                    <div class="rapport-tabellramme">
+                        <table class="rapport-svartabell">
+                            <thead><tr><th>Beskrivelse</th><th>Debet</th><th>Kredit</th><th class="tall">Beløp</th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td>@(Model.Oppsett.SalgsinntektEtikett ?? TestBase.Shared.Domain.Tester.OkonomiOppsettStandard.SalgsinntektEtikett)</td>
+                                    <td>1920 Bank</td>
+                                    <td>@(Model.Oppsett.SalgsinntektKonto ?? TestBase.Shared.Domain.Tester.OkonomiOppsettStandard.SalgsinntektKonto) Salgsinntekt</td>
+                                    <td class="tall">@Model.PeriodisertRapport.SumPasientpris.ToString("N2") kr</td>
+                                </tr>
+                                <tr>
+                                    <td>@(Model.Oppsett.BehandlerHonorarEtikett ?? TestBase.Shared.Domain.Tester.OkonomiOppsettStandard.BehandlerHonorarEtikett)</td>
+                                    <td>@(Model.Oppsett.BehandlerHonorarKonto ?? TestBase.Shared.Domain.Tester.OkonomiOppsettStandard.BehandlerHonorarKonto) Honorar behandlere</td>
+                                    <td>1920 Bank</td>
+                                    <td class="tall">@Model.PeriodisertRapport.SumHonorar.ToString("N2") kr</td>
+                                </tr>
+                                <tr>
+                                    <td>@(Model.Oppsett.PartnerprovisjonEtikett ?? TestBase.Shared.Domain.Tester.OkonomiOppsettStandard.PartnerprovisjonEtikett)</td>
+                                    <td>@(Model.Oppsett.PartnerprovisjonKonto ?? TestBase.Shared.Domain.Tester.OkonomiOppsettStandard.PartnerprovisjonKonto) Partnerprovisjon</td>
+                                    <td>1920 Bank</td>
+                                    <td class="tall">@Model.PeriodisertRapport.SumPartnerAndel.ToString("N2") kr</td>
+                                </tr>
+                                <tr class="sum"><td colspan="3">Netto plattforminntekt</td><td class="tall">@Model.PeriodisertRapport.SumPlattformAndel.ToString("N2") kr</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div data-fane-rad="oppsett" hidden>
+        @if (Model.OppsettLagret)
+        {
+            <p class="feilmelding" style="color: var(--success-dark);">✓ Oppsett lagret.</p>
+        }
+        <div class="rapport-ark">
+            <div class="rapport-hjornedekor"></div>
+            <div class="rapport-tittelblokk">
+                <span class="rapport-tittel-stor">Økonomi-oppsett</span>
+                <span class="rapport-tittel-liten">Firmaets egen kontoplan</span>
+            </div>
+            <p class="rapport-introduksjon">
+                Etikettene under er fritekst, dere eier dem selv; kontonumrene er foreslåtte
+                standardverdier. Bekreft mot regnskapsfører/PowerOffice Go før reell bruk.
+            </p>
+
+            <form method="post" asp-page-handler="LagreOppsett">
+                <div class="rapport-seksjon">
+                    <span class="rapport-seksjon-tittel">Firmaopplysninger</span>
+                    <div class="rapport-felt-gruppe">
+                        <div class="rapport-felt">
+                            <label for="orgnr">Organisasjonsnummer</label>
+                            <input type="text" id="orgnr" name="Organisasjonsnummer" value="@Model.Oppsett.Organisasjonsnummer" />
+                        </div>
+                        <div class="rapport-felt">
+                            <label for="hprfirma">HPR-nummer (ansvarlig psykolog, firma)</label>
+                            <input type="text" id="hprfirma" name="HprNummerFirma" value="@Model.Oppsett.HprNummerFirma" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rapport-seksjon">
+                    <span class="rapport-seksjon-tittel">Kontoplan</span>
+                    <div class="rapport-kontoplan-header"><span>Etikett</span><span>Konto</span><span>Type</span></div>
+                    <div class="rapport-kontoplan-rad">
+                        <input type="text" name="SalgsinntektEtikett" value="@(Model.Oppsett.SalgsinntektEtikett ?? TestBase.Shared.Domain.Tester.OkonomiOppsettStandard.SalgsinntektEtikett)" />
+                        <input type="text" name="SalgsinntektKonto" value="@(Model.Oppsett.SalgsinntektKonto ?? TestBase.Shared.Domain.Tester.OkonomiOppsettStandard.SalgsinntektKonto)" />
+                        <span class="rapport-kontoplan-type rapport-kontoplan-type--inntekt">Inntekt</span>
+                    </div>
+                    <div class="rapport-kontoplan-rad">
+                        <input type="text" name="BetalingsgebyrEtikett" value="@(Model.Oppsett.BetalingsgebyrEtikett ?? TestBase.Shared.Domain.Tester.OkonomiOppsettStandard.BetalingsgebyrEtikett)" />
+                        <input type="text" name="BetalingsgebyrKonto" value="@(Model.Oppsett.BetalingsgebyrKonto ?? TestBase.Shared.Domain.Tester.OkonomiOppsettStandard.BetalingsgebyrKonto)" />
+                        <span class="rapport-kontoplan-type rapport-kontoplan-type--kostnad">Kostnad</span>
+                    </div>
+                    <div class="rapport-kontoplan-rad">
+                        <input type="text" name="BehandlerHonorarEtikett" value="@(Model.Oppsett.BehandlerHonorarEtikett ?? TestBase.Shared.Domain.Tester.OkonomiOppsettStandard.BehandlerHonorarEtikett)" />
+                        <input type="text" name="BehandlerHonorarKonto" value="@(Model.Oppsett.BehandlerHonorarKonto ?? TestBase.Shared.Domain.Tester.OkonomiOppsettStandard.BehandlerHonorarKonto)" />
+                        <span class="rapport-kontoplan-type rapport-kontoplan-type--kostnad">Kostnad</span>
+                    </div>
+                    <div class="rapport-kontoplan-rad">
+                        <input type="text" name="PartnerprovisjonEtikett" value="@(Model.Oppsett.PartnerprovisjonEtikett ?? TestBase.Shared.Domain.Tester.OkonomiOppsettStandard.PartnerprovisjonEtikett)" />
+                        <input type="text" name="PartnerprovisjonKonto" value="@(Model.Oppsett.PartnerprovisjonKonto ?? TestBase.Shared.Domain.Tester.OkonomiOppsettStandard.PartnerprovisjonKonto)" />
+                        <span class="rapport-kontoplan-type rapport-kontoplan-type--kostnad">Kostnad</span>
+                    </div>
+                    <p class="rapport-felt-hjelp">Bekreft mot regnskapsfører om honorar/partnerandel skal føres som reell kostnad (som her) eller som ren gjennomstrømningspost.</p>
+                </div>
+
+                <div class="rapport-seksjon">
+                    <span class="rapport-seksjon-tittel">Utbetalingskonto</span>
+                    <div class="rapport-felt">
+                        <label for="utbkonto">Bankkontonummer (informasjon — selve utbetalingen går via Stripe Connect, se Utbetalinger)</label>
+                        <input type="text" id="utbkonto" name="UtbetalingKontonummer" value="@Model.Oppsett.UtbetalingKontonummer" />
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-accent">Lagre oppsett</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="~/js/faner.js" asp-append-version="true"></script>

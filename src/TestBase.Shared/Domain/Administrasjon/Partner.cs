@@ -16,6 +16,14 @@ public sealed class Partner
     public string? KontaktEpost { get; set; }
     public string? KontaktMobilNr { get; set; }
 
+    /// <summary>Informasjonsfelt for partneroppgjøret (se "Oppsett"-fanen på MinPartner/Utbetaling.cshtml) — brukes IKKE av selve Stripe Connect-utbetalingen (se UtbetalingsMottakerKonto).</summary>
+    public string? Organisasjonsnummer { get; set; }
+    public string? Kontonummer { get; set; }
+
+    /// <summary>Egen kontoplan-etikett/-konto for partnerandel i periodiserte oppgjør — faller tilbake til OkonomiOppsettStandard.PartnerandelInntekt når null/tom.</summary>
+    public string? PartnerandelEtikett { get; set; }
+    public string? PartnerandelKonto { get; set; }
+
     /// <summary>
     /// Dekker partnerens behandlere sine plattformkostnader (se
     /// TestPrisberegner) — selve den tilbakevendende faktureringsmotoren er

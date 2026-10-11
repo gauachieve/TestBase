@@ -147,6 +147,14 @@ namespace TestBase.Shared.Migrations
                     b.Property<bool>("HarEgetAbonnement")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<string>("HonorarinntektEtikett")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("HonorarinntektKonto")
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
                     b.Property<DateTimeOffset?>("HprForlengetTilUtc")
                         .HasColumnType("datetime(6)");
 
@@ -432,6 +440,10 @@ namespace TestBase.Shared.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
 
+                    b.Property<string>("Kontonummer")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
                     b.Property<string>("Navn")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -442,6 +454,18 @@ namespace TestBase.Shared.Migrations
 
                     b.Property<DateTimeOffset>("OpprettetUtc")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Organisasjonsnummer")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("PartnerandelEtikett")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("PartnerandelKonto")
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
 
                     b.Property<DateTimeOffset?>("SlettetUtc")
                         .HasColumnType("datetime(6)");
@@ -701,6 +725,69 @@ namespace TestBase.Shared.Migrations
                         .IsUnique();
 
                     b.ToTable("pasient_invitasjoner", (string)null);
+                });
+
+            modelBuilder.Entity("TestBase.Shared.Domain.Tester.AdminOkonomiOppsett", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("BehandlerHonorarEtikett")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("BehandlerHonorarKonto")
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<string>("BetalingsgebyrEtikett")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("BetalingsgebyrKonto")
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<string>("HprNummerFirma")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("Organisasjonsnummer")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("PartnerprovisjonEtikett")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("PartnerprovisjonKonto")
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<string>("SalgsinntektEtikett")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("SalgsinntektKonto")
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<long?>("SistEndretAvUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("SistEndretUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UtbetalingKontonummer")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("admin_okonomi_oppsett", (string)null);
                 });
 
             modelBuilder.Entity("TestBase.Shared.Domain.Tester.Behandlingsprogram", b =>

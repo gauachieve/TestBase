@@ -2,31 +2,150 @@
 @model TestBase.Web.Areas.Behandlerportal.Pages.MinPartner.UtbetalingModel
 @{
     ViewData["Title"] = "Utbetaling";
+    var manedNavn = System.Globalization.CultureInfo.GetCultureInfo("nb-NO").DateTimeFormat.GetMonthName(Model.ValgtManed);
 }
 
 <h1>Utbetaling</h1>
-<p>Koble til en bankkonto for å motta klinikkandel automatisk, én gang i måneden. Selve
-   bankkontoen samles inn og oppbevares av Stripe — ikke av oss.</p>
 
-@if (Model.Feilmelding is not null)
-{
-    <p class="feilmelding">@Model.Feilmelding</p>
-}
+<div data-fane-beholder>
+    <div class="fane-rad" role="tablist">
+        <button type="button" class="fane-knapp" data-fane="tilkobling">Tilkobling</button>
+        <button type="button" class="fane-knapp" data-fane="partneroppgjor">Partneroppgjør</button>
+        <button type="button" class="fane-knapp" data-fane="oppsett">Oppsett</button>
+    </div>
 
-@if (Model.Konto is null)
-{
-    <form method="post" asp-page-handler="StartOnboarding">
-        <button type="submit" class="btn btn-accent" data-disable-on-submit="Starter …">Koble til utbetalingskonto</button>
-    </form>
-}
-else if (Model.Konto.Status == TestBase.Shared.Domain.Utbetaling.StripeConnectStatus.OnboardingFullfort)
-{
-    <p><strong>✓ Tilkoblet.</strong> Klinikkandel betales ut automatisk hver måned til kontoen som er registrert hos Stripe.</p>
-}
-else
-{
-    <p><strong>Tilkobling startet, men ikke fullført ennå.</strong> Fullfør registreringen hos Stripe for å kunne motta utbetaling.</p>
-    <form method="post" asp-page-handler="StartOnboarding">
-        <button type="submit" class="btn btn-accent" data-disable-on-submit="Starter …">Fortsett registrering hos Stripe</button>
-    </form>
-}
+    <div data-fane-rad="tilkobling" hidden>
+        <p>Koble til en bankkonto for å motta klinikkandel automatisk, én gang i måneden. Selve
+           bankkontoen samles inn og oppbevares av Stripe — ikke av oss.</p>
+
+        @if (Model.Feilmelding is not null)
+        {
+            <p class="feilmelding">@Model.Feilmelding</p>
+        }
+
+        @if (Model.Konto is null)
+        {
+            <form method="post" asp-page-handler="StartOnboarding">
+                <button type="submit" class="btn btn-accent" data-disable-on-submit="Starter …">Koble til utbetalingskonto</button>
+            </form>
+        }
+        else if (Model.Konto.Status == TestBase.Shared.Domain.Utbetaling.StripeConnectStatus.OnboardingFullfort)
+        {
+            <p><strong>✓ Tilkoblet.</strong> Klinikkandel betales ut automatisk hver måned til kontoen som er registrert hos Stripe.</p>
+        }
+        else
+        {
+            <p><strong>Tilkobling startet, men ikke fullført ennå.</strong> Fullfør registreringen hos Stripe for å kunne motta utbetaling.</p>
+            <form method="post" asp-page-handler="StartOnboarding">
+                <button type="submit" class="btn btn-accent" data-disable-on-submit="Starter …">Fortsett registrering hos Stripe</button>
+            </form>
+        }
+    </div>
+
+    <div data-fane-rad="partneroppgjor" hidden>
+        <form method="get" action="?#partneroppgjor" class="rapport-periodevelger">
+            <div>
+                <label for="aar">År</label>
+                <select id="aar" name="Aar">
+                    @for (var aar = DateTimeOffset.UtcNow.Year; aar >= DateTimeOffset.UtcNow.Year - 3; aar--)
+                    {
+                        <option value="@aar" selected="@(aar == Model.ValgtAar)">@aar</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label for="maaned">Måned</label>
+                <select id="maaned" name="Maaned">
+                    @for (var m = 1; m <= 12; m++)
+                    {
+                        <option value="@m" selected="@(m == Model.ValgtManed)">@System.Globalization.CultureInfo.GetCultureInfo("nb-NO").DateTimeFormat.GetMonthName(m)</option>
+                    }
+                </select>
+            </div>
+            <button type="submit" class="btn btn-accent">Vis</button>
+        </form>
+
+        <div class="rapport-ark">
+            <div class="rapport-hjornedekor"></div>
+            <div class="rapport-tittelblokk">
+                <span class="rapport-tittel-stor">Partneroppgjør</span>
+                <span class="rapport-tittel-liten">@Model.Oppsett.Navn — @manedNavn.ToLowerInvariant() @Model.ValgtAar</span>
+            </div>
+            <div class="rapport-metarad">
+                <span>Partner: <strong>@Model.Oppsett.Navn</strong></span>
+                <span>Behandlere: <strong>@Model.Rapport.Rader.Count</strong></span>
+            </div>
+
+            <p class="rapport-introduksjon">
+                <strong>Ingen pasientnavn, ingen testtype-detalj.</strong> Partnerandelen er, som hos
+                behandler, deres egen salgsinntekt for helsetjeneste — unntatt mva, bokføres mot kontoen
+                satt opp under "Oppsett" (standard 3100).
+            </p>
+
+            @if (!Model.Rapport.Rader.Any())
+            {
+                <p><em>Ingen partnerandel i denne perioden.</em></p>
+            }
+            else
+            {
+                <div class="rapport-seksjon">
+                    <span class="rapport-seksjon-tittel">Partnerandel per behandler</span>
+                    <div class="rapport-tabellramme">
+                        <table class="rapport-svartabell">
+                            <thead><tr><th>Behandler</th><th class="tall">Antall tester</th><th class="tall">Partnerandel</th></tr></thead>
+                            <tbody>
+                            @foreach (var rad in Model.Rapport.Rader)
+                            {
+                                <tr>
+                                    <td>@rad.BehandlerNavn</td>
+                                    <td class="tall">@rad.AntallTester</td>
+                                    <td class="tall">@rad.SumPartnerAndelKr.ToString("N2") kr</td>
+                                </tr>
+                            }
+                            <tr class="sum"><td>Totalt for perioden</td><td class="tall">@Model.Rapport.TotaltAntallTester</td><td class="tall">@Model.Rapport.TotalSumPartnerAndelKr.ToString("N2") kr</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+
+            <p class="rapport-felt-hjelp" style="margin-top: 1.5rem;">Utbetales av GGPsykolog AS iht. partneravtalen.</p>
+        </div>
+    </div>
+
+    <div data-fane-rad="oppsett" hidden>
+        @if (Model.OppsettLagret)
+        {
+            <p style="color: var(--success-dark);">✓ Oppsett lagret.</p>
+        }
+        <form method="post" asp-page-handler="LagreOppsett">
+            <div class="rapport-seksjon">
+                <span class="rapport-seksjon-tittel">Partneropplysninger</span>
+                <div class="rapport-felt-gruppe">
+                    <div class="rapport-felt">
+                        <label for="orgnr">Organisasjonsnummer (partnerfirma)</label>
+                        <input type="text" id="orgnr" name="organisasjonsnummer" value="@Model.Oppsett.Organisasjonsnummer" />
+                    </div>
+                    <div class="rapport-felt">
+                        <label for="kontonr">Mottakskonto (bankkontonummer — informasjon, selve utbetalingen går via Stripe Connect under "Tilkobling")</label>
+                        <input type="text" id="kontonr" name="kontonummer" value="@Model.Oppsett.Kontonummer" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="rapport-seksjon">
+                <span class="rapport-seksjon-tittel">Kontoplan</span>
+                <div class="rapport-kontoplan-header"><span>Etikett</span><span>Konto</span><span>Type</span></div>
+                <div class="rapport-kontoplan-rad">
+                    <input type="text" name="partnerandelEtikett" value="@(Model.Oppsett.PartnerandelEtikett ?? TestBase.Shared.Domain.Tester.OkonomiOppsettStandard.PartnerandelInntektEtikett)" />
+                    <input type="text" name="partnerandelKonto" value="@(Model.Oppsett.PartnerandelKonto ?? TestBase.Shared.Domain.Tester.OkonomiOppsettStandard.PartnerandelInntektKonto)" />
+                    <span class="rapport-kontoplan-type rapport-kontoplan-type--inntekt">Inntekt</span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-accent">Lagre oppsett</button>
+        </form>
+    </div>
+</div>
+
+<script src="~/js/faner.js" asp-append-version="true"></script>
