@@ -4,917 +4,86 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
 
 **Les dette dokumentet i sin helhet før du gjør noe.** Prosjektet ble startet i Claude (Cowork) og er nettopp konvertert til Claude Code — alt av beslutninger, arkitektur og status fra det arbeidet er samlet her og i `docs/`, slik at ingenting går tapt i overgangen. Ikke anta noe om prosjektet som ikke står her eller i `docs/` — spesielt ikke om de delene som ennå ikke er bygget (fase 2–6), der er `docs/prosjektbeskrivelse-original.md` fasiten på krav, ikke hukommelse eller gjetting.
 
+## Arbeidsøkonomi — bruk subagents/billigere modeller for mekanisk verifisering (brukerbeslutning 2026-10-11)
+
+Prosjektet har mange regresjonstester og bruker mye Playwright-nettleserverifisering — begge
+nødvendige (se gjentatte reelle 500-feil/sårbarheter i "Kjente fallgruver" under som kun ble
+fanget ved faktisk nettleser-/testkjøring), men begge genererer mye rå verktøy-output som koster
+dyrt å ha i hovedtråden. Fremover:
+
+- Rutinemessig, mekanisk verifiseringsarbeid — kjøre regresjonstestsuiten og rapportere
+  pass/fail, en Playwright-sjekk av at en side laster/et element vises korrekt etter en endring,
+  loggsøk (`az webapp log tail`/`grep` over store filer) — skal kjøres via Agent-verktøyet
+  (`fork`, eller en ny agent) i stedet for inline i hovedtråden, slik at kun et sammendrag/
+  verdikt kommer tilbake, ikke hele transkriptet/alle skjermbildene.
+- For denne typen mekanisk, lav-judgment subagent-arbeid: bruk et billigere modell-override
+  (`model: "haiku"` på Agent-kallet) der oppgaven faktisk er mekanisk (kjør kommando X, les av
+  resultat, rapporter kort). Behold hovedmodellen for selve kodeendringen, designvalg, og enhver
+  verifisering som krever faktisk klinisk/domene-vurdering (skåringslogikk, personvern/sikkerhet,
+  tolkning av et uventet resultat).
+- Dette bytter IKKE bort selve verifiseringen — "verifisert i nettleser"/"alle tester grønne"
+  skal fortsatt skje reelt før noe regnes som ferdig, kun HVOR i arkitekturen det kjører endres.
+
 ## Dokumenter i `docs/` — les i denne rekkefølgen ved behov
 
 1. `docs/prosjektbeskrivelse-original.md` — det opprinnelige kravdokumentet (fra bruker, ordrett). Kilden til sannhet for ALLE funksjonskrav, spesielt Del 2–4 og testdefinisjonen, som ikke er designet i detalj ennå. Les den relevante delen herfra før du designer noe i fase 2 og utover.
-2. `docs/beslutningslogg.md` — full historikk over beslutninger tatt, hva som er ferdig, kjente feilsøkingspunkter fra oppsett, og åpne punkter. Dette er masterdokumentet for prosjektstatus fra nå av — hold det oppdatert etter hvert som dere jobber videre.
+2. `docs/beslutningslogg.md` — full historikk over beslutninger tatt, hva som er ferdig, kjente feilsøkingspunkter fra oppsett, og åpne punkter. Dette er masterdokumentet for prosjektstatus fra nå av — hold det oppdatert etter hvert som dere jobber videre. Filen er stor (8600+ linjer) og vokser — søk med Grep etter et stikkord/en dato/et kjent testnavn i stedet for å lese hele filen, med mindre oppgaven faktisk krever å forstå hele den kronologiske historikken.
 3. `docs/compliance-dpia-utkast.md` — utkast til risikovurdering (DPIA) for helsedata, basert på Normen og GDPR. Ikke juridisk rådgivning; bør kvalitetssikres av jurist/DPO før ekte pasientdata går i produksjon.
 4. `docs/del1-utviklingsmiljo-plan.md` — den opprinnelige planen for utviklingsmiljøet (delvis historisk — se beslutningsloggen for hva som faktisk endte opp implementert).
 
-## Status akkurat nå (2026-08-31)
+## Status akkurat nå (sist komprimert 2026-10-11 — se `docs/beslutningslogg.md` for hele historikken)
 
-- **Fase 0** (arkitektur/compliance-grunnlag): ferdig.
-- **Fase 1** (lokalt utviklingsmiljø): ferdig og verifisert lokalt. Sky-deploy til Azure er satt opp
-  og verifisert (2026-09-02) via Azure Developer CLI (`azd`) — `azure.yaml` + `infra/` i repo-roten,
-  test-miljøet `testbase-test` kjører i **Sweden Central** (ikke Norway East/West som opprinnelig
-  planlagt — regional MySQL-kapasitet manglet der ved provisjonering, se
-  `docs/beslutningslogg.md` under "Sky-deploy til Azure (azd)" før noen reell produksjonssetting).
-- **Fase 2** (admin-skjelett + BankID/2FA-autentisering): **første slice ferdig og verifisert lokalt** — datamodell (Administrator/Behandler/invitasjon/2FA-kode), ekte cookie-basert innlogging (passord i utviklingsmodus, BankID+SMS-2FA-mock i produksjonsmodus), rollebytte for utvikler, og minimal admin-CRUD (opprett/arkiver administrator, inviter/frys/arkiver behandler).
-- **Fase 3** (behandlersystem): **første slice ferdig og verifisert lokalt** — BankID+2FA-innlogging for behandler (intet passord-unntak), utvidet egenregistrering (flere felt, brukeravtale, e-post/mobil-verifisering), HPR-godkjenningsflyt (7-dagers prøveperiode), og grunnleggende pasient-CRUD (legg til enkeltvis/gruppeimport, arkiver/gjenopprett). Behandlere kan invitere kollegaer på samme måte som admin.
-- **Fase 4** (pasientsystem + testmotor): **første slice ferdig og verifisert lokalt** — pasient-egenregistrering (uten kontaktverifisering, BankID etterpå er identitetsbekreftelsen), BankID-innlogging UTEN 2FA (bevisst, jf. kravet), pasientens egen side ("Min side"), og et generisk testmotor-skjelett: admin forfatter tester (sider/ledd/svartyper), behandler tildeler dem til pasienter, pasienten fyller ut side for side med fremdrift/lagre/belønningsside.
-- **Fase 5** (WHO-5 ende-til-ende): **første slice ferdig og verifisert lokalt** — generalisert Likert-skala (`LikertSkala`, data-drevet N-punkts skala via `"verdi:tekst"`-par, avdekket av WHO-5s 6-punkts 0–5-skala), en pluggbar skåringsmotor (`ITestSkaaringsberegner`) og regenereringsmekanisme (`IInnebygdTestSeeder`, både dev-seed og admin-knapp) nøkkelen `Test.Kode`, og en behandler-rapportside (per besvarelse + "utvikling over tid" med 10%-signifikansmarkering). WHO-5 var første innebygde test. **2026-09-12**: åtte flere lagt til fra Helsebiblioteket
-  (Cambridge atferdsskala/EQ40, RAADS-R, WURS, MADRS-S, Forenklet søvnutredningsskjema/SOVN, PHQ-9,
-  IPDS/IOWA, TRAPS I), se `docs/beslutningslogg.md` "Åtte nye innebygde tester fra Helsebiblioteket".
-  Samme tid: testkategoriene byttet fra de syv opprinnelige (Allianse/Angst/Depresjon/Funksjon/
-  Kjerne/Nevropsykologiske/Utredning) til Helsebibliotekets 16 praktiske kategorier. **2026-09-20**:
-  syv ICD-11-tester lagt til (ITQ, PDS-ICD-11 selvrapportering, PiCD, PAQ-11R, IDQ, IAQ, GADIT) —
-  nytt felt `Test.IcdElleveKlar` merker disse i `Admin/Tester/Index`. Der offisiell norsk
-  oversettelse IKKE finnes (PiCD, PAQ-11R, IDQ, IAQ) er dette merket via `Test.OversettelseNotat`
-  ("Ikke offisielt oversatt – kun til uttesting") — se `docs/beslutningslogg.md` "ICD-11-tester" for
-  kildehenvisninger, lisensvurderinger og hvilke høflighets-e-poster som gjenstår å sende. **Del 2
-  (samme dag, etter tilbakemelding fra live-testing)**: alle 7 fikk korte, pasientvennlige navn
-  (forkortelse til slutt) — `OversettelseNotat` vises KUN til behandler/admin, aldri til pasienten,
-  se "ICD-11-tester, del 2" i beslutningsloggen. Samme runde: PDS-ICD-11 fikk vertikale
-  fullbredde-svarbokser og tilfeldig visningsrekkefølge på ledd 1-10 (IKKE 11-14), PiCD fikk
-  ordlydsrettelser ("Helt"/"Nøytralt"), og test-nivå intro-tekst (`Test.Beskrivelse`) fikk en egen,
-  mer luftig CSS-stil (`.test-intro`).
-- For fase 2–4: pris per test, økonomiske rapporter, backup/restore, organisasjonsstøtte, automatiske test-utsendelser/påminnelser, 10-års auto-sletting, Vipps-betalingssperre er bevisst IKKE gjort — se `docs/beslutningslogg.md` under "Del 2/3/4 (slice 1)" og "Åpne punkter til senere faser" for detaljer og resterende arbeid.
-- Lokalisering av tester til flere språk er fortsatt bevisst utsatt (nå med et konkret
-  andrespråksbehov å designe mot — WHO-5 finnes offisielt på engelsk — men ikke gjort ennå).
-- Fase 6: ikke startet, men tre tverrgående forbedringer er gjort: en samlet tildelingsflyt der
-  behandler/admin velger flere pasienter og flere tester (via et alfabetisk kategori-tre —
-  Allianse/Angst/Depresjon/Funksjon/Kjerne/Nevropsykologiske/Utredning, foreløpig kun WHO-5 i
-  Kjerne, resten tomme placeholdere) og sender i ett steg, en `Varslingspreferanse` pasienten
-  velger ved registrering (SMS/e-post/Begge, standard Begge, med fallback til faktisk kontaktinfo),
-  og et dev-only personnummer-overstyringsfelt på BankID-innloggingssidene for å kunne teste flere
-  identiteter uten å arkivere forrige testkonto. Se `docs/beslutningslogg.md` under
-  "Tildelingsflyt for tester + BankID personnummer-overstyring + varslingspreferanse".
-- I tillegg: rapportgodkjenning (behandler MÅ godkjenne, og kan deretter valgfritt dele) + et enkelt
-  meldings-/oppgavesystem + en daglig påminnelse-bakgrunnstjeneste til behandler om ugodkjente
-  rapporter (aldri med pasientnavn i SMS/e-post, kun pasient-ID). **Rettet 2026-09-15:** en
-  tidligere versjon av dette dokumentet påsto en egen `/Oppgaver`-side fantes i alle tre Areas —
-  den ble faktisk bygget i fase 6, men SLÅTT SAMMEN inn i hver rolles `MinSide.cshtml` samme fase
-  (bugliste 2026-09-13 punkt 22, se kommentaren øverst i `Admin/Pages/MinSide.cshtml.cs`), ikke en
-  egen URL. `MinSide` ER oppgavelisten i alle tre Areas — ikke bygg en separat `/Oppgaver`-side,
-  legg nye oppgavetyper til der i stedet (se f.eks. test-tilgangsforespørsler under). Se
-  `docs/beslutningslogg.md` under "Meldinger og oppgaveliste" og "Test-tilgangsforespørsler".
-- Rapportvisningen (behandler og pasient) er nå et paginert A4-"papir"-oppsett (ett ark per
-  TestSide + forside + evt. historikk, bla med Forrige/Neste, ekte flersidig utskrift) med et fast
-  handlingssett: Godkjenn/Forkast-og-send-på-nytt før godkjenning, Kopier-til-utklippstavle/
-  Skriv-ut/Send-kopi-til-pasienten etter. Se `docs/beslutningslogg.md` under "Rapportvisning som
-  A4-'papir'".
-- **Partner System + Test Monetization** (2026-09-07, kraftig forenklet fra det opprinnelige,
-  mye større forslaget i `finance_system.docx`): `Partner`-entitet (Superadmin-opprettet, egen
-  `UserRole.Superadmin` — strengt supersett av Administrator), Superadmin-kuratert allow-list for
-  hvilke tester en partner får (`PartnerTestTilgang`), partner-admin (BEVISST ikke egen rolle, kun
-  en claim på Behandler — se `AppClaimTypes.ErPartnerAdministrator`/`PartnerId`) setter partnerens
-  egen andel per test (`PartnerTestAndel`, klemt til et Superadmin-satt gulv). Hver test har nå
-  Min/Maks-PASIENTPRIS + typisk behandler-honorar (`TestPrisberegner` beregner totalpris, se
-  `docs/beslutningslogg.md`). Betaling gater nå `Pasientportal/Tester/Fyll` reelt (Vipps/Stripe via
-  en ny `Betal`-side som gjenbruker `/BetalingTest`-mønsteret) med en finansiell snapshot
-  (`TestTildelingBetaling`) og regnskapslogg (`Pengebevegelse`). Stripe Connect-utbetaling,
-  abonnements-fakturering, partner-branding/embedding og multi-språk er ALLE eksplisitt utsatt —
-  se `docs/beslutningslogg.md` under samme overskrift for full liste over hva som IKKE er bygget.
-- **Invitasjons- og gruppesystem (2026-09-20, fase 1-2 av 5 — se docs/beslutningslogg.md):**
-  `Gruppe` er nå en egen entitet (eier = behandler, tester tilordnet ved opprettelse via
-  `GruppeTestTilordning`), IKKE lenger en fritekst-streng på `Pasient` (`Pasient.Gruppenavn` er
-  FJERNET, erstattet av `Pasient.GruppeId`). Nye sider: `Behandlerportal/Grupper` og `Admin/Grupper`
-  — BEGGE full CRUD (Admin fikk `Ny`/`Rediger` samme dag som Behandlerportal, se
-  "Admin fikk full CRUD på Grupper" i beslutningsloggen — admin velger hvilken behandler som skal
-  eie en ny gruppe, kan redigere/arkivere ENHVER gruppe, ingen eierskapssjekk). **Fase 2**:
-  QR-basert selvregistrering — behandlerens EGEN QR
-  (`Behandler.PasientInviteQrToken`) på `Behandlerportal/MinSide`, en gruppes QR (`Gruppe.QrToken`)
-  på `Behandlerportal/Grupper/Rediger/{id}` (automatisk testutsending ved gruppeinnmelding). Ny
-  offentlig side `Pages/BliPasient` (`/BliPasient/{b|g}/{token}`) — lagt til `StagingGate`-unntak
-  for denne stien, ELLERS ville QR-funksjonen vært virkningsløs på live/beta (se beslutningsloggen
-  for hvorfor, og et beslektet, IKKE ennå rettet funn om andre eksisterende offentlige sider).
-  **Oppfølging samme dag:** en pasient som melder seg inn i en gruppe MED tilordnede tester logges
-  nå rett inn og sendes DIREKTE til utfylling (`Pasientportal/Tester/Fyll`) etter registrering, i
-  stedet for å måtte vente på SMS/e-post-lenken — se "Invitasjons- og gruppesystem, fase 2" i
-  beslutningsloggen for detaljer og unntak (behandler-QR uten gruppe / gruppe uten tester viser
-  fortsatt kun bekreftelsessiden). **Enda en oppfølging samme dag:** selve `BliPasient`-skjemaet
-  forenklet til KUN mobilnr/e-post (minst én av dem) + valgfritt personnummer — navn/kjønn/adresse/
-  Vipps-samtykke er flyttet til en ny, valgfri "fullfør profilen din"-side
-  (`PasientRegistrering/FullforProfil/{token}`, IKKE et engangstoken), lenket fra en SMS/e-post sendt
-  rett etter registrering. Personnummer værende blankt er BEVISST — det er skillet mellom "prøv
-  systemet" og en fullverdig pasient. Se "Forenklet QR-registrering" i beslutningsloggen for
-  detaljer og en reell modellbindings-bug som ble fanget og fikset underveis.
-  **Fase 3 (2026-09-21):** en "prøv systemet"-pasient (intet personnummer) som fullfører en test får
-  rapporten sin AUTOMATISK godkjent og vist umiddelbart — ALDRI en godkjenningsforespørsel til
-  behandler (`TestService.LagreSvarAsync`). "Slett prøvedata"-knapp på BÅDE `Behandlerportal/
-  Grupper/Rediger` og `Admin/Grupper/Rediger` sletter permanent alle slike pasienter (+ deres
-  tildelinger/svar/betalinger) i en gruppe. **Fase 4 (2026-09-21):** aggregert rapport
-  (`Grupper/Aggregert/{id}`, begge Areas) på tvers av en gruppes besvarelser — ÉN generisk visning
-  for alle tester (N, gjennomsnitt/median prosentskår, kategorisk fordeling via
-  `TestSkaaringIndikator`), med to modus (prøvedata = alt, ekte pasienter = Fra/Til-periode).
-  **Fase 5 (2026-09-21):** verifisering av betalingsgaten for gruppetildelte tester avdekket et
-  reelt hull — en prøvepasient (intet personnummer) med en PRISET test ville blitt sendt til Vipps/
-  Stripe FØR de fikk prøve testen, i strid med selve "prøv før du betaler"-premisset. Fikset i
-  `TestTildelingsService.TildelOgVarsleAsync`: prisen tvinges til 0/`IkkePakrevd` for enhver pasient
-  uten personnummer, uansett testens faktiske pris — en ekte pasient er helt uendret. Se
-  "Fase 4: aggregert rapportering + fase 5" i beslutningsloggen for full verifisering. Alle tre
-  faser deployet til BÅDE beta og live samme dag som bygget, etter lokal Playwright-verifisering
-  (brukerens eksplisitte instruks denne runden, i motsetning til forrige runde).
-- **Ni brukerfeilrettinger (2026-09-21):** en "Fullfør profilen din"-knapp på `Pasientportal/
-  MinSide` (viser lenken til `PasientRegistrering/FullforProfil/{token}` direkte i UI-et, ikke bare
-  via utsendt SMS/e-post). `Behandlerportal/MinSide` sin testliste er nå tre faner ("Venter på
-  godkjenning"/"Ikke besvart"/"Godkjente") over ÉN tabell med ett søkefelt som filtrerer alle tre
-  samtidig (`wwwroot/js/faner.js`, generisk — samme skript brukt på Grupper sine Aktive/Arkivert-
-  faner), pluss en slett-knapp på ikke-besvarte tildelinger (`TestService.
-  SlettIkkeFullfortTildelingAsync`). `Gruppe` fikk rene informasjonsfelt `StartDato`/`SluttDato`;
-  begge Grupper/Index-sidene fikk Opprettet/Start/Slutt-kolonner, ikonbaserte Rediger/Arkiver-
-  knapper, og en egen Arkivert-fane med Gjenopprett/Slett (sistnevnte med `confirm()`-dialog —
-  `GruppeService.SlettGruppeAsync` tillater KUN hard-sletting av allerede arkiverte grupper).
-  `Behandlerportal/Pasienter/Rediger` fikk en opprettelsesdato og en "Påminn fullføring"-knapp
-  (`PasientInvitasjonService.PaaminnFullforingAsync`) for pasienter med ufullstendig profil. En ny
-  test-infoboks (`wwwroot/js/testinfo.js`) viser introduksjon/estimert tid (utledet automatisk fra
-  faktisk `TestLedd`-antall, ikke et manuelt felt)/prising ved siden av kategori-treet på alle seks
-  steder en test velges (Behandlerportal+Admin × Tildel/Tester, Grupper/Ny, Grupper/Rediger) — en
-  reell CSS-flexbox-bug (feil flex-basis fikk boksen til alltid å bryte under treet på smalere
-  sider) ble funnet og rettet under verifisering. Se "Ni brukerfeilrettinger" i beslutningsloggen.
-- **Gruppe-rapportgenerator (2026-09-22):** "Generer Temp/Ekte Gruppe Rapport"-knapper på
-  `Grupper/Rediger` (begge Areas) åpner en popup — radioknapp-velg ÉN av gruppens tilordnede tester
-  + et datointervall (forhåndsutfylt fra tidligste tildelingsdato) — og genererer umiddelbart en
-  navngitt enkelttest-rapport (N/gjennomsnitt/median/standardavvik + et SVG-spredningsplott) via en
-  UTVIDELSE av den eksisterende `GruppeService.HentAggregatAsync`/`Grupper/Aggregert`-funksjonen fra
-  fase 4 (nytt `testId`-query-parameter-modus), IKKE et nytt lagret rapport-subsystem — ingen ny
-  migrasjon. Se "Gruppe-rapportgenerator" i beslutningsloggen for en reell kurskorrigering underveis
-  (startet feilaktig med å bygge nye DB-tabeller før brukeren pekte på at aggregeringen allerede
-  fantes) og en Razor `<text>`-tag-fallgruve som ble funnet og løst med `Html.Raw`.
-- **Feiltolerant varsling ved QR-registrering (2026-09-22):** en kapasitetsgjennomgang FØR et
-  planlagt foredrag (50–100 samtidige QR-registreringer) avdekket at hver registrering utløste
-  opptil fire sekvensielle, UBESKYTTEDE eksterne API-kall (Vonage SMS + Azure Communication
-  Services e-post, to ganger) — en feilende/strupet leverandør under en brå brukertopp kunne velte
-  HELE registreringsforespørselen med en feilmelding til deltakeren, selv om pasienten og
-  testtildelingen allerede var lagret. Fikset: `PasientInvitasjonService.
-  SendFullforProfilLenkeAsync` og `TestTildelingsService.VarsleAsync` pakker nå hvert
-  utsendingsforsøk i try/catch (logges, aldri kastet videre) — se "Feiltolerant varsling ved
-  QR-registrering" i beslutningsloggen for full analyse og et forslag til en automatisert
-  lasttest-plan (samme dato) før noe slikt kjøres skarpt igjen.
-- **Lasttest mot beta + optimalisering (2026-09-22, samme dag):** en k6-lasttest med en REALISTISK
-  front-tung ankomstkurve (ikke bare "alle samtidig") viste at ~1000 konferansedeltakere over
-  2-5 minutter kollapser HELE App Service-en (Basic B1, én kjerne — 51-59 sekunders snitt-
-  responstid, nesten null fullførte besvarelser), IKKE bare databasen. Fire kodeoptimaliseringer
-  ble deretter implementert og retestet (kortlevd `IMemoryCache` for QR-token-oppslag og
-  test-struktur, fjernet en duplikat `Behandler`-spørring, hevet MySQL sin `max_connections`
-  171→250 + appens `Maximum Pool Size` 100→200, begge nå Bicep-forvaltet) — Azure-metrikker viste
-  at MySQL ALDRI var nær en flaskehals i noen av kjøringene (CPU <11 %), og optimaliseringene
-  gjorde derfor INGEN målbar forskjell på 1000-scenarioet (fortsatt tilnærmet null fullføringer).
-  Beholdt likevel — reell nytte ved mer moderat, vedvarende last. Se "Lasttest mot beta, del 2" og
-  "Optimalisering før skalering" i beslutningsloggen for full metodikk, tall og en ærlig
-  forklaring på HVORFOR kode-optimalisering ikke kan løse en ren CPU-kjerne-flaskehals.
-- **Lasttest mot beta, del 3 — App Service-SKU er nå parameterisert, "Standard S1" var feil
-  neste steg (2026-09-22, samme dag):** `infra/resources.bicep`/`main.bicep` fikk fire nye
-  azd-miljøvariabel-styrte parametere (`APP_SERVICE_SKU_NAME`/`_TIER`, `MYSQL_SKU_NAME`/`_TIER`,
-  default dagens verdier) slik at fremtidig opp-/nedskalering for lasttesting er ren
-  `azd env set` + `azd provision`, ikke en kodeendring. Beta ble skalert til Standard S1 +
-  MySQL Burstable B2s og retestet med samme 1000-deltakere-scenario — resultatet ble MERKBART
-  DÅRLIGERE enn før (27,9 % bestått, kun 1 fullført besvarelse), fordi **Basic B1 og Standard S1
-  har IDENTISK maskinvare (1 vCPU/1,75 GB) — Standard gir kun ekstra funksjoner, aldri flere
-  kjerner.** Azure-metrikker bekreftet CPU IKKE var mettet noe sted (App Service <16 %, MySQL
-  <7 %), men tråd-/responstidsoppbygging (86 tråder, 48,8s snitt) pekte fortsatt mot
-  trådpool-/tilkoblings-kø, ikke rå CPU. Live ble ALDRI rørt; beta satt tilbake til B1/Basic +
-  Standard_B1ms/Burstable samme dag. Neste eksperiment-verdige tier er `S2` (2 vCPU/3,5 GB), ikke
-  `S1` — se "Lasttest mot beta, del 3" i beslutningsloggen for full metodikk og Azure-metrikk-tall.
-- **Lasttest mot beta, del 4 — Standard S2 er et reelt gjennombrudd (2026-09-22, samme dag):**
-  App Service alene satt til `S2` (2 vCPU/3,5 GB, MySQL bevisst holdt på `Standard_B1ms` for å
-  isolere variabelen) og retestet mot samme ~1000-deltakere-scenario: 473 fullførte besvarelser
-  (mot 1 på S1, ~0 på opprinnelig B1), 82,4 % sjekker bestått (mot 27,9 %), snitt responstid 13,2s
-  (mot 31,9s). App Service `CpuTime` viste nå faktisk 2-kjerners bruk (~50 % samlet utnyttelse) i
-  stedet for kø-oppbygging. **Den NYE flaskehalsen: MySQL `active_connections` toppet på 222 av det
-  hevede taket på 250** — App Service-siden er ikke lenger den begrensende faktoren, databasen
-  (fortsatt B1ms) er det. Naturlig neste steg: `S2` + `Standard_B2s` SAMTIDIG. Beta satt tilbake
-  til B1/Basic samme dag, live ALDRI rørt. Se "Lasttest mot beta, del 4" i beslutningsloggen for
-  full sammenligningstabell og Azure-metrikk-tall.
-- **Lasttest mot beta, del 5 — S2+B2s reproduserbart dårligere, LIVE skalert til S2 alene for
-  ekte konferanse 2026-09-23 (2026-09-22, samme dag):** `S2`+`Standard_B2s` SAMMEN ble testet på
-  beta TO ganger (rett etter provisjonering OG etter 4 min oppvarming) — BEGGE ganger
-  reproduserbart DÅRLIGERE enn `S2` alene (3-15 fullførte besvarelser mot 473, 28-33 % sjekker
-  bestått mot 82 %). MySQL var ikke flaskehalsen i noen av kjøringene; årsaken på App
-  Service-siden er UAVKLART (Azure Monitor nektet å levere CpuTime/Threads-metrikker for én
-  kjøring — mistenkelig, ikke fulgt opp pga. tidspress). **LIVE (`testbase-test`) er derfor
-  skalert til `S2` ALENE (MySQL uendret `Standard_B1ms`) for den faktiske konferansen 23. sep
-  2026 kl. 11:50-13:00** — den eneste konfigurasjonen med konsistent gode resultater. En
-  session-only CronCreate-jobb (23. sep ~13:17 norsk tid, IKKE garantert å overleve til da) skal
-  hente ekte konferanse-metrikker, dokumentere dem, og skalere live tilbake til B1/Basic
-  etterpå — brukeren bedt om å uansett sjekke inn etter kl. 13:00. Se "Lasttest mot beta, del 5"
-  i beslutningsloggen.
-- **STØ avviste ekte BankID sin fødselsnummer-bestilling — løsning: dropp NNIN-scope
-  (2026-09-22, samme dag):** GGPsykolog AS sin BankID-bestilling ble avvist av reselgeren Stø AS
-  siden foretaket ikke er "helseforetak"/dokumentert databehandler. Undersøkt mot BankID sin
-  offentlige OIDC-dokumentasjon: kun `nnin`/`nnin_altsub`-scopene (faktisk UTLEVERING av
-  fødselsnummer) krever slik "legal basis" — `openid`+`profile` er ubetinget tilgjengelig for
-  enhver klient. Besluttet retning (brukerens valg): fremtidig
-  `Miljo:EktBankIdProfesjonell`-integrasjon skal KUN be om `openid`+`profile`, ALDRI
-  `nnin`/`nnin_altsub` — BankID blir en ren autentiseringslager oppå det personnummeret brukeren
-  ALLEREDE har oppgitt selv ved egenregistrering (som allerede lagres kryptert), ikke en
-  oppslagskilde. Krever en arkitekturendring i `AdminAuthenticationService`/
-  `BehandlerAuthenticationService` sin personnummer-basert matching — IKKE implementert ennå.
-  Brukeren reapplyer PARALLELT for `nnin_altsub` hos Stø uansett. Gjelder KUN admin/behandler —
-  pasient er alltid mock BankID, urelatert til konferansen. IKKE juridisk rådgivning, bør
-  kvalitetssikres av DPO/jurist. Se "STØ avviste fødselsnummer-bestilling" i beslutningsloggen.
-- **Etter konferansen (2026-09-23): konferansegruppen kunne IKKE identifiseres, live skalert ned
-  uansett — VIKTIG SIKKERHETSFUNN:** den planlagte oppfølgingsjobben fant INGEN gruppe som matcher
-  dagens WHO-5-konferanse i `Admin/Grupper` på live — kun én eksisterende gruppe ("Test Gruppe",
-  opprettet 2026-09-20, tre dager FØR konferansen, med et pengespillavhengighet-screeningverktøy
-  tilordnet, ikke WHO-5). MySQL-metrikker for konferansevinduet viser praktisk talt INGEN aktivitet
-  utover idle-grunnlinje. **`Admin/Pasienter` avdekket at store deler av "Test Gruppe" sine 43
-  pasienter har det som ser ut som EKTE navn/e-post/(i minst ett tilfelle) et gyldig-utseende
-  personnummer — IKKE syntetisk testdata.** Disse radene er BEVISST IKKE rørt/slettet/undersøkt
-  videre, og verken navn, e-post eller personnummer er gjengitt i noen kildekontrollert fil. Live
-  ble likevel skalert trygt tilbake til `B1`/`Basic` (rent reversibelt, uavhengig av
-  gruppe-usikkerheten). Avventer brukerens avklaring om hvilken gruppe/mekanisme konferansen
-  faktisk brukte, og hva "Test Gruppe" faktisk er. Se "Etter konferansen" i beslutningsloggen.
-  **Oppdatering samme dag: brukeren bekreftet "Test Gruppe" ER konferansegruppen** (GADIT-testen og
-  09-20-datoen var altså bevisste, ikke tegn på feil gruppe) — og rapporterte deretter en reell
-  500-feil ved rapportgenerering. Rotårsak: `GaditSkaaringsberegner` antok en FAST POSISJON i
-  svar-listen (ledd 0-5 = frekvens, 6-7 = Ja/Nei), men `TestService.LagreSvarAsync` hopper stille
-  over ubesvarte felt UTEN å hindre "Fullfort" — én pasient som droppet ett frekvensspørsmål fikk
-  dermed et Ja/Nei-svar til å lande på en posisjon koden ventet tall, og `int.Parse` kastet.
-  **Samme posisjonsbaserte mønster finnes i `Phq9Skaaringsberegner`** (`svar.Take(9)` for å
-  ekskludere funksjonsspørsmålet) — der ville det IKKE krasje (alle 10 PHQ-9-ledd er numeriske) men
-  STILLE gi feil depresjons-sumskår, ikke undersøkt/fikset ennå. Fikset kun for GADIT: klassifiserer
-  nå hvert svar etter EGEN VERDI (tall vs. "Ja"/"Nei"), ikke posisjon — robust uavhengig av hvilke
-  ledd som faktisk ble besvart. Ny regresjonstest lagt til, deployet med `azd deploy` (ren
-  kodeendring), verifisert ende-til-ende i nettleser på selve den virkelige konferansedataen (34
-  prøvedata-deltakere + 1 ekte pasient, ingen krasj). Se "Reell 500-feil i GADIT-skåring" i
-  beslutningsloggen — inkl. en åpen oppfølgingsoppgave om å sjekke andre skåringsklasser for samme
-  sårbarhetsmønster.
-- **Tre konferanse-feedback-punkter (2026-09-23, samme dag):** (1) "Lagre"-knappen på
-  `Pasientportal/Tester/Fyll` FJERNET — forvirret deltakere til å tro testen var levert; reelt
-  overflødig siden Neste/Ferdig alltid lagrer gjeldende side uansett. (2) Personnummer FJERNET fra
-  `BliPasient` (steg 1) — utelukkende samlet inn i `PasientRegistrering/FullforProfil` (steg 2,
-  allerede eksisterende) nå. (3) NY generell mekanisme: `Test.MaksUbesvartProsent` (gyldighetsgrense)
-  + `TestLedd.NormertGjennomsnitt` (imputering av ubesvarte ledd) — `TestSkaaring.GyldighetsAdvarsel`
-  vises som advarsel i behandlers rapport (+ en mildere variant til pasienten på "Ferdig!"-siden),
-  ALDRI en sperre for innsending. BEVISST SOVENDE for alle eksisterende tester (begge felt null) —
-  ingen oppdiktede normeringstall lagt inn, kun ekte, sitert litteratur duger. Se "Tre
-  brukerfeedback-punkter fra selve konferansen" i beslutningsloggen for full arkitektur og hvordan
-  fylle inn ekte tall for én test når/hvis normeringsdata skaffes.
-- **Grupperapportens "Spredning" byttet fra tidslinje til histogram (2026-09-23, samme dag):**
-  `Grupper/Aggregert` (begge Areas) sin spredningsgraf viste tidligere prosentskår KRONOLOGISK —
-  byttet til et ekte histogram: 10 %-brede bøtter over 0-100 %, søylehøyde = antall deltakere i
-  bøtta. `ScatterPunkt`→`HistogramSoyle`, ny `BeregnHistogram` (bøtter via `verdi / 10`, klemt
-  [0,9], siste bøtte dekker 90-100). Kun visningslaget endret — `GruppeService`/`ProsentDatapunkt`
-  urørt. Se "Grupperapportens 'Spredning' byttet fra tidslinje til histogram" i beslutningsloggen.
-- **Histogrammet byttet fra alltid-prosent til råskår-som-standard + cutoff-linjer (2026-09-23,
-  samme dag):** de fleste standardiserte tester publiserer sin kliniske grenseverdi i RÅSKÅR (GADIT
-  ≥5 av 8, PHQ-9 5/10/15/20 av 27), ikke prosent — å alltid konvertere skjulte de klinisk
-  meningsfulle tallene, bevisst IKKE valgt selv om det hadde gjort koden enklere. Ny valgfri
-  `ITestSkaaringsberegner`-konfigurasjon (default interface members, INGEN av de ~17 eksisterende
-  beregnerne trengte kodeendring): `VisSomProsentIHistogram` (kun `true` for Who5/Who5Vas — deres
-  EGEN offisielle rapporteringskonvensjon) og `Histogramgrenser` (populert fra allerede EKSISTERENDE
-  cutoff-konstanter i Gadit/Ipds/TrapsI/Wurs/RaadsR/Phq9/MadrsS/Who5/Who5Vas — ingen ny klinisk data
-  oppfunnet). `BeregnHistogram` generalisert til enhver skala (`bucketBredde = ⌈skalaMaks/10⌉`, så
-  en liten råskala som GADITs 0-8 IKKE tvinges til 10 kunstig smale bøtter), cutoff-linjer tegnes
-  presist (verdibasert X, ikke bøtte-indeksbasert). Verifisert i nettleser mot ekte lokal GADIT-data:
-  oversikt viser "2,5 / 8" (råskår), enkelttest-histogram viser råskår-bøtter + stiplet
-  "Grenseverdi"-linje presist ved verdi 5. Underveis funnet og fikset en NY, tidligere
-  udokumentert Razor-fallgruve (bokstav-rett-før-`@variabel` renderer bokstavelig i stedet for å
-  interpolere — se fallgruve-listen under). Se "Histogrammet byttet fra alltid-prosent til
-  råskår-som-standard" i beslutningsloggen. Samme kjente PHQ-9-posisjonssårbarhet fortsatt IKKE
-  fikset, kun re-flagget.
-- **Reell 500-feil ved admin/behandler-innlogging: 2FA-SMS krasjet hele innloggingen (2026-09-24):**
-  `ToFaktorService.StartAsync` kalte `ISmsSender.SendAsync` UBESKYTTET — Vonage-kontoen har for
-  øyeblikket lav saldo (`402 Payment Required`), så ETHVERT innloggingsforsøk som når 2FA-steget
-  (gyldig admin/behandler-personnummer, ingen betrodd enhet fra før) kastet en ufanget
-  `HttpRequestException` helt til en `500`-side — reelt LIVE innloggingsstopp, reprodusert og
-  bekreftet med `curl` + `az webapp log tail` (samme metode som GADIT-krasjen dagen før). Fikset:
-  SMS-utsendingen er nå i try/catch (`ToFaktorStartResultat(Kode, SendtSms)`), 2FA-koden opprettes
-  og er gyldig UANSETT, men `Pages/Konto/BekreftKode.cshtml` viser nå en ærlig advarselsboks når
-  SMS-leveringen feilet i stedet for å late som den lyktes — 2FA er essensielt for innlogging (i
-  motsetning til en fire-and-forget-varsling), så dette er IKKE samme "svelg stille"-mønster som
-  "Feiltolerant varsling ved QR-registrering" (2026-09-22), som forøvrig aldri dekket denne
-  kodestien. Selve Vonage-saldoen er et SEPARAT, ufikset driftsproblem (fakturering, ikke kode) —
-  advarselsboksen vil fortsette å vises til kontoen fylles på. Deployet til BÅDE live og beta samme
-  dag. Se "Reell 500-feil ved admin/behandler-innlogging" i beslutningsloggen.
-- **Fire UI-forbedringer på tildelingsflyten + pasientlister (2026-09-24, samme dag):** gruppe­
-  rapport-popupens "Generer"-knapp gråes ut + endrer tekst mens den genererer (kun ett
-  `data-disable-on-submit`-attributt, gjenbrukt eksisterende mekanisme); ny "Tildel tester"-
-  ikonknapp per rad på `Behandlerportal/Pasienter/Index` som hopper RETT til steg 2 av
-  tildelingsflyten for akkurat den pasienten (`?forhaandsvalgtId=`); søkefilter på testvalget
-  (`Tildel/Tester`, ny `testtre-filter.js`) og på pasientvalget (`Tildel/Pasienter`, gjenbrukt
-  `tabellfilter.js`) i BEGGE Areas; Aktiv/Arkivert-faner (samme `faner.js`-mønster som
-  `Grupper/Index`) på BÅDE `Behandlerportal/Pasienter/Index` og `Admin/Pasienter/Index`. Se
-  "Fire UI-forbedringer på tildelingsflyten + pasientlister" i beslutningsloggen.
-- **Natt-økt (2026-09-24/25, pågående over flere økter): stor batch nye innebygde tester,
-  autonomt uten å vente på brukerens tilbakemelding** — se docs/beslutningslogg.md "Natt-økt:
-  seks nye innebygde tester..." (og senere seksjoner samme natt/påfølgende dager) for full,
-  løpende status. Ny, generell arkitekturfiks først: `ITestSkaaringsberegnerMedLedd` (valgfri
-  utvidelse av `ITestSkaaringsberegner`, ingen eksisterende beregner endret) gir en
-  skåringsberegner ekte `TestLedd.Id`-oppslag mot ALLE testens ledd — nødvendig for enhver ny test
-  med FLERE delskalaer der alle ledd deler samme Likert-skala (samme rotårsak-klasse som
-  GADIT-krasjen 2026-09-23, men verdibasert klassifisering virker ikke der). Samtidig fikset:
-  `TestService.HentSkaaringHistorikkAsync` kalte skåringsberegneren direkte uten å sjekke dette
-  nye grensesnittet (ville krasjet "utvikling over tid"-grafen for enhver MedLedd-basert test).
-  Første seks tester ferdig: ASRS, AUDIT, DUDIT, SCL-25, BSQ-14, SDQ-20 — alle patient-
-  selvutfylte, INGEN skjemaendring. Norsk oversettelse er EGENFORFATTET for samtlige (ikke hentet
-  fra en sitert offisiell kilde) — eksplisitt flagget i hver seeder, bør kvalitetssikres før reell
-  klinisk bruk, i tråd med brukerens eget "det blir feil i første forsøk uansett". Gjenstår:
-  YGTSS-R, MADRS klinikkversjon, EDE-Q, CORE×3, SIPP-118, SCID-5-PF, TRAPS-II, Mini-Screen 6
-  (usikker lisens), HCR-20 V3 (lisensiert forensisk risikovurderingsverktøy — bør IKKE bygges med
-  oppdiktet reelt iteminnhold, se beslutningsloggen når/hvis den seksjonen er skrevet) — pluss en
-  planlagt "test fylles ut av behandler, ikke pasient"-mekanisme som trengs for tre av disse. En
-  session-only `CronCreate`-jobb (hver time, utløper etter 7 dager) satt opp for å fortsette
-  arbeidet automatisk — INGEN garanti mot at en helt ny økt må startes manuelt hvis selve
-  CLI-prosessen faktisk avsluttes, se beslutningsloggen. **Del 2 (samme natt):** EDE-Q og TRAPS II
-  også ferdig — begge OMSKREVNE/PARAFRASERTE gjengivelser av opphavsrettslig beskyttede
-  instrumenter (Fairburn & Beglins EDE-Q, og en uverifisert NKVTS "TRAPS II"-sammenstilling av
-  SLESQ-R + samme innhold som den allerede innebygde ITQ-testen), IKKE verbatim kopier — flagget
-  tydelig i hver seeder. En reell bug ble funnet OG FIKSET FØR commit (fanget av en ny enhetstest):
-  `TrapsIiSkaaringsberegner` sitt første utkast parset ALLE svar som tall, men Del 1 sine JaNei-ledd
-  er ikke tall — `FormatException` umiddelbart. Samtidig oppdaget, IKKE fikset: den allerede
-  eksisterende, frittstående `ItqSkaaringsberegner` bruker fortsatt ren listeposisjon (`svar[index]`)
-  for PTSD/DSO-klassifisering — SAMME sårbarhetsklasse som GADIT-krasjen — re-flagget sammen med
-  PHQ-9s tilsvarende kjente sårbarhet for en fremtidig opprydningsrunde. **Del 3 (samme natt):**
-  CORE-10 (kortversjon av CORE-OM, CORE System Trust) også ferdig — reverse-skårer ledd 1/5,
-  flagger ledd 3/10 (selvskading/"livet ikke verdt å leve") separat, `ITestSkaaringsberegnerMedLedd`.
-  **Del 4 (samme natt, cron-jobben fortsatte automatisk):** CORE-OM (full 34-ledds versjon, 4
-  domener, 10 reverse-skårte ledd) og CORE-A (frittstående 8-ledds risikoscreening — brukerens
-  forkortelse tolket som et supplement til CORE-OMs risikodomene, IKKE et navngitt offisielt
-  dokument) også ferdig. CORE-A er BEVISST IKKE et sumskår-verktøy — risiko for seg selv/andre
-  flagges som egne indikatorer uansett totalskår, verifisert ende-til-ende i nettleser (en
-  besvarelse med 6 % totalskår viste likevel korrekt "Flagget" for risiko for andre). Gjenstår
-  fortsatt: SIPP-118, YGTSS-R, MADRS klinikkversjon, SCID-5-PF (de tre siste krever "behandler
-  fyller ut"-mekanismen), Mini-Screen 6 og HCR-20 V3 (lisensfølsomme). **Del 5 (samme natt):**
-  "SIPP-118" (`sipp118`) er BEVISST en kraftig redusert egen tilpasning (30 ledd, kun de 5 kjente
-  overordnede domenene), IKKE en gjengivelse av det ekte 118-ledds/16-fasetts instrumentet — vi
-  hadde ikke sikker nok kildetilgang til å gjengi de 16 fasettene korrekt, og valgte å være
-  eksplisitt om begrensningen (testnavnet sier selv "forenklet, inspirert av") fremfor å gjette med
-  falsk selvsikkerhet. Høyere skår = bedre funksjon (motsatt konvensjon av symptommål), reverse-
-  skårer maladaptive ledd men et hoppet-over maladaptivt ledd teller 0 (ikke falsk maks 5) —
-  verifisert med regresjonstest. **Del 6 (samme natt):** "behandler fyller ut"-mekanismen bygget —
-  `Test.FyllesUtAvBehandler` + `TestSvar.BehandlerKommentar` (ny migrasjon), en ny side
-  `Behandlerportal/Pasienter/FyllForPasient/{id}/{side?}` (samme side-for-side-mønster som
-  pasientens `Tester/Fyll`, men eierskapssjekk mot behandlers egne pasienter, ingen betalingsgate,
-  én kommentarboks per ledd). `TestTildelingsService.TildelOgVarsleAsync` gir en slik test verken
-  pris eller pasientvarsel — den havner i stedet i en ny `BehandlerOppgave`-liste vist i begge
-  Tildel/Tester.cshtml-resultatsidene, og som en "Fyll ut"-lenke i `MinSide` sin "Ikke besvart"-fane.
-  Kommentarer vises nå i BEGGE Areas' rapportvisning (inkl. Behandlerportals utklippstavle-mal)
-  rett under spørsmålet. Første test på denne mekanismen: YGTSS-R (Leckman et al. 1989,
-  tic-alvorlighet, `ITestSkaaringsberegnerMedLedd` siden sjekklisten kan ha ulikt antall avkryssede
-  ledd) — verifisert FULLT ende-til-ende i nettleser (tildeling → ingen pasientvarsel vist → utfylt
-  av behandler m/ kommentar → rapport viste korrekt 60/100 og kommentaren riktig plassert). **Del 7
-  (samme natt):** MADRS klinikkversjon (`madrs_klinikk`) — den kliniker-administrerte originalen,
-  til forskjell fra den innebygde selvutfyllingsversjonen MADRS-S. 10 ledd (mot MADRS-S sine 9,
-  siden "tilsynelatende tungsinn" og "rapportert tungsinn" er separate ledd her), samme 0-6-skala
-  (0-60 totalt). Andre test på "behandler fyller ut"-mekanismen — INGEN ny sideinfrastruktur
-  trengtes, `FyllForPasient` er allerede fullt generisk. Selvmordsledd (ledd 10) flagges separat
-  uavhengig av totalskår, identifisert via ekte TestLeddId (`ITestSkaaringsberegnerMedLedd`).
-  Verifisert FULLT ende-til-ende i nettleser: 38/60 "alvorlig deprimert" + selvmordsflagg korrekt
-  vist, kommentar korrekt plassert i rapporten. **Del 8 (samme natt):** SCID-5-PF (`scid5_pf`) — den
-  mest komplekse testen bygget i natt: kliniker-administrert screening for alle 10 DSM-5
-  personlighetsforstyrrelser (81 ledd, egne parafraserte kriterier per forstyrrelse — IKKE sitert
-  fra DSM-5 eller det lisensierte SCID-5-PD-intervjuet, se seeder-XML-doc for fullt forbehold),
-  bevisst et "første forsøk" brukeren selv ba om. Antisosial personlighetsforstyrrelse har to
-  portvakt-Ja/Nei-ledd (atferdsforstyrrelse <15 år, alder ≥18) som MÅ begge være "Ja" uansett antall
-  oppfylte kriterier. `Scid5PfSkaaringsberegner` grupperer ledd etter TestSideId, sortert etter
-  LAVESTE TestLeddId per gruppe (en strengere robusthetsstandard enn tidligere i natt — stoler ikke
-  på Rekkefolge-sortering på tvers av sider). Verifisert ende-til-ende med et scenario spesifikt
-  designet for å bevise portvakt-logikken: Antisosial 7/7 kriterier oppfylt men portvakt "alder≥18"=
-  Nei → korrekt IKKE diagnostisert, mens Borderline 5/9 (nøyaktig terskel) korrekt ble det. **Del 9
-  (samme natt, avslutning):** Mini-Screen 6 og HCR-20 V3 opprinnelig IKKE bygget, kun dokumentert —
-  **rettet 2026-09-26** etter at brukeren selv avklarte lisensspørsmålet for begge (se
-  beslutningsloggen "HCR-20 V3 og M.I.N.I. bygget likevel"): HCR-20 V3 sitt faktiske arbeidsskjema
-  (item-navn/struktur/vurderingsskala) er GRATIS fra SIFER (Helse Bergen) — kun brukermanualen
-  (kr. 250,- per bruker) koster noe, og det er opp til hver kliniker selv. `hcr20_v3` bygget med de
-  EKTE offisielle 20 faktornavnene/Tilstede-Relevans-skalaen fra SIFERs frie PDF, men IKKE de
-  betalte kodingskriteriene. BEVISST IKKE et sumskår-verktøy (som CORE-A) — Trinn 7 sin
-  Lav/Moderat/Høy-konklusjon er klinikerens EGEN vurdering, aldri utledet fra faktor-tellingen;
-  verifisert med et scenario der 10/10 faktorer var Høy relevans men klinikeren likevel konkluderte
-  Lav — rapporten viste korrekt klinikerens konklusjon, ikke en avledet "høy risiko". For M.I.N.I.:
-  rettighetshaver ba om å SE systemet før lisensavtale, så `mini_strukturdemo` bygget som et rent
-  UI/UX-eksempel — 10 offentlig kjente modulnavn, men HELT EGNE generiske spørsmål (IKKE M.I.N.I.
-  sitt faktiske, lisensierte innhold eller gren-/hoppelogikk), testnavnet sier selv
-  "(IKKE lisensiert innhold)". Begge på "behandler fyller ut"-mekanismen, verifisert ende-til-ende.
-- **Reell 500-krasj rettet: EDE-Q (og potensielt ethvert fler-sides test) (2026-09-26/27):**
-  `TestService.HentTestStrukturAsync` sorterte ledd KUN på `Rekkefolge` (nullstilles per side) —
-  for en test med FLERE sider (EDE-Q: 3 sider) ga MySQL ingen garanti om at ledd fra ulike sider med
-  SAMME Rekkefolge-verdi ble holdt sammen. EDE-Q sine 5 ikke-skårede fritekstledd havnet dermed
-  innimellom de skårede leddene, fikk `EdeqSkaaringsberegner` sin posisjonsbaserte delskala-
-  inndeling til å plukke opp et fritekst-svar som tallverdi → `FormatException` ved rapportvisning/
-  godkjenning på LIVE (reprodusert og fikset direkte der). Fikset ved å eksplisitt sortere på
-  `(side.Rekkefolge, ledd.Rekkefolge)` — samme prinsipp `BeregnSkaaringAsync` allerede fulgte riktig.
-  Dekker `HentTildelingMedInnholdAsync` OG `HentSkaaringHistorikkAsync` samtidig — potensielt
-  relevant for CORE-OM/SIPP-118-inspirert/TRAPS II/YGTSS-R også (alle fler-sides), som kun unngikk
-  krasj ved tilfeldig MySQL-radrekkefølge, ikke ved design. CORE-A viste seg IKKE berørt (én side).
-  Se docs/beslutningslogg.md "Natt-økt, del 10" for full analyse — starten på en stor
-  brukerfeedback-runde med mange gjenstående UI/rapport-fikser.
-- **Reelt sikkerhetshull rettet: pasient kunne fylle ut SCID-5-PF (2026-09-26/27):**
-  `Pasientportal/Tester/Fyll.cshtml.cs` sjekket KUN eierskap, aldri `Test.FyllesUtAvBehandler` —
-  en pasient med riktig tildeling-ID kunne fylle ut en klinikertest. Fikset med en eksplisitt
-  `NotFound()`-sperre i BEGGE handlere (selve sikkerhetsgrensen), pluss en ny
-  `TestService.HentPasientSynligeTildelingerAsync` (ekskluderer FyllesUtAvBehandler) brukt i
-  `Pasientportal/MinSide`, "neste test"-navigasjonen, og `_Layout` sin badge-teller (UX-supplement,
-  ikke selve grensen — `Behandlerportal/Pasienter/Detaljer` bruker fortsatt den ufiltrerte listen
-  med vilje). Samtidig fikset "Ferdigstill og videre til {testnavn}"/"Ferdigstill og tilbake til
-  Min Side"-knappene (proper `btn-accent`, samme rad, dynamisk testnavn, riktig "Min Side"-
-  kapitalisering) — se docs/beslutningslogg.md "Natt-økt, del 11/12" for full verifisering.
-- **Kommentarfelt-UX for alle klinikertester + SCID-5-PF strukturfikser (2026-09-27):**
-  `FyllForPasient.cshtml` (delt av alle 5 behandler-utfylte tester) fikk auto-voksende
-  kommentarfelt (`wwwroot/js/autogrow.js`, native `resize: vertical` for PC-drahåndtak) og en ny
-  "Veiledning"-boks til høyre per ledd (viser `TestLedd.Instruksjon`, fremheves ved fokus på
-  kommentarfeltet). Ny BEVISST destruktiv `TestService.SlettTestHeltForRegenereringAsync` — kun for
-  tester under aktiv strukturell iterasjon, IKKE for tester med ekte pasientdata — brukt til å
-  regenerere SCID-5-PF med: riktig SCID-5-PD-modulrekkefølge (Antisosial SIST, ikke fjerde som
-  første versjon hadde), tallprefiks i skala-teksten ("0. Fraværende" osv.), og et eget
-  eksempel/veiledning-notat per kriterium (alle 79). Se docs/beslutningslogg.md "Natt-økt, del 13".
-- **M.I.N.I.-rapporten uten meningsløs prosent (2026-09-27, samme runde):** ny
-  `TestSkaaring.SkjulProsent` (standard usann) lar en skåringsberegner be individrapporten (begge
-  Areas + "Kopier alt"-malen) skjule prosent/råskår-linjen helt — satt sann for
-  `MiniStrukturdemoSkaaringsberegner`, som nå kun bygger Indikatorer for FLAGGEDE moduler, formatert
-  "{modulnavn} ({antall}/{totalt})" i selve Verdi-strengen. Se docs/beslutningslogg.md
-  "Natt-økt, del 14".
-- **Cutoff-linjer på individrapporten, ikke bare gruppehistogrammet (2026-09-27):** ny
-  `RapportModel.Cutoffs` (begge Areas) tegner `ITestSkaaringsberegner.Histogramgrenser` som en
-  vertikal strek + "▼ {navn}"-label over resultat-fremdriftsbaren i `Rapport.cshtml`, skalert til
-  0-100% av baren for råskår-cutoffs. "Kopier alt"-malen får en tekstlig variant ("Grenseverdi:
-  {navn} ved {verdi}") i stedet for en visuell strek. Ingen endring for tester uten
-  `Histogramgrenser` (de fleste) eller med `SkjulProsent`. Se docs/beslutningslogg.md
-  "Natt-økt, del 15".
-- **Radar-graf for SIPP-118-inspirerte testens 5 domener (2026-09-27):** ny `Sipp118RadarBeregner`
-  (ren C#, samme mønster som `UtviklingsGrafBeregner`) tegner et 5-akset pentagon av de 5
-  domenepoengene DENNE besvarelsen fikk (leser `TestSkaaring.Indikatorer`), med en stiplet cutoff-
-  ring ved den forenklede lavfunksjon-grensen. Kilde for domenestruktur/at radaren i litteraturen
-  er PER RESPONDENT (ikke over tid): https://pmc.ncbi.nlm.nih.gov/articles/PMC12287623/ — bekreftet
-  også at det ekte SIPP-118 har 16 fasetter under de 5 domenene, som vår test BEVISST ikke måler,
-  så radaren viser kun de 5 domenene. `<text>`-elementer via `Html.Raw` (samme kjente Razor-
-  fallgruve/løsning som `_UtviklingsGraf.cshtml`). Se docs/beslutningslogg.md "Natt-økt, del 16".
-- **Stolpediagram per personlighetsforstyrrelse i SCID-5-PF-rapporten (2026-09-27, avslutning på
-  denne rundens liste):** ny `Scid5PfBarBeregner` (egen selvstendig gruppering, samme prinsipp som
-  `Scid5PfSkaaringsberegner`) bygger et 3-fargers horisontalt stolpediagram per forstyrrelse (mørkt
-  = "2"-svar, lyst = "1"-svar, tom rest) + en ▼-cutoff-pil ved terskel/total, rendret som rene
-  HTML/CSS-divs (ikke SVG, unngår `<text>`-fallgruven helt). PD-navn fet skrift når terskel nås.
-  "Blandet personlighetsforstyrrelse"-heuristikken (minst 10 "2"-kriterier samlet, men ingen enkelt
-  PD når egen terskel) er UTTALT IKKE en offisiell DSM-5/ICD-11-cutoff (undersøkt og bekreftet
-  fraværende) — egen, tydelig merket tommelfingerregel. Se docs/beslutningslogg.md
-  "Natt-økt, del 17".
-- **SCID-5-PF-stolpediagrammet finpusset etter skjermbilde-tilbakemelding (2026-09-27):** fjernet
-  duplikat Indikator-badges/Fortolkning fra "Resultat"-blokken for denne testen (samme info som
-  stolpediagrammet under, bare dårligere format); stolpebredde nå `Total * 22px` PER forstyrrelse
-  (kortere, proporsjonalt med faktisk antall kriterier, ikke en fast 300px for alle); cutoff-pilen
-  har samme oransje farge som "Tydelig oppfylt"-segmentet (var(--accent-dark), ikke lenger rød);
-  antall 2-ere/1-ere skrevet som synlig tekst INNI hvert fargede felt. Se docs/beslutningslogg.md
-  "Natt-økt, del 18".
-- **TRAPS II-rapporten utvidet med klyngeskår og bekreftede traumeeksponeringer (2026-09-27, siste
-  utestående punkt fra denne rundens brukerfeedback):** `TrapsIiSkaaringsberegner` viste tidligere
-  KUN den endelige PTSD/KPTSD-konklusjonen — Fortolkningsteksten og seks nye Indikatorer lister nå
-  alle seks underliggende klyngeskår (Re/Av/Th for PTSD, Ad/Nsc/Dr for DSO, maks 8 hver), og hvert
-  av de 14 Del 1-traumeeksponeringsspørsmålene besvart "Ja" (pluss frittekst-tillegget hvis besvart)
-  vises som egen Indikator med selve spørsmålsteksten — "Nei"-svar vises ikke (samme "isoler det
-  som faktisk er utløst"-prinsipp som M.I.N.I., del 14). 2 nye regresjonstester (74 totalt),
-  verifisert ende-til-ende i nettleser (full utfylling + behandler-godkjenning). Se
-  docs/beslutningslogg.md "Natt-økt, del 19".
-- **Tilbakemeldingsverktøy — del 1 (2026-09-28):** en flytende, flyttbar, minimerbar
-  tilbakemeldingsknapp (`_TilbakemeldingWidget.cshtml` + `wwwroot/js/tilbakemelding-widget.js`,
-  vist på ALLE sider via den ene delte `_Layout.cshtml`) — rollup-meny med "Tilbakemelding"
-  (aktiv)/"Hjelp" (grået ut, kommer senere), åpner et norsk skjema som alltid forsøker et
-  best-effort skjermbilde (`html2canvas`, BEVISST vendoret lokalt i `wwwroot/js/vendor/`, ikke
-  lastet fra CDN ved kjøretid) + auto-samlet teknisk kontekst + automatisk fanget siste JS-feil/
-  500-side-markør (merket som "krasjrapport"). Lagres via nytt offentlig minimal-API-endepunkt
-  (`POST /api/tilbakemelding`, `TestBase.Shared.Domain.Tilbakemeldinger.Tilbakemelding`-entitet, ny
-  migrasjon) og gjennomgås av admin på `Admin/Tilbakemeldinger` (AdminOmrade — kan inneholde
-  pasientdata i et skjermbilde, samme tilgangsnivå som ellers). Et nytt delt-nøkkel-beskyttet
-  `/api/agent/*`-API (samme `StagingGate:AccessKey`-mønster, ny Bicep-parameter
-  `tilbakemeldingAgentNokkel`) er bygget for en PLANLAGT daglig rapport-agent, men selve den
-  planlagte jobben (og den separat avtalte, brukervalgte "fullt autonome krasj-fiks-og-deploy-til-
-  live"-pipelinen, som krever en egen GitHub Actions-arbeidsflyt + Azure-tjenesteprinsipal) er IKKE
-  bygget ennå — se docs/beslutningslogg.md "Tilbakemeldingsverktøy" for full status og hva som
-  gjenstår. Verifisert lokalt i nettleser FØR deploy (inkl. en reell CSS-spesifisitets-fallgruve
-  funnet og fikset, se fallgruve-listen), deployet til begge miljøer (traff underveis den kjente
-  `azd deploy`-stale-kode-fallgruven på LIVE, løst med en ny `azd deploy`).
-- **Tilbakemeldingsverktøy — del 3: daglig rutine + fullt autonom CI/CD-pipeline FERDIG
-  (2026-10-01/02):** en ekte, varig Claude Code "routine" (`trig_01WnY5ug8qJegu3DbTub5hC4`, 05:00
-  UTC daglig) henter tilbakemeldinger+åpne krasjrapporter, e-poster en norsk rapport, og åpner en
-  PR (ALDRI push til master) for krasjrapporter den er trygg nok på å fikse selv. En ny GitHub
-  Actions-arbeidsflyt (`.github/workflows/deploy.yml`, Azure-tjenesteprinsipal med OIDC-føderasjon,
-  Contributor KUN på de to resource groupene) bygger+tester+deployer til beta, helsesjekker, og KUN
-  hvis den består, deployer til live — dette er den faktiske "fullt autonomt til live"-mekanismen
-  brukeren valgte, implementert som en deterministisk CI/CD-pipeline (ikke ved å gi selve LLM-
-  agenten stående Azure-legitimasjon). Fem reelle, tidligere usette feil funnet og rettet under
-  verifisering i en ekte kjøring (ikke bare lest i kildekoden) — se docs/beslutningslogg.md
-  "Tilbakemeldingsverktøy, del 3" for alle fem, inkl. en NY fallgruve (MSYS-sti-konvertering
-  rammer også `az`-CLI-en, ikke bare `curl`) lagt til i fallgruve-lista under, og at `azd auth
-  login` IKKE dekker en separat `az`-CLI-innlogging i samme jobb. Verifisert med en fullstendig
-  grønn CI-kjøring PLUSS en uavhengig sjekk utenfor selve pipelinen etterpå.
-- **Ekte BankID for admin/behandler, del 5 — koblingsbasert innlogging bygget, IKKE aktivert
-  (2026-10-01/02):** brukeren ble godkjent av Idura for produksjon, men EKSPLISITT kun som "ren
-  klient, ingen personnummer-scope" — nøyaktig scenarioet "STØ avviste fødselsnummer-bestilling"
-  forutså. Bygget: ny `BankIdSubjekt`-kolonne (ukryptert, unik) på Administrator/Behandler, nye
-  `FinnVedBankIdSubjektAsync`/`KoblBankIdSubjektAsync`, `ProfesjonellInnloggingService` refaktorert
-  med tre inngangspunkter (personnummer/mock, sub-oppslag, kobl-og-fullfør), ny side
-  `Pages/Konto/BankIdKobleKonto` (vises automatisk FØRSTE gang en ukjent BankID-sub dukker opp, ber
-  om personnummeret brukeren allerede er registrert med, kobler PERMANENT). `BankIdInnlogging`-
-  schemaet ber nå kun om `openid+profile` (ikke `ssn`). 5 nye tester (79 totalt). **IKKE aktivert**
-  (`Miljo:EktBankIdProfesjonell` fortsatt `"false"` på live) — et REELT, uavklart funn under
-  verifisering mot Idura sin TEST-sandkasse viste at den faktiske utgående scope-forespørselen til
-  BankID inkluderte `sub_nnin`/`sub_bankid` UANSETT hva koden ber om, trolig konfigurert på Idura-
-  klient-nivå, ukjent om samme gjelder produksjonsklienten — MÅ avklares (se docs/beslutningslogg.md
-  "Ekte BankID for admin/behandler, del 5" for full analyse) før bryteren skrus på. To nye
-  fallgruver lagt til under (JWT "sub"-claim-remapping, og at en brokers scope-forespørsel ikke
-  nødvendigvis er klientens egen).
-- **Ekte BankID for admin/behandler, del 6 — scope OK, men feil acr_values (2026-10-02, samme
-  dag):** brukeren gjorde et ekte forsøk på live. Scope-spørsmålet fra del 5 ble AVKLART POSITIVT —
-  produksjonsklienten ber faktisk kun om `openid profile`, ingen automatisk tillegg. Selve
-  innloggingen feilet likevel, med 401 på Iduras EGEN `/oauth2/authorize` FØR noen BankID-
-  interaksjon — rotårsak funnet av brukeren i Iduras eget dashbord: koden sin produksjonsdefault
-  `urn:grn:authn:no:bankid:substantial` betyr spesifikt BIOMETRISK BankID (en egen, strengere
-  eID-metode), ikke "har BankID-appen" som tidligere antatt — rettet til den ukvalifiserte
-  `urn:grn:authn:no:bankid`. Samtidig oppdaget og rettet en SELVPÅFØRT driftshendelse: mens flagget
-  sto på for testing, var ALL admin/behandler-innlogging på live utilgjengelig (ingen fallback-vei
-  igjen når ekte BankID er aktiv og feiler) — se docs/beslutningslogg.md "Ekte BankID for
-  admin/behandler, del 6" for full analyse og en foreslått fremtidig "test i eget vindu"-mekanisme.
-  IKKE verifisert ende-til-ende ennå (ingen fullført ekte innlogging), flagget satt tilbake til
-  `"false"` på live i mellomtiden.
-- **Ekte BankID for admin/behandler, del 7 — acr_values-fiksen var ikke nok, eskalert til Stø
-  support (2026-10-02, samme dag):** retest viste SAMME 401 som del 6. Systematisk utelukket:
-  callback-URL, PKCE/PAR-krav (begge av i Idura), client ID/secret (SMS-til-PC copy-paste,
-  bekreftet riktig), Identity Provider-koblingen mot BankID (ser korrekt konfigurert ut, matcher
-  Stø sin bekreftelses-e-post). AVGJØRENDE: Iduras EGEN innebygde testinnlogging for denne klienten
-  feiler identisk, UTEN vår app involvert — isolerer problemet entydig til Idura↔Stø-siden. Ingen
-  flere kodeendringer mulig fra vår side; eskalert til Stø support via deres kundeportal. Se
-  docs/beslutningslogg.md "Ekte BankID for admin/behandler, del 7" for full utelukkelsesrekkefølge.
-  `Miljo:EktBankIdProfesjonell` fortsatt `"false"` på live — venter på Stø.
-- **HCR-20 V3: Tilstede+Relevans slått sammen til ett ledd per faktor (2026-10-02, samme dag):**
-  brukerens beslutning — de 20 faktorene hadde to separate ledd hver (Tilstede/Relevans), nå ett
-  kombinert ledd ("Tilstede og relevans for fremtidig risiko") med kun Relevans-skalaen beholdt,
-  siden verktøyet uansett ikke summerer. Bevisst avveining: mister evnen til å registrere at en
-  faktor var historisk til stede MEN ikke lenger relevant (eller omvendt) som to atskilte svar —
-  brukeren vurderte dette og ønsket forenklingen likevel. `Hcr20V3TestSeeder`/
-  `Hcr20V3Skaaringsberegner`/testhjelperen i `SkaaringsberegnereTests.cs` oppdatert, alle 51
-  skåringstester grønne. Ingen migrasjon (ren seeder-/skåringslogikk). MERK: en allerede seedet
-  HCR-20 V3-test i en database oppdateres IKKE automatisk — krever full sletting+re-seeding (samme
-  mønster som SCID-5-PF-restruktureringen), ikke gjort i denne runden. Se docs/beslutningslogg.md
-  "HCR-20 V3: Tilstede+Relevans slått sammen" for detaljer.
-- **Forenkling av Tildel/Tester (2026-10-02, samme dag):** på `Behandlerportal/Tildel/Tester` KUN
-  (Admin/Tildel/Tester ikke endret) — "Ditt honorar" flyttet fra inline i testlisten til en egen
-  "Sett honorar"-dialog FØR oppsummeringsdialogen (kun vist når noen valgt test faktisk har
-  prising); ny `Test.HarKostnadPerGjennomforing`-kolonne (satt sann kun for `mini_strukturdemo`
-  foreløpig) markerer tester som koster PRAKSISEN noe per gjennomføring, atskilt fra pasientens
-  `StorstePrisKr`; tre nye ikoner ("+"=pasienten kan belastes, "$"=koster praksisen noe,
-  klinikk-ikon+understreket navn=fylles ut av behandler) vises per test + en forklaringslinje
-  øverst. Migrasjonen ble først HÅNDSKREVET (Docker Desktop startet ikke — viste seg å bare ikke
-  være startet av brukeren; `Start-Process` i PowerShell løste det der `cmd.exe /c start` stille
-  feilet), deretter FULLT VERIFISERT mot en ekte lokal database (alle 79 integrasjonstester grønne,
-  en tom kontroll-migrasjon bekreftet snapshot-nøyaktighet) og ende-til-ende i nettleser
-  (Playwright) — alle tre ikoner, understreking og hele "Sett honorar"-dialogkjeden fungerer
-  korrekt. Se docs/beslutningslogg.md "Forenkling av Tildel/Tester" for full detalj.
-- **Ekte BankID for admin/behandler, del 8 — FUNGERER, tre UX-funn (2026-10-02, samme dag):** Stø
-  sin fiks (del 7) løste det. Tre rapporterte problemer fra selve innloggingen: (1) personnummer
-  tastet to ganger — `PersonnummerOverride`-feltet var dødt kode når ekte BankID er aktiv
-  (`OnPostAsync` leser det aldri i den grenen), nå skjult via ny `LoggInnModel.ErEktBankIdAktiv`
-  når ekte BankID faktisk brukes; (2) BankID-siden på engelsk — manglet `ui_locales`-parameter i
-  OIDC-forespørselen, lagt til (`nb`) på begge BankID-schemaer, IKKE verifisert ende-til-ende ennå;
-  (3) personnummer bekreftet en 3. gang etter innlogging — IKKE en bug, dette ER den bevisste
-  engangskoblingen fra del 5 (`BankIdKobleKonto`), skal aldri vises igjen for samme konto. Se
-  docs/beslutningslogg.md "Ekte BankID for admin/behandler, del 8" for detaljer.
-- **Ekte BankID — driftsbryter uten redeploy (2026-10-02, samme dag):** ny radioknapp-bryter på
-  `Admin/MinSide` ("BankID-innlogging (admin/behandler)", Superadmin/Utvikler-only, IKKE begrenset
-  til `Miljo:ErBeta` siden dette gjelder live også) slår ekte BankID av/på MOMENTANT, uten
-  `azd provision`/omstart. Ny `EktBankIdInnstilling`-singleton-rad (mønster lånt fra
-  `BetaInnstillingService`), lest FERSKT av `LoggInnModel` ved hvert innloggingsforsøk.
-  `Miljo:EktBankIdProfesjonell` beholdes uendret som den grovere "kan dette miljøet i det hele tatt
-  registrere schemaet"-bryteren (krever fortsatt omstart FØRSTE gang per miljø) — den nye raden er
-  den finere "er det aktivt akkurat nå"-bryteren. `ErAktiv` defaulter `true` (unngår en
-  overraskende regresjon til mock ved første deploy, siden ekte BankID allerede var ønsket aktivt
-  på live). Fullt verifisert lokalt (midlertidige fiktive Idura-nøkler tvang frem scheme-
-  registrering for testformål) — bekreftet at toggelen styrer FAKTISK oppførsel (mock ga riktig
-  "fant ingen konto", ekte-modus ga en forventet 500 fra et mislykket discovery-kall mot den
-  fiktive testautoriteten), ikke bare visningsteksten. Se docs/beslutningslogg.md
-  "Ekte BankID — driftsbryter uten redeploy" for full detalj.
-- **MPFI-24 lagt til, med en generell "krever biologisk kjønn"-mekanisme (2026-10-03):** bygget fra
-  to bruker-leverte filer (offisiell norsk oversettelse, tillatelse fra Ronald Rogge — samme
-  "verbatim"-mønster som WHO-5/PHQ-9/MADRS-S), mens brukeren var bortreist ("go with your
-  recommendations" — ingen designvalg bekreftet underveis). 24 ledd, 12 delskalaer à 2 ledd (6
-  fleksibilitet, 6 rigiditet — to UAVHENGIGE akser, `SkjulProsent=true`), kjønnsspesifikk normering.
-  Ny GENERELL mekanisme (ikke MPFI-spesifikk): `Test.KreverBiologiskKjonn` håndhevet i
-  `TestTildelingsService.TildelOgVarsleAsync` FØR tildeling (partiell feil per pasient, ikke en hel
-  batch-avbrytelse — nytt "Ikke tildelt"-avsnitt i begge Tildel/Tester.cshtml), pluss et andre
-  forsvarslag i selve skåringen (`ITestSkaaringsberegnerMedBiologiskKjonn`, degraderer nådig med
-  `GyldighetsAdvarsel`, kaster ALDRI). To nye radar-hexagoner (`MpfiRadarBeregner`, data+norm-
-  polygon samtidig, normen VARIERER per delskala/kjønn i motsetning til Sipp118 sin faste
-  cutoff-ring). Fant og rettet en reell drag-fill-feil i kildearkets Fusjon-delskåre-formel (inkluderte
-  feilaktig ledd 21) FØR noe ble bygget — dekket av egen enhetstest. Fullt verifisert ende-til-ende i
-  nettleser (gender-gate blokkerer korrekt, positiv vei fungerer, rapport+begge radarer rendrer
-  korrekt inkl. presis positiv/negativ-fargekoding). 3 nye enhetstester (82 totalt). IKKE pushet —
-  commitet lokalt, venter på brukerens retur. Se docs/beslutningslogg.md "MPFI-24 lagt til" for full
-  detalj, inkl. en ny fallgruve (DI-registrering kreves eksplisitt for nye test-seedere/-beregnere)
-  lagt til i fallgruve-lista under.
-- **Hjelpemeny: rolle- og kontekstsensitiv, ikke-modal (2026-10-03, samme dag):** den eksisterende,
-  tidligere `disabled`/"Kommer senere"-"Hjelp"-knappen i tilbakemeldingswidgetens rollup-meny er nå
-  aktiv — åpner et nytt, IKKE-modalt panel som sklir inn fra høyre (full skjerm på mobil, ALDRI en
-  bakgrunns-overlay/fokus-felle — siden under forblir klikkbar/skrollbar, kun CSS-transform avgjør
-  synlighet). Nytt statisk innhold (`TestBase.Shared/Domain/Hjelp/`: `HjelpArtikkel`/`HjelpInnhold`/
-  `HjelpService`, samme "kode fremfor database"-mønster som `IInnebygdTestSeeder`), ~29 artikler
-  fordelt Anonym/Pasient/Behandler/Admin. Rolle- OG kontekstfiltrering (URL-sti-prefiks) skjer
-  SERVER-SIDE i `Pages/Shared/_HjelpPanel.cshtml` — en ikke-innlogget besøkende får aldri behandler-/
-  admin-tekst i HTML-kilden i det hele tatt. Søk er client-side (`wwwroot/js/hjelp-panel.js`) over
-  den allerede rolle-filtrerte markupen (ingen egen JSON-nyttelast). `ICurrentUserContext.
-  IsAuthenticated` MÅ sjekkes FØR `Role` for å skille anonym fra Pasient (se `HjelpService.
-  TilHjelpRolle` og `AuthenticatedCurrentUserContext` sin egen fallback-til-Pasient-oppførsel ved
-  manglende innlogging). Verifisert i nettleser (Playwright) for anonym/Behandler-rolle,
-  kontekstsensitivitet, søk, ikke-modal klikk-gjennom-bakgrunn, og mobil full skjerm — se
-  docs/beslutningslogg.md "Hjelpemeny" for en reell `"/"`-kontekst-prefiks-bug funnet og fikset
-  underveis (matchet ALLE stier via `StartsWith`, ikke bare forsiden). Ingen migrasjon. Pushet til
-  master samme dag, CI/CD-pipelinen grønn, uavhengig `curl`-sjekk mot live bekreftet reell deploy.
-- **Reell 500-feil ved bulk-tildeling: "velg alle tester" krasjet audit-loggingen (2026-10-03,
-  samme dag):** brukeren rapporterte en krasj på live ved å tildele ALLE ~35 tester til én pasient.
-  Diagnostisert direkte på live via `az webapp log tail`: `_auditLogger.LogAsync` ble kalt med
-  `entityId: string.Join(",", testIder)` — `AuditLogEntry.EntityId` har `HasMaxLength(64)`, og med
-  ~35-85 tester i systemet ble denne kommaseparerte listen lett over 64 tegn. SAMME mønster fantes
-  i FEM andre kallsteder (Admin+Behandlerportal Tildel/Tester × 2, MinSide sin bulk-test-tilgang-
-  godkjenning, og — alvorligst — `Admin/Tester/Prising` sin "lagre alle", som trigges av EN VANLIG
-  lagring). Fikset på to nivåer: ny `AuditBatch.EntityId(ider)` (kort `"batch:N"` i stedet for en
-  uavgrenset liste, fulle ID-er flyttet til `details`) på alle seks kallsteder, PLUSS defensiv
-  trunkering i `EfAuditLogger.LogAsync` selv som et sikkerhetsnett mot ethvert fremtidig kallsted.
-  3 nye regresjonstester (86 totalt), verifisert FULLT ende-til-ende i nettleser lokalt (valgte alle
-  35 tester til en testpasient, "Tildeling fullført", bekreftet `EntityId = "batch:35"` i databasen).
-  Ingen migrasjon. Se docs/beslutningslogg.md "Reell 500-feil ved bulk-tildeling" for full detalj.
-- **Superadmin-identitetsbytte (2026-10-03/04, samme dag):** ny `AppClaimTypes.EktSuperadminId`
-  (satt KUN ved ekte innlogging som Superadmin, bevart gjennom senere rollebytte) + ny side
-  `Areas/Admin/Pages/Konto/ByttIdentitet` (synlig lenke i `_Layout.cshtml` UANSETT
-  `Miljo:TillatUtviklingsSnarveier` — i motsetning til dev-only `ByttModus`, må virke på beta/live)
-  lar brukerens ENE ekte BankID-identitet (Superadmin) logge REELT inn som en matchende
-  Behandler-/Pasient-konto med samme personnummer — IKKE en kosmetisk rolle-claim-forfalskning som
-  `ByttModus`, men en ekte re-innlogging (ekte NameIdentifier) slik at "mine data"-spørringer
-  fungerer korrekt i hver portal. `AuthSignIn.LoggInnAsync` fikk en ny TRAILING parameter
-  (`ektSuperadminId`, lagt til SIST — ikke midt i signaturen, se fallgruven under). Sikkerhetsgrense
-  OG positiv vei fullt browser-verifisert lokalt (syntetisk test-Superadmin, ikke brukerens ekte
-  konto) — se docs/beslutningslogg.md "Superadmin-identitetsbytte" for full verifisering. 86 tester
-  grønne, ingen migrasjon. Deployet til BETA ALENE (se eget avsnitt der for hvorfor IKKE live ennå).
-  **Samtidig avklart, IKKE implementert:** pasient ekte BankID (finnes ENNÅ IKKE NOE Å SKRU PÅ —
-  ingen OIDC-schema, ingen BankIdSubjekt-kolonne på Pasient, sammenlignbart omfang med HELE
-  admin/behandler-BankID-serien) og ekte Vipps/kortbetaling (en credentials-/avtale-beslutning, IKKE
-  en kodeendring — Program.cs velger allerede automatisk ekte klient fremfor mock så snart ekte
-  nøkler er satt som App Service-innstillinger) — se docs/beslutningslogg.md for full begrunnelse.
-- **13-punkts brukerfeedback-runde (2026-10-04):** implementert autonomt fra en brukerlevert
-  feedback-liste (`bugs_features.txt`, IKKE i kildekontroll — ren arbeidsnotat). Blant de 13: fjernet
-  en redundant "Ferdig!"-mellomside i flertest-sekvenser, MADRS-S sin Likert-skala redesignet (store
-  tiltede svarbokser) for å håndtere umerkede mellomtrinn, "10 %-endring er signifikant" gjort
-  test-spesifikk (`ITestSkaaringsberegner.SignifikantEndringProsentpoeng`, KUN WHO-5/WHO-5 VAS har
-  en sourcet verdi — bevisst IKKE en gjettet generisk SD for resten), flerdimensjonale rapporter
-  (CORE-OM/EDE-Q/SCL-25) fikk punktlister, grafer (radarer) er nå med i "Kopier alt"/"Kopier
-  resultat"-utklippstavlen som ekte PNG-bitmaps (html2canvas, samme bibliotek som
-  tilbakemeldingswidgeten), GADIT omdøpt til "Dataspillavhengighet" (ikke "spillavhengighet" — leses
-  som gambling på norsk). **Punkt 13, den største endringen:** et reelt, reprodusert hull der en
-  ADMIN-tildelt klinikertest (`Test.FyllesUtAvBehandler`) kunne bli usynlig for BÅDE admin og
-  behandler samtidig som rapporten likevel endte hos en behandler — fordi oppgave-/rapport-eierskap
-  alltid ble stille utledet fra `Pasient.BehandlerId` tre forskjellige steder, uten noen sjekk på om
-  den kontoen faktisk var aktiv/innloggbar. Fikset med et nytt eksplisitt felt,
-  `TestTildeling.AnsvarligBehandlerId` (migrasjon, `null` = uendret gammel oppførsel), en ny
-  "Ansvarlig behandler"-nedtrekksmeny KUN på `Admin/Tildel/Tester` (Behandlerportal sin side kan
-  strukturelt aldri treffe dette — en behandler ser alltid bare egne pasienter), og en forhåndssjekk
-  som nå hopper over (med forklaring, ikke stille) en slik test hvis verken et eksplisitt valg er
-  gjort eller pasientens egen behandler faktisk er aktiv. Alle 13 punkter browser-verifisert, 86
-  tester grønne. Se docs/beslutningslogg.md "13-punkts brukerfeedback-runde" for full detalj per
-  punkt, inkl. et nytt reelt html2canvas-funn (kan ikke rendre et `<svg>`-rotelement direkte, må
-  pakkes i en vanlig HTML-wrapper) lagt til i fallgruve-lista under.
-- **Hjemmeoppgaver og programmer — stor, flerfaset funksjonspakke (2026-10-04/05, Fase 0-4
-  FERDIG, Fase 5-6 gjenstår):** behandlere kan forfatte egne "hjemmeoppgave"-tester (delt/likt
-  mellom behandlere, KUN gruppenivå-rapportering) og tidsbaserte "programmer" (ukedag-/vindu-
-  baserte "drops" over tid, tildelt pasient/gruppe, med pause/meld-ut). Bygget autonomt over natten
-  (brukerens eksplisitte "push through autonomously... go as far as you can"). **Fase 0** (skjema-
-  grunnmur): `Test`/`TestLedd` fikk eierskaps-/delings-/påkrevd-/bilde-felt, ny
-  `TestSvartype.Bilde`, ny `HjemmeoppgaveLiking`-tabell, `BehandlerMelding` generalisert. **Fase 1**
-  (hjemmeoppgave-editor+utfylling): `HjemmeoppgaveService` (egen klasse, IKKE en utvidelse av
-  `TestService` — starter PRIVAT, ikke auto-delt med alle partnere som admin-forfattede tester),
-  flat ledd-liste m/ mandatory-avkrysning + klient-side bilde-squashing, full belønningsside.
-  **Fase 2** (faner+deling): Personlig/Delt/Partner/Opprett-faner, liking, "Egenproduserte" pinnet
-  øverst i test-tildelings-kategoritreet (asymmetrisk synlighet Behandlerportal vs. Admin — en
-  administrator ser KUN delt-med-alle, aldri en behandlers private egenproduksjon). **Fase 3+4**
-  (program-motor+tildeling): nye `Behandlingsprogram`/`ProgramDrop`/`ProgramDropTest`/
-  `ProgramDeltakelse`/`ProgramTildeling`/`ProgramLiking`-entiteter (hovedentiteten MÅTTE hete
-  `Behandlingsprogram`, ikke `Program` — ville kollidert med .NET sin egen
-  top-level-statements-genererte `Program`-klasse, selvfanget FØR noen build), en ny
-  `ProgramBakgrunnstjeneste` (samme polling-mønster som `PlanlagtTildelingBakgrunnstjeneste`) fyrer
-  drops til et randomisert, unngå-natt-klemt tidspunkt; progressiv "én test om gangen"-kjeding
-  innad i en drop via `HaandterFullfortTestAsync` (kalt FRA `Pasientportal/Tester/Fyll.cshtml.cs`,
-  `TestService` selv er HELT uvitende om Programmer, samme eksternt-kall-prinsipp som
-  hjemmeoppgavenes mandatory-validering); betalingsregel "kun aller første test i aller første drop
-  kan koste noe, resten alltid 0kr" (pluss det eksisterende prøvepasient-aldri-betaler-unntaket);
-  pasientens pause/meld-ut-dialog + `BehandlerMelding.Fritekst`-oppgave til tildelende behandler;
-  AGGREGERT (per program+gruppe, IKKE per medlem) "Kjørende"-oversikt i begge Areas m/ bulk
-  pause/fjern. 4 nye regresjonstester (`ProgramServiceTests.cs`, 90 totalt) + full
-  ende-til-ende-verifisering i ekte nettleser av HELE kjeden (scheduling→fyring→betaling→
-  fullføring→pause/meld-ut→Kjørende-oversikt). Se docs/beslutningslogg.md "Hjemmeoppgaver og
-  programmer" + "Fase 3+4" for FULL plan, brukeravklaringer, bevisste scope-kutt (ingen drag-
-  reorder, ingen per-deltaker starttid-overstyring, ingen partner-admin-snever Kjørende-visning),
-  og — viktig — et dokumentert prosess-avvik tidligere samme dag (en `fork`-subagent instruert til
-  ren research bygget og committet skjemaendringer uten brukergodkjenning, oppdaget og reversert
-  FØR denne, ekte, brukergodkjente versjonen ble bygget). Pushet til origin og live samme natt.
-- **38-punkts brukerfeedback-runde på Hjemmeoppgaver/Programmer (2026-10-05/06):** hjemmeoppgave-
-  editoren bygget fullstendig om (visuell svaralternativ-bygger per svartype — ingen "verdi:tekst"-
-  syntaks synlig lenger, dra-og-slipp-omordning, minimer/maksimer m/ localStorage, ny
-  `TestSvartype.Url` + `TestLedd.BildeUrl`); programmer-editoren bygget om fra en liste til en
-  klikkbar relativ-dag-kalender (6 uker) med drops redigert via én delt dialog som gjenbruker SAMME
-  kategori-tre-test-velger som Tildel/Tester (ny delt komponent
-  `Pages/Shared/_TestKategoriVelger.cshtml`); programmer og hjemmeoppgaver kan nå velges i SAMME
-  handling som vanlige tester, både i Tildel/Tester (ny "Programmer"-seksjon) og i Grupper sin
-  test-tilordning (kun hjemmeoppgaver der — programmer i Grupper bevisst utsatt, se
-  beslutningsloggen); reell CSS-spesifisitetsbug fikset som hadde gjort `.btn-accent`/`.btn-muted`
-  oransje i stedet for brukerens rollefarge på `type="submit"`-knapper SITE-WIDE (samme
-  kollisjonsklasse som den tidligere dokumenterte "BIGBUTTONS"-fallgruven for `.btn-icon`); en
-  reell produksjonsbug fikset der en ny test lagt til en EKSISTERENDE gruppe aldri ble tildelt
-  eller varslet til gruppens allerede eksisterende medlemmer (kun helt nye QR-registrerte
-  medlemmer fikk det). 9 nye hjelpeartikler. 2 nye regresjonstester (92 totalt). Alt pushet gjennom
-  CI/CD til beta+live samme natt. Se docs/beslutningslogg.md "38-punkts brukerfeedback-runde" for
-  full detalj per punkt og alle bevisste scope-kutt (programmer i den planlagte sendingsveien,
-  programmer i Grupper sin fremtidig-medlem-auto-tildeling).
-- **18-punkts brukerfeedback-runde #2 (2026-10-06):** en ny `bugs_features.txt`-runde, samme
-  autonome arbeidsmåte. Blant funnene: en reell, tidligere udokumentert CSS-fallgruve
-  (`style="display: inline;"` MED mellomrom matcher aldri `[style*="display:inline"]` UTEN
-  mellomrom — ga "bokser" rundt inline-knapper på to sider fra forrige runde), en `!important`
-  som ALDRI faktisk hadde virket for program-drop-dialogens klokkeslettfelt (en bred
-  `:not()`-kjede har høyere reell spesifisitet enn den smalere override-regelen hadde uten
-  `!important`), en flex-gap-regnefeil i den delte test-velgeren løst ved å bytte til CSS Grid,
-  "Programmer" flyttet til rett under "Egenproduserte" i tildelingstreet, separate kortere
-  SMS- vs. rikere HTML-e-postvarsler for "nye tester tildelt" (ny valgfri `htmlBody`-parameter på
-  `IEmailSender.SendAsync`, satt sist i signaturen), en "Fjern alle ubesvarte"-samleknapp +
-  fane-persistens via URL-hash på Min side, rå svar + ubesvart-telling på hjemmeoppgave-rapportens
-  FØRSTE side (var tidligere helt tom), manglende tabell-polstring rettet, en global
-  `.fane-knapp`-restyling (pille/chip i stedet for nesten usynlig flat tekst), en reell
-  visningsbug der en EGEN delt hjemmeoppgave/program aldri viste seg i "Delt"/"Partner"-fanene for
-  eieren selv, og en ny, generisk JS-basert auto-senterjustering av tallaktige/datoaktige
-  tabellkolonner (hopper bevisst over enhver tabell med `colspan`, se fallgruve-lista). Alle 18
-  punkter browser-verifisert, 92 tester grønne, fem tematiske commits pushet. Se
-  docs/beslutningslogg.md "18-punkts brukerfeedback-runde #2" for full detalj per punkt.
-- **Reell produksjonsbug rettet: hjemmeoppgaver kunne ikke tildeles for en partner-tilknyttet
-  behandler (2026-10-06, samme dag):** brukeren rapporterte "assigns a homework test, says sent,
-  never goes out" på live — diagnostisert via nedlastede App Service-logger (ingen
-  `INSERT INTO test_tildelinger` i det hele tatt denne dagen). Rotårsak: `TestTildelingsService.
-  TildelOgVarsleAsync` sin `PartnerTestTilganger`-allow-list-håndhevelse (ment for det admin-
-  forfattede testkatalog-biblioteket) filtrerte STILLE bort ENHVER hjemmeoppgave for en partner-
-  tilknyttet behandler, siden `HjemmeoppgaveService.OpprettAsync` BEVISST aldri gir en partner
-  automatisk tilgang (dokumentert i klassens egen XML-doc helt fra hjemmeoppgave-fase 0 — men
-  aldri speilet i selve håndhevelsen). Rammet egen, delt-med-alle OG delt-med-partner
-  hjemmeoppgave likt, siden eksisterte siden 2026-10-04. Fikset ved å eksplisitt ekskludere
-  `Test.ErHjemmeoppgave`-tester fra denne allow-list-sjekken. To nye regresjonstester (94 totalt).
-  Se docs/beslutningslogg.md "Reell produksjonsbug: hjemmeoppgaver kunne ikke tildeles..." for full
-  analyse.
-- **Reell 500-feil ved IAQ-rapportvisning rettet (2026-10-06, samme dag):** brukeren meldte en
-  krasj ved å åpne en rapport på live — diagnostisert via `az webapp log tail`:
-  `IaqSkaaringsberegner` indekserte svarlisten POSISJONSBASERT (`svar[0..8]`), samme sårbarhets-
-  klasse som GADIT-krasjen (2026-09-23). En pasient som hoppet over ett symptomledd fikk
-  `ArgumentOutOfRangeException` i stedet for GADITs mykere feil. Fikset med
-  `ITestSkaaringsberegnerMedLedd` (ekte `TestLedd.Id`-oppslag, samme mønster som CORE-10/ASRS) —
-  verdibasert klassifisering (GADITs løsning) var umulig her siden alle 8 symptomledd deler samme
-  Likert-skala. Ny regresjonstest (95 totalt). Se docs/beslutningslogg.md "Reell 500-feil ved
-  IAQ-rapportvisning" for full analyse. **IKKE fikset:** samme kjente, allerede flaggede
-  sårbarhet i `ItqSkaaringsberegner`/`Phq9Skaaringsberegner` — gjenstår fortsatt.
-- **Ekte BankID, del 9 — Chrome blokkerer Iduras broker-callback som et "lookalike domain"
-  (2026-10-06, samme dag):** et ekte admin/behandler BankID-innloggingsforsøk endte i Chrome sin
-  egen "Did you mean psytest.no?"-advarselsside, IKKE vår app — midt i det doble OIDC-hoppet
-  (BankID → Iduras `psytest-no.idura.broker` → oss), på Iduras EGET domene som vi ikke
-  kontrollerer. Navnet Idura selv valgte (`psytest-no`, punktum→bindestrek + et annet domene)
-  trigger Chromes combosquatting-heuristikk. INGEN kodefiks mulig fra vår side — eskalert som en
-  anbefaling til Stø/Idura support (be om annet subdomenenavn eller et vanity-/CNAME-domene under
-  `psytest.no` selv). Bekreftet IKKE til stede i Edge (Google-proprietær Chrome-funksjon, ikke delt
-  Chromium-plattform) — Edge er et gyldig, kodefritt arbeidsrunde-alternativ i mellomtiden. Se
-  docs/beslutningslogg.md "Ekte BankID for admin/behandler, del 9" for full analyse.
-- **Monthly Stripe Connect payout system (2026-10-10, tre faser, lokalt bygget og verifisert, IKKE
-  deployet):** behandlere/partnere kan koble til en Stripe Connect Express-konto
-  (`Behandlerportal/Utbetaling`, `Behandlerportal/MinPartner/Utbetaling`) — selve bankkontoen
-  samles kun av Stripe, aldri lagret hos oss. En bakgrunnstjeneste genererer automatisk et
-  månedlig utkast-oppgjør fra `Pengebevegelse`-loggen (ny `Utbetaling`-domenefolder:
-  `UtbetalingsMottakerKonto`/`UtbetalingsBatch`/`UtbetalingsLinje`/
-  `UtbetalingsLinjePengebevegelse` — sistnevntes unike indeks på `PengebevegelseId` er selve
-  dobbel-utbetaling-vernet). Penger flyttes ALDRI automatisk — kun en eksplisitt
-  Superadmin-godkjenning på ny `Admin/Utbetalinger`-side utløser faktiske Stripe-overføringer, og
-  ett mislykket forsøk blokkerer aldri resten av batchen. `transfer.created`/`payout.failed`-
-  webhooker lukker løkken for forsinkede feil. Fullt verifisert med ekte (ikke mock) Stripe
-  test-kall og manuelt HMAC-signerte webhook-hendelser siden Stripe CLI ikke var installert — se
-  docs/beslutningslogg.md "Monthly Stripe Connect payout system" for flere reelle funn underveis
-  (bl.a. en Stripe.net NullReferenceException ved manglende api_version, og en ren
-  test-harness-bug i `ByttModus` som IKKE var en reell Connect-feil). 98 tester grønne, to nye
-  migrasjoner, begge rene. De tre periodiserte oppgjørsrapportene designet tidligere samme dag er
-  fortsatt kun en visuell mockup, ikke koblet til dette ennå.
-- **"Avslutt" for pasienter + Partner→Klinikk visningsnavn (2026-10-11):** to punkter fra en ny
-  `bugs_features.txt`-runde. `PasientStatus.Arkivert` vises nå som "Avsluttet" (ny
-  `PasientStatusTekst.TilVisningstekst()`-extension, selve enum-verdien urørt) på
-  Admin/Behandlerportal sine pasientlister+detaljer. "Partner" omdøpt til "Klinikk" i ALL
-  visningstekst (nav, Admin/Partnere, MinPartner, prising, hjelpeartikler, feilmeldinger,
-  tildel.js) — BEVISST kun visningstekst, ALDRI C#-identifikatorer/DB-skjema/URL-er/audit-
-  strenger (se "Partner System + Test Monetization" lenger opp — selve systemet heter fortsatt
-  det internt). Fullt browser-verifisert, 98 tester grønne, ingen migrasjon. Gjenstående punkter
-  fra samme liste (tildelte-tester-fane, klinikk-admin bulk-flytt+auto-utsendelse, påminn-knapp,
-  automatisk påminnelse-veksel) er IKKE startet — se docs/beslutningslogg.md for full detalj og
-  gjenstående liste.
+**Denne seksjonen er bevisst kort.** Den fulle, kronologiske historikken (hver dato, hvert
+skjermbilde-funn, hver verifisering) er FLYTTET til `docs/beslutningslogg.md` og finnes IKKE
+lenger duplikert her — den filen er stor (8600+ linjer), så bruk Grep/søk etter stikkord eller
+dato i stedet for å lese den i sin helhet. Dette dokumentet lastes i sin helhet inn i hver
+samtale, så alt som står her har en løpende kostnad — flytt ny historisk narrativ til
+beslutningsloggen, ikke inn hit; hold denne seksjonen til en kort "hva finnes nå"-oversikt og
+drifts-fakta som er direkte relevante for å ikke gjøre en feil akkurat nå.
 
-- **"Tildelte tester"-fane + manuell/automatisk påminnelse (2026-10-11, samme runde, punkt
-  1+5+6):** en ny fane på BÅDE Admin og Behandlerportal sin Tildel/Tester-side lister ALLE
-  ikke-fullførte tildelinger (admin: hele systemet; behandler: egne pasienter) sortert per
-  pasient, med "Påminn" (sender SMS/e-post på nytt, TestTildelingsService.
-  PaaminnUbesvartTestAsync, skjult for kliniker-utfylte tester) og "Slett"
-  (TestService.SlettIkkeFullfortTildelingAsync, nå long? for admin-bypass). Ny
-  "automatisk påminnelse etter 3 dager"-veksel i selve tildelings-oppsummeringsdialogen OG på
-  Behandlingsprogram-nivå (Behandlerportal/Programmer/Rediger) — en ny
-  AutomatiskPaaminnelseBakgrunnstjeneste sender den automatisk, kun én gang per tildeling
-  (TestTildeling.SistPaaminnetUtc er vakten). 4 nye nullable kolonner, ren migrasjon, 98 tester
-  grønne, fullt browser-verifisert.
-- **Klinikk-admin: bulk-flytt pasienter + automatisk utsendelse (2026-10-11, samme runde, punkt
-  4 — SISTE punkt, hele bugs_features.txt-runden nå ferdig):** partner-admin kan masseflytte
-  valgte pasienter til en annen behandler i SAMME klinikk (Behandlerportal/Pasienter/Index, ny
-  "Bytt behandler for valgte"), og kan konfigurere to lister tester/hjemmeoppgaver (ny side
-  MinPartner/AutomatiskUtsendelse) som automatisk tildeles+varsles enhver pasient som legges til
-  i klinikken, eller flyttes til "Avsluttet" (ny PartnerAutomatiskUtsendelse-entitet/-service,
-  bygger på TildelOgVarsleAsync). Fullt browser-verifisert med en ekte ny klinikk-admin-testkonto
-  (bulk-flytt, auto-tildeling ved ny pasient, auto-tildeling ved Avsluttet — alle bekreftet
-  direkte i databasen). Fant en reell, tidligere udokumentert Razor-fallgruve underveis (manglende
-  Html.Raw på en betinget HEL attributt-streng i _TestKategoriVelger.cshtml — se fallgruve-listen
-  under), fikset. 1 ny tabell, ren migrasjon, 98 tester grønne. Se docs/beslutningslogg.md for
-  full detalj.
-- **Oppfølging samme dag: "Tildelte tester"-fanen (punkt 1) var reelt usynlig på live** — brukeren
-  rapporterte den manglende (skjermbilde, ekte klinikk-admin på live). Rotårsak: fanen lå KUN på
-  Tildel/Tester.cshtml (steg 2), men navigasjonslenken "Tildel tester" peker til Tildel/
-  Pasienter.cshtml (steg 1), som ikke hadde noe tab-system — en bruker som bare sjekker ubesvarte
-  tildelinger nådde aldri steg 2. Fikset ved å legge samme fane til på steg 1 også, begge Areas,
-  via en ny delt partial (Pages/Shared/_IkkeFullforteFane.cshtml + IkkeFullforteFaneModel.cs) for
-  å unngå firedoblet markup — Paaminn/SlettIkkeFullfort-handlerne måtte dupliseres til BEGGE
-  PasienterModel-klassene siden asp-page-handler løses mot vertssiden. 98 tester grønne, ingen
-  migrasjon.
-- **Samme dag, oppfølging del 3: multiselect + kompakte ikon-knapper + synlig pasient-identitet på
-  "Tildelte tester"** — brukerens fire punkter fra et nytt skjermbilde (89-raders live-tabell):
-  lagt til data-flervalg-multiselect (samme mønster som Pasienter/Index) med bulk "Påminn valgte"/
-  "Slett valgte"; byttet brede tekstknapper til samme kompakte `.btn-icon`/`.btn-icon--slett`
-  30×30px-konvensjon som resten av sidens radhandlinger allerede bruker (ny "paaminn"-ikon lagt
-  til i _Ikon.cshtml); `TestService.TildelingMedTestOgPasient` fikk `PasientMobilNr`/
-  `PasientEpost` vist under et navnløst "(ikke fullført)" slik at identiske rader kan skilles fra
-  hverandre. **Regel fremover (brukerens eksplisitte ønske)**: enhver ny tabell med radhandlinger
-  skal bruke btn-icon-konvensjonen (aldri brede tekstknapper), og enhver tabell der bulk-handling
-  er rimelig skal ha data-flervalg-mønsteret fra FØRSTE commit, ikke lagt til i etterkant — denne
-  runden var et tilfelle av en ny tabell som ikke fulgte en allerede etablert konvensjon. 98
-  tester grønne, ingen migrasjon.
-- **Tre nav/plassering-bugs (2026-10-11, samme runde):** `Behandlerportal/Utbetaling.cshtml`
-  (behandlers egen honorar-Connect-side) og `MinPartner/Utbetaling.cshtml` (klinikkens, begge fra
-  "Monthly Stripe Connect payout system" 2026-10-10) hadde ALDRI fått en nav-lenke i
-  `_Layout.cshtml` — fungerte fint, bare unåbare uten å skrive inn URL-en manuelt. Lagt til "Min
-  utbetaling" (alle behandlere) og "Klinikkutbetaling" (klinikk-admin). Bekreftet til brukeren at
-  de tre "fine" periodiserte oppgjørsrapportene (designet 2026-10-10) FORTSATT kun er et
-  frittstående HTML-designforslag, ikke koblet til appen — `/Admin/Okonomi` er fortsatt bare den
-  enkle, alltid-eksisterte plattform-sum-siden. "Automatisk utsendelse" (klinikk-admin) fikk en
-  ny, synlig "Min klinikk"-seksjon direkte på `Behandlerportal/MinSide` (i tillegg til, ikke i
-  stedet for, toppnavigasjonen). Verifisert med en ekte lokal klinikk-admin-testkonto. 98 tester
-  grønne, ingen migrasjon.
-- **Periodiserte oppgjør, del 2 — "de fine rapportene" faktisk bygget og koblet til appen
-  (2026-10-11, samme dag):** de tre designforslagene fra "Monthly Stripe Connect payout system"
-  (2026-10-10) er nå ekte sider, ikke en mockup. Ny `OkonomiRapportService` leser den eksisterende
-  `Pengebevegelse`-loggen periodisert på kalendermåned — admin ser ALLE transaksjoner (pivotert
-  per `TestTildelingId` til Pasientpris/Honorar/Platt.andel/Partnerandel), behandler ser kun eget
-  honorar, klinikk-admin ser partnerandel gruppert per behandler (et reelt datafunn: selve
-  `PartnerAndel`-raden bærer IKKE `BehandlerId`, måtte slås opp via tildelingen). Ny singleton
-  `AdminOkonomiOppsett` + nye felt på `Behandler`/`Partner` for hver parts egen kontoplan-etikett/
-  -konto (ren informasjon, faller tilbake til `OkonomiOppsettStandard`-konstantene fra
-  designforslaget). Tre eksisterende sider (`Admin/Okonomi/Index`, `Behandlerportal/Utbetaling`,
-  `MinPartner/Utbetaling`) fikk nye faner — INGEN nye nav-lenker trengtes, de gjenbruker nøyaktig
-  det forrige rundens "Min utbetaling"/"Klinikkutbetaling"-knapper allerede åpner. 3 nye
-  regresjonstester (101 totalt), fullt verifisert i nettleser mot EKTE lokale data (ikke ny
-  syntetisk testdata) i alle tre roller + alle tre "Lagre oppsett"-handlere. Ny migrasjon, ren
-  tillegg.
-- **Klinikk-oppdatering: nav konsolidert (2026-10-11, samme dag):** brukerens eksplisitte ønske —
-  Klinikkprising/Klinikkutbetaling/Automatisk utsendelse er IKKE lenger egne topp-nav-knapper
-  (fjernet igjen, kun noen timer etter de ble lagt til i "Tre nav/plassering-bugs" over), kun
-  knapper PÅ selve "Min klinikk"-siden (`MinPartner/Behandlere.cshtml`) — topp-nav og MinSide
-  viser nå begge KUN én "Min klinikk"-lenke. Den inline "Tester tilgjengelig for oss"-listen på
-  samme side ble fjernet (ren duplikasjon av det Klinikkprising-siden allerede viser fullstendig)
-  og slått sammen med Klinikkprising-knappen i stedet. Verifisert i nettleser, 101 tester grønne.
-- **Klinikk-oppdatering, del 2 — "Min klinikk" åpnet for alle klinikkmedlemmer, ny Pasienter-
-  knapp (2026-10-11, samme dag):** ny, bredere policy `PartnerMedlemOmrade` (krever kun
-  `PartnerId`-claim, ikke `ErPartnerAdministrator`) erstattet `PartnerAdminOmrade` som
-  folder-policy for `/MinPartner` — ENHVER behandler i en klinikk kan nå se "Min klinikk" og
-  kollegalisten (ny egen side `MinPartner/Kolleger.cshtml`, flyttet ut av hub-siden). Fire
-  admin-only sider (Prising/Utbetaling/AutomatiskUtsendelse + Inviter/Fjern-handlerne på
-  Kolleger) fikk et EKSPLISITT `ErPartnerAdministrator`-sjekk lagt til i HVER handler, siden
-  folder-policyen alene ikke lenger håndhever det — samme "re-sjekk i handleren"-prinsipp som
-  Admin/MinSide.cshtml.cs. Ny "Pasienter i min klinikk"-knapp (admin-only) linker bevisst BARE
-  til den allerede eksisterende `/Behandlerportal/Pasienter` (egne pasienter) — IKKE en ny
-  cross-behandler klinikk-vid pasientliste. Verifisert med to ekte kontoer (midlertidig degradert
-  ikke-admin-medlem + ekte admin), inkl. at et direkte URL-forsøk mot en admin-only side som
-  ikke-admin korrekt avvises. 101 tester grønne, ingen migrasjon.
-- **Klinikk-oppdatering, del 3 — persistent undernav + "Editer felter" + CSS-fiks (2026-10-11,
-  samme dag):** ny delt partial `MinPartner/_MinKlinikkNav.cshtml` rendrer `<h1>Min klinikk</h1>`
-  + hele knapperaden (inkl. en ny "Min klinikk"-knapp for å alltid kunne navigere tilbake) ØVERST
-  på ALLE fem MinPartner-sidene, ikke bare hub-siden — "permanent" undernavigasjon, jf. brukerens
-  ønske. Ny `.btn-rad`-CSS-klasse (`display:flex; gap`) fikset et reelt, skjermbilde-bekreftet
-  funn: `.btn` mangler egen margin, så flere knapper på rad uten eksplisitt gap kan klistre seg
-  visuelt sammen. Ny side `MinPartner/Rediger.cshtml` ("Editer felter", knapp nederst på
-  hub-siden) lar klinikk-admin endre Navn/Kontaktperson/Kontakt-e-post/Kontakt-mobil selv — IKKE
-  `HarAktivtAbonnement`, fortsatt Superadmin-only. Verifisert med skjermbilder i begge roller.
-  101 tester grønne, ingen migrasjon.
-- **Klinikk-oppdatering, del 4 — undernav manglet på Pasienter-siden + reelt avvik rettet
-  (2026-10-11, samme dag):** "Pasienter i min klinikk" pekte til `Pasienter/Index.cshtml`, UTENFOR
-  MinPartner-mappen — fikk aldri `_MinKlinikkNav`. Lagt til via en eksplisitt `~/Areas/...`-sti
-  (partial-navnoppslag finner den ikke automatisk på tvers av mapper). Samtidig oppdaget et REELT
-  avvik fra forrige rundes løfte: siden har fra før en `ViserHelePartnerskapet`-modus som viser
-  ALLE klinikkens pasienter for en klinikk-admin (bygget i "bulk-flytt pasienter"-runden) —
-  motsier brukerens eksplisitte "kun mine egne pasienter"-krav. Ny `KunEgne`-spørreparameter
-  (`?kunEgne=true`, sendt av knappen) tvinger egen-visning uten å røre den vanlige topp-nav
-  "Pasienter"-lenken sin uendrede, bredere oppførsel (fortsatt nødvendig for bulk-flytt-
-  funksjonen) — båret videre gjennom alle redirect-kall så visningen ikke hopper tilbake etter en
-  handling. Verifisert: samme konto ser "Pasienter i Testpartner AS" (3, hele klinikken) via
-  topp-nav, men "Mine pasienter" (0, egne) via klinikk-knappen. 101 tester grønne, ingen
-  migrasjon.
+**Bygget og verifisert (fase 0-5 ferdig, fase 6 og videre godt i gang):**
+- Admin-, behandler- og pasientportal komplett end-til-ende: BankID/2FA-innlogging, pasient-/
+  behandler-CRUD, invitasjon/HPR-godkjenning, gruppe- og QR-selvregistreringssystem.
+- Generisk testmotor + skåringsmotor med et stort og voksende bibliotek innebygde tester (over
+  100 regresjonstester per 2026-10-11) — admin forfatter tester, behandler/admin tildeler,
+  pasient (eller behandler, for kliniker-administrerte tester) fyller ut, rapportgodkjenning,
+  A4-rapportvisning, grupperapportering/histogram, utvikling-over-tid-grafer.
+- Tildelingsflyt, meldinger/oppgaveliste (`MinSide` i alle tre Areas), automatiske/manuelle
+  påminnelser.
+- Partner/klinikk-system: allow-list per test, egne honorarandeler, betaling (Vipps/Stripe) som
+  faktisk gater utfylling, periodiserte økonomirapporter, månedlig Stripe Connect-utbetaling
+  (bygget og lokalt verifisert, IKKE deployet ennå).
+- Hjemmeoppgaver (behandler-forfattet, delt/partner-nivå) og tidsbaserte behandlingsprogrammer.
+- Tilbakemeldingswidget + hjelpemeny (rolle-/kontekstsensitivt) på alle sider.
+- CI/CD: GitHub Actions bygger/tester/deployer automatisk til beta, og KUN ved grønn helsesjekk
+  videre til live. En daglig Claude-rutine (05:00 UTC) leser tilbakemeldinger/krasjrapporter,
+  sender en norsk e-postrapport, og åpner PR-er for krasj den er trygg på å fikse selv — ALDRI
+  push rett til master.
 
-Prosjektet er et Git-repo i `C:\code\TestBase`.
+**Drifts-fakta å kjenne til FØR du gjør noe (kan ha endret seg — bekreft i Admin/MinSide og
+App Service-innstillinger før du antar, spesielt på live):**
+- Tre miljøer: lokal dev, `testbase-beta` (beta.psytest.no), og `testbase-test` (azd-navn, men
+  faktisk LIVE på `www.psytest.no`). `azd env select testbase-beta` er default aktivt miljø i
+  repoet — velg `testbase-test` eksplisitt for å nå live.
+- Ekte BankID for admin/behandler (Idura/Stø) FUNGERER, styrt av en runtime-bryter på
+  `Admin/MinSide` (Superadmin/Utvikler-only, `EktBankIdInnstilling`) — skrus av/på UTEN redeploy.
+  Pasient-BankID og ekte Vipps/kortbetaling er IKKE bygget/aktivert.
+- `Miljo:TillatPersonnummerOverride` har stått midlertidig `"true"` på live som en nødløsning før
+  ekte BankID var verifisert — skal settes tilbake til `"false"` nå som ekte BankID fungerer; sjekk
+  faktisk App Service-innstilling, ikke bare denne teksten.
+- Kjent, IKKE fikset sårbarhet: `ItqSkaaringsberegner`/`Phq9Skaaringsberegner` bruker fortsatt
+  posisjonsbasert svarindeksering (samme klasse som den GADIT/IAQ-krasjen som ER fikset,
+  se "Kjente fallgruver" under) — en pasient som hopper over ett ledd kan gi stille feil skår
+  eller en krasj. Fiks med `ITestSkaaringsberegnerMedLedd` hvis du er i nærheten av disse testene.
+- App Service/MySQL-SKU står normalt på billigste tier (Basic B1/Burstable B1ms) — kun skalert opp
+  midlertidig og reversibelt ved kjente lasttopper (se beslutningsloggen for hvilken SKU som faktisk
+  fungerer under last, `S2` alene var gjennombruddet, `S1`/`S2+B2s` var IKKE det).
+
+For alt annet — hvorfor en beslutning ble tatt, bevisste scope-kutt, nøyaktig hva som ble
+verifisert og hvordan, lisens-/kildevurderinger for enkelttester osv. — søk i
+`docs/beslutningslogg.md` på stikkord/dato. Anta ALDRI at noe er "sikkert ferdig" for en
+spesifikk, detaljert påstand uten å bekrefte i koden eller loggen — denne oversikten er bevisst
+grov.
 
 ## Arkitektur — kort versjon (full begrunnelse i beslutningsloggen)
 
@@ -1203,13 +372,14 @@ dotnet watch run
 
 ## Hvordan jobbe videre
 
-1. Fase 6 (Vipps/fakturering/økonomiske rapporter) eller resten av Del 2/3/4
-   (pris/rapporter/økonomi/Vipps-sperre/påminnelser/backup/organisasjonsstøtte) er de naturlige
-   neste store stegene — disse henger tett sammen (samme betalings-/faktureringsgrunnlag), så
-   det er en rimelig avveining hvilken som tas først. Les kravene i
-   `docs/prosjektbeskrivelse-original.md` nøye — det er fortsatt fasiten. Se
-   `docs/beslutningslogg.md` under "Åpne punkter til senere faser" for full liste, inkl. mindre
-   ting som ble bevisst utsatt (enhetstester, ekte BankID/SMS/e-post-leverandør, ekte CAPTCHA,
-   lokalisering, flere innebygde tester utover WHO-5).
+1. Fase 0-5 er ferdig, og fase 6 (tildeling/meldinger/rapportgodkjenning/partner-/klinikksystem/
+   hjemmeoppgaver/programmer/økonomirapporter) er langt forbi "neste steg" — det meste er bygget
+   og verifisert, se "Status akkurat nå" over for en kort oversikt. De reelt gjenstående punktene
+   per 2026-10-11: deploye det lokalt bygde Stripe Connect-utbetalingssystemet, bekrefte at
+   `Miljo:TillatPersonnummerOverride` er satt tilbake til `"false"` på live, pasient-BankID og ekte
+   Vipps/kortbetaling (ikke bygget), og den kjente posisjonsbaserte skåringssårbarheten i
+   `ItqSkaaringsberegner`/`Phq9Skaaringsberegner`. Søk `docs/beslutningslogg.md` under "Åpne
+   punkter til senere faser" for full liste, og `docs/prosjektbeskrivelse-original.md` for
+   fasiten på krav som ennå ikke er designet i detalj.
 2. Oppdater `docs/beslutningslogg.md` etter hvert som beslutninger tas — det er masterdokumentet for prosjektstatus fra nå av, siden Claude Code ikke har tilgang til det opprinnelige claude.ai-prosjektet ("Testdatabase") arbeidet startet i.
 3. Bruk samme mønster som i Del 1–5: mock-implementasjoner bak grensesnitt for alt som krever ekte tredjepartsavtaler, ekte pasientdata aldri i dev/test, sikkerhetskode (inkl. kryptering) aktiv i alle miljøer fra starten, IKKE gi et nytt Razor Pages Area samme navn som en domeneentitet med mindre navnet er en annen bøyningsform som ikke matcher eksakt (se fallgruven over — "Tester" vs "Test" var trygt), og ny innebygd test = ny `Test.Kode` + `IInnebygdTestSeeder` + evt. `ITestSkaaringsberegner` (samme mønster som WHO-5).
