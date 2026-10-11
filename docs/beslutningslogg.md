@@ -8338,3 +8338,40 @@ med riktig antall, "Påminn valgte" sender SMS/e-post-påminnelse til alle valgt
 bjelle + rød søppelkasse) i stedet for avkuttet utenfor viewet, og Admin sin 65-raders liste
 viser nå distinkte telefon/e-post-linjer per rad i stedet for identiske "(ikke fullført)". 98
 tester fortsatt grønne, ingen migrasjon.
+
+### Tre nav/plassering-bugs: manglende "Min utbetaling"-lenke for behandler/klinikk-admin, bekreftet at de "fine" oppgjørsrapportene fortsatt er mockup, automatisk utsendelse flyttet til Min side (2026-10-11, samme runde)
+
+Tre punkter fra brukeren direkte etter den forrige "Tildelte tester"-oppfølgingen:
+
+1. **"Being logged in as treater or partner admin, I have no 'økonomi' button."** Rotårsak:
+   `Areas/Behandlerportal/Pages/Utbetaling.cshtml` (behandlers egen honorar-Stripe Connect-side,
+   bygget i "Monthly Stripe Connect payout system" 2026-10-10) og
+   `Areas/Behandlerportal/Pages/MinPartner/Utbetaling.cshtml` (klinikkens egen Connect-side,
+   samme runde) hadde ALDRI fått noen nav-lenke i `_Layout.cshtml` — begge sidene fungerte helt
+   fint, men var kun nåbare ved å skrive inn URL-en manuelt. Lagt til "Min utbetaling" (synlig for
+   alle behandlere) og "Klinikkutbetaling" (synlig kun for klinikk-admin, i samme
+   `ErPartnerAdministrator`-blokk som Min klinikk/Klinikkprising/Automatisk utsendelse).
+2. **"When logged in as admin, i have økonomi button - but I see no way to get the nice looking
+   reports you mocked up. Are they not implemented?"** Bekreftet: `/Admin/Okonomi` er en enkel,
+   alltid-eksistert periodisert plattform-sum (måned/år, superadmin-only) — de tre "fine" periodiserte
+   oppgjørsrapportene (behandler/admin/partner-admin) som ble DESIGNET 2026-10-10 er fortsatt KUN et
+   frittstående HTML-designforslag, aldri koblet til selve appen eller til
+   `UtbetalingsLinjePengebevegelse`-koblingstabellen som ble bygget nettopp for at de skal kunne
+   gjenbruke den senere (se "Monthly Stripe Connect payout system"). Ikke bygget i denne runden —
+   ingen eksplisitt bestilling om å bygge dem nå, kun et spørsmål om status. Status er fortsatt
+   det samme svaret.
+3. **"Automatic sendout of tests for partners should be located under 'min side' as partner
+   admin."** `MinPartner/AutomatiskUtsendelse` fantes allerede i toppnavigasjonen for klinikk-admin,
+   men var ikke synlig/lenket fra selve `Behandlerportal/MinSide`-dashbordet (der brukeren
+   tydeligvis forventet å finne den). Lagt til en ny "Min klinikk"-seksjon på MinSide (synlig når
+   `MinSideModel.ErPartnerAdministrator`, ny property som leser `ICurrentUserContext.
+  ErPartnerAdministrator`) med lenker til Behandlere i klinikken/Klinikkprising/Klinikkutbetaling/
+   Automatisk utsendelse — ikke fjernet fra toppnavigasjonen (ingen grunn til å ta bort en allerede
+   fungerende vei), kun lagt til som en ANDRE, mer synlig vei via Min side.
+
+Verifisert i nettleser (Playwright) med en ekte lokal klinikk-admin-testkonto
+(`bulktest-partneradmin@example.test`, allerede satt opp fra "Klinikk-admin: bulk-flytt
+pasienter"-runden): "Min utbetaling" vises og åpner riktig side for en vanlig behandler,
+"Klinikkutbetaling" + "Min klinikk"-seksjonen med alle fire lenker vises korrekt for klinikk-admin,
+og "Automatisk utsendelse til nye/avsluttede pasienter"-lenken på Min side leder riktig til
+`MinPartner/AutomatiskUtsendelse`. 98 tester grønne, ingen migrasjon.

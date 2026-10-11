@@ -6,7 +6,19 @@
 
 <h1>Min side @(Model.AntallOppgaver > 0 ? $"({Model.AntallOppgaver})" : "")</h1>
 
-<p><a class="btn btn-accent" href="/Behandlerportal/Innstillinger">Innstillinger</a></p>
+<p><a class="btn btn-accent" href="/Behandlerportal/Innstillinger">Innstillinger</a>
+   <a class="btn btn-accent" href="/Behandlerportal/Utbetaling">Min utbetaling</a></p>
+
+@if (Model.ErPartnerAdministrator)
+{
+    <h2>Min klinikk</h2>
+    <p>
+        <a class="btn btn-accent" href="/Behandlerportal/MinPartner/Behandlere">Behandlere i klinikken</a>
+        <a class="btn btn-accent" href="/Behandlerportal/MinPartner/Prising">Klinikkprising</a>
+        <a class="btn btn-accent" href="/Behandlerportal/MinPartner/Utbetaling">Klinikkutbetaling</a>
+        <a class="btn btn-accent" href="/Behandlerportal/MinPartner/AutomatiskUtsendelse">Automatisk utsendelse til nye/avsluttede pasienter</a>
+    </p>
+}
 
 <h2>Min pasientinvitasjon (QR-kode)</h2>
 <p>Enhver som skanner denne koden eller åpner lenken, blir registrert som DIN pasient direkte — ingen gruppe, ingen automatisk testutsending. For en gruppe med automatisk test-utsending, se <a href="/Behandlerportal/Grupper">Grupper</a>.</p>

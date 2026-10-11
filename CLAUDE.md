@@ -844,6 +844,17 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   er rimelig skal ha data-flervalg-mønsteret fra FØRSTE commit, ikke lagt til i etterkant — denne
   runden var et tilfelle av en ny tabell som ikke fulgte en allerede etablert konvensjon. 98
   tester grønne, ingen migrasjon.
+- **Tre nav/plassering-bugs (2026-10-11, samme runde):** `Behandlerportal/Utbetaling.cshtml`
+  (behandlers egen honorar-Connect-side) og `MinPartner/Utbetaling.cshtml` (klinikkens, begge fra
+  "Monthly Stripe Connect payout system" 2026-10-10) hadde ALDRI fått en nav-lenke i
+  `_Layout.cshtml` — fungerte fint, bare unåbare uten å skrive inn URL-en manuelt. Lagt til "Min
+  utbetaling" (alle behandlere) og "Klinikkutbetaling" (klinikk-admin). Bekreftet til brukeren at
+  de tre "fine" periodiserte oppgjørsrapportene (designet 2026-10-10) FORTSATT kun er et
+  frittstående HTML-designforslag, ikke koblet til appen — `/Admin/Okonomi` er fortsatt bare den
+  enkle, alltid-eksisterte plattform-sum-siden. "Automatisk utsendelse" (klinikk-admin) fikk en
+  ny, synlig "Min klinikk"-seksjon direkte på `Behandlerportal/MinSide` (i tillegg til, ikke i
+  stedet for, toppnavigasjonen). Verifisert med en ekte lokal klinikk-admin-testkonto. 98 tester
+  grønne, ingen migrasjon.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

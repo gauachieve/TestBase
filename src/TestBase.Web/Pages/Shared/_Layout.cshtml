@@ -148,10 +148,12 @@
                             <a class="funksjonsknapp" href="/Behandlerportal/Programmer"><partial name="_Ikon" model="@("kalender")" />Programmer</a>
                             <a class="funksjonsknapp" href="/Behandlerportal/Tildel/Pasienter"><partial name="_Ikon" model="@("tildel")" />Tildel tester</a>
                             <a class="funksjonsknapp" href="/Behandlerportal/Behandlere/Inviter"><partial name="_Ikon" model="@("inviter")" />Inviter kollega</a>
+                            <a class="funksjonsknapp" href="/Behandlerportal/Utbetaling"><partial name="_Ikon" model="@("oppgaver")" />Min utbetaling</a>
                             @if (CurrentUser.ErPartnerAdministrator)
                             {
                                 <a class="funksjonsknapp" href="/Behandlerportal/MinPartner/Behandlere"><partial name="_Ikon" model="@("behandlere")" />Min klinikk</a>
                                 <a class="funksjonsknapp" href="/Behandlerportal/MinPartner/Prising"><partial name="_Ikon" model="@("tester")" />Klinikkprising</a>
+                                <a class="funksjonsknapp" href="/Behandlerportal/MinPartner/Utbetaling"><partial name="_Ikon" model="@("oppgaver")" />Klinikkutbetaling</a>
                                 <a class="funksjonsknapp" href="/Behandlerportal/MinPartner/AutomatiskUtsendelse"><partial name="_Ikon" model="@("tildel")" />Automatisk utsendelse</a>
                             }
                         </div>

@@ -49,6 +49,8 @@ public sealed class MinSideModel : PageModel
     public IReadOnlyList<TestService.TildelingMedTestOgPasient> Godkjente { get; private set; } = Array.Empty<TestService.TildelingMedTestOgPasient>();
     public List<Behandler> UtlopteHprFrister { get; private set; } = new();
 
+    public bool ErPartnerAdministrator => _currentUser.ErPartnerAdministrator;
+
     public int AntallOppgaver => UlesteMeldinger.Count + VenterPaaGodkjenning.Count + UtlopteHprFrister.Count;
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
