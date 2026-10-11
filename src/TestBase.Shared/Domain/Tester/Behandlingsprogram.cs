@@ -27,4 +27,12 @@ public sealed class Behandlingsprogram
     public bool ErDeltMedAlle { get; set; }
     public bool ErDeltMedPartner { get; set; }
     public long? KopiertFraProgramId { get; set; }
+
+    /// <summary>
+    /// Bugliste 2026-10-11 punkt 6: antall dager en pasient kan la en test fra dette programmet stå
+    /// ubesvart før en automatisk påminnelse sendes — null (standard) betyr av. Satt av forfatteren
+    /// i Rediger.cshtml, kopiert til HVER ProgramDeltakelse ved TildelAsync (se dens egen XML-doc)
+    /// slik at en senere endring av programmet aldri endrer allerede IGANGSATTE deltakelser.
+    /// </summary>
+    public int? AutomatiskPaaminnelseEtterDager { get; set; }
 }

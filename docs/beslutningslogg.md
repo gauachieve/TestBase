@@ -8131,3 +8131,73 @@ test/hjemmeoppgave-utsendelse ved ny pasient / ved flytting til "Avsluttet"), pu
 programmer). Punkt 4s "flytt mellom behandlere" kan sannsynligvis bygge videre på den allerede
 eksisterende enkelt-pasient "Bytt behandler"-dialogen på
 `Behandlerportal/Pasienter/Rediger.cshtml` (begrenset til behandlere i samme klinikk).
+
+## "Tildelte tester"-fane + manuell/automatisk påminnelse (2026-10-11, samme runde, punkt 1+5+6)
+
+Tre av de fire gjenstående punktene fra samme `bugs_features.txt`-runde, bygget sammen siden alle
+tre handler om samme underliggende konsept — en IKKE-fullført `TestTildeling` som trenger
+synlighet og en måte å nudge/fjerne den på.
+
+**Punkt 1 — "Tildelte tester"-fane på selve Tildel/Tester-siden:** en ny fane (samme
+`data-fane-beholder`/`faner.js`-mønster som Grupper/MinSide sine fane-sett, her brukt for
+FØRSTE gang til å skjule/vise en hel sideseksjon via `data-fane-rad` på en `<div>` i stedet for
+kun `<tr>`-rader — bekreftet trygt, `faner.js` sjekker kun `hidden`, ikke tag-navn) på BÅDE
+`Admin/Tildel/Tester.cshtml` og `Behandlerportal/Tildel/Tester.cshtml`. Behandler ser egne
+pasienters ikke-fullførte tildelinger (gjenbrukte den allerede eksisterende
+`TestService.HentIkkeFullforteForBehandlerAsync`, samme spørring som Min side sin "Ikke
+besvart"-fane), admin ser en ny `HentIkkeFullforteForAdminAsync` (ALLE tildelinger i systemet,
+samme "admin ser allerede alt"-prinsipp som resten av Admin-sidene). Begge sortert PER PASIENT
+(`OrderBy(PasientNavn).ThenBy(TildeltUtc)`). "Slett"-knappen gjenbruker
+`TestService.SlettIkkeFullfortTildelingAsync` — signaturen ble utvidet fra `long behandlerId`
+til `long? behandlerId` (null = admin, ingen eierskapssjekk; en faktisk behandler-id
+håndheves fortsatt strengt, ingen endring i oppførsel for eksisterende kallsteder i
+`Behandlerportal/MinSide.cshtml.cs`, som alle sender en faktisk `long`).
+
+**Punkt 5 — manuell "Påminn"-knapp:** ny `TestTildelingsService.PaaminnUbesvartTestAsync`
+(samme `VarsleAsync`-infrastruktur/feiltoleranse som `TildelOgVarsleAsync` allerede bruker) sender
+én SMS/e-post på nytt med en lenke til testen, og setter `TestTildeling.SistPaaminnetUtc`. Knappen
+vises BEVISST IKKE for `Test.FyllesUtAvBehandler`-tildelinger (ingen SMS/e-post går noensinne til
+pasienten for den typen, se `TildelOgVarsleAsync` — en påminnelse ville ikke hatt noen mottaker).
+Admin kan påminne ENHVER tildeling (`behandlerId: null`); en behandler kan kun påminne egne
+pasienters tildelinger (samme sjekk som slett-knappen).
+
+**Punkt 6 — automatisk påminnelse-veksel:** en ny avkrysningsboks ("Automatisk påminnelse etter 3
+dager hvis ikke besvart") i selve oppsummerings-dialogen (`oppsummeringDialog`) på BÅDE
+Tildel/Tester-sidene, bundet til `TildelOgVarsleAsync` sin nye `automatiskPaaminnelseAktiv`-
+parameter (lagt til SIST i signaturen, før `cancellationToken` — se CLAUDE.md sin fallgruve om
+dette). Satt til sann setter `TestTildeling.AutomatiskPaaminnelseEtterDager = 3` på hver opprettet
+tildeling (hoppet over for `FyllesUtAvBehandler`, samme begrunnelse som punkt 5). "Også støtt i
+programmer" (brukerens eksplisitte krav): samme veksel lagt til på PROGRAM-nivå i
+`Behandlerportal/Programmer/Rediger.cshtml` (`Behandlingsprogram.AutomatiskPaaminnelseEtterDager`,
+kopiert til `ProgramDeltakelse` ved `ProgramService.TildelAsync`, og videre til hver
+`TestTildeling` en drop fyrer av i `OpprettOgVarsleTestIDroppAsync` — IKKE en NY mekanisme, samme
+felt på samme entitet som resten av påminnelsessystemet leser).
+
+Ny bakgrunnstjeneste `AutomatiskPaaminnelseBakgrunnstjeneste` (samme
+poll-mønster som `PlanlagtTildelingBakgrunnstjeneste`, men time-vis intervall — dag-granularitet
+krever ikke minutt-presisjon) kaller en ny `TestTildelingsService.HentDuePaaminnelserAsync`
+(bredt DB-filter hentet først, selve dag-terskelen — som varierer per rad — sjekket i MINNET
+etterpå, siden EF Core ikke pålitelig kan oversette `TildeltUtc.AddDays(enKolonneVerdi)` til SQL)
+og kaller `PaaminnUbesvartTestAsync` for hver due rad. Sendes KUN ÉN gang — `SistPaaminnetUtc`
+er vakten, ikke et gjentagende intervall.
+
+**Et reelt UX-funn under verifisering:** et plent `RedirectToPage()` etter Påminn/Slett-handlerne
+hoppet alltid tilbake til "Velg tester"-fanen (faner.js sin default når ingen URL-hash matcher),
+og skjulte dermed både suksess-meldingen OG selve den oppdaterte listen bak en fane brukeren måtte
+klikke seg tilbake til manuelt. Fikset med SAMME `Redirect(Url.Page("./Tester")! + "#tildelte")`-
+mønster som allerede dokumentert i `faner.js` sin egen kommentar (og brukt av
+`Behandlerportal/MinSide.cshtml.cs` for "Ikke besvart"-fanen) — ikke en ny fallgruve, men et
+reelt eksempel på at mønsteret må anvendes aktivt hver gang, ikke bare kjennes til.
+
+Migrasjon: 4 nye nullable kolonner (`TestTildeling.AutomatiskPaaminnelseEtterDager`/
+`SistPaaminnetUtc`, `Behandlingsprogram.AutomatiskPaaminnelseEtterDager`,
+`ProgramDeltakelse.AutomatiskPaaminnelseEtterDager`), ren tillegg, ingen datamigrering. 98 tester
+fortsatt grønne. Fullt verifisert ende-til-ende i nettleser (Playwright): "Tildelte tester"-fanen
+viser 63 reelle ikke-fullførte tildelinger sortert per pasient med korrekt skjult Påminn-knapp for
+kliniker-tester; en ekte "Påminn"-sending ble bekreftet FAKTISK PERSISTERT (ny sideinnlasting etter
+serverrestart viste fortsatt "Påminnet {tidspunkt}"); en ny WHO-5-tildeling med vekselen aktivert
+viste korrekt "Aktiv (3 dager)" i tabellen; "Slett" fjernet raden og holdt brukeren på riktig fane;
+program-nivå-vekselen ble bekreftet persistert over en full sideinnlasting (satt på, lastet på
+nytt, bekreftet avkrysset, satt tilbake til av igjen for å ikke endre test-fixture-data varig).
+**Punkt 4 (klinikk-admin bulk-flytt + auto-utsendelse ved ny/avsluttet pasient) er fortsatt IKKE
+startet** — den mest arkitektonisk uavhengige av de fire gjenstående punktene, naturlig neste steg.

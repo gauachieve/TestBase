@@ -37,4 +37,11 @@ public sealed class ProgramDeltakelse
     public DateTimeOffset? FullfortUtc { get; set; }
 
     public DateTimeOffset OpprettetUtc { get; set; }
+
+    /// <summary>
+    /// Kopiert FRA Behandlingsprogram.AutomatiskPaaminnelseEtterDager på tildelingstidspunktet
+    /// (se ProgramService.TildelAsync) — satt videre på HVER TestTildeling denne deltakelsen
+    /// skaper (se OpprettOgVarsleTestIDroppAsync), null betyr av. Bugliste 2026-10-11 punkt 6.
+    /// </summary>
+    public int? AutomatiskPaaminnelseEtterDager { get; set; }
 }

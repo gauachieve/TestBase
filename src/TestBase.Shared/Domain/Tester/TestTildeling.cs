@@ -65,4 +65,22 @@ public sealed class TestTildeling
     /// slik at fallback-logikken (AnsvarligBehandlerId ?? Pasient.BehandlerId) forblir ett sted.
     /// </summary>
     public long? AnsvarligBehandlerId { get; set; }
+
+    /// <summary>
+    /// Bugliste 2026-10-11 punkt 6: antall dager etter <see cref="TildeltUtc"/> en automatisk
+    /// påminnelse skal sendes hvis tildelingen fortsatt ikke er <see cref="TestTildelingStatus.Fullfort"/>
+    /// — null (standard) betyr av. Satt på tildelingstidspunktet (se
+    /// TestTildelingsService.TildelOgVarsleAsync), ALDRI endret etterpå. Sendes KUN ÉN gang —
+    /// <see cref="SistPaaminnetUtc"/> er vakten, ikke et gjentagende intervall.
+    /// </summary>
+    public int? AutomatiskPaaminnelseEtterDager { get; set; }
+
+    /// <summary>
+    /// Satt når en påminnelse (manuell "Påminn"-knapp, bugliste punkt 5, ELLER den automatiske
+    /// jobben over) faktisk ble sendt — null betyr "aldri påminnet". Brukes BÅDE som visning
+    /// ("Påminnet {dato}" i stedet for en "Påminn"-knapp er fortsatt tilgjengelig manuelt) og som
+    /// idempotens-vakt for den automatiske jobben (sender ALDRI en automatisk påminnelse to
+    /// ganger for samme tildeling).
+    /// </summary>
+    public DateTimeOffset? SistPaaminnetUtc { get; set; }
 }

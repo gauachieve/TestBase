@@ -711,6 +711,9 @@ namespace TestBase.Shared.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<int?>("AutomatiskPaaminnelseEtterDager")
+                        .HasColumnType("int");
+
                     b.Property<bool>("ErArkivert")
                         .HasColumnType("tinyint(1)");
 
@@ -950,6 +953,9 @@ namespace TestBase.Shared.Migrations
                         .HasColumnType("bigint");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int?>("AutomatiskPaaminnelseEtterDager")
+                        .HasColumnType("int");
 
                     b.Property<DateTimeOffset?>("FullfortUtc")
                         .HasColumnType("datetime(6)");
@@ -1377,6 +1383,9 @@ namespace TestBase.Shared.Migrations
                     b.Property<long?>("AnsvarligBehandlerId")
                         .HasColumnType("bigint");
 
+                    b.Property<int?>("AutomatiskPaaminnelseEtterDager")
+                        .HasColumnType("int");
+
                     b.Property<DateTimeOffset?>("Frist")
                         .HasColumnType("datetime(6)");
 
@@ -1394,6 +1403,9 @@ namespace TestBase.Shared.Migrations
 
                     b.Property<bool>("RapportSynligForPasient")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTimeOffset?>("SistPaaminnetUtc")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTimeOffset?>("StartetUtc")
                         .HasColumnType("datetime(6)");

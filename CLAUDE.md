@@ -800,6 +800,19 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   automatisk påminnelse-veksel) er IKKE startet — se docs/beslutningslogg.md for full detalj og
   gjenstående liste.
 
+- **"Tildelte tester"-fane + manuell/automatisk påminnelse (2026-10-11, samme runde, punkt
+  1+5+6):** en ny fane på BÅDE Admin og Behandlerportal sin Tildel/Tester-side lister ALLE
+  ikke-fullførte tildelinger (admin: hele systemet; behandler: egne pasienter) sortert per
+  pasient, med "Påminn" (sender SMS/e-post på nytt, TestTildelingsService.
+  PaaminnUbesvartTestAsync, skjult for kliniker-utfylte tester) og "Slett"
+  (TestService.SlettIkkeFullfortTildelingAsync, nå long? for admin-bypass). Ny
+  "automatisk påminnelse etter 3 dager"-veksel i selve tildelings-oppsummeringsdialogen OG på
+  Behandlingsprogram-nivå (Behandlerportal/Programmer/Rediger) — en ny
+  AutomatiskPaaminnelseBakgrunnstjeneste sender den automatisk, kun én gang per tildeling
+  (TestTildeling.SistPaaminnetUtc er vakten). 4 nye nullable kolonner, ren migrasjon, 98 tester
+  grønne, fullt browser-verifisert. Punkt 4 (klinikk-admin bulk-flytt + auto-utsendelse) er
+  fortsatt IKKE startet. Se docs/beslutningslogg.md for full detalj.
+
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 
 ## Arkitektur — kort versjon (full begrunnelse i beslutningsloggen)

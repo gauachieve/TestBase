@@ -74,6 +74,14 @@ public sealed class TesterModel : PageModel
     [BindProperty]
     public Varslingspreferanse Varslingsmetode { get; set; } = Varslingspreferanse.Begge;
 
+    /// <summary>Bugliste 2026-10-11 punkt 6 — avkrysset i oppsummerings-dialogen, se TildelOgVarsleAsync sin "automatiskPaaminnelseAktiv".</summary>
+    [BindProperty]
+    public bool AutomatiskPaaminnelseAktiv { get; set; }
+
+    /// <summary>Bugliste 2026-10-11 punkt 1: ikke-fullførte tildelinger for behandlerens EGNE pasienter, vist i "Tildelte tester"-fanen — sortert per pasient (deretter eldste tildeling først).</summary>
+    public IReadOnlyList<TestService.TildelingMedTestOgPasient> IkkeFullforteTildelinger { get; private set; } = Array.Empty<TestService.TildelingMedTestOgPasient>();
+    public string? PaaminnelseMelding { get; private set; }
+
     /// <summary>
     /// Behandlerens eget honorar per test (kun relevant for tester med prising
     /// konfigurert, se docs/beslutningslogg.md "Partner System + Test
@@ -103,6 +111,9 @@ public sealed class TesterModel : PageModel
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
+        PaaminnelseMelding = TempData["PaaminnelseMelding"] as string;
+        await LastIkkeFullforteAsync(cancellationToken);
+
         if (TempData.Peek("TildelPasientIder") is not string csv || string.IsNullOrWhiteSpace(csv))
         {
             Feilmelding = "Ingen pasienter valgt. Gå tilbake og velg pasienter først.";
@@ -193,7 +204,9 @@ public sealed class TesterModel : PageModel
         Resultat = await _tildelingsService.TildelOgVarsleAsync(
             pasientIder, testIder, behandlerId: HentBehandlerId(), administratorId: null,
             onsketHonorarKrPerTestId, baseUrl: $"{Request.Scheme}://{Request.Host}",
-            varslingsmetode: Varslingsmetode, cancellationToken: cancellationToken);
+            varslingsmetode: Varslingsmetode, automatiskPaaminnelseAktiv: AutomatiskPaaminnelseAktiv, cancellationToken: cancellationToken);
+
+        await LastIkkeFullforteAsync(cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "TildelTesterBatch",
@@ -278,6 +291,42 @@ public sealed class TesterModel : PageModel
         PlanlagtOpprettet = true;
         PlanlagtTidspunktVisning = planlagtUtc;
         return Page();
+    }
+
+    /// <summary>
+    /// Bugliste 2026-10-11 punkt 5 — "Påminn"-knappen i "Tildelte tester"-fanen, sender SMS/e-post
+    /// på nytt til pasienten. Redirect-etter-post (i stedet for å returnere Page() direkte) slik
+    /// at en ny OnGetAsync frisk laster "Tildelte tester"-listen UTEN å kreve at step-1-pasientene
+    /// (PasientIderCsv, kun et [BindProperty] på DENNE siden) er med i akkurat dette lille
+    /// per-rad-skjemaet — meldingen bæres over via TempData, samme mønster som selve
+    /// pasient-ID-listen fra steg 1.
+    /// </summary>
+    public async Task<IActionResult> OnPostPaaminnAsync(long tildelingId, CancellationToken cancellationToken)
+    {
+        var sendt = await _tildelingsService.PaaminnUbesvartTestAsync(
+            tildelingId, baseUrl: $"{Request.Scheme}://{Request.Host}", behandlerId: HentBehandlerId(), cancellationToken);
+        TempData["PaaminnelseMelding"] = sendt ? "Påminnelse sendt." : "Kunne ikke sende påminnelse (tildelingen er allerede fullført).";
+        // Samme "#fane"-mønster som Behandlerportal/MinSide.cshtml.cs — hold brukeren på
+        // "Tildelte tester"-fanen i stedet for å hoppe tilbake til "Velg tester" (faner.js sin
+        // default), se faner.js sin egen kommentar om dette.
+        return Redirect(Url.Page("./Tester")! + "#tildelte");
+    }
+
+    /// <summary>Bugliste 2026-10-11 punkt 1 — "Slett"-knappen i "Tildelte tester"-fanen, se TestService.SlettIkkeFullfortTildelingAsync (kan ikke slette en fullført tildeling).</summary>
+    public async Task<IActionResult> OnPostSlettIkkeFullfortAsync(long tildelingId, CancellationToken cancellationToken)
+    {
+        await _testService.SlettIkkeFullfortTildelingAsync(tildelingId, HentBehandlerId(), cancellationToken);
+        return Redirect(Url.Page("./Tester")! + "#tildelte");
+    }
+
+    /// <summary>Sortert PER PASIENT (deretter eldste tildeling først) — se IkkeFullforteTildelinger sin XML-doc.</summary>
+    private async Task LastIkkeFullforteAsync(CancellationToken cancellationToken)
+    {
+        var raw = await _testService.HentIkkeFullforteForBehandlerAsync(HentBehandlerId(), cancellationToken);
+        IkkeFullforteTildelinger = raw
+            .OrderBy(r => r.PasientNavn, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(r => r.Tildeling.TildeltUtc)
+            .ToList();
     }
 
     private async Task LastValgtePasienterAsync(string csv, CancellationToken cancellationToken)

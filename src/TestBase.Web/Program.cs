@@ -63,6 +63,7 @@ builder.Services.AddScoped<PlanlagtTildelingService>();
 builder.Services.AddScoped<TestBase.Shared.Domain.Tilbakemeldinger.TilbakemeldingService>();
 builder.Services.AddHostedService<PlanlagtTildelingBakgrunnstjeneste>();
 builder.Services.AddHostedService<ProgramBakgrunnstjeneste>();
+builder.Services.AddHostedService<AutomatiskPaaminnelseBakgrunnstjeneste>();
 builder.Services.AddScoped<TestBase.Shared.Domain.Utbetaling.UtbetalingsOnboardingService>();
 builder.Services.AddScoped<TestBase.Shared.Domain.Utbetaling.UtbetalingsBatchService>();
 builder.Services.AddHostedService<UtbetalingsBatchBakgrunnstjeneste>();

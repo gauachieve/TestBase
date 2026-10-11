@@ -54,7 +54,7 @@ public sealed class ProgramService
 
     public async Task<Behandlingsprogram> OpprettAsync(
         long behandlerId, string navn, string? forklaring, DayOfWeek startUkedag, TimeSpan startKlokkeslett,
-        IReadOnlyList<ProgramDropInput> drops, CancellationToken cancellationToken = default)
+        IReadOnlyList<ProgramDropInput> drops, bool automatiskPaaminnelseAktiv = false, CancellationToken cancellationToken = default)
     {
         var program = new Behandlingsprogram
         {
@@ -63,7 +63,8 @@ public sealed class ProgramService
             StartUkedag = startUkedag,
             StartKlokkeslett = startKlokkeslett,
             OpprettetAvBehandlerId = behandlerId,
-            OpprettetUtc = DateTimeOffset.UtcNow
+            OpprettetUtc = DateTimeOffset.UtcNow,
+            AutomatiskPaaminnelseEtterDager = automatiskPaaminnelseAktiv ? 3 : null
         };
         _db.Behandlingsprogrammer.Add(program);
         await _db.SaveChangesAsync(cancellationToken);
@@ -100,7 +101,7 @@ public sealed class ProgramService
 
     public async Task<(bool Lykkes, bool DropsLaast, string? Feilmelding)> OppdaterAsync(
         long programId, long behandlerId, string navn, string? forklaring, DayOfWeek startUkedag, TimeSpan startKlokkeslett,
-        IReadOnlyList<ProgramDropInput> drops, CancellationToken cancellationToken = default)
+        IReadOnlyList<ProgramDropInput> drops, bool automatiskPaaminnelseAktiv = false, CancellationToken cancellationToken = default)
     {
         var program = await _db.Behandlingsprogrammer.FirstOrDefaultAsync(p => p.Id == programId, cancellationToken);
         if (program is null || program.OpprettetAvBehandlerId != behandlerId)
@@ -112,6 +113,7 @@ public sealed class ProgramService
         program.Forklaring = forklaring;
         program.StartUkedag = startUkedag;
         program.StartKlokkeslett = startKlokkeslett;
+        program.AutomatiskPaaminnelseEtterDager = automatiskPaaminnelseAktiv ? 3 : null;
 
         var harDeltakelser = await _db.ProgramDeltakelser.AnyAsync(d => d.ProgramId == programId, cancellationToken);
         if (harDeltakelser)
@@ -181,7 +183,8 @@ public sealed class ProgramService
             StartKlokkeslett = original.StartKlokkeslett,
             OpprettetAvBehandlerId = behandlerId,
             KopiertFraProgramId = original.Id,
-            OpprettetUtc = DateTimeOffset.UtcNow
+            OpprettetUtc = DateTimeOffset.UtcNow,
+            AutomatiskPaaminnelseEtterDager = original.AutomatiskPaaminnelseEtterDager
         };
         _db.Behandlingsprogrammer.Add(kopi);
         await _db.SaveChangesAsync(cancellationToken);
@@ -378,7 +381,8 @@ public sealed class ProgramService
                 ProgramStartUtc = programStartUtc,
                 NaavaerendeDroppIndeks = 0,
                 NesteDroppPlanlagtUtc = forsteDroppTidspunkt,
-                OpprettetUtc = naaUtc
+                OpprettetUtc = naaUtc,
+                AutomatiskPaaminnelseEtterDager = program.AutomatiskPaaminnelseEtterDager
             });
             antall++;
         }
@@ -493,6 +497,14 @@ public sealed class ProgramService
         var tildeling = await _testService.TildelAsync(
             testId, pasient.Id, behandlerId: deltakelse.TildeltAvBehandlerId, administratorId: deltakelse.TildeltAvAdministratorId,
             frist: null, varighetMinutter: null, cancellationToken: cancellationToken);
+
+        // Bugliste 2026-10-11 punkt 6: samme automatiske påminnelse-mekanisme som en vanlig
+        // tildeling (se TestTildelingsService.TildelOgVarsleAsync) — ALDRI for en behandler-utfylt
+        // test (ingen SMS/e-post sendes dit i det hele tatt, se samme guard der).
+        if (!test.FyllesUtAvBehandler)
+        {
+            tildeling.AutomatiskPaaminnelseEtterDager = deltakelse.AutomatiskPaaminnelseEtterDager;
+        }
 
         _db.ProgramTildelinger.Add(new ProgramTildeling
         {

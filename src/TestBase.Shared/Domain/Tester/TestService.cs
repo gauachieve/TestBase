@@ -1015,6 +1015,23 @@ public sealed class TestService
         return await BerikMedTestOgPasientAsync(tildelinger, cancellationToken);
     }
 
+    /// <summary>
+    /// Bugliste 2026-10-11 punkt 1: ALLE ikke-fullførte tildelinger i hele systemet, sortert per
+    /// pasient — admin-varianten av HentIkkeFullforteForBehandlerAsync, brukt av "Tildelte
+    /// tester"-fanen på Admin/Tildel/Tester.cshtml. Admin ser allerede alle pasienter (se
+    /// Admin/Pasienter/Index), så ingen eierskapsfiltrering her er en bevisst konsistent
+    /// fortsettelse av det, ikke en ny tilgangsutvidelse.
+    /// </summary>
+    public async Task<IReadOnlyList<TildelingMedTestOgPasient>> HentIkkeFullforteForAdminAsync(CancellationToken cancellationToken = default)
+    {
+        var tildelinger = await _db.TestTildelinger
+            .Where(t => t.Status != TestTildelingStatus.Fullfort)
+            .OrderBy(t => t.TildeltUtc)
+            .ToListAsync(cancellationToken);
+        var berikede = await BerikMedTestOgPasientAsync(tildelinger, cancellationToken);
+        return berikede.OrderBy(r => r.PasientNavn, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     /// <summary>Godkjente rapporter for behandlers pasienter — "Min side" sin tredje fane, se docs/beslutningslogg.md.</summary>
     public async Task<IReadOnlyList<TildelingMedTestOgPasient>> HentGodkjenteFullforteForBehandlerAsync(
         long behandlerId, CancellationToken cancellationToken = default)
@@ -1031,11 +1048,14 @@ public sealed class TestService
 
     /// <summary>
     /// Sletter permanent en IKKE-fullført tildeling ("Ikke besvart"-listen på Min
-    /// side, som ellers vokser uten grenser — se docs/beslutningslogg.md). Kan
+    /// side, som ellers vokser uten grenser — se docs/beslutningslogg.md, og "Tildelte
+    /// tester"-fanen på Tildel/Tester.cshtml, bugliste 2026-10-11 punkt 1). Kan
     /// ALDRI slette en fullført tildeling (bruk arkivering/rapportflyten for
-    /// den), og kun for behandlerens EGNE pasienter.
+    /// den). <paramref name="behandlerId"/> null betyr admin — ingen eierskapssjekk
+    /// (admin ser allerede alle pasienter, samme prinsipp som HentIkkeFullforteForAdminAsync);
+    /// en faktisk behandler-id håndheves fortsatt strengt mot EGNE pasienter.
     /// </summary>
-    public async Task<bool> SlettIkkeFullfortTildelingAsync(long tildelingId, long behandlerId, CancellationToken cancellationToken = default)
+    public async Task<bool> SlettIkkeFullfortTildelingAsync(long tildelingId, long? behandlerId, CancellationToken cancellationToken = default)
     {
         var tildeling = await _db.TestTildelinger.FirstOrDefaultAsync(t => t.Id == tildelingId, cancellationToken);
         if (tildeling is null || tildeling.Status == TestTildelingStatus.Fullfort)
@@ -1043,10 +1063,13 @@ public sealed class TestService
             return false;
         }
 
-        var eierBehandlerId = await _db.Pasienter.Where(p => p.Id == tildeling.PasientId).Select(p => p.BehandlerId).FirstOrDefaultAsync(cancellationToken);
-        if (eierBehandlerId != behandlerId)
+        if (behandlerId is not null)
         {
-            return false;
+            var eierBehandlerId = await _db.Pasienter.Where(p => p.Id == tildeling.PasientId).Select(p => p.BehandlerId).FirstOrDefaultAsync(cancellationToken);
+            if (eierBehandlerId != behandlerId.Value)
+            {
+                return false;
+            }
         }
 
         _db.TestTildelingBetalinger.RemoveRange(_db.TestTildelingBetalinger.Where(b => b.TestTildelingId == tildelingId));

@@ -175,6 +175,7 @@ public sealed class TestTildelingsService
         string baseUrl,
         Varslingspreferanse varslingsmetode = Varslingspreferanse.Begge,
         long? ansvarligBehandlerId = null,
+        bool automatiskPaaminnelseAktiv = false,
         CancellationToken cancellationToken = default)
     {
         var pasienter = await _db.Pasienter.Where(p => pasientIder.Contains(p.Id)).ToListAsync(cancellationToken);
@@ -292,6 +293,14 @@ public sealed class TestTildelingsService
                     frist: null, varighetMinutter: null,
                     ansvarligBehandlerId: erBehandlerUtfylt ? ansvarligBehandlerId : null,
                     cancellationToken: cancellationToken);
+
+                // Bugliste 2026-10-11 punkt 6: aldri for en behandler-utfylt test — ingen
+                // SMS/e-post sendes TIL PASIENTEN for den typen i det hele tatt (se under), en
+                // automatisk påminnelse ville derfor ikke hatt noen mottaker.
+                if (automatiskPaaminnelseAktiv && !erBehandlerUtfylt)
+                {
+                    tildeling.AutomatiskPaaminnelseEtterDager = 3;
+                }
 
                 // "Prøv systemet"-pasient (intet personnummer, se PasientInvitasjonService.
                 // RegistrerViaQrAsync) skal ALDRI møte betalingsgaten, uansett testens pris —
@@ -416,6 +425,69 @@ public sealed class TestTildelingsService
         await _testService.SettRapportSynlighetAsync(tildelingId, true, cancellationToken);
         var (sendtSms, sendtEpost) = await VarsleAsync(pasient, melding, "Rapporten din er klar i PsyTest", melding, null, pasient.Varslingspreferanse, cancellationToken);
         return sendtSms || sendtEpost;
+    }
+
+    /// <summary>
+    /// Bugliste 2026-10-11 punkt 5+6: sender ÉN "du har en ubesvart test"-påminnelse på nytt til
+    /// pasienten — brukt BÅDE av den manuelle "Påminn"-knappen ("Tildelte tester"-fanen på
+    /// Tildel/Tester.cshtml, punkt 5, alltid med en faktisk <paramref name="behandlerId"/> fra UI
+    /// for eierskapssjekk, eller null fra admin) OG den automatiske bakgrunnsjobben (punkt 6, se
+    /// AutomatiskPaaminnelseBakgrunnstjeneste — alltid null der, en systemstyrt jobb har ingen
+    /// behandler å sjekke eierskap mot). Setter ALLTID SistPaaminnetUtc ved et faktisk FORSØK
+    /// (selv om selve sendingen feiler, se VarsleAsync sin try/catch) — ellers ville den
+    /// automatiske jobben prøve akkurat denne tildelingen på nytt ved hver eneste poll.
+    /// </summary>
+    public async Task<bool> PaaminnUbesvartTestAsync(
+        long tildelingId, string baseUrl, long? behandlerId, CancellationToken cancellationToken = default)
+    {
+        var tildeling = await _db.TestTildelinger.FirstOrDefaultAsync(t => t.Id == tildelingId, cancellationToken);
+        if (tildeling is null || tildeling.Status == TestTildelingStatus.Fullfort)
+        {
+            return false;
+        }
+
+        var pasient = await _db.Pasienter.FirstOrDefaultAsync(p => p.Id == tildeling.PasientId, cancellationToken);
+        if (pasient is null)
+        {
+            return false;
+        }
+
+        if (behandlerId is not null && pasient.BehandlerId != behandlerId.Value)
+        {
+            return false;
+        }
+
+        var test = await _db.Tester.FirstOrDefaultAsync(t => t.Id == tildeling.TestId, cancellationToken);
+        var testNavn = test?.Navn ?? "en test";
+        var lenke = $"{baseUrl.TrimEnd('/')}/Pasientportal/Tester/Fyll/{tildelingId}";
+        var smsTekst = $"Påminnelse fra PsyTest: du har ikke fullført testen «{testNavn}» ennå. Fyll den ut her: {lenke}";
+        var epostTekst = $"Påminnelse: du har fått i oppgave å fylle ut «{testNavn}» i PsyTest, men har ikke fullført den ennå. Fullfør her: {lenke}";
+
+        var (sendtSms, sendtEpost) = await VarsleAsync(
+            pasient, smsTekst, "Påminnelse: ubesvart test i PsyTest", epostTekst, null, pasient.Varslingspreferanse, cancellationToken);
+
+        tildeling.SistPaaminnetUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+        return sendtSms || sendtEpost;
+    }
+
+    /// <summary>
+    /// Kandidat-ID-er for den automatiske påminnelse-jobben (punkt 6) — et bredt DB-filter
+    /// (status/aktivert/aldri påminnet) hentet først, selve dag-terskelen (som varierer PER RAD
+    /// via AutomatiskPaaminnelseEtterDager) sjekket i minnet etterpå — EF Core kan ikke pålitelig
+    /// oversette "TildeltUtc.AddDays(enKolonneVerdi)" til SQL, og antallet kandidatrader er
+    /// uansett lite (kun ikke-fullførte tildelinger med bryteren aktiv og aldri påminnet).
+    /// </summary>
+    public async Task<IReadOnlyList<long>> HentDuePaaminnelserAsync(DateTimeOffset nowUtc, CancellationToken cancellationToken = default)
+    {
+        var kandidater = await _db.TestTildelinger
+            .Where(t => t.Status != TestTildelingStatus.Fullfort && t.AutomatiskPaaminnelseEtterDager != null && t.SistPaaminnetUtc == null)
+            .ToListAsync(cancellationToken);
+
+        return kandidater
+            .Where(t => t.TildeltUtc.AddDays(t.AutomatiskPaaminnelseEtterDager!.Value) <= nowUtc)
+            .Select(t => t.Id)
+            .ToList();
     }
 
     /// <summary>

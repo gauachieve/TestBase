@@ -51,6 +51,10 @@ public sealed class RedigerModel : PageModel
     [BindProperty]
     public List<DropFormRad> Drops { get; set; } = new();
 
+    /// <summary>Bugliste 2026-10-11 punkt 6 — samme automatiske "ikke besvart"-påminnelse som Tildel/Tester, her på PROGRAM-nivå (gjelder alle drops), se Behandlingsprogram.AutomatiskPaaminnelseEtterDager.</summary>
+    [BindProperty]
+    public bool AutomatiskPaaminnelseAktiv { get; set; }
+
     public long? ProgramId { get; private set; }
     public bool DropsLaast { get; private set; }
     public string? Feilmelding { get; private set; }
@@ -85,6 +89,7 @@ public sealed class RedigerModel : PageModel
         Forklaring = program.Forklaring;
         StartUkedag = program.StartUkedag;
         StartKlokkeslett = program.StartKlokkeslett.ToString(@"hh\:mm");
+        AutomatiskPaaminnelseAktiv = program.AutomatiskPaaminnelseEtterDager is not null;
         Drops = medDrops.Drops.Select(d => new DropFormRad
         {
             DagerEtterForrige = d.DagerEtterForrige,
@@ -133,11 +138,11 @@ public sealed class RedigerModel : PageModel
         var behandlerId = HentBehandlerId();
         if (id is null)
         {
-            var nytt = await _programService.OpprettAsync(behandlerId, Navn, Forklaring, StartUkedag, startKl, dropInput, cancellationToken);
+            var nytt = await _programService.OpprettAsync(behandlerId, Navn, Forklaring, StartUkedag, startKl, dropInput, AutomatiskPaaminnelseAktiv, cancellationToken);
             return RedirectToPage("Index", new { opprettet = nytt.Id });
         }
 
-        var (lykkes, dropsLaast, feilmelding) = await _programService.OppdaterAsync(id.Value, behandlerId, Navn, Forklaring, StartUkedag, startKl, dropInput, cancellationToken);
+        var (lykkes, dropsLaast, feilmelding) = await _programService.OppdaterAsync(id.Value, behandlerId, Navn, Forklaring, StartUkedag, startKl, dropInput, AutomatiskPaaminnelseAktiv, cancellationToken);
         if (!lykkes)
         {
             Feilmelding = feilmelding;

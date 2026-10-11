@@ -75,6 +75,10 @@ public sealed class TesterModel : PageModel
     [BindProperty]
     public long? AnsvarligBehandlerId { get; set; }
 
+    /// <summary>Bugliste 2026-10-11 punkt 6 — se Behandlerportal-motstykket for full begrunnelse.</summary>
+    [BindProperty]
+    public bool AutomatiskPaaminnelseAktiv { get; set; }
+
     public IReadOnlyList<Behandler> AktiveBehandlere { get; private set; } = Array.Empty<Behandler>();
 
     public IReadOnlyList<TestService.KategoriMedTester> KategoriTre { get; private set; } = Array.Empty<TestService.KategoriMedTester>();
@@ -83,8 +87,15 @@ public sealed class TesterModel : PageModel
     public string? Feilmelding { get; private set; }
     public TildelingsBatchResultat? Resultat { get; private set; }
 
+    /// <summary>Bugliste 2026-10-11 punkt 1 — ALLE ikke-fullførte tildelinger (admin-wide, se TestService.HentIkkeFullforteForAdminAsync), vist i "Tildelte tester"-fanen.</summary>
+    public IReadOnlyList<TestService.TildelingMedTestOgPasient> IkkeFullforteTildelinger { get; private set; } = Array.Empty<TestService.TildelingMedTestOgPasient>();
+    public string? PaaminnelseMelding { get; private set; }
+
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
+        PaaminnelseMelding = TempData["PaaminnelseMelding"] as string;
+        IkkeFullforteTildelinger = await _testService.HentIkkeFullforteForAdminAsync(cancellationToken);
+
         if (TempData.Peek("TildelPasientIder") is not string csv || string.IsNullOrWhiteSpace(csv))
         {
             Feilmelding = "Ingen pasienter valgt. Gå tilbake og velg pasienter først.";
@@ -125,7 +136,10 @@ public sealed class TesterModel : PageModel
             pasientIder, testIder, behandlerId: null, administratorId: HentAdministratorId(),
             onsketHonorarKrPerTestId: new Dictionary<long, decimal?>(),
             baseUrl: $"{Request.Scheme}://{Request.Host}",
-            varslingsmetode: Varslingsmetode, ansvarligBehandlerId: AnsvarligBehandlerId, cancellationToken: cancellationToken);
+            varslingsmetode: Varslingsmetode, ansvarligBehandlerId: AnsvarligBehandlerId,
+            automatiskPaaminnelseAktiv: AutomatiskPaaminnelseAktiv, cancellationToken: cancellationToken);
+
+        IkkeFullforteTildelinger = await _testService.HentIkkeFullforteForAdminAsync(cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "TildelTesterBatch",
@@ -133,6 +147,22 @@ public sealed class TesterModel : PageModel
             $"TestIder {string.Join(",", testIder)}; PasientIder {string.Join(",", pasientIder)}", cancellationToken);
 
         return Page();
+    }
+
+    /// <summary>Bugliste 2026-10-11 punkt 5 — se Behandlerportal-motstykket for full begrunnelse (redirect+TempData-mønsteret).</summary>
+    public async Task<IActionResult> OnPostPaaminnAsync(long tildelingId, CancellationToken cancellationToken)
+    {
+        var sendt = await _tildelingsService.PaaminnUbesvartTestAsync(
+            tildelingId, baseUrl: $"{Request.Scheme}://{Request.Host}", behandlerId: null, cancellationToken);
+        TempData["PaaminnelseMelding"] = sendt ? "Påminnelse sendt." : "Kunne ikke sende påminnelse (tildelingen er allerede fullført).";
+        return Redirect(Url.Page("./Tester")! + "#tildelte");
+    }
+
+    /// <summary>Bugliste 2026-10-11 punkt 1 — se Behandlerportal-motstykket. behandlerId: null = admin, ingen eierskapssjekk.</summary>
+    public async Task<IActionResult> OnPostSlettIkkeFullfortAsync(long tildelingId, CancellationToken cancellationToken)
+    {
+        await _testService.SlettIkkeFullfortTildelingAsync(tildelingId, behandlerId: null, cancellationToken);
+        return Redirect(Url.Page("./Tester")! + "#tildelte");
     }
 
     /// <summary>Se Behandlerportal-motstykket for full begrunnelse.</summary>
