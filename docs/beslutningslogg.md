@@ -8732,3 +8732,47 @@ kontekstsensitivitet på `Admin/MinSide` bekreftet. Én sjekk (kontekstsensitivi
 `Behandlerportal/MinPartner/Prising`) ble IKKE fullført — dev-rollebytte-kontoen mangler
 `PartnerId`-claimet siden-policyen krever, ikke en feil i selve hjelpeinnholdet. Pushet til master
 samme dag (brukerens eksplisitte "dette er trygt, push helt til live").
+
+### CLAUDE.md sin "ingen produksjonsavtaler"-linje var stale — rettet, pluss full sjekkliste for ekte betaling/utbetaling (2026-10-11, samme dag)
+
+Brukeren spurte om å toggle Betaling/Utbetaling (dagens nye Driftsbrytere) til "Ekte" faktisk ville
+fungere hele veien. Undersøkt direkte mot Azure (KUN innstillingsNAVN og en ikke-sensitiv verdi,
+`az webapp config appsettings list` — selve nøkkelverdiene ble BEVISST aldri lest, et forsøk på å
+lese Stripe-hemmeligheten ble faktisk blokkert av Claude Code sin egen "credential materialization"-
+sikkerhetsklassifiserer, respektert og ikke forsøkt omgått):
+
+- **BankID (admin/behandler):** `CLAUDE.md` sin arkitekturseksjon sa fortsatt "ingen
+  PRODUKSJONSAVTALE" — STALE, se "Ekte BankID for admin/behandler, del 1-9" (fungerer, styrt av
+  `EktBankIdInnstilling`). Rettet i `CLAUDE.md`.
+- **Vipps (pasientbetaling):** samme stale påstand. Bekreftet direkte i App Service-innstillingene:
+  ekte `Vipps:ClientId`/`ClientSecret`/`SubscriptionKey`/`MerchantSerialNumber` ER satt på live, OG
+  `Vipps:Miljo = Produksjon` (ikke sandkasse) — stemmer med "Ekte Vipps satt i produksjon" fra
+  2026-09-15, der brukeren selv gjennomførte en REELL betaling og en kritisk "capture"-bug (penger
+  reservert, aldri trukket) ble funnet og fikset rett etterpå. Konklusjon: Vipps-betaling har
+  høyst sannsynlig allerede fungert ende-til-ende for ekte penger — IKKE re-verifisert siden den
+  gangen, men ingen kjent regresjon.
+- **Stripe (kortbetaling):** nøkkelen ER satt på live, men hvorvidt det er en LIVE- eller
+  TEST-modus-nøkkel kunne IKKE bekreftes herfra (se sikkerhetsblokkeringen over) — brukeren må
+  sjekke selv i Stripe-dashbordet.
+- **Stripe Connect-UTBETALING (ny, 2026-10-10):** KUN verifisert mot Stripes eget test-API — ingen
+  reell behandler/klinikk har fullført ekte "Koble til utbetalingskonto"-onboarding. Selv med en
+  ekte Stripe-nøkkel ville et faktisk overføringsforsøk sannsynligvis feile, siden mottakeren ikke
+  har noen ekte, fullført konto.
+
+`CLAUDE.md` sin feilaktige linje omskrevet til å reflektere faktisk status for BankID/Vipps/Stripe/
+Stripe Connect separat, med dagens dato og en markering om at den tidligere var stale — se selve
+filen for ordlyden. Ingen kode endret, ingen migrasjon, rent dokumentasjonsarbeid.
+
+**Sjekkliste brukeren fikk for at Betaling/Utbetaling faktisk skal fungere med ekte penger:**
+1. Bekreft i Stripe-dashbordet om `Stripe:SecretKey` på live faktisk er en live-nøkkel
+   (`sk_live_...`) — i dag ukjent/ubekreftet.
+2. Gjør ett reelt, lite testkjøp (Vipps og/eller kort) etter at Driftsbrytere står på "Ekte", og
+   bekreft i Vipps-/Stripe-portalen at pengene faktisk ble trukket (ikke bare "Bekreftet" i appen —
+   se capture-fallgruven fra 2026-09-15).
+3. For utbetaling: få MINST ÉN reell behandler/klinikk til å fullføre ekte Stripe Connect-
+   onboarding ("Koble til utbetalingskonto" med en ekte bankkonto, ikke testdata).
+4. Generer en ekte månedlig batch (skjer automatisk tidlig i måneden) og godkjenn ETT lite beløp
+   først (`Admin/Utbetalinger` → "Godkjenn og betal ut") — bekreft i Stripe-dashbordet at
+   overføringen og den etterfølgende bankutbetalingen faktisk skjedde, før en full batch kjøres.
+5. Hold Betaling/Utbetaling-bryterne på "Mock" til punkt 1-4 er gjort, for å unngå at en ekte
+   pasient/behandler treffer en halvveis-verifisert ekte betalingsvei.

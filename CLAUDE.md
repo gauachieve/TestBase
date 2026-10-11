@@ -149,7 +149,29 @@ grov.
   `docs/beslutningslogg.md` "PersonnummerOverride midlertidig gjeninnført på live".
 - **Lokal utvikling:** Docker Compose (lokal MySQL-container) + `dotnet watch run`. Bevisst holdt enkelt og sky-fritt for rask iterasjon.
 - **Sikkerhetsprinsipp — arkitektur nå, infrastruktur senere:** Tilgangsstyring og audit-logging er bygget inn i kodearkitekturen fra dag én (`TestBase.Shared/Security/`: `ICurrentUserContext`, `IAuditLogger`) og er aktiv i ALLE miljøer, også lokalt — men peker på enkle lokale dummy-nøkler i dev og ekte Azure Key Vault/IAM i prod. Følg dette mønsteret videre: ny sikkerhetsrelatert kode skal alltid være aktiv i dev også, bare med enklere infrastruktur bak.
-- **Eksterne leverandører (BankID, Vipps, SMS, e-post, betaling):** BankID og Vipps har fortsatt ingen PRODUKSJONSAVTALER (Vipps sin ekte ePayment API-integrasjon, se under, er kodeklar men uverifisert live siden Vipps sitt sandkassemiljø krever et godkjent kunde-/partnerforhold, ikke selvbetjent som Idura). Stripe (kort/Apple Pay/Google Pay) har en ekte, selvbetjent test-integrasjon — se `IStripeClient`/`StripePaymentClient` og beslutningsloggen "Vipps + Stripe (Apple Pay/Google Pay)". E-post (Azure Communication Services) og SMS (Vonage) har begge en ekte, fungerende integrasjon i Azure test-App Service nå — se beslutningsloggen under "Ekte e-postutsending via Azure Communication Services" og "SMS-integrasjon: byttet fra Azure til Vonage". All kode mot disse går bak grensesnitt (`IBankIdProvider`, `IVippsClient`, `ISmsSender`, `IEmailSender`) med mock-implementasjoner i `TestBase.Shared/Providers/Mock/` som brukes lokalt uansett, slik at utvikling ikke er avhengig av ekte avtaler/kontoer. Se `/DevDemo`-siden for eksempel på bruk. I tillegg finnes det siden 2026-09-05 en ekte, gratis Idura BankID-TEST-integrasjon (`/DevDemo` → "Test ekte BankID (Idura)") — kun et diagnostisk sideverktøy, IKKE koblet til `IBankIdProvider`/den faktiske innloggingsflyten, se beslutningsloggen "BankID-testintegrasjon via Idura".
+- **Eksterne leverandører (BankID, Vipps, SMS, e-post, betaling) — RETTET 2026-10-11, denne linjen var stale:**
+  BankID for admin/behandler har en EKTE produksjonsavtale (Idura/Stø) som FUNGERER på live, styrt
+  av en runtime-bryter (`EktBankIdInnstilling`, default på) — se "Ekte BankID for admin/behandler,
+  del 1-9" i beslutningsloggen. Pasient-BankID er fortsatt IKKE bygget (kun mock). Vipps har en
+  EKTE produksjonsavtale og ekte produksjonsnøkler konfigurert på live (`Vipps:Miljo=Produksjon`,
+  bekreftet direkte i App Service-innstillingene 2026-10-11) — brukeren gjennomførte selv en reell
+  betaling 2026-09-15 som avdekket og fikk fikset en kritisk "capture"-bug (penger ble reservert,
+  aldri trukket, se "Kritisk bugfiks: Vipps-betaling ble aldri fanget"); IKKE re-verifisert siden,
+  men bør fungere. Stripe (kort/Apple Pay/Google Pay) sin nøkkel på live er IKKE bekreftet om den
+  er en live- eller test-modus-nøkkel — sjekk selv i Stripe-dashbordet før du stoler på ekte
+  kortbetaling. Den NYE Stripe Connect-UTBETALINGEN (til behandler/klinikk, bygget 2026-10-10) er
+  KUN testet mot Stripes eget test-API — ingen reell mottaker har fullført ekte konto-onboarding
+  hos Stripe ennå, se "Driftsbrytere"-spørsmålet i beslutningsloggen for full sjekkliste før dette
+  kan fungere med ekte penger. E-post (Azure Communication Services) og SMS (Vonage) har begge en
+  ekte, fungerende integrasjon i Azure test-App Service — se beslutningsloggen under "Ekte
+  e-postutsending via Azure Communication Services" og "SMS-integrasjon: byttet fra Azure til
+  Vonage". All kode mot disse går bak grensesnitt (`IBankIdProvider`, `IVippsClient`, `ISmsSender`,
+  `IEmailSender`) med mock-implementasjoner i `TestBase.Shared/Providers/Mock/` som brukes lokalt
+  uansett, slik at utvikling ikke er avhengig av ekte avtaler/kontoer. Se `/DevDemo`-siden for
+  eksempel på bruk. I tillegg finnes det siden 2026-09-05 en ekte, gratis Idura BankID-TEST-
+  integrasjon (`/DevDemo` → "Test ekte BankID (Idura)") — kun et diagnostisk sideverktøy, IKKE
+  koblet til `IBankIdProvider`/den faktiske innloggingsflyten, se beslutningsloggen
+  "BankID-testintegrasjon via Idura".
 - **Ingen ekte pasientdata i dev/test noensinne** — kun syntetiske testdata.
 
 ## Prosjektstruktur
