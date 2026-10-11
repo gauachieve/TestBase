@@ -1133,6 +1133,31 @@ dotnet watch run
 - Et `flex`-element sin `flex-basis` satt i prosent (f.eks. to kolonner `60%`/`38%` for en ca. 2-kolonners splitt) PLUSS en separat `gap`-verdi på selve flex-containeren summeres OPPÅ hverandre — en 60%+38%+`gap: 1.5rem` kan fint overskride containerens 100% bredde, og `flex-wrap: wrap` tvinger da kolonnene til å pakke om på hver sin linje i stedet for å stå side om side, selv om prosentene isolert sett ser ut som de skal summere til under 100%. CSS Grid (`display: grid; grid-template-columns: 60% 1fr; gap: 1.5rem;`) har IKKE dette problemet — `gap` i grid trekkes aldri fra kolonnesporenes egen bredde. Skjedde reelt i `_TestKategoriVelger.cshtml` (bugliste 2026-10-06 punkt 5/6) — løst ved å bytte fra flex til grid for akkurat denne to-kolonners splitten, ikke ved å redusere prosentene for å "gi plass til" gapet.
 - Et betinget `@(uttrykk)`-token skrevet BART inni et HTML-tag for å injisere en HEL attributt-streng (f.eks. `@(cond ? "" : "name=\"X\"")` direkte mellom andre attributter, i stedet for som verdien TIL et navngitt attributt) blir HTML-ENKODET av Razor som vanlig tekst-output, ikke parset som ekte markup — `name="X"` ender opp som `name=&quot;X&quot;` i selve HTML-kilden, et INGEN nettleser tolker som et attributt. Et skjemafelt (f.eks. en checkbox) skrevet slik mister dermed sitt `name`-attributt HELT STILLE: ingen kompilatorfeil, ingen runtime-feil, siden laster og submitter helt normalt — feltet er bare usynlig for server-side modellbinding (en handler som leser `List<long> testIder` får alltid en tom liste). Skjedde reelt i `_TestKategoriVelger.cshtml` sin `CheckboxNavn`-parameter (bugliste 2026-10-11 punkt 4) — ALDRI faktisk brukt med en ikke-null verdi før den runden, så bugen hadde ligget latent i komponenten siden den ble skrevet. Løsning: pakk HELE det betingede uttrykket i `@Html.Raw(...)` — samme "verktøy", men en ANNEN årsaksklasse enn den allerede dokumenterte SVG `<text>`-fallgruven (der roten er en pseudo-tag-begrensning, ikke HTML-enkoding av en attributt-streng). Bekreft ALLTID en ny skjemahandler sin faktiske databaseeffekt direkte (f.eks. en rå SQL-spørring), ikke bare at siden viser en "Lagret."-melding — handleren kan kjøre helt uten feil og likevel ha mottatt tomme data.
 
+- Et `<form>` FYSISK nøstet inni et annet `<form>` (f.eks. en per-rad "slett/be om fjerning"-form
+  i en tabellcelle, der HELE tabellen igjen er omsluttet av en ytre bulk-lagre-form) er ugyldig
+  HTML — nettleseren "reparerer" det ved parsing (den indre form-taggen ignoreres/smeltes inn i
+  den ytre), som i praksis DUPLISERER skjulte felt (inkl. antiforgery-tokenet) inn i én overlevende
+  form og gir et ekte, reprodusérbart `400 Bad Request` ved innsending — IKKE en antiforgery-
+  feilmelding i loggen man lett kan spore tilbake til nøstingen, bare en generisk 400. Skjedde
+  reelt på `MinPartner/Prising.cshtml` (2026-10-11) der per-rad "Be om fjerning"-knappen lå inni
+  samme tabell som "Lagre alle endringer" sin omsluttende form. Løsning: ALDRI nøst — bruk i
+  stedet samme `form="elementId"`-kryssreferanse-mønster som `data-flervalg-beholder` allerede
+  bruker andre steder (en TOM `<form id="x" method="post"></form>` plassert FØR/ETTER tabellen,
+  ikke rundt den, med `form="x"` på hvert felt/knapp som faktisk skal poste dit). Se samtidig
+  neste punkt — en slik tom form trenger ALLTID en eksplisitt `asp-page`/`asp-page-handler`.
+- En TOM `<form method="post"></form>` (brukt kun som `form="..."`-kryssreferansemål, se punktet
+  over) UTEN noen `asp-page`/`asp-page-handler`-attributt mangler en eksplisitt `action` — HTML-
+  spesifikasjonen lar da nettleseren falle tilbake til å poste til GJELDENDE DOKUMENT-URL,
+  INKLUDERT en hvilken som helst `?handler=...`-spørrestreng som måtte stå i adresselinjen fra en
+  TIDLIGERE handler på SAMME side (f.eks. en handler som returnerer `Page()` uten å redirecte).
+  Resultatet: brukeren klikker en helt urelatert knapp (f.eks. "Lagre alle endringer") og
+  POST-en treffer stille feil handler. Skjedde reelt rett etter nøstet-form-fiksen over, fanget
+  ved å reprodusere nøyaktig rekkefølgen "klikk en per-rad-handling (etterlater `?handler=X` i
+  adresselinjen) → klikk bulk-lagre uten mellomliggende reload". Løsning: gi ENHVER slik tom
+  kryssreferanse-form en eksplisitt `asp-page="./SidensEgetNavn"` (ingen handler = standard
+  `OnPostAsync`), slik at action-URL-en ALLTID genereres rent, uavhengig av hva som tilfeldigvis
+  står i adresselinjen idet brukeren klikker.
+
 ## Hvordan jobbe videre
 
 1. Fase 6 (Vipps/fakturering/økonomiske rapporter) eller resten av Del 2/3/4

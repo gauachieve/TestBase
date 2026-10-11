@@ -8453,3 +8453,48 @@ observert (ingen andre feil enn at appen ikke svarte på HTTP). Root cause for s
 hengingen er IKKE fullt forklart (ingen unntak i loggene å peke på) — hvis mønsteret gjentar seg
 ved en fremtidig deploy, bør CI/CD-pipelinens helsesjekk utvides med en automatisk
 `az webapp restart`-retry FØR den gir opp, i stedet for å kun rapportere feil.
+
+### Reell 400-feil + ulesbar knapp på "Min klinikks andel per test" (2026-10-11, samme dag)
+
+Brukeren rapporterte (skjermbilde): den grønne "Be om fjerning"-knappen på
+`Behandlerportal/MinPartner/Prising.cshtml` viste ulesbar, brutt tekst ("Be on/emin" over to
+linjer) og førte til en 400-feil ved klikk.
+
+**Rotårsak, ulesbar knapp:** `.btn-icon` er den etablerte 30×30px IKON-ONLY-konvensjonen (se
+CLAUDE.md-fallgruvelisten) — denne knappen hadde ved et uhell fått full tekst ("Be om fjerning")
+i stedet for et ikon, og ble dermed tvunget inn i en knapp beregnet for ett enkelt ikon-tegn.
+
+**Rotårsak, 400-feil:** et ekte, reprodusert HTML-strukturproblem — den ytre
+`<form method="post" class="skjema-bred">` (bulk-lagre-alle-andeler) omsluttet FYSISK hele
+tabellen, inkludert per-rad sin EGEN `<form asp-page-handler="ForesporTilgang">` for
+"Be om fjerning". **Nøstede `<form>`-elementer er ugyldig HTML** — nettleseren "reparerer" dette
+ved parsing (den indre form-taggen ignoreres/smeltes inn i den ytre), som i praksis dupliserer
+skjulte felt (inkl. to antiforgery-tokener i én overlevende form) og gir et ekte 400 Bad Request
+ved innsending. Reprodusert lokalt (etter fiksen virket, ble feilen bekreftet fraværende).
+
+**Fiks:** samme `form="..."`-kryssreferanse-mønster som allerede brukes for
+data-flervalg-bulk-handlinger andre steder (f.eks. `_IkkeFullforteFane.cshtml`): den ytre "lagre
+alle"-formen er nå TOM (`<form id="andelSkjema" method="post" asp-page="./Prising"></form>`,
+plassert FØR tabellen, IKKE rundt den), og hvert tall-felt samt "Lagre alle endringer"-knappen
+refererer den via `form="andelSkjema"` i stedet for fysisk nøsting. Per-rad "Be om fjerning"-
+formen er nå en ordentlig TOPPNIVÅ-form (ikke lenger nøstet i noe), med et ekte ikon
+(`tilbakekall`, samme røde `.btn-icon--slett`-stil som andre slett-/fjern-handlinger) + synlig
+tittel/aria-label.
+
+**Et ANNET, beslektet funn underveis** (fanget under egen verifisering, ikke i det opprinnelige
+skjermbildet): fordi den tomme `andelSkjema`-formen i utgangspunktet IKKE hadde noen `asp-page`-
+attributt, manglet den en eksplisitt `action`, og nettleseren falt da tilbake til Å POSTE TIL
+GJELDENDE DOKUMENT-URL — hvis brukeren nettopp hadde klikket "Be om fjerning" (som etterlater
+URL-en `?handler=ForesporTilgang` i adresselinjen, siden den handleren returnerer `Page()` uten
+redirect) og DERETTER klikket "Lagre alle endringer" uten en mellomliggende sideoppfriskning,
+ville bulk-lagringen feilaktig truffet `OnPostForesporTilgangAsync` i stedet for `OnPostAsync`.
+Lagt til `asp-page="./Prising"` eksplisitt på `andelSkjema` for å alltid generere en ren
+action-URL uavhengig av gjeldende spørrestreng — en NY fallgruve verdt å huske for enhver tom
+`form="..."`-kryssreferanse-form uten eksplisitt `asp-page-handler` på en side som OGSÅ har andre
+handlere som kan legge igjen en `?handler=`-spørrestreng i adresselinjen.
+
+Fullt verifisert i nettleser (ekte lokal klinikk-admin-testkonto): "Be om fjerning" viser nå et
+lesbart ikon og lykkes (ingen 400, "Forespørsel sendt..."-melding vises korrekt), OG den
+etterfølgende "Lagre alle endringer" (testet i nøyaktig den tidligere problematiske rekkefølgen:
+fjerning-forespørsel FØRST, så bulk-lagring UTEN mellomliggende reload) lagrer nå korrekt til
+riktig handler. 101 tester fortsatt grønne, ingen migrasjon.
