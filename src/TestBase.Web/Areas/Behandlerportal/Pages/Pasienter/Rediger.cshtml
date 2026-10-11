@@ -53,7 +53,7 @@
 
     <dialog id="byttBehandlerDialog">
         <h2>Bytt behandler</h2>
-        <p>Pasienten flyttes til en annen behandler i samme partnerskap.</p>
+        <p>Pasienten flyttes til en annen behandler i samme klinikk.</p>
         <form method="post" asp-page-handler="ByttBehandler" data-disable-on-submit="Bytter behandler …">
             <input type="hidden" name="id" value="@Model.Id" />
             <select name="nyBehandlerId">

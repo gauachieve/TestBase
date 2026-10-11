@@ -243,7 +243,7 @@
                 sumBehandler += pris.behandlerHonorar;
 
                 var detaljer = 'Plattform ' + formatNok(pris.plattformAndel) +
-                    (pris.partnerAndel > 0 ? ', partner ' + formatNok(pris.partnerAndel) : '') +
+                    (pris.partnerAndel > 0 ? ', klinikk ' + formatNok(pris.partnerAndel) : '') +
                     ', ditt honorar ' + formatNok(pris.behandlerHonorar) +
                     (pris.smsGebyrKr > 0 ? ' (inkl. ' + formatNok(pris.smsGebyrKr) + ' SMS-gebyr)' : '');
                 punkt.textContent = testNavn + ' — ' + formatNok(pris.totalKr) + ' per pasient (' + detaljer + ')';
@@ -262,7 +262,7 @@
         if (harPrising) {
             var linje = 'Totalt per pasient: ' + formatNok(sumTotal) +
                 ' (plattform ' + formatNok(sumPlattform) +
-                (sumPartner > 0 ? ', partner ' + formatNok(sumPartner) : '') +
+                (sumPartner > 0 ? ', klinikk ' + formatNok(sumPartner) : '') +
                 ', behandlerhonorar ' + formatNok(sumBehandler) + ')';
             if (antallPasienter > 1) {
                 linje += ' — totalt for alle ' + antallPasienter + ' pasienter: ' + formatNok(sumTotal * antallPasienter);

@@ -136,11 +136,11 @@ public sealed class TestService
         var harAlleredeTilgang = await _db.PartnerTestTilganger.AnyAsync(t => t.PartnerId == partnerId && t.TestId == testId, cancellationToken);
         if (handling == TestTilgangHandling.LeggTil && harAlleredeTilgang)
         {
-            return new OpprettTestTilgangForespoerselResultat(false, "Partneren har allerede tilgang til denne testen.");
+            return new OpprettTestTilgangForespoerselResultat(false, "Klinikken har allerede tilgang til denne testen.");
         }
         if (handling == TestTilgangHandling.Fjern && !harAlleredeTilgang)
         {
-            return new OpprettTestTilgangForespoerselResultat(false, "Partneren har ikke tilgang til denne testen fra før.");
+            return new OpprettTestTilgangForespoerselResultat(false, "Klinikken har ikke tilgang til denne testen fra før.");
         }
 
         var harVentendeForesporsel = await _db.TestTilgangForesporsler.AnyAsync(
@@ -200,7 +200,7 @@ public sealed class TestService
 
         return foresporsler.Select(f => new VentendeTestTilgangForespoerselRad(
             f,
-            partnerNavnById.GetValueOrDefault(f.PartnerId, "(ukjent partner)"),
+            partnerNavnById.GetValueOrDefault(f.PartnerId, "(ukjent klinikk)"),
             testNavnById.GetValueOrDefault(f.TestId, "(ukjent test)"),
             behandlerNavnById.GetValueOrDefault(f.ForespurtAvBehandlerId))).ToList();
     }

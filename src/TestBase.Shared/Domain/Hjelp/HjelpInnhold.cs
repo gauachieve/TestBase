@@ -147,7 +147,7 @@ public static class HjelpInnhold
 
         new("beh-hjemmeoppgave-dele",
             "Kan jeg dele hjemmeoppgaven min med andre behandlere?",
-            "<p>Ja — fra <strong>Hjemmeoppgaver</strong>-listen kan du dele en egen hjemmeoppgave med alle behandlere i systemet, eller kun med kollegene i din egen partner (hvis du har en). Andre behandlere kan <strong>like</strong> den for å få en referanse i sin egen «Personlig»-fane, og lage sin egen redigerbare kopi derfra — originalen din påvirkes aldri av dette.</p>",
+            "<p>Ja — fra <strong>Hjemmeoppgaver</strong>-listen kan du dele en egen hjemmeoppgave med alle behandlere i systemet, eller kun med kollegene i din egen klinikk (hvis du har en). Andre behandlere kan <strong>like</strong> den for å få en referanse i sin egen «Personlig»-fane, og lage sin egen redigerbare kopi derfra — originalen din påvirkes aldri av dette.</p>",
             KunBehandler, new[] { "/Behandlerportal/Hjemmeoppgaver" }, false, "Hjemmeoppgaver"),
 
         new("beh-program-lage",
@@ -177,19 +177,19 @@ public static class HjelpInnhold
             KunAdmin, new[] { "/Admin/Behandlere", "/Admin/MinSide" }, true, "Administrasjon"),
 
         new("adm-partnere",
-            "Hva er partnersystemet?",
-            "<p>En partner er en ekstern virksomhet med egen, kuratert tilgang til et utvalg tester. Som Superadmin oppretter du partneren og bestemmer hvilke tester de får tilgang til. En partner-administrator (en behandler med en egen rettighet) kan deretter sette sin egen andel av prisen for hver test, innenfor en nedre grense du setter.</p>",
-            KunAdmin, new[] { "/Admin/Partnere" }, false, "Partnere og prising"),
+            "Hva er klinikksystemet?",
+            "<p>En klinikk er en ekstern virksomhet med egen, kuratert tilgang til et utvalg tester. Som Superadmin oppretter du klinikken og bestemmer hvilke tester de får tilgang til. En klinikk-administrator (en behandler med en egen rettighet) kan deretter sette sin egen andel av prisen for hver test, innenfor en nedre grense du setter.</p>",
+            KunAdmin, new[] { "/Admin/Partnere" }, false, "Klinikker og prising"),
 
         new("adm-prising",
             "Hvordan setter jeg pris på en test?",
             "<p>Gå til <strong>Prising</strong> under Tester. Der setter du en minste- og største pris pasienten kan betale, og et typisk behandlerhonorar som brukes som forslag når en behandler tildeler testen.</p>",
-            KunAdmin, new[] { "/Admin/Tester/Prising" }, true, "Partnere og prising"),
+            KunAdmin, new[] { "/Admin/Tester/Prising" }, true, "Klinikker og prising"),
 
         new("adm-okonomi",
             "Hvor finner jeg økonomiske rapporter?",
-            "<p>Under <strong>Økonomi</strong> finner du en oversikt over gjennomførte betalinger, inkludert plattform-, partner- og behandlerandeler.</p>",
-            KunAdmin, new[] { "/Admin/Okonomi" }, false, "Partnere og prising"),
+            "<p>Under <strong>Økonomi</strong> finner du en oversikt over gjennomførte betalinger, inkludert plattform-, klinikk- og behandlerandeler.</p>",
+            KunAdmin, new[] { "/Admin/Okonomi" }, false, "Klinikker og prising"),
 
         new("adm-regenerer-tester",
             "Hva gjør \"Regenerer innebygde tester\"?",

@@ -18,7 +18,7 @@
         <button type="button" data-fane="delt" class="fane-knapp">Delt (@Model.DeltMedAlle.Count)</button>
         @if (Model.HarPartner)
         {
-            <button type="button" data-fane="partner" class="fane-knapp">Partner (@Model.DeltMedPartner.Count)</button>
+            <button type="button" data-fane="partner" class="fane-knapp">Klinikk (@Model.DeltMedPartner.Count)</button>
         }
         <button type="button" data-fane="opprett" class="fane-knapp">+ Opprett</button>
     </div>
@@ -94,7 +94,7 @@
                             <form method="post" asp-page-handler="DelMedPartner" style="display:inline;">
                                 <input type="hidden" name="programId" value="@program.Id" />
                                 <input type="hidden" name="verdi" value="@((!program.ErDeltMedPartner).ToString())" />
-                                <button type="submit" class="btn-icon btn-icon--partner @(program.ErDeltMedPartner ? "btn-icon--aktiv" : "")" title="@(program.ErDeltMedPartner ? "Avslutt deling (partner)" : "Del med partner")" aria-label="@(program.ErDeltMedPartner ? "Avslutt deling (partner)" : "Del med partner")"><partial name="_Ikon" model="@("behandlere")" /></button>
+                                <button type="submit" class="btn-icon btn-icon--partner @(program.ErDeltMedPartner ? "btn-icon--aktiv" : "")" title="@(program.ErDeltMedPartner ? "Avslutt deling (klinikk)" : "Del med klinikk")" aria-label="@(program.ErDeltMedPartner ? "Avslutt deling (klinikk)" : "Del med klinikk")"><partial name="_Ikon" model="@("behandlere")" /></button>
                             </form>
                         }
                         <form method="post" asp-page-handler="Slett" style="display:inline;" onsubmit="return confirm('Slette dette programmet?');">

@@ -1,10 +1,10 @@
 @page
 @model TestBase.Web.Areas.Behandlerportal.Pages.MinPartner.BehandlereModel
 @{
-    ViewData["Title"] = "Min partner — behandlere";
+    ViewData["Title"] = "Min klinikk — behandlere";
 }
 
-<h1>Min partner</h1>
+<h1>Min klinikk</h1>
 
 @if (Model.Feilmelding is not null)
 {
@@ -42,7 +42,7 @@ else
     <p>Invitasjon sendt. Lenke (mock-modus viser den her, sendes normalt kun på SMS/e-post): <a href="@Model.InvitasjonsLenke">@Model.InvitasjonsLenke</a></p>
 }
 
-<h2>Behandlere i min partner</h2>
+<h2>Behandlere i min klinikk</h2>
 <table border="1" cellpadding="6" cellspacing="0">
     <thead>
         <tr>
@@ -62,9 +62,9 @@ else
             <td>@b.Status</td>
             <td>
                 <form method="post" asp-page-handler="Fjern" style="display:inline;"
-                      onsubmit="return confirm('@(erMegSelv ? "Fjerne deg selv fra partneren? Du blir logget ut." : "Fjerne denne kollegaen fra partneren?")');">
+                      onsubmit="return confirm('@(erMegSelv ? "Fjerne deg selv fra klinikken? Du blir logget ut." : "Fjerne denne kollegaen fra klinikken?")');">
                     <input type="hidden" name="behandlerId" value="@b.Id" />
-                    <button type="submit">@(erMegSelv ? "Fjern meg selv" : "Fjern fra partner")</button>
+                    <button type="submit">@(erMegSelv ? "Fjern meg selv" : "Fjern fra klinikk")</button>
                 </form>
             </td>
         </tr>

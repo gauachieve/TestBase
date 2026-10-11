@@ -27,7 +27,7 @@
     {
         <tr>
             <td>@rad.MottakerNavn</td>
-            <td>@rad.Linje.MottakerType</td>
+            <td>@(rad.Linje.MottakerType == MottakerType.Partner ? "Klinikk" : rad.Linje.MottakerType.ToString())</td>
             <td>@rad.Linje.BelopKr.ToString("0.00") kr</td>
             <td>@rad.Linje.AntallUnderliggendeTransaksjoner</td>
             <td>@(rad.KontoKlarForUtbetaling ? "✓" : "Ikke fullført")</td>

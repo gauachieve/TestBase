@@ -5,7 +5,7 @@
 }
 
 <h1>Utbetaling</h1>
-<p>Koble til en bankkonto for å motta partnerandel automatisk, én gang i måneden. Selve
+<p>Koble til en bankkonto for å motta klinikkandel automatisk, én gang i måneden. Selve
    bankkontoen samles inn og oppbevares av Stripe — ikke av oss.</p>
 
 @if (Model.Feilmelding is not null)
@@ -21,7 +21,7 @@
 }
 else if (Model.Konto.Status == TestBase.Shared.Domain.Utbetaling.StripeConnectStatus.OnboardingFullfort)
 {
-    <p><strong>✓ Tilkoblet.</strong> Partnerandel betales ut automatisk hver måned til kontoen som er registrert hos Stripe.</p>
+    <p><strong>✓ Tilkoblet.</strong> Klinikkandel betales ut automatisk hver måned til kontoen som er registrert hos Stripe.</p>
 }
 else
 {

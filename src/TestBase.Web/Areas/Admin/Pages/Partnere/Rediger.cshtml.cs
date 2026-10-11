@@ -196,11 +196,11 @@ public sealed class RedigerModel : PageModel
         {
             if (eksisterende.PartnerId == id)
             {
-                Feilmelding = $"{epost} er allerede tilknyttet denne partneren.";
+                Feilmelding = $"{epost} er allerede tilknyttet denne klinikken.";
             }
             else if (eksisterende.PartnerId is not null)
             {
-                Feilmelding = $"{epost} tilhører allerede en annen partner — fjern koblingen der først.";
+                Feilmelding = $"{epost} tilhører allerede en annen klinikk — fjern koblingen der først.";
             }
             else
             {
@@ -274,7 +274,7 @@ public sealed class RedigerModel : PageModel
                 }
                 else if (eksisterende.PartnerId is not null)
                 {
-                    hoppetOver.Add($"{epost} (tilhører en annen partner)");
+                    hoppetOver.Add($"{epost} (tilhører en annen klinikk)");
                 }
                 else
                 {

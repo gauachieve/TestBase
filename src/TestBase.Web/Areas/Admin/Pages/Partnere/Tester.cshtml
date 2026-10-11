@@ -1,11 +1,11 @@
 @page "{id:long}"
 @model TestBase.Web.Areas.Admin.Pages.Partnere.TesterModel
 @{
-    ViewData["Title"] = "Partnerens tester";
+    ViewData["Title"] = "Klinikkens tester";
 }
 
 <h1>Tester tilgjengelig for @Model.PartnerNavn</h1>
-<p><a href="/Admin/Partnere/Rediger/@Model.PartnerId">Tilbake til partneren</a></p>
+<p><a href="/Admin/Partnere/Rediger/@Model.PartnerId">Tilbake til klinikken</a></p>
 
 @foreach (var kategori in Model.KategoriTre)
 {

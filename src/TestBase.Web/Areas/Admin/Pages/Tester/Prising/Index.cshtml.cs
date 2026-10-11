@@ -59,7 +59,7 @@ public sealed class IndexModel : PageModel
             // til sammen få plass under maks-grensen.
             if (minstePrisKr + minstePartnerAndelKr > storstePrisKr)
             {
-                feilmeldinger.Add($"«{test.Navn}»: minste pris ({minstePrisKr:0.00}) pluss minste partnerandel ({minstePartnerAndelKr:0.00}) kan ikke overstige største pris ({storstePrisKr:0.00}).");
+                feilmeldinger.Add($"«{test.Navn}»: minste pris ({minstePrisKr:0.00}) pluss minste klinikkandel ({minstePartnerAndelKr:0.00}) kan ikke overstige største pris ({storstePrisKr:0.00}).");
                 continue;
             }
 

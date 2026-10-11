@@ -214,7 +214,7 @@ public sealed class DetaljerModel : PageModel
         {
             var navn = l.MottakerType == MottakerType.Behandler
                 ? behandlere.FirstOrDefault(b => b.Id == l.BehandlerId)?.Visningsnavn ?? $"Behandler #{l.BehandlerId}"
-                : partnere.FirstOrDefault(p => p.Id == l.PartnerId)?.Navn ?? $"Partner #{l.PartnerId}";
+                : partnere.FirstOrDefault(p => p.Id == l.PartnerId)?.Navn ?? $"Klinikk #{l.PartnerId}";
 
             var kontoKlar = kontoer.Any(k =>
                 k.MottakerType == l.MottakerType &&

@@ -13,7 +13,7 @@
 </p>
 @if (Model.ViserHelePartnerskapet)
 {
-    <p><em>Du ser alle pasienter for alle behandlere i partnerskapet, siden du er partner-admin.</em></p>
+    <p><em>Du ser alle pasienter for alle behandlere i klinikken, siden du er klinikk-admin.</em></p>
 }
 @if (Model.Feilmelding is not null)
 {
@@ -28,7 +28,7 @@
 <div data-fane-beholder data-flervalg-beholder>
     <div class="fane-rad" role="tablist">
         <button type="button" class="fane-knapp" data-fane="aktive">Aktive (@aktiveRader.Count)</button>
-        <button type="button" class="fane-knapp" data-fane="arkivert">Arkivert (@arkiverteRader.Count)</button>
+        <button type="button" class="fane-knapp" data-fane="arkivert">Avsluttet (@arkiverteRader.Count)</button>
     </div>
 
     <div>
@@ -39,8 +39,8 @@
 
     <div data-flervalg-verktoylinje hidden style="margin: 0.75rem 0;">
         <strong><span data-flervalg-antall>0</span> valgt</strong>
-        <button type="submit" form="pasientFlervalgSkjema" asp-page-handler="ArkiverValgte" class="btn btn-outline" data-disable-on-submit="Arkiverer …">
-            <partial name="_Ikon" model="@("arkiver")" /> Arkiver valgte
+        <button type="submit" form="pasientFlervalgSkjema" asp-page-handler="ArkiverValgte" class="btn btn-outline" data-disable-on-submit="Avslutter …">
+            <partial name="_Ikon" model="@("arkiver")" /> Avslutt valgte
         </button>
     </div>
     <form id="pasientFlervalgSkjema" method="post"></form>
@@ -88,7 +88,7 @@
                 <td>@(p.Personnummer ?? "(ikke registrert ennå)")</td>
                 <td>@rad.Tildelt</td>
                 <td>@rad.Besvart</td>
-                <td>@p.Status</td>
+                <td>@p.Status.TilVisningstekst()</td>
                 <td>
                     <a class="btn-icon" href="/Behandlerportal/Pasienter/Rediger/@p.Id" title="Rediger" aria-label="Rediger">
                         <partial name="_Ikon" model="@("rediger")" />
@@ -98,7 +98,7 @@
                     </a>
                     <form method="post" asp-page-handler="Arkiver" style="display:inline;" data-disable-on-submit="Lagrer …">
                         <input type="hidden" name="id" value="@p.Id" />
-                        <button type="submit" class="btn-icon" title="@(p.Status == PasientStatus.Arkivert ? "Gjenopprett" : "Arkiver")" aria-label="@(p.Status == PasientStatus.Arkivert ? "Gjenopprett" : "Arkiver")">
+                        <button type="submit" class="btn-icon" title="@(p.Status == PasientStatus.Arkivert ? "Gjenoppta" : "Avslutt")" aria-label="@(p.Status == PasientStatus.Arkivert ? "Gjenoppta" : "Avslutt")">
                             <partial name="_Ikon" model="@(p.Status == PasientStatus.Arkivert ? "gjenopprett" : "arkiver")" />
                         </button>
                     </form>

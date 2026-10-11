@@ -8077,3 +8077,57 @@ visuelt/strukturelt verifisert (riktig avkrysningskolonne, riktig skjult/synlig 
 radtype, ingen layoutbrudd på tabeller med `colspan`) uten å faktisk utløse en destruktiv handling
 mot delt test-fixture-data brukt av andre deler av appen (f.eks. "Ukentlig oppfølging"-programmet,
 som har en aktiv kjørende deltakelse). 98 tester fortsatt grønne.
+
+## "Avslutt" for pasienter + Partner→Klinikk visningsnavn (2026-10-11)
+
+To punkter fra en ny `bugs_features.txt`-runde (en 6-punkts brukerleverte liste), begge
+bevisst gjort sammen siden begge er rene VISNINGSTEKST-endringer av lavere risiko:
+
+**Punkt 2 — "Arkiver" på pasienter kalles nå "Avslutt":** ny
+`PasientStatusTekst.TilVisningstekst()`-extension-metode
+(`TestBase.Shared/Domain/Pasienter/PasientStatusTekst.cs`) mapper KUN
+`PasientStatus.Arkivert → "Avsluttet"`, alle andre statuser uendret — selve enum-verdien
+`Arkivert` er IKKE omdøpt (samme "display-tekst, ikke kode" prinsipp som GADIT→
+"Dataspillavhengighet", se CLAUDE.md). Brukt i `Admin/Pasienter/Index.cshtml`,
+`Behandlerportal/Pasienter/Index.cshtml` (fane, bulk-knapp "Avslutt valgte"/"Avslutter …",
+enkelt-rad-knapp "Avslutt"/"Gjenoppta") og `Behandlerportal/Pasienter/Detaljer.cshtml`.
+
+**Punkt 3 — "Partner" omdøpt til "Klinikk" i ALL visningstekst:** et bevisst SNEVERT
+omfang, klarlagt med brukeren via et spørsmål før arbeidet startet — kun det som faktisk vises
+til en bruker (titler, `<h1>`/`<th>`, knappetekst, `confirm()`-dialoger, hjelpeartikkel-prosa,
+JS-genererte UI-strenger) endret. ALDRI rørt: C#-klasse-/property-navn (`Partner`, `PartnerId`,
+`PartnerNavn`, `ErPartnerAdministrator`, `PartnerTestTilgang`, `PartnerTestAndel`), DB-tabeller/
+-kolonner, URL-er (`/Admin/Partnere`, `/Behandlerportal/MinPartner`), audit-logg-handlingsstrenger
+(`ArkiverFlerePartnere` osv.), `data-partner-andel`-attributtet, CSS-klassenavn
+(`btn-icon--partner`), eller de tre test-seederne (`Scid5PfTestSeeder`/`TrapsIiTestSeeder`/
+`TrapsITestSeeder`) der "partner" betyr pasientens romantiske partner i testinnholdet, ikke
+klinikk-entiteten.
+
+Omfattet ~20 filer: `_Layout.cshtml`-navigasjonen ("Klinikker"/"Min klinikk"/"Klinikkprising"),
+alle `Admin/Partnere`-sidene (Index/Ny/Rediger/Tester — "Arkiver"-ordlyden for selve
+klinikk-ENTITETEN BEVISST IKKE endret til "Avslutt", det er kun pasient-handlingen punkt 2
+gjelder), `Admin/MinSide`/`Admin/Utbetalinger`/`Admin/Tester/Prising` sine kolonneoverskrifter,
+alle `Behandlerportal/MinPartner`-sidene (Behandlere/Prising/Utbetaling), `Behandlerportal/
+Pasienter`, `Hjemmeoppgaver`/`Programmer` sin "Klinikk"-delingsfane, hjelpeartikler i
+`HjelpInnhold.cs` (inkl. artikkeltittel "Hva er klinikksystemet?"), feilmeldinger i
+`TestService.cs`, og pris-sammendragsteksten i `wwwroot/js/tildel.js`.
+
+Verifisert FULLT i nettleser (Playwright, lokalt, dev-passord-innlogging som Utvikler):
+`Admin/Partnere` (tittel "Klinikker", "+ Ny klinikk", "Rediger klinikk — …",
+"Klinikk-admin"-kolonne, "Fjern klinikk-admin"/"Fjern fra klinikk"-knapper, hjelpepanelets
+"Hva er klinikksystemet?"), `Admin/Pasienter` (nav-lenke "Klinikker", kolonneoverskrift
+"Klinikk", fane "Avsluttet", status-celle "Avsluttet"), `Behandlerportal/Pasienter` (faner
+"Aktive"/"Avsluttet", enkelt-rad "Avslutt"/"Gjenoppta", bulk-toolbar "2 valgt"/"Avslutt valgte"),
+`Admin/Tester/Prising` (kolonneoverskrift "Minste klinikkandel (NOK)"). `dotnet build` og full
+`dotnet test`-kjøring (98/98 grønne) FØR og ETTER browser-verifiseringen. Ingen migrasjon (rent
+visningslag + én ny extension-metode).
+
+**Gjenstår fra samme `bugs_features.txt`-runde** (ikke startet i denne omgangen): punkt 1 (en
+"Tildelte tester"-fane på selve "Tildel tester"-siden, listet per pasient, slettbar før
+besvart), punkt 4 (klinikk-admin kan masseflytte pasienter mellom behandlere + automatisk
+test/hjemmeoppgave-utsendelse ved ny pasient / ved flytting til "Avsluttet"), punkt 5
+("påminn"-knapp som sender SMS/e-post på nytt til en pasient med ubesvarte tester), punkt 6 (en
+"automatisk påminnelse etter 3 dager"-veksel i tildelings-oppsummeringen, for tester OG
+programmer). Punkt 4s "flytt mellom behandlere" kan sannsynligvis bygge videre på den allerede
+eksisterende enkelt-pasient "Bytt behandler"-dialogen på
+`Behandlerportal/Pasienter/Rediger.cshtml` (begrenset til behandlere i samme klinikk).

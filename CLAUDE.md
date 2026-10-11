@@ -788,6 +788,17 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   test-harness-bug i `ByttModus` som IKKE var en reell Connect-feil). 98 tester grønne, to nye
   migrasjoner, begge rene. De tre periodiserte oppgjørsrapportene designet tidligere samme dag er
   fortsatt kun en visuell mockup, ikke koblet til dette ennå.
+- **"Avslutt" for pasienter + Partner→Klinikk visningsnavn (2026-10-11):** to punkter fra en ny
+  `bugs_features.txt`-runde. `PasientStatus.Arkivert` vises nå som "Avsluttet" (ny
+  `PasientStatusTekst.TilVisningstekst()`-extension, selve enum-verdien urørt) på
+  Admin/Behandlerportal sine pasientlister+detaljer. "Partner" omdøpt til "Klinikk" i ALL
+  visningstekst (nav, Admin/Partnere, MinPartner, prising, hjelpeartikler, feilmeldinger,
+  tildel.js) — BEVISST kun visningstekst, ALDRI C#-identifikatorer/DB-skjema/URL-er/audit-
+  strenger (se "Partner System + Test Monetization" lenger opp — selve systemet heter fortsatt
+  det internt). Fullt browser-verifisert, 98 tester grønne, ingen migrasjon. Gjenstående punkter
+  fra samme liste (tildelte-tester-fane, klinikk-admin bulk-flytt+auto-utsendelse, påminn-knapp,
+  automatisk påminnelse-veksel) er IKKE startet — se docs/beslutningslogg.md for full detalj og
+  gjenstående liste.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

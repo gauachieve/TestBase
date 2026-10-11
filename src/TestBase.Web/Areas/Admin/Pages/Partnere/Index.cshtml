@@ -1,11 +1,11 @@
 @page
 @model TestBase.Web.Areas.Admin.Pages.Partnere.IndexModel
 @{
-    ViewData["Title"] = "Partnere";
+    ViewData["Title"] = "Klinikker";
 }
 
-<h1>Partnere</h1>
-<p><a class="btn btn-accent" href="/Admin/Partnere/Ny">+ Ny partner</a></p>
+<h1>Klinikker</h1>
+<p><a class="btn btn-accent" href="/Admin/Partnere/Ny">+ Ny klinikk</a></p>
 
 @if (Model.Feilmelding is not null)
 {
@@ -83,7 +83,7 @@
                     </form>
                     <form method="post" asp-page-handler="Slett" style="display:inline;"
                           data-captcha-sporsmal="@Model.CaptchaSporsmal"
-                          onsubmit="return bekreftSletting(this, 'partneren @p.Navn')">
+                          onsubmit="return bekreftSletting(this, 'klinikken @p.Navn')">
                         <input type="hidden" name="id" value="@p.Id" />
                         <input type="hidden" asp-for="CaptchaSignertFasit" />
                         <input type="hidden" name="CaptchaSvar" />

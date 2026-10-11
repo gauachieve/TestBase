@@ -17,7 +17,7 @@
         <button type="button" data-fane="delt" class="fane-knapp">Delt (@Model.DeltMedAlle.Count)</button>
         @if (Model.HarPartner)
         {
-            <button type="button" data-fane="partner" class="fane-knapp">Partner (@Model.DeltMedPartner.Count)</button>
+            <button type="button" data-fane="partner" class="fane-knapp">Klinikk (@Model.DeltMedPartner.Count)</button>
         }
         <button type="button" data-fane="opprett" class="fane-knapp">+ Opprett</button>
     </div>
@@ -72,7 +72,7 @@
                             <form method="post" asp-page-handler="DelMedPartner" style="display:inline;">
                                 <input type="hidden" name="testId" value="@test.Id" />
                                 <input type="hidden" name="verdi" value="@((!test.ErDeltMedPartner).ToString())" />
-                                <button type="submit" class="btn-icon btn-icon--partner @(test.ErDeltMedPartner ? "btn-icon--aktiv" : "")" title="@(test.ErDeltMedPartner ? "Avslutt deling (partner)" : "Del med partner")" aria-label="@(test.ErDeltMedPartner ? "Avslutt deling (partner)" : "Del med partner")"><partial name="_Ikon" model="@("behandlere")" /></button>
+                                <button type="submit" class="btn-icon btn-icon--partner @(test.ErDeltMedPartner ? "btn-icon--aktiv" : "")" title="@(test.ErDeltMedPartner ? "Avslutt deling (klinikk)" : "Del med klinikk")" aria-label="@(test.ErDeltMedPartner ? "Avslutt deling (klinikk)" : "Del med klinikk")"><partial name="_Ikon" model="@("behandlere")" /></button>
                             </form>
                         }
 
@@ -169,7 +169,7 @@
         <div data-fane-rad="partner" data-sok="" hidden style="margin-top: 1rem;">
         @if (!Model.DeltMedPartner.Any())
         {
-            <p><em>Ingen kolleger i din partner har delt en hjemmeoppgave ennå.</em></p>
+            <p><em>Ingen kolleger i klinikken din har delt en hjemmeoppgave ennå.</em></p>
         }
         </div>
     }

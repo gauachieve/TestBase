@@ -1,15 +1,15 @@
 @page "{id:long}"
 @model TestBase.Web.Areas.Admin.Pages.Partnere.RedigerModel
 @{
-    ViewData["Title"] = "Rediger partner";
+    ViewData["Title"] = "Rediger klinikk";
 }
 
-<h1>Rediger partner — @Model.PartnerNavn</h1>
+<h1>Rediger klinikk — @Model.PartnerNavn</h1>
 
 <p>
-    <a href="/Admin/Partnere/Tester/@Model.PartnerId">Velg hvilke tester partneren får tilgang til</a>
+    <a href="/Admin/Partnere/Tester/@Model.PartnerId">Velg hvilke tester klinikken får tilgang til</a>
     &nbsp;|&nbsp;
-    <a href="/Admin/Tester/Prising">Sett pris-grenser for tester (globalt, gjelder alle partnere)</a>
+    <a href="/Admin/Tester/Prising">Sett pris-grenser for tester (globalt, gjelder alle klinikker)</a>
 </p>
 
 @if (Model.Feilmelding is not null)
@@ -37,7 +37,7 @@
         <tr>
             <th>Navn</th>
             <th>E-post</th>
-            <th>Partner-admin</th>
+            <th>Klinikk-admin</th>
             <th></th>
         </tr>
     </thead>
@@ -52,12 +52,12 @@
                 <form method="post" asp-page-handler="TogglePartnerAdmin" style="display:inline;" data-disable-on-submit="Lagrer …">
                     <input type="hidden" name="id" value="@Model.PartnerId" />
                     <input type="hidden" name="behandlerId" value="@b.Id" />
-                    <button type="submit">@(b.ErPartnerAdministrator ? "Fjern partner-admin" : "Gjør til partner-admin")</button>
+                    <button type="submit">@(b.ErPartnerAdministrator ? "Fjern klinikk-admin" : "Gjør til klinikk-admin")</button>
                 </form>
                 <form method="post" asp-page-handler="FjernBehandler" style="display:inline;" data-disable-on-submit="Fjerner …">
                     <input type="hidden" name="id" value="@Model.PartnerId" />
                     <input type="hidden" name="behandlerId" value="@b.Id" />
-                    <button type="submit">Fjern fra partner</button>
+                    <button type="submit">Fjern fra klinikk</button>
                 </form>
             </td>
         </tr>
@@ -66,13 +66,13 @@
 </table>
 
 <h3>Legg til eller inviter behandler via e-post</h3>
-<p>Finnes det allerede en uavhengig behandler med denne e-posten, kobles den til partneren (etter bekreftelse under). Finnes ingen konto, sendes en vanlig invitasjon til e-posten.</p>
+<p>Finnes det allerede en uavhengig behandler med denne e-posten, kobles den til klinikken (etter bekreftelse under). Finnes ingen konto, sendes en vanlig invitasjon til e-posten.</p>
 
 @if (Model.MatchFunnet is not null)
 {
     <p>
         Fant eksisterende behandler <strong>@(Model.MatchFunnet.Visningsnavn ?? Model.MatchFunnet.Email)</strong> (@Model.MatchFunnet.Email).
-        Koble denne til partneren?
+        Koble denne til klinikken?
     </p>
     <form method="post" asp-page-handler="LeggTilBehandler" style="display:inline;" data-disable-on-submit="Legger til …">
         <input type="hidden" name="id" value="@Model.PartnerId" />
@@ -88,10 +88,11 @@
 </form>
 
 <h3>Bulk-inviter flere behandlere</h3>
-<p>Én e-post per linje (eller komma-separert). Nye e-poster får en invitasjonslenke; e-poster som matcher en eksisterende uavhengig behandler kobles rett til partneren.</p>
+<p>Én e-post per linje (eller komma-separert). Nye e-poster får en invitasjonslenke; e-poster som matcher en eksisterende uavhengig behandler kobles rett til klinikken.</p>
 <form method="post" asp-page-handler="BulkInviter" data-disable-on-submit="Sender invitasjoner …">
     <input type="hidden" name="id" value="@Model.PartnerId" />
     <textarea name="epostListe" rows="5" cols="40" placeholder="person1@eksempel.no&#10;person2@eksempel.no"></textarea>
     <br />
     <button type="submit">Send bulk-invitasjoner</button>
 </form>
+
