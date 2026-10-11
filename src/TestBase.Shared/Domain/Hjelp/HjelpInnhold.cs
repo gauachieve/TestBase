@@ -13,6 +13,7 @@ public static class HjelpInnhold
     private static readonly HjelpRolle[] KunPasient = { HjelpRolle.Pasient };
     private static readonly HjelpRolle[] KunBehandler = { HjelpRolle.Behandler };
     private static readonly HjelpRolle[] KunAdmin = { HjelpRolle.Admin };
+    private static readonly HjelpRolle[] BehandlerOgAdmin = { HjelpRolle.Behandler, HjelpRolle.Admin };
 
     public static readonly IReadOnlyList<HjelpArtikkel> Artikler = new List<HjelpArtikkel>
     {
@@ -165,6 +166,64 @@ public static class HjelpInnhold
             "<p>Fanen <strong>Kjørende</strong> på Programmer-siden viser alle aktive programdeltakelser du selv har tildelt, med antall gjenstående drops og antall deltakere. Du kan <strong>pause</strong> (stopper fremtidige drops midlertidig) eller <strong>fjerne</strong> (melder ut for godt) en hel gruppe- eller enkeltpasient-tildeling samlet. En pasient kan også pause eller melde seg selv ut fra utfyllingssiden — du får da en egen oppgave på Min side om det.</p>",
             KunBehandler, new[] { "/Behandlerportal/Programmer" }, false, "Hjemmeoppgaver og programmer"),
 
+        // ---------- Behandler/Admin: "Tildelte tester"-fane + automatisk påminnelse (2026-10-11) ----------
+        new("beh-tildelte-tester-fane",
+            "Hvordan ser jeg hvilke tester som ikke er besvart ennå?",
+            "<p>Fanen <strong>Tildelte tester — ikke fullført</strong> (på begge steg i Tildel-flyten) lister alle tildelinger som ikke er fullført, med pasient, test, tildelingsdato og status. Du kan trykke <strong>Påminn</strong> på en enkelt rad for å sende en ny SMS/e-post med en gang, eller <strong>Slett</strong> for å fjerne tildelingen helt. Velg flere rader med avkrysningsboksene for å påminne eller slette flere samtidig.</p>",
+            BehandlerOgAdmin, new[] { "/Behandlerportal/Tildel", "/Admin/Tildel" }, true, "Tildele tester"),
+
+        new("beh-automatisk-paaminnelse",
+            "Hva betyr \"Automatisk påminnelse etter 3 dager\"?",
+            "<p>Når du slår på denne avkrysningsboksen — i oppsummeringsdialogen når du tildeler tester, eller på et programs redigeringsside — sender systemet automatisk én påminnelse (SMS/e-post) hvis pasienten ikke har besvart testen innen 3 dager. Det skjer kun én gang per tildeling, og aldri for en test som skal fylles ut av deg som behandler (ikke pasienten).</p>",
+            BehandlerOgAdmin, new[] { "/Behandlerportal/Tildel", "/Admin/Tildel", "/Behandlerportal/Programmer/Rediger" }, false, "Tildele tester"),
+
+        // ---------- Behandler: Min klinikk (2026-10-11) ----------
+        new("beh-min-klinikk",
+            "Hva er \"Min klinikk\"?",
+            "<p>Hvis du er del av en klinikk (flere behandlere under samme virksomhet), finner du <strong>Min klinikk</strong> i menyen. Alle i klinikken ser klinikkens navn/kontaktinfo og en liste over kollegene sine der. Er du satt som klinikk-administrator, ser du i tillegg flere knapper for å administrere klinikken — prising, utbetaling, automatisk utsendelse og redigering av klinikkens opplysninger.</p>",
+            KunBehandler, new[] { "/Behandlerportal/MinPartner" }, true, "Min klinikk"),
+
+        new("beh-klinikk-kolleger",
+            "Hvordan ser jeg hvem andre jobber i klinikken min?",
+            "<p>Trykk <strong>Behandlere i min klinikk</strong> under Min klinikk. Er du klinikk-administrator kan du også invitere en ny kollega til klinikken, eller fjerne en som ikke lenger skal være med, fra samme side.</p>",
+            KunBehandler, new[] { "/Behandlerportal/MinPartner/Kolleger" }, false, "Min klinikk"),
+
+        new("beh-klinikk-pasienter-knapp",
+            "Hva er forskjellen på \"Pasienter\" og \"Pasienter i min klinikk\"?",
+            "<p>Den vanlige <strong>Pasienter</strong>-lenken i menyen viser alle klinikkens pasienter hvis du er klinikk-administrator (ellers kun dine egne). Knappen <strong>Pasienter i min klinikk</strong> under Min klinikk viser derimot alltid KUN dine egne pasienter, uansett rolle — navnet er litt misvisende, men det er en bevisst snarvei til din egen pasientliste fra klinikk-siden.</p>",
+            KunBehandler, new[] { "/Behandlerportal/Pasienter", "/Behandlerportal/MinPartner/Behandlere" }, false, "Min klinikk"),
+
+        new("beh-klinikk-bytt-behandler",
+            "Kan jeg flytte flere pasienter til en kollega samtidig?",
+            "<p>Som klinikk-administrator kan du velge flere pasienter i listen (avkrysningsboksene) og trykke <strong>Bytt behandler for valgte</strong> for å flytte dem alle til en annen behandler i klinikken i én handling.</p>",
+            KunBehandler, new[] { "/Behandlerportal/Pasienter" }, false, "Min klinikk"),
+
+        new("beh-klinikk-automatisk-utsendelse",
+            "Kan klinikken sende ut en fast test automatisk til alle nye pasienter?",
+            "<p>Ja — under <strong>Automatisk utsendelse</strong> (klinikk-administrator) velger du hvilke tester/hjemmeoppgaver som skal tildeles automatisk så snart en ny pasient legges til i klinikken, og/eller når en pasient flyttes til \"Avsluttet\". Gjelder for alle behandlere i klinikken, ikke bare deg selv.</p>",
+            KunBehandler, new[] { "/Behandlerportal/MinPartner/AutomatiskUtsendelse" }, false, "Min klinikk"),
+
+        new("beh-klinikk-prising",
+            "Hvordan setter klinikken sin egen pris på en test?",
+            "<p>Under <strong>Tester tilgjengelig for oss / Klinikkprising</strong> (klinikk-administrator) setter du klinikkens egen andel per test — den klemmes alltid opp til minst det Superadmin har satt som gulv. Du kan også be om tilgang til flere tester, eller be om å fjerne en test klinikken ikke lenger ønsker tilgang til (<strong>ikonknappen</strong> ved siden av testen) — begge sendes til administrator for godkjenning.</p>",
+            KunBehandler, new[] { "/Behandlerportal/MinPartner/Prising" }, false, "Min klinikk"),
+
+        new("beh-klinikk-rediger",
+            "Hvordan endrer jeg klinikkens navn eller kontaktinformasjon?",
+            "<p>Trykk <strong>Editer felter</strong> på Min klinikk-siden (klinikk-administrator). Du kan endre navn, kontaktperson og kontakt-e-post/mobil selv — hvorvidt klinikken har et aktivt abonnement er fortsatt kun noe Superadmin kan endre.</p>",
+            KunBehandler, new[] { "/Behandlerportal/MinPartner/Rediger" }, false, "Min klinikk"),
+
+        // ---------- Behandler: Utbetaling (2026-10-10/11) ----------
+        new("beh-min-utbetaling",
+            "Hvordan får jeg utbetalt honoraret mitt?",
+            "<p>Gå til <strong>Utbetaling</strong> og trykk <strong>Koble til utbetalingskonto</strong> under fanen \"Tilkobling\" — du fullfører registreringen av bankkonto hos Stripe (vi lagrer aldri selve kontonummeret). Når kontoen er tilkoblet, betales honoraret ditt automatisk ut én gang i måneden. Under fanen \"Honorarutskrift\" kan du se og skrive ut et eget inntektsbilag for en valgt måned.</p>",
+            KunBehandler, new[] { "/Behandlerportal/Utbetaling" }, true, "Utbetaling"),
+
+        new("beh-klinikk-utbetaling",
+            "Hvordan får klinikken utbetalt sin andel?",
+            "<p>Klinikk-administrator kobler til en egen bankkonto under <strong>Klinikkutbetaling</strong> → \"Tilkobling\", på samme måte som en behandler kobler til sin egen. Fanen \"Partneroppgjør\" viser klinikkens andel for en valgt måned, gruppert per behandler.</p>",
+            KunBehandler, new[] { "/Behandlerportal/MinPartner/Utbetaling" }, false, "Utbetaling"),
+
         // ---------- Admin ----------
         new("adm-legge-til-behandler",
             "Hvordan legger jeg til en ny behandler?",
@@ -188,7 +247,7 @@ public static class HjelpInnhold
 
         new("adm-okonomi",
             "Hvor finner jeg økonomiske rapporter?",
-            "<p>Under <strong>Økonomi</strong> finner du en oversikt over gjennomførte betalinger, inkludert plattform-, klinikk- og behandlerandeler.</p>",
+            "<p>Under <strong>Økonomi</strong> finner du en oversikt over gjennomførte betalinger, inkludert plattform-, klinikk- og behandlerandeler. Fanen <strong>Periodisert oppgjør</strong> viser alle transaksjoner for en valgt måned, fordelt per tildeling (pasientpris/honorar/plattform-/klinikkandel) — nyttig for bokføring.</p>",
             KunAdmin, new[] { "/Admin/Okonomi" }, false, "Klinikker og prising"),
 
         new("adm-regenerer-tester",
@@ -205,5 +264,16 @@ public static class HjelpInnhold
             "Hva viser \"Kjørende programmer\"?",
             "<p>En samlet oversikt over ALLE aktive programdeltakelser i systemet, uansett hvilken behandler som tildelte dem — vist som «(behandlernavn) Programnavn» med antall gjenstående drops og antall deltakere. Du kan pause eller fjerne (melde ut for godt) en hel tildeling herfra, på samme måte som en behandler kan for sine egne.</p>",
             KunAdmin, new[] { "/Admin/Programmer/Kjorende" }, false, "Administrasjon"),
+
+        // ---------- Admin: Driftsbrytere og utbetaling (2026-10-11) ----------
+        new("adm-driftsbrytere",
+            "Hva er \"Driftsbrytere\" på Min side?",
+            "<p>Som Superadmin/Utvikler kan du slå SMS-utsending, pasientbetaling (Vipps/Stripe) og Stripe-utbetaling av/på for dette miljøet, med umiddelbar virkning og uten omstart. \"Mock\" gjør ingen ekte utsending/nettverkskall/pengebevegelse — nyttig når du vil teste trygt uten å påvirke ekte leverandører.</p>",
+            KunAdmin, new[] { "/Admin/MinSide" }, false, "Administrasjon"),
+
+        new("adm-utbetalinger",
+            "Hvordan godkjenner jeg utbetaling av honorar/klinikkandel?",
+            "<p>Under <strong>Utbetalinger</strong> genereres et samlet månedlig oppgjør automatisk tidlig i hver måned. Åpne <strong>Se detaljer</strong> på en periode og trykk <strong>Godkjenn og betal ut</strong> for å utløse de ekte Stripe-overføringene — dette flytter ekte penger og kan ikke angres. En enkelt mislykket linje blokkerer ikke resten av batchen, og kan forsøkes på nytt eller avvises for seg selv.</p>",
+            KunAdmin, new[] { "/Admin/Utbetalinger" }, true, "Klinikker og prising"),
     };
 }

@@ -8701,3 +8701,34 @@ mønsteret i samme fil, ikke ny/uprøvd Razor-syntaks. Ingen kodefiks nødvendig
 BEGGE verifiseringene (regresjonstester + browser der relevant) har bestått, commit og push UTEN å
 spørre først — ikke vent på et eksplisitt "commit"/"push" per endring lenger. Se CLAUDE.md
 "Arbeidsøkonomi" for selve regelen.
+
+### Hjelpemeny oppdatert med ~15 nye artikler for alle nylige funksjoner (2026-10-11, samme dag)
+
+Brukeren ba om en gjennomgang av hele hjelpesystemet for å dekke "en god del nye funksjoner i det
+siste" — én artikkel per feature, "normalt tilsvarer det en knapp". Gjennomgikk alt bygget etter
+forrige hjelpemeny-runde (hjemmeoppgaver/programmer-æraen) frem til i dag, inkl. akkurat bygde
+Driftsbrytere. Nye artikler lagt til i `HjelpInnhold.cs` (ny `BehandlerOgAdmin`-rollekonstant for de
+to som gjelder begge):
+
+- **Tildele tester (begge roller):** "Tildelte tester"-fanen (Påminn/Slett, enkelt+bulk) og
+  "Automatisk påminnelse etter 3 dager"-vekselen (tildelingsdialog + Programmer/Rediger).
+- **Ny kategori "Min klinikk" (Behandler):** hub-oversikt, kollegaliste, forskjellen mellom den
+  vanlige "Pasienter"-lenken og "Pasienter i min klinikk"-knappen (bevisst forklart — knappen viser
+  ALLTID kun egne pasienter, uansett navnet), bulk "Bytt behandler for valgte", automatisk
+  utsendelse ved ny/avsluttet pasient, klinikkens egen prising ("Be om fjerning av tilgang"/"Be om
+  tilgang"), og "Editer felter".
+- **Ny kategori "Utbetaling" (Behandler):** eget honorar (Stripe Connect-tilkobling +
+  "Honorarutskrift") og klinikkens andel ("Klinikkutbetaling" → "Partneroppgjør").
+- **Admin:** "Driftsbrytere" (SMS/betaling/utbetaling-vekslene fra samme dag) og
+  `Admin/Utbetalinger` ("Godkjenn og betal ut"). Eksisterende `adm-okonomi`-artikkel utvidet med
+  den nye "Periodisert oppgjør"-fanen i stedet for en duplikat-artikkel.
+
+Alt innhold skrevet med eksakt knappetekst hentet fra selve `.cshtml`-filene (ikke gjettet) —
+f.eks. "Be om fjerning av tilgang", "Koble til utbetalingskonto", "Godkjenn og betal ut". 101
+regresjonstester fortsatt grønne (ren innholdsendring, ingen kodelogikk rørt). Browser-verifisert
+(subagent): søk på "klinikk"/"utbetaling"/"påminnelse"/"driftsbrytere"/"utbetalinger" traff riktig
+artikkel, "Min klinikk"- og "Tildele tester"-kategoriene vises korrekt under "Bla i alle emner",
+kontekstsensitivitet på `Admin/MinSide` bekreftet. Én sjekk (kontekstsensitivitet spesifikt på
+`Behandlerportal/MinPartner/Prising`) ble IKKE fullført — dev-rollebytte-kontoen mangler
+`PartnerId`-claimet siden-policyen krever, ikke en feil i selve hjelpeinnholdet. Pushet til master
+samme dag (brukerens eksplisitte "dette er trygt, push helt til live").
