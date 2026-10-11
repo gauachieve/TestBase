@@ -1,0 +1,71 @@
+@model TestBase.Web.Pages.Shared.IkkeFullforteFaneModel
+@*
+    "Tildelte tester"-fanens innhold — delt mellom Tildel/Pasienter (steg 1) og Tildel/Tester
+    (steg 2), begge Areas, se IkkeFullforteFaneModel sin kommentar. asp-page-handler i skjemaene
+    under løses mot den VERTS-siden som inkluderer denne partial-en — "Paaminn"/"SlettIkkeFullfort"
+    må derfor finnes som handlere på enhver side som bruker denne (se Pasienter.cshtml.cs OG
+    Tester.cshtml.cs i begge Areas).
+*@
+<h2>Tildelte tester — ikke fullført</h2>
+<p><em>@Model.Beskrivelse</em></p>
+@if (Model.PaaminnelseMelding is not null)
+{
+    <p style="color: darkgreen;">@Model.PaaminnelseMelding</p>
+}
+@if (!Model.Rader.Any())
+{
+    <p>Ingen ubesvarte tildelinger.</p>
+}
+else
+{
+    <table border="1" cellpadding="6" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Pasient</th>
+                <th>Test</th>
+                <th>Tildelt</th>
+                <th>Status</th>
+                <th>Automatisk påminnelse</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var rad in Model.Rader)
+        {
+            <tr>
+                <td>@(rad.PasientNavn ?? "(ikke fullført)")</td>
+                <td>@rad.TestNavn</td>
+                <td>@rad.Tildeling.TildeltUtc.ToString("g")</td>
+                <td>@rad.Tildeling.Status</td>
+                <td>
+                @if (rad.Tildeling.SistPaaminnetUtc is not null)
+                {
+                    <text>Påminnet @rad.Tildeling.SistPaaminnetUtc.Value.ToString("g")</text>
+                }
+                else if (rad.Tildeling.AutomatiskPaaminnelseEtterDager is int dager)
+                {
+                    <text>Aktiv (@dager dager)</text>
+                }
+                else
+                {
+                    <text>Av</text>
+                }
+                </td>
+                <td>
+                    @if (!rad.FyllesUtAvBehandler)
+                    {
+                        <form method="post" asp-page-handler="Paaminn" style="display:inline;" data-disable-on-submit="Sender …">
+                            <input type="hidden" name="tildelingId" value="@rad.Tildeling.Id" />
+                            <button type="submit" class="btn btn-outline btn-sm">Påminn</button>
+                        </form>
+                    }
+                    <form method="post" asp-page-handler="SlettIkkeFullfort" style="display:inline;" onsubmit="return confirm('Slette denne tildelingen permanent?');" data-disable-on-submit="Sletter …">
+                        <input type="hidden" name="tildelingId" value="@rad.Tildeling.Id" />
+                        <button type="submit" class="btn btn-outline btn-sm">Slett</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

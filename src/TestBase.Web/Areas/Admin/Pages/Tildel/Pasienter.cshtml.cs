@@ -13,10 +13,12 @@ namespace TestBase.Web.Areas.Admin.Pages.Tildel;
 public sealed class PasienterModel : PageModel
 {
     private readonly TestTildelingsService _tildelingsService;
+    private readonly TestService _testService;
 
-    public PasienterModel(TestTildelingsService tildelingsService)
+    public PasienterModel(TestTildelingsService tildelingsService, TestService testService)
     {
         _tildelingsService = tildelingsService;
+        _testService = testService;
     }
 
     public IReadOnlyList<PasientMedBehandlernavn> Pasienter { get; private set; } = Array.Empty<PasientMedBehandlernavn>();
@@ -26,8 +28,14 @@ public sealed class PasienterModel : PageModel
 
     public string? Feilmelding { get; private set; }
 
+    /// <summary>Bugliste 2026-10-11, oppfølging — se Behandlerportal-motstykket for full begrunnelse.</summary>
+    public IReadOnlyList<TestService.TildelingMedTestOgPasient> IkkeFullforteTildelinger { get; private set; } = Array.Empty<TestService.TildelingMedTestOgPasient>();
+    public string? PaaminnelseMelding { get; private set; }
+
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
+        PaaminnelseMelding = TempData["PaaminnelseMelding"] as string;
+        IkkeFullforteTildelinger = await _testService.HentIkkeFullforteForAdminAsync(cancellationToken);
         Pasienter = await _tildelingsService.HentTilgjengeligePasienterAsync(null, cancellationToken);
     }
 
@@ -37,10 +45,26 @@ public sealed class PasienterModel : PageModel
         {
             Feilmelding = "Velg minst én pasient.";
             Pasienter = await _tildelingsService.HentTilgjengeligePasienterAsync(null, cancellationToken);
+            IkkeFullforteTildelinger = await _testService.HentIkkeFullforteForAdminAsync(cancellationToken);
             return Page();
         }
 
         TempData["TildelPasientIder"] = string.Join(",", PasientIder.Distinct());
         return RedirectToPage("Tester");
+    }
+
+    /// <summary>Se Behandlerportal-motstykket. behandlerId: null = admin, ingen eierskapssjekk.</summary>
+    public async Task<IActionResult> OnPostPaaminnAsync(long tildelingId, CancellationToken cancellationToken)
+    {
+        var sendt = await _tildelingsService.PaaminnUbesvartTestAsync(
+            tildelingId, baseUrl: $"{Request.Scheme}://{Request.Host}", behandlerId: null, cancellationToken);
+        TempData["PaaminnelseMelding"] = sendt ? "Påminnelse sendt." : "Kunne ikke sende påminnelse (tildelingen er allerede fullført).";
+        return Redirect(Url.Page("./Pasienter")! + "#tildelte");
+    }
+
+    public async Task<IActionResult> OnPostSlettIkkeFullfortAsync(long tildelingId, CancellationToken cancellationToken)
+    {
+        await _testService.SlettIkkeFullfortTildelingAsync(tildelingId, behandlerId: null, cancellationToken);
+        return Redirect(Url.Page("./Pasienter")! + "#tildelte");
     }
 }

@@ -823,6 +823,15 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   Html.Raw på en betinget HEL attributt-streng i _TestKategoriVelger.cshtml — se fallgruve-listen
   under), fikset. 1 ny tabell, ren migrasjon, 98 tester grønne. Se docs/beslutningslogg.md for
   full detalj.
+- **Oppfølging samme dag: "Tildelte tester"-fanen (punkt 1) var reelt usynlig på live** — brukeren
+  rapporterte den manglende (skjermbilde, ekte klinikk-admin på live). Rotårsak: fanen lå KUN på
+  Tildel/Tester.cshtml (steg 2), men navigasjonslenken "Tildel tester" peker til Tildel/
+  Pasienter.cshtml (steg 1), som ikke hadde noe tab-system — en bruker som bare sjekker ubesvarte
+  tildelinger nådde aldri steg 2. Fikset ved å legge samme fane til på steg 1 også, begge Areas,
+  via en ny delt partial (Pages/Shared/_IkkeFullforteFane.cshtml + IkkeFullforteFaneModel.cs) for
+  å unngå firedoblet markup — Paaminn/SlettIkkeFullfort-handlerne måtte dupliseres til BEGGE
+  PasienterModel-klassene siden asp-page-handler løses mot vertssiden. 98 tester grønne, ingen
+  migrasjon.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

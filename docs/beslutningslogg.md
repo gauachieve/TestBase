@@ -8262,3 +8262,29 @@ Pasient", "QR Testperson", "Gruppe Testperson").
 2: Avslutt for pasienter, 3: Partner→Klinikk-visningsnavn, 4: klinikk-admin bulk-flytt+auto-
 utsendelse, 5: manuell påminn-knapp, 6: automatisk påminnelse-veksel). Se de respektive seksjonene
 over for full detalj per punkt.
+
+### Oppfølging samme dag: "Tildelte tester"-fanen var reelt usynlig på live (punkt 1, del 2)
+
+Brukeren rapporterte (med skjermbilde, innlogget som en ekte klinikk-admin-behandler på LIVE) at
+fanen fra punktet over ikke var synlig noe sted. Rotårsak: fanen ble kun lagt til på
+`Tildel/Tester.cshtml` (steg 2 av tildelingsflyten), men navigasjonslenken "Tildel tester" i
+`_Layout.cshtml` peker til `Tildel/Pasienter.cshtml` (steg 1) — en side som ikke hadde NOE som
+helst tab-system. En bruker som bare klikker navigasjonslenken for å sjekke ubesvarte tildelinger
+(uten å ha tenkt å tildele noe nytt) kommer dermed aldri forbi steg 1, og ser aldri fanen i det
+hele tatt. Ikke en visningsbug i selve fanen — fanen virket korrekt når man nådde den, bare
+feil/for sent plassert i flyten.
+
+Fikset ved å legge samme fane til på `Tildel/Pasienter.cshtml` også, i begge Areas — nå det
+faktiske landingspunktet for "Tildel tester"-lenken. For å unngå å firedoble markupet (steg 1 ×
+steg 2 × Admin × Behandlerportal) ble fane-innholdet trukket ut til en delt partial,
+`Pages/Shared/_IkkeFullforteFane.cshtml` + `IkkeFullforteFaneModel.cs` — `asp-page-handler` i
+partial-ens skjemaer løses mot VERTSSIDEN som inkluderer den, så `OnPostPaaminnAsync`/
+`OnPostSlettIkkeFullfortAsync` måtte legges til på BEGGE `PasienterModel`-klassene (speiler de
+allerede eksisterende handlerne på `TesterModel` nøyaktig, samme redirect-til-samme-fane-mønster
+via `Url.Page("./Pasienter")! + "#tildelte"`). `Tester.cshtml` i begge Areas ble samtidig
+refaktorert til å bruke samme partial i stedet for sin egen kopi av markupet.
+
+Fullt verifisert lokalt i nettleser (Playwright): fanen viser riktig antall og innhold umiddelbart
+på steg 1 i BEGGE Areas (Behandlerportal 4, Admin 65), "Påminn"-knappen sender og redirecter
+tilbake til riktig fane med bekreftelsesmelding og oppdatert "Påminnet …"-tidspunkt. 98 tester
+fortsatt grønne, ingen migrasjon (kun view-/handler-lag).
