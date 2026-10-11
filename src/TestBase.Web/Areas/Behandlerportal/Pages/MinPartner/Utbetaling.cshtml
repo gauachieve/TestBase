@@ -5,7 +5,9 @@
     var manedNavn = System.Globalization.CultureInfo.GetCultureInfo("nb-NO").DateTimeFormat.GetMonthName(Model.ValgtManed);
 }
 
-<h1>Utbetaling</h1>
+<partial name="_MinKlinikkNav" model="new TestBase.Web.Areas.Behandlerportal.Pages.MinPartner.MinKlinikkNavModel(Model.ErPartnerAdministrator, Model.AntallTilgjengeligeTester)" />
+
+<h2>Utbetaling</h2>
 
 <div data-fane-beholder>
     <div class="fane-rad" role="tablist">

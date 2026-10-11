@@ -5,7 +5,9 @@
     ViewData["Title"] = "Automatisk utsendelse";
 }
 
-<h1>Automatisk utsendelse av tester</h1>
+<partial name="_MinKlinikkNav" model="new TestBase.Web.Areas.Behandlerportal.Pages.MinPartner.MinKlinikkNavModel(Model.ErPartnerAdministrator, Model.AntallTilgjengeligeTester)" />
+
+<h2>Automatisk utsendelse av tester</h2>
 <p>
     Velg hvilke av klinikkens tester/hjemmeoppgaver som automatisk skal tildeles og sendes ut
     til en pasient i de to situasjonene under. Gjelder for alle behandlere i klinikken.
@@ -29,5 +31,3 @@
     <partial name="_TestKategoriVelger" model="@(new TestKategoriVelgerModel { KategoriTre = Model.KategoriTre, IdPrefix = "avsluttet", CheckboxNavn = "TestIder", ForhaandsvalgteTestIder = Model.ForhaandsvalgteVedAvsluttet })" />
     <button type="submit" class="btn btn-accent">Lagre</button>
 </form>
-
-<p><a href="/Behandlerportal/MinPartner/Behandlere">Tilbake til min klinikk</a></p>

@@ -1422,6 +1422,14 @@ dialog#oppsummeringDialog::backdrop, dialog#grupperapportDialog::backdrop, dialo
 .rapport-periodevelger { display: flex; flex-wrap: wrap; align-items: end; gap: 0.6rem; margin-bottom: 1.4rem; }
 .rapport-periodevelger label { font-size: 0.78rem; font-weight: 700; color: var(--ink); display: block; margin-bottom: 0.25rem; }
 
+/* Flere .btn-knapper på rad (f.eks. MinPartner/_MinKlinikkNav.cshtml) — .btn er bevisst
+   display:inline-block uten egen margin ellers, så flere stykker rett etter hverandre uten en
+   eksplisitt gap klistrer seg visuelt sammen (ingen synlig fuge mellom dem), spesielt når
+   Razor sin whitespace-trimming rundt en @if/@foreach fjerner mellomrommet mellom knappene i
+   kildekoden. Bekreftet reelt skjermbilde, 2026-10-11. En eksplisitt flex-gap her er robust
+   uavhengig av whitespace i selve .cshtml-kilden. */
+.btn-rad { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0.75rem 0 1.5rem; }
+
 @media (max-width: 640px) {
   .rapport-felt-gruppe { grid-template-columns: 1fr; }
   .rapport-kontoplan-rad, .rapport-kontoplan-header { grid-template-columns: 1fr; gap: 0.3rem; }

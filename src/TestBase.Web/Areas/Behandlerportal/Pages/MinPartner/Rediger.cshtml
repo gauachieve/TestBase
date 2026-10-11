@@ -1,0 +1,26 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.MinPartner.RedigerModel
+@{
+    ViewData["Title"] = "Editer klinikkfelter";
+}
+
+<partial name="_MinKlinikkNav" model="new TestBase.Web.Areas.Behandlerportal.Pages.MinPartner.MinKlinikkNavModel(Model.ErPartnerAdministrator, Model.AntallTilgjengeligeTester)" />
+
+<h2>Editer klinikkfelter</h2>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+@if (Model.Lagret)
+{
+    <p style="color: darkgreen;">✓ Lagret.</p>
+}
+
+<form method="post">
+    <div><label>Navn</label><br /><input asp-for="Navn" required /></div>
+    <div><label>Kontaktperson</label><br /><input asp-for="KontaktpersonNavn" /></div>
+    <div><label>Kontakt e-post</label><br /><input asp-for="KontaktEpost" type="email" /></div>
+    <div><label>Kontakt mobil</label><br /><input asp-for="KontaktMobilNr" /></div>
+    <p><button type="submit" class="btn btn-accent" data-disable-on-submit="Lagrer …">Lagre</button></p>
+</form>

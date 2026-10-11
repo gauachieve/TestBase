@@ -890,6 +890,16 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   cross-behandler klinikk-vid pasientliste. Verifisert med to ekte kontoer (midlertidig degradert
   ikke-admin-medlem + ekte admin), inkl. at et direkte URL-forsøk mot en admin-only side som
   ikke-admin korrekt avvises. 101 tester grønne, ingen migrasjon.
+- **Klinikk-oppdatering, del 3 — persistent undernav + "Editer felter" + CSS-fiks (2026-10-11,
+  samme dag):** ny delt partial `MinPartner/_MinKlinikkNav.cshtml` rendrer `<h1>Min klinikk</h1>`
+  + hele knapperaden (inkl. en ny "Min klinikk"-knapp for å alltid kunne navigere tilbake) ØVERST
+  på ALLE fem MinPartner-sidene, ikke bare hub-siden — "permanent" undernavigasjon, jf. brukerens
+  ønske. Ny `.btn-rad`-CSS-klasse (`display:flex; gap`) fikset et reelt, skjermbilde-bekreftet
+  funn: `.btn` mangler egen margin, så flere knapper på rad uten eksplisitt gap kan klistre seg
+  visuelt sammen. Ny side `MinPartner/Rediger.cshtml` ("Editer felter", knapp nederst på
+  hub-siden) lar klinikk-admin endre Navn/Kontaktperson/Kontakt-e-post/Kontakt-mobil selv — IKKE
+  `HarAktivtAbonnement`, fortsatt Superadmin-only. Verifisert med skjermbilder i begge roller.
+  101 tester grønne, ingen migrasjon.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

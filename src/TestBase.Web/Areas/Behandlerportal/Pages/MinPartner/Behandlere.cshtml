@@ -4,7 +4,7 @@
     ViewData["Title"] = "Min klinikk";
 }
 
-<h1>Min klinikk</h1>
+<partial name="_MinKlinikkNav" model="new TestBase.Web.Areas.Behandlerportal.Pages.MinPartner.MinKlinikkNavModel(Model.ErPartnerAdministrator, Model.AntallTilgjengeligeTester)" />
 
 @if (Model.Feilmelding is not null)
 {
@@ -22,13 +22,7 @@
     </ul>
 }
 
-<p>
-    <a class="btn btn-accent" href="/Behandlerportal/MinPartner/Kolleger">Behandlere i min klinikk</a>
-    @if (Model.ErPartnerAdministrator)
-    {
-        <a class="btn btn-accent" href="/Behandlerportal/Pasienter">Pasienter i min klinikk</a>
-        <a class="btn btn-accent" href="/Behandlerportal/MinPartner/Prising">Tester tilgjengelig for oss / Klinikkprising (@Model.TilgjengeligeTester.Count)</a>
-        <a class="btn btn-accent" href="/Behandlerportal/MinPartner/Utbetaling">Klinikkutbetaling</a>
-        <a class="btn btn-accent" href="/Behandlerportal/MinPartner/AutomatiskUtsendelse">Automatisk utsendelse til nye/avsluttede pasienter</a>
-    }
-</p>
+@if (Model.ErPartnerAdministrator)
+{
+    <p><a class="btn btn-outline" href="/Behandlerportal/MinPartner/Rediger">Editer felter</a></p>
+}

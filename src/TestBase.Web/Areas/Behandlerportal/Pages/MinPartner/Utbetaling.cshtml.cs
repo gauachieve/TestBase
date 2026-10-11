@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Tester;
@@ -54,6 +55,8 @@ public sealed class UtbetalingModel : PageModel
 
     public Partner Oppsett { get; private set; } = null!;
     public bool OppsettLagret { get; private set; }
+    public bool ErPartnerAdministrator => _currentUser.ErPartnerAdministrator;
+    public int AntallTilgjengeligeTester { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
@@ -64,6 +67,7 @@ public sealed class UtbetalingModel : PageModel
 
         var partnerId = _currentUser.PartnerId.Value;
         Konto = await _onboarding.HentForPartnerAsync(partnerId, cancellationToken);
+        AntallTilgjengeligeTester = await _db.PartnerTestTilganger.CountAsync(t => t.PartnerId == partnerId, cancellationToken);
 
         var naa = DateTimeOffset.UtcNow;
         ValgtAar = Aar ?? naa.Year;

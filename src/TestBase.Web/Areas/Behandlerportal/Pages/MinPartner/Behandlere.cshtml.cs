@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
-using TestBase.Shared.Domain.Tester;
 using TestBase.Shared.Security;
 
 namespace TestBase.Web.Areas.Behandlerportal.Pages.MinPartner;
@@ -31,10 +30,10 @@ public sealed class BehandlereModel : PageModel
     /// <summary>Egen partner-oversikt (bugliste 2026-09-13 punkt 15) — navn/kontaktinfo/abonnement.</summary>
     public Partner? MinPartner { get; private set; }
 
-    /// <summary>Testene partneren har fått tilgang til av Superadmin, se PartnerTestTilgang — kun brukt til antallet i Klinikkprising-knappens tekst.</summary>
-    public List<Test> TilgjengeligeTester { get; private set; } = new();
-
     public bool ErPartnerAdministrator => _currentUser.ErPartnerAdministrator;
+
+    /// <summary>Kun antallet trengs her — til _MinKlinikkNav sin knappetekst. Se PartnerTestTilgang.</summary>
+    public int AntallTilgjengeligeTester { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
@@ -45,9 +44,7 @@ public sealed class BehandlereModel : PageModel
 
         var partnerId = _currentUser.PartnerId.Value;
         MinPartner = await _db.Partnere.FirstOrDefaultAsync(p => p.Id == partnerId, cancellationToken);
-
-        var testIder = await _db.PartnerTestTilganger.Where(t => t.PartnerId == partnerId).Select(t => t.TestId).ToListAsync(cancellationToken);
-        TilgjengeligeTester = await _db.Tester.Where(t => testIder.Contains(t.Id)).OrderBy(t => t.Navn).ToListAsync(cancellationToken);
+        AntallTilgjengeligeTester = await _db.PartnerTestTilganger.CountAsync(t => t.PartnerId == partnerId, cancellationToken);
 
         return Page();
     }

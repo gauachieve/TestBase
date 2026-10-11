@@ -4,8 +4,9 @@
     ViewData["Title"] = "Behandlere i min klinikk";
 }
 
-<h1>Behandlere i min klinikk</h1>
-<p><a href="/Behandlerportal/MinPartner/Behandlere">← Min klinikk</a></p>
+<partial name="_MinKlinikkNav" model="new TestBase.Web.Areas.Behandlerportal.Pages.MinPartner.MinKlinikkNavModel(Model.ErPartnerAdministrator, Model.AntallTilgjengeligeTester)" />
+
+<h2>Behandlere i min klinikk</h2>
 
 @if (Model.Feilmelding is not null)
 {

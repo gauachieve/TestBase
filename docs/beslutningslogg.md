@@ -8559,3 +8559,31 @@ og et direkte URL-forsøk mot `/MinPartner/Prising`/`/MinPartner/Utbetaling` kor
 kontoen bekreftet at alle fem knappene vises, Kolleger-siden viser Fjern-knapper + inviter-skjema,
 og "Pasienter i min klinikk" lenker korrekt til egen pasientliste. 101 tester fortsatt grønne,
 ingen migrasjon.
+
+### Klinikk-oppdatering, del 3: persistent undernav + "Editer felter" + CSS-fiks for sammenklistrede knapper (2026-10-11, samme dag)
+
+Tre konkrete punkter fra et skjermbilde + brukerens egne ord:
+
+1. **"Hvordan kan jeg 'editere' min klinikk? Navn osv?"** — Fantes ikke noe slikt skjema for
+   klinikk-admin selv (kun Superadmin kunne redigere Partner-feltene, på Admin/Partnere/Rediger).
+   Ny side `MinPartner/Rediger.cshtml` ("Editer felter") lar klinikk-admin redigere
+   Navn/Kontaktperson/Kontakt-e-post/Kontakt-mobil selv. BEVISST IKKE `HarAktivtAbonnement` her —
+   det er et faktureringsrelatert felt, forblir Superadmin-only.
+2. **Sammenklistrede knapper (skjermbilde)** — reelt, reprodusert CSS-funn: `.btn` er
+   `display: inline-block` UTEN egen margin, så flere knapper rett etter hverandre (spesielt der
+   Razor sin whitespace-trimming rundt en `@if` fjerner mellomrommet i kildekoden) får ingen synlig
+   fuge mellom seg. Ny `.btn-rad`-klasse (`display: flex; flex-wrap: wrap; gap: 0.6rem;`) — robust
+   uavhengig av whitespace i selve .cshtml-kilden. Bekreftet fikset ved skjermbilde før/etter.
+3. **"Permanente" navigasjonsknapper + behold alltid "Min klinikk"-overskriften** — ny delt
+   partial `MinPartner/_MinKlinikkNav.cshtml` (+ `MinKlinikkNavModel`) rendrer `<h1>Min klinikk</h1>`
+   + knapperaden ØVERST på ALLE fem sidene under MinPartner (hub/Kolleger/Prising/Utbetaling/
+   AutomatiskUtsendelse/Rediger), ikke bare på hub-siden — inkludert en ny "Min klinikk"-knapp i
+   selve raden for å alltid kunne navigere tilbake til hovedsiden. Hver underside-PageModel henter
+   nå selv et lett `AntallTilgjengeligeTester`-tall (`PartnerTestTilganger.CountAsync`) til
+   knappeteksten. "Behandlere i min klinikk" (tidligere inline på hub-siden) ble samtidig flyttet
+   til sin egen side (se "Klinikk-oppdatering, del 2").
+
+Fullt verifisert i nettleser (skjermbilder) med BÅDE ekte admin-konto (alle 6 knapper + "Editer
+felter" + lagre-roundtrip bekreftet i database) og en midlertidig degradert ikke-admin-konto (kun
+"Min klinikk"/"Behandlere i min klinikk", ingen "Editer felter", fortsatt tydelig adskilte
+knapper). 101 tester grønne, ingen migrasjon.

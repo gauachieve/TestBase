@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
+using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Tester;
 using TestBase.Shared.Security;
 
@@ -15,14 +17,16 @@ namespace TestBase.Web.Areas.Behandlerportal.Pages.MinPartner;
 /// </summary>
 public sealed class AutomatiskUtsendelseModel : PageModel
 {
+    private readonly AppDbContext _db;
     private readonly TestService _testService;
     private readonly PartnerAutomatiskUtsendelseService _utsendelseService;
     private readonly IAuditLogger _auditLogger;
     private readonly ICurrentUserContext _currentUser;
 
     public AutomatiskUtsendelseModel(
-        TestService testService, PartnerAutomatiskUtsendelseService utsendelseService, IAuditLogger auditLogger, ICurrentUserContext currentUser)
+        AppDbContext db, TestService testService, PartnerAutomatiskUtsendelseService utsendelseService, IAuditLogger auditLogger, ICurrentUserContext currentUser)
     {
+        _db = db;
         _testService = testService;
         _utsendelseService = utsendelseService;
         _auditLogger = auditLogger;
@@ -33,6 +37,8 @@ public sealed class AutomatiskUtsendelseModel : PageModel
     public IReadOnlySet<long> ForhaandsvalgteVedNyPasient { get; private set; } = new HashSet<long>();
     public IReadOnlySet<long> ForhaandsvalgteVedAvsluttet { get; private set; } = new HashSet<long>();
     public string? Melding { get; private set; }
+    public bool ErPartnerAdministrator => _currentUser.ErPartnerAdministrator;
+    public int AntallTilgjengeligeTester { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
@@ -85,6 +91,7 @@ public sealed class AutomatiskUtsendelseModel : PageModel
 
     private async Task LastAltAsync(long partnerId, CancellationToken cancellationToken)
     {
+        AntallTilgjengeligeTester = await _db.PartnerTestTilganger.CountAsync(t => t.PartnerId == partnerId, cancellationToken);
         KategoriTre = await _testService.HentKategoriTreAsync(partnerId, cancellationToken);
 
         var vedNyPasient = await _utsendelseService.HentForPartnerAsync(partnerId, PartnerAutomatiskUtsendelseUtloser.VedNyPasient, cancellationToken);

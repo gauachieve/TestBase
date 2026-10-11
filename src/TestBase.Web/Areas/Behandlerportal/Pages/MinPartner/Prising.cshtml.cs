@@ -45,6 +45,8 @@ public sealed class PrisingModel : PageModel
     public Dictionary<long, string> TestNavnById { get; private set; } = new();
     public string? Feilmelding { get; private set; }
     public string? Melding { get; private set; }
+    public bool ErPartnerAdministrator => _currentUser.ErPartnerAdministrator;
+    public int AntallTilgjengeligeTester => Tester.Count;
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {

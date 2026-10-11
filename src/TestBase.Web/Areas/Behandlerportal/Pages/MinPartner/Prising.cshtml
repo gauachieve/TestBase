@@ -5,7 +5,9 @@
     ViewData["Title"] = "Min klinikk — prising";
 }
 
-<h1>Min klinikks andel per test</h1>
+<partial name="_MinKlinikkNav" model="new TestBase.Web.Areas.Behandlerportal.Pages.MinPartner.MinKlinikkNavModel(Model.ErPartnerAdministrator, Model.AntallTilgjengeligeTester)" />
+
+<h2>Min klinikks andel per test</h2>
 <p>Andelen klemmes alltid opp til minst det Superadmin har satt som gulv for testen.</p>
 
 @if (Model.Feilmelding is not null)

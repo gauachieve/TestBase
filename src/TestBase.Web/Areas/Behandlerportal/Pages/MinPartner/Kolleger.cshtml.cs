@@ -42,6 +42,7 @@ public sealed class KollegerModel : PageModel
     public string? Feilmelding { get; private set; }
     public string? InvitasjonsLenke { get; private set; }
     public bool ErPartnerAdministrator => _currentUser.ErPartnerAdministrator;
+    public int AntallTilgjengeligeTester { get; private set; }
 
     public long EgenBehandlerId => HentBehandlerId();
 
@@ -128,6 +129,7 @@ public sealed class KollegerModel : PageModel
     private async Task LastKollegerAsync(long partnerId, CancellationToken cancellationToken)
     {
         Kolleger = await _db.Behandlere.Where(b => b.PartnerId == partnerId).OrderBy(b => b.Etternavn).ToListAsync(cancellationToken);
+        AntallTilgjengeligeTester = await _db.PartnerTestTilganger.CountAsync(t => t.PartnerId == partnerId, cancellationToken);
     }
 
     private long HentBehandlerId() =>
