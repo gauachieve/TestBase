@@ -78,6 +78,11 @@ App Service-innstillinger før du antar, spesielt på live):**
 - App Service/MySQL-SKU står normalt på billigste tier (Basic B1/Burstable B1ms) — kun skalert opp
   midlertidig og reversibelt ved kjente lasttopper (se beslutningsloggen for hvilken SKU som faktisk
   fungerer under last, `S2` alene var gjennombruddet, `S1`/`S2+B2s` var IKKE det).
+- **Før ekte pasienttesting:** et research-notat (`docs/juridisk-notat-helsedata-og-digital-
+  helseteknologi.md`, 2026-10-11, IKKE juridisk rådgivning) flagget at TestBase sin rapport-/
+  skåringsfunksjon trolig faller under MDR (medisinsk utstyr) Klasse IIa eller høyere — en
+  UBESVART, potensielt stor forpliktelse (CE-merking/kvalitetsstyringssystem) som IKKE er avklart
+  eller priset inn. Ikke anta dette er løst uten å sjekke om en kvalifisert vurdering har skjedd.
 
 For alt annet — hvorfor en beslutning ble tatt, bevisste scope-kutt, nøyaktig hva som ble
 verifisert og hvordan, lisens-/kildevurderinger for enkelttester osv. — søk i

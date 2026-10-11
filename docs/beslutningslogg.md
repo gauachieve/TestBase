@@ -8618,3 +8618,35 @@ Testpartner AS" (3 aktive, hele klinikken) med undernav nå synlig; "Pasienter i
 klinikk"-knappen viser korrekt "Mine pasienter" (0 aktive for denne spesifikke admin-kontoen, som
 ikke selv har noen egne pasienter — beviser at filteret faktisk virker, ikke bare viser samme
 liste med ny tittel). 101 tester grønne, ingen migrasjon.
+
+### Juridisk research-notat: lagring av helsedata i Norge + MDR/EHDS (2026-10-11)
+
+Svar på punkt 2 i en ny `bugs_features.txt`-runde ("forbered ekte brukertesting") — ren
+websøk-basert research+planlegging, INGEN kodeendring. Fullt notat:
+`docs/juridisk-notat-helsedata-og-digital-helseteknologi.md` (samme "ikke juridisk rådgivning"-
+forbehold som `docs/compliance-dpia-utkast.md`, ment som et utgangspunkt for faktisk juridisk
+vurdering). Kort oppsummert:
+
+- **Lagringssted (Sweden Central-spørsmålet):** fant INGEN lovkrav om fysisk lagring i Norge.
+  Sverige er EU/EØS, så den strenge "tredjeland uten adekvansbeslutning"-vurderingen Normen krever
+  for databehandlere UTENFOR EU/EØS utløses ikke. Det reelle, ukjente hullet: ingen bekreftet
+  signert databehandleravtale med Microsoft som eksplisitt navngir lagringsregionen — bør ordnes
+  uavhengig av om regionen beholdes.
+- **MDR (Medical Device Regulation) — det STØRSTE åpne funnet:** programvare som skårer
+  symptomer og hvis resultat brukes av en behandler til en diagnostisk/terapeutisk beslutning
+  klassifiseres normalt minst som Klasse IIa under MDR Rule 11 (opp til IIb/III ved alvorlig
+  skaderisiko) — CE-merking/kvalitetsstyringssystem/klinisk evaluering, en vesentlig større
+  forpliktelse enn noe som er bygget eller priset inn. TestBase sin bruk (behandler godkjenner og
+  bruker rapporten, inkl. uttrykkelige risikoflagg i f.eks. CORE-A/HCR-20 V3/MADRS) ligner sterkt
+  på eksemplene som klassifiseres slik. IKKE avklart av dette research-notatet — krever en
+  kvalifisert MDR-vurdering FØR reell pasienttesting, anbefalt som punkt #1 i den videre planen.
+- **EHDS:** nyere forordning (i kraft mars 2025), gjelder ikke Norge automatisk (må innlemmes i
+  EØS-avtalen først, ikke gjort ennå), og treffer primært journalsystem-produsenter/storskala
+  sekundærbruk med frister i 2029/2031 — vurdert IKKE umiddelbart blokkerende for en liten
+  enkeltpraksis, men verdt å følge med på.
+
+Anbefalt videre plan (i notatet): (1) kvalifisert MDR-vurdering, (2) få/dokumenter
+databehandleravtalen, (3) oppdater `docs/compliance-dpia-utkast.md` med disse funnene, (4) følg
+med på EHDS-innlemmelse, (5) samlet jurist-/DPO-gjennomgang før reelle pasienter. Punkt 1 i
+`bugs_features.txt` (superadmin-driftsbrytere for BankID/SMS/Vipps/Stripe/payout) venter fortsatt
+på brukerens eksplisitte "gå videre" — ingen kode skrevet for det punktet.
