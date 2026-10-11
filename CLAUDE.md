@@ -870,6 +870,13 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   regresjonstester (101 totalt), fullt verifisert i nettleser mot EKTE lokale data (ikke ny
   syntetisk testdata) i alle tre roller + alle tre "Lagre oppsett"-handlere. Ny migrasjon, ren
   tillegg.
+- **Klinikk-oppdatering: nav konsolidert (2026-10-11, samme dag):** brukerens eksplisitte ønske —
+  Klinikkprising/Klinikkutbetaling/Automatisk utsendelse er IKKE lenger egne topp-nav-knapper
+  (fjernet igjen, kun noen timer etter de ble lagt til i "Tre nav/plassering-bugs" over), kun
+  knapper PÅ selve "Min klinikk"-siden (`MinPartner/Behandlere.cshtml`) — topp-nav og MinSide
+  viser nå begge KUN én "Min klinikk"-lenke. Den inline "Tester tilgjengelig for oss"-listen på
+  samme side ble fjernet (ren duplikasjon av det Klinikkprising-siden allerede viser fullstendig)
+  og slått sammen med Klinikkprising-knappen i stedet. Verifisert i nettleser, 101 tester grønne.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

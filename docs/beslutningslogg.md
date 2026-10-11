@@ -8498,3 +8498,24 @@ lesbart ikon og lykkes (ingen 400, "Forespørsel sendt..."-melding vises korrekt
 etterfølgende "Lagre alle endringer" (testet i nøyaktig den tidligere problematiske rekkefølgen:
 fjerning-forespørsel FØRST, så bulk-lagring UTEN mellomliggende reload) lagrer nå korrekt til
 riktig handler. 101 tester fortsatt grønne, ingen migrasjon.
+
+### Klinikk-oppdatering: Klinikkprising/-utbetaling/Automatisk utsendelse konsolidert til KUN knapper under "Min klinikk" (2026-10-11, samme dag)
+
+Brukerens eksplisitte ønske: disse tre skulle ikke lenger være egne topp-nav-knapper (lagt til
+tidligere samme dag i "Tre nav/plassering-bugs") — kun knapper PÅ selve "Min klinikk"-siden
+(`MinPartner/Behandlere.cshtml`). Fjernet fra `_Layout.cshtml` sin topp-navigasjon (kun "Min
+klinikk" står igjen for klinikk-admin) OG fra `Behandlerportal/MinSide` sin "Min klinikk"-seksjon
+(forenklet til én enkelt "Min klinikk"-lenke, siden "Behandlere i klinikken" uansett pekte til
+samme sted). Lagt til som en knapperad øverst på selve `MinPartner/Behandlere.cshtml`.
+
+Samtidig: "Tester tilgjengelig for oss" (en inline `<ul>`-liste med kun testnavn, ingen pris/
+handling) var ren duplikasjon av det `MinPartner/Prising.cshtml` allerede viser fullstendig
+(samme testliste + redigerbar andel + "be om fjerning"). Fjernet den inline listen og slo den
+sammen med Klinikkprising-knappen i stedet for å legge til en egen, identisk-destinasjon knapp —
+knappeteksten "Tester tilgjengelig for oss / Klinikkprising (36)" viser fortsatt antallet direkte
+på "Min klinikk"-siden uten å duplisere selve listen.
+
+Fullt verifisert i nettleser med ekte lokal klinikk-admin-testkonto: topp-nav viser nå kun "Min
+klinikk", MinSide viser én "Min klinikk"-knapp, og "Min klinikk"-siden selv viser alle tre knappene
+(Tester tilgjengelig for oss/Klinikkprising, Klinikkutbetaling, Automatisk utsendelse) pluss
+uendret behandlerliste/inviter-skjema. 101 tester grønne, ingen migrasjon.

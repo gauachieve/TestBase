@@ -22,20 +22,11 @@
     </ul>
 }
 
-<h2>Tester tilgjengelig for oss</h2>
-@if (!Model.TilgjengeligeTester.Any())
-{
-    <p>Ingen tester er gitt tilgang ennå — kontakt Superadmin.</p>
-}
-else
-{
-    <ul>
-    @foreach (var test in Model.TilgjengeligeTester)
-    {
-        <li>@test.Navn</li>
-    }
-    </ul>
-}
+<p>
+    <a class="btn btn-accent" href="/Behandlerportal/MinPartner/Prising">Tester tilgjengelig for oss / Klinikkprising (@Model.TilgjengeligeTester.Count)</a>
+    <a class="btn btn-accent" href="/Behandlerportal/MinPartner/Utbetaling">Klinikkutbetaling</a>
+    <a class="btn btn-accent" href="/Behandlerportal/MinPartner/AutomatiskUtsendelse">Automatisk utsendelse til nye/avsluttede pasienter</a>
+</p>
 
 @if (Model.InvitasjonsLenke is not null)
 {
