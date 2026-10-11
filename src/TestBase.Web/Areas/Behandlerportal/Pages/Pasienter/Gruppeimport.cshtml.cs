@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Pasienter;
+using TestBase.Shared.Domain.Tester;
 using TestBase.Shared.Security;
 
 namespace TestBase.Web.Areas.Behandlerportal.Pages.Pasienter;
@@ -12,13 +13,17 @@ public sealed class GruppeimportModel : PageModel
 {
     private readonly AppDbContext _db;
     private readonly PasientInvitasjonService _pasientService;
+    private readonly PartnerAutomatiskUtsendelseService _automatiskUtsendelse;
     private readonly IAuditLogger _auditLogger;
     private readonly ICurrentUserContext _currentUser;
 
-    public GruppeimportModel(AppDbContext db, PasientInvitasjonService pasientService, IAuditLogger auditLogger, ICurrentUserContext currentUser)
+    public GruppeimportModel(
+        AppDbContext db, PasientInvitasjonService pasientService, PartnerAutomatiskUtsendelseService automatiskUtsendelse,
+        IAuditLogger auditLogger, ICurrentUserContext currentUser)
     {
         _db = db;
         _pasientService = pasientService;
+        _automatiskUtsendelse = automatiskUtsendelse;
         _auditLogger = auditLogger;
         _currentUser = currentUser;
     }
@@ -69,6 +74,9 @@ public sealed class GruppeimportModel : PageModel
             await _auditLogger.LogAsync(
                 _currentUser.UserId, _currentUser.Role.ToString(), "LeggTilPasient",
                 nameof(Pasient), opprettelse.Pasient.Id.ToString(), "Gruppeimport", cancellationToken);
+
+            // Bugliste 2026-10-11 punkt 4 — se Ny.cshtml.cs sitt motstykke for full begrunnelse.
+            await _automatiskUtsendelse.UtforTriggerAsync(opprettelse.Pasient, PartnerAutomatiskUtsendelseUtloser.VedNyPasient, baseUrl, cancellationToken);
         }
 
         return Page();

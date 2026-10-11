@@ -42,6 +42,19 @@
         <button type="submit" form="pasientFlervalgSkjema" asp-page-handler="ArkiverValgte" class="btn btn-outline" data-disable-on-submit="Avslutter …">
             <partial name="_Ikon" model="@("arkiver")" /> Avslutt valgte
         </button>
+        @if (Model.ViserHelePartnerskapet)
+        {
+            <select name="nyBehandlerId" form="pasientFlervalgSkjema">
+                <option value="">(velg ny behandler)</option>
+                @foreach (var b in Model.BehandlereIKlinikken)
+                {
+                    <option value="@b.Id">@b.Visningsnavn</option>
+                }
+            </select>
+            <button type="submit" form="pasientFlervalgSkjema" asp-page-handler="ByttBehandlerValgte" class="btn btn-outline" data-disable-on-submit="Bytter …">
+                Bytt behandler for valgte
+            </button>
+        }
     </div>
     <form id="pasientFlervalgSkjema" method="post"></form>
 

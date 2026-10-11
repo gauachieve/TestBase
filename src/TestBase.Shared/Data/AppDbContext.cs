@@ -49,6 +49,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<Partner> Partnere => Set<Partner>();
     public DbSet<PartnerTestTilgang> PartnerTestTilganger => Set<PartnerTestTilgang>();
     public DbSet<PartnerTestAndel> PartnerTestAndeler => Set<PartnerTestAndel>();
+    public DbSet<PartnerAutomatiskUtsendelse> PartnerAutomatiskUtsendelser => Set<PartnerAutomatiskUtsendelse>();
     public DbSet<TestTildelingBetaling> TestTildelingBetalinger => Set<TestTildelingBetaling>();
     public DbSet<Pengebevegelse> Pengebevegelser => Set<Pengebevegelse>();
     public DbSet<TestTilgangForespoersel> TestTilgangForesporsler => Set<TestTilgangForespoersel>();
@@ -370,6 +371,14 @@ public sealed class AppDbContext : DbContext
             entity.HasKey(a => a.Id);
             entity.HasIndex(a => new { a.PartnerId, a.TestId }).IsUnique();
             entity.Property(a => a.AndelKr).HasColumnType("decimal(10,2)");
+        });
+
+        modelBuilder.Entity<PartnerAutomatiskUtsendelse>(entity =>
+        {
+            entity.ToTable("partner_automatisk_utsendelser");
+            entity.HasKey(u => u.Id);
+            entity.Property(u => u.Utloser).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.HasIndex(u => new { u.PartnerId, u.TestId, u.Utloser }).IsUnique();
         });
 
         modelBuilder.Entity<TestTilgangForespoersel>(entity =>

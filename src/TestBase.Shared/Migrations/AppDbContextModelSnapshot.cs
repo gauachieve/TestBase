@@ -777,6 +777,39 @@ namespace TestBase.Shared.Migrations
                     b.ToTable("hjemmeoppgave_likinger", (string)null);
                 });
 
+            modelBuilder.Entity("TestBase.Shared.Domain.Tester.PartnerAutomatiskUtsendelse", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("OpprettetAvBehandlerId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("OpprettetUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("PartnerId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("TestId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Utloser")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId", "TestId", "Utloser")
+                        .IsUnique();
+
+                    b.ToTable("partner_automatisk_utsendelser", (string)null);
+                });
+
             modelBuilder.Entity("TestBase.Shared.Domain.Tester.PartnerTestAndel", b =>
                 {
                     b.Property<long>("Id")

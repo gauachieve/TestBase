@@ -1,0 +1,33 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.MinPartner.AutomatiskUtsendelseModel
+@using TestBase.Web.Pages.Shared
+@{
+    ViewData["Title"] = "Automatisk utsendelse";
+}
+
+<h1>Automatisk utsendelse av tester</h1>
+<p>
+    Velg hvilke av klinikkens tester/hjemmeoppgaver som automatisk skal tildeles og sendes ut
+    til en pasient i de to situasjonene under. Gjelder for alle behandlere i klinikken.
+</p>
+
+@if (Model.Melding is not null)
+{
+    <p style="color: darkgreen;">@Model.Melding</p>
+}
+
+<h2>Ved ny pasient</h2>
+<p><em>Sendes automatisk til en pasient så snart hen legges til av en behandler i klinikken (eller av deg som klinikk-admin).</em></p>
+<form method="post" asp-page-handler="LagreVedNyPasient" data-disable-on-submit="Lagrer …">
+    <partial name="_TestKategoriVelger" model="@(new TestKategoriVelgerModel { KategoriTre = Model.KategoriTre, IdPrefix = "nypasient", CheckboxNavn = "TestIder", ForhaandsvalgteTestIder = Model.ForhaandsvalgteVedNyPasient })" />
+    <button type="submit" class="btn btn-accent">Lagre</button>
+</form>
+
+<h2>Ved "Avsluttet"</h2>
+<p><em>Sendes automatisk til en pasient så snart behandlingen avsluttes (pasienten flyttes til "Avsluttet"-fanen).</em></p>
+<form method="post" asp-page-handler="LagreVedAvsluttet" data-disable-on-submit="Lagrer …">
+    <partial name="_TestKategoriVelger" model="@(new TestKategoriVelgerModel { KategoriTre = Model.KategoriTre, IdPrefix = "avsluttet", CheckboxNavn = "TestIder", ForhaandsvalgteTestIder = Model.ForhaandsvalgteVedAvsluttet })" />
+    <button type="submit" class="btn btn-accent">Lagre</button>
+</form>
+
+<p><a href="/Behandlerportal/MinPartner/Behandlere">Tilbake til min klinikk</a></p>

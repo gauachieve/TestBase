@@ -54,6 +54,7 @@ builder.Services.AddScoped<GruppeService>();
 builder.Services.AddScoped<TestService>();
 builder.Services.AddScoped<HjemmeoppgaveService>();
 builder.Services.AddScoped<ProgramService>();
+builder.Services.AddScoped<TestBase.Shared.Domain.Tester.PartnerAutomatiskUtsendelseService>();
 builder.Services.AddScoped<TestTildelingsService>();
 builder.Services.AddSingleton<TestPrisberegner>();
 builder.Services.AddScoped<BehandlerMeldingService>();

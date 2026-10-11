@@ -8201,3 +8201,64 @@ program-nivå-vekselen ble bekreftet persistert over en full sideinnlasting (sat
 nytt, bekreftet avkrysset, satt tilbake til av igjen for å ikke endre test-fixture-data varig).
 **Punkt 4 (klinikk-admin bulk-flytt + auto-utsendelse ved ny/avsluttet pasient) er fortsatt IKKE
 startet** — den mest arkitektonisk uavhengige av de fire gjenstående punktene, naturlig neste steg.
+
+## Klinikk-admin: bulk-flytt pasienter + automatisk utsendelse ved ny/avsluttet pasient (2026-10-11, samme runde, punkt 4 — SISTE punkt i denne bugs_features.txt-runden)
+
+Tre delfunksjoner, alle begrenset til partner-admin (`ErPartnerAdministrator`), fullfører hele den
+opprinnelige 6-punkts listen.
+
+**4a — masseflytt pasienter mellom behandlere:** ny `OnPostByttBehandlerValgteAsync` på
+`Behandlerportal/Pasienter/Index.cshtml.cs`, gjenbruker SAMME flervalg-infrastruktur
+(`data-flervalg-rad`/`pasientFlervalgSkjema`) som den eksisterende "Avslutt valgte"-knappen, men
+en ny `<select name="nyBehandlerId">` + egen knapp, vist KUN når `ViserHelePartnerskapet`. I
+MOTSETNING til "Avslutt valgte" (som filtrerer til EGNE pasienter) filtreres denne til HELE
+klinikken — det er selve poenget, en klinikk-admin flytter ANDRE behandleres pasienter, ikke bare
+sine egne. Håndhevet server-side (ikke bare i viewet): `nyBehandlerId` MÅ tilhøre samme
+`PartnerId`, og kandidat-pasientene filtreres til behandlere i samme klinikk.
+
+**4b+4c — automatisk utsendelse:** ny entitet `PartnerAutomatiskUtsendelse` (PartnerId, TestId,
+Utloser: `VedNyPasient`/`VedAvsluttet`) + `PartnerAutomatiskUtsendelseService`
+(`HentForPartnerAsync`/`OppdaterAsync` for konfigurering, `UtforTriggerAsync` for selve
+utsendelsen — bygger videre på `TestTildelingsService.TildelOgVarsleAsync`, ingen ny tildelings-
+/varslingslogikk). Ny side `Behandlerportal/MinPartner/AutomatiskUtsendelse.cshtml` — to separate
+`_TestKategoriVelger`-instanser (delt komponent, se "38-punkts brukerfeedback-runde") i hver sin
+`<form>`, én per utløser, forhåndsutfylt fra eksisterende konfigurasjon. `UtforTriggerAsync` kalt
+fra FIRE steder: `Pasienter/Ny.cshtml.cs` og `Pasienter/Gruppeimport.cshtml.cs` (VedNyPasient, for
+hver opprettet pasient), `Pasienter/Index.cshtml.cs` sin `OnPostArkiverAsync` (KUN ved faktisk
+arkivering, ikke gjenopptak) og `OnPostArkiverValgteAsync` (VedAvsluttet). Stille no-op (aldri en
+feil) hvis behandleren ikke tilhører en klinikk eller klinikken ikke har konfigurert noe for den
+utløseren — samme "en sidegren skal ALDRI kunne velte hovedhandlingen"-prinsipp som resten av
+varslingskjeden i dette prosjektet.
+
+**En reell, tidligere udokumentert Razor-fallgruve funnet under verifisering:** `_TestKategoriVelger.cshtml`
+sin `CheckboxNavn`-parameter (satt = native skjemainnsending uten JS, se komponentens egen
+XML-doc) hadde ALDRI faktisk vært brukt med en ikke-null verdi før denne runden (eneste tidligere
+bruker, `Programmer/Rediger.cshtml`, lar den stå null og leser avkrysningene selv via JS). Selve
+implementasjonen skrev attributtet som en bar `@(uttrykk)`-token midt i et HTML-tag — Razor
+HTML-ENKODER automatisk et implisitt `@(...)`-uttrykks tekstverdi med mindre `Html.Raw` brukes,
+så `name="TestIder"` ble skrevet bokstavelig som `name=&quot;TestIder&quot;` i den faktiske
+HTML-kilden — ugyldig syntaks en nettleser ikke tolker som et ekte attributt, så checkboxen fikk
+reelt INGEN name-attributt og ble ALDRI inkludert i noe skjema-innsending. Ingen kompilatorfeil,
+ingen runtime-feil — siden ble lastet helt normalt og viste "Lagret." etter innsending (handleren
+KJØRTE, bare med en tom liste), så feilen var usynlig uten å faktisk sjekke databasen direkte
+(`docker exec testbase-mysql-dev mysql ...`) etter en lagring. Fikset med `@Html.Raw(...)` rundt
+hele det betingede uttrykket — samme løsningsmønster som den allerede dokumenterte SVG
+`<text>`-fallgruven, men en NY klasse av årsak (manglende Html.Raw på en BETINGET HEL-ATTRIBUTT-
+streng, ikke en pseudo-tag-begrensning). Lagt til i fallgruve-lista i CLAUDE.md.
+
+Migrasjon: 1 ny tabell (`partner_automatisk_utsendelser`), ren tillegg. 98 tester fortsatt grønne.
+Fullt verifisert ende-til-ende i nettleser med en EKTE, FERSKT OPPRETTET klinikk-admin-testkonto
+(invitert via `Admin/Partnere/Rediger`, fullført registrering, forfremmet til klinikk-admin,
+logget inn via mock-BankID `PersonnummerOverride`): bulk-flytt av 3 pasienter til en annen
+behandler i klinikken og tilbake igjen (bekreftet i UI); en ny pasient lagt til fikk WHO-5
+automatisk tildelt (bekreftet direkte i databasen); samme pasient flyttet til "Avsluttet" fikk
+WHO-5 VAS automatisk tildelt (bekreftet direkte i databasen). All testkonfigurasjon ryddet opp
+etter verifisering (auto-utsendelse-listene tømt, testpasienten myk-slettet) — selve
+testbehandler-kontoen "Bulktest Partneradmin" BEVISST latt stå, konsistent med den allerede store
+mengden eksisterende, akkumulerte dev-testfixturer i denne lokale databasen (f.eks. "Smoke
+Pasient", "QR Testperson", "Gruppe Testperson").
+
+**Dermed er ALLE 6 punkter i denne `bugs_features.txt`-runden ferdige** (1: Tildelte tester-fane,
+2: Avslutt for pasienter, 3: Partner→Klinikk-visningsnavn, 4: klinikk-admin bulk-flytt+auto-
+utsendelse, 5: manuell påminn-knapp, 6: automatisk påminnelse-veksel). Se de respektive seksjonene
+over for full detalj per punkt.

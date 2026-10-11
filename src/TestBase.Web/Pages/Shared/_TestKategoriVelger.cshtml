@@ -31,7 +31,7 @@
                         <li data-sok="@visningsnavn.ToLowerInvariant()">
                             <label class="@(test.FyllesUtAvBehandler ? "tildel-test-klinikerutfylt" : "")">
                                 <input type="checkbox"
-                                       @(Model.CheckboxNavn is null ? "" : $"name=\"{Model.CheckboxNavn}\"")
+                                       @Html.Raw(Model.CheckboxNavn is null ? "" : $"name=\"{Model.CheckboxNavn}\"")
                                        value="@test.Id" class="tildel-test-checkbox" data-test-id="@test.Id"
                                        data-test-navn="@visningsnavn"
                                        data-beskrivelse="@test.Beskrivelse"

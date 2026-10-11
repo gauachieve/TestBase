@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Pasienter;
+using TestBase.Shared.Domain.Tester;
 using TestBase.Shared.Security;
 
 namespace TestBase.Web.Areas.Behandlerportal.Pages.Pasienter;
@@ -12,13 +13,17 @@ public sealed class NyModel : PageModel
 {
     private readonly AppDbContext _db;
     private readonly PasientInvitasjonService _pasientService;
+    private readonly PartnerAutomatiskUtsendelseService _automatiskUtsendelse;
     private readonly IAuditLogger _auditLogger;
     private readonly ICurrentUserContext _currentUser;
 
-    public NyModel(AppDbContext db, PasientInvitasjonService pasientService, IAuditLogger auditLogger, ICurrentUserContext currentUser)
+    public NyModel(
+        AppDbContext db, PasientInvitasjonService pasientService, PartnerAutomatiskUtsendelseService automatiskUtsendelse,
+        IAuditLogger auditLogger, ICurrentUserContext currentUser)
     {
         _db = db;
         _pasientService = pasientService;
+        _automatiskUtsendelse = automatiskUtsendelse;
         _auditLogger = auditLogger;
         _currentUser = currentUser;
     }
@@ -71,6 +76,11 @@ public sealed class NyModel : PageModel
         // samme prinsipp som den offentlige selvregistreringen.
         var resultat = await _pasientService.LeggTilAsync(
             personnummer: null, MobilNr, Epost, behandlerId, Varslingskanal, baseUrl, cancellationToken: cancellationToken);
+
+        // Bugliste 2026-10-11 punkt 4: klinikkens egen "ved ny pasient"-liste, se
+        // PartnerAutomatiskUtsendelseService — stille no-op hvis behandleren ikke tilhører en
+        // klinikk, eller klinikken ikke har konfigurert noen tester for dette.
+        await _automatiskUtsendelse.UtforTriggerAsync(resultat.Pasient, PartnerAutomatiskUtsendelseUtloser.VedNyPasient, baseUrl, cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "LeggTilPasient",

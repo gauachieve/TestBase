@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
+using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Pasienter;
 using TestBase.Shared.Domain.Tester;
 using TestBase.Shared.Providers;
@@ -13,14 +14,18 @@ public sealed class IndexModel : PageModel
 {
     private readonly AppDbContext _db;
     private readonly TestService _testService;
+    private readonly PartnerAutomatiskUtsendelseService _automatiskUtsendelse;
     private readonly IAuditLogger _auditLogger;
     private readonly ICurrentUserContext _currentUser;
     private readonly ICaptchaProvider _captcha;
 
-    public IndexModel(AppDbContext db, TestService testService, IAuditLogger auditLogger, ICurrentUserContext currentUser, ICaptchaProvider captcha)
+    public IndexModel(
+        AppDbContext db, TestService testService, PartnerAutomatiskUtsendelseService automatiskUtsendelse,
+        IAuditLogger auditLogger, ICurrentUserContext currentUser, ICaptchaProvider captcha)
     {
         _db = db;
         _testService = testService;
+        _automatiskUtsendelse = automatiskUtsendelse;
         _auditLogger = auditLogger;
         _currentUser = currentUser;
         _captcha = captcha;
@@ -50,6 +55,9 @@ public sealed class IndexModel : PageModel
     public bool ViserHelePartnerskapet { get; private set; }
     public string? PartnerNavn { get; private set; }
 
+    /// <summary>Bugliste 2026-10-11 punkt 4 — ALLE behandlere i klinikken, for "Bytt behandler for valgte"-nedtrekksmenyen. Tom/ubrukt når !ViserHelePartnerskapet.</summary>
+    public IReadOnlyList<Behandler> BehandlereIKlinikken { get; private set; } = Array.Empty<Behandler>();
+
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         ViserHelePartnerskapet = _currentUser.ErPartnerAdministrator && _currentUser.PartnerId is not null;
@@ -63,6 +71,7 @@ public sealed class IndexModel : PageModel
             var behandlereIPartner = await _db.Behandlere.Where(b => b.PartnerId == partnerId).ToListAsync(cancellationToken);
             behandlerNavnById = behandlereIPartner.ToDictionary(b => b.Id, b => b.Visningsnavn);
             var behandlerIder = behandlereIPartner.Select(b => b.Id).ToList();
+            BehandlereIKlinikken = behandlereIPartner.OrderBy(b => b.Etternavn).ToList();
 
             pasienter = await _db.Pasienter
                 .Include(p => p.Gruppe)
@@ -126,6 +135,61 @@ public sealed class IndexModel : PageModel
             await _auditLogger.LogAsync(
                 _currentUser.UserId, _currentUser.Role.ToString(), "ArkiverFlerePasienter",
                 nameof(Pasient), AuditBatch.EntityId(ider), details: $"PasientIder {string.Join(",", ider)}", cancellationToken: cancellationToken);
+
+            // Bugliste 2026-10-11 punkt 4 — klinikkens "ved Avsluttet"-liste, se Ny.cshtml.cs sitt motstykke.
+            var baseUrl = $"{Request.Scheme}://{Request.Host}";
+            foreach (var pasient in pasienter)
+            {
+                await _automatiskUtsendelse.UtforTriggerAsync(pasient, PartnerAutomatiskUtsendelseUtloser.VedAvsluttet, baseUrl, cancellationToken);
+            }
+        }
+
+        return RedirectToPage();
+    }
+
+    /// <summary>
+    /// Bugliste 2026-10-11 punkt 4 — klinikk-admin kan masseflytte en liste pasienter til en annen
+    /// behandler i SAMME klinikk i ett steg (samme flervalg-infrastruktur som
+    /// OnPostArkiverValgteAsync, men med en ekstra mål-behandler-verdi). KUN partner-admin — en
+    /// vanlig behandler ser aldri denne knappen (ViserHelePartnerskapet styrer visning i viewet),
+    /// håndhevet HER også, ikke bare i viewet (samme prinsipp som alle andre AuthorizeAreaFolder-
+    /// uavhengige sjekker i dette prosjektet). I MOTSETNING til OnPostArkiverValgteAsync filtreres
+    /// IKKE til EGNE pasienter — poenget med denne knappen er nettopp å flytte ANDRE behandleres
+    /// pasienter, avgrenset til SAMME klinikk i stedet (nyBehandlerId sin PartnerId MÅ matche).
+    /// </summary>
+    public async Task<IActionResult> OnPostByttBehandlerValgteAsync(long[] pasientId, long nyBehandlerId, CancellationToken cancellationToken)
+    {
+        if (!_currentUser.ErPartnerAdministrator || _currentUser.PartnerId is null || pasientId.Length == 0)
+        {
+            return RedirectToPage();
+        }
+
+        var partnerId = _currentUser.PartnerId.Value;
+        var nyBehandler = await _db.Behandlere.FirstOrDefaultAsync(b => b.Id == nyBehandlerId && b.PartnerId == partnerId, cancellationToken);
+        if (nyBehandler is null)
+        {
+            Feilmelding = "Ugyldig valg av ny behandler.";
+            await OnGetAsync(cancellationToken);
+            return Page();
+        }
+
+        var behandlerIderIKlinikken = await _db.Behandlere.Where(b => b.PartnerId == partnerId).Select(b => b.Id).ToListAsync(cancellationToken);
+        var pasienter = await _db.Pasienter
+            .Where(p => pasientId.Contains(p.Id) && behandlerIderIKlinikken.Contains(p.BehandlerId) && p.Status != PasientStatus.Arkivert)
+            .ToListAsync(cancellationToken);
+
+        foreach (var pasient in pasienter)
+        {
+            pasient.BehandlerId = nyBehandlerId;
+        }
+        await _db.SaveChangesAsync(cancellationToken);
+
+        if (pasienter.Count > 0)
+        {
+            var ider = pasienter.Select(p => p.Id).ToList();
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(), "ByttBehandlerFlerePasienter",
+                nameof(Pasient), AuditBatch.EntityId(ider), details: $"PasientIder {string.Join(",", ider)}; NyBehandlerId {nyBehandlerId}", cancellationToken: cancellationToken);
         }
 
         return RedirectToPage();
@@ -148,6 +212,13 @@ public sealed class IndexModel : PageModel
                 _currentUser.UserId, _currentUser.Role.ToString(),
                 arkiveres ? "ArkiverPasient" : "GjenopprettPasient",
                 nameof(Pasient), pasient.Id.ToString(), cancellationToken: cancellationToken);
+
+            // Bugliste 2026-10-11 punkt 4 — KUN ved faktisk arkivering, ikke ved gjenopptak.
+            if (arkiveres)
+            {
+                await _automatiskUtsendelse.UtforTriggerAsync(
+                    pasient, PartnerAutomatiskUtsendelseUtloser.VedAvsluttet, $"{Request.Scheme}://{Request.Host}", cancellationToken);
+            }
         }
 
         return RedirectToPage();
