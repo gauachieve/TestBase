@@ -27,6 +27,7 @@ public sealed class MinSideModel : PageModel
     private readonly TestService _testService;
     private readonly BetaInnstillingService _betaInnstillinger;
     private readonly EktBankIdInnstillingService _ektBankIdInnstillinger;
+    private readonly DriftsbryterInnstillingService _driftsbrytere;
     private readonly IAuthenticationSchemeProvider _schemes;
     private readonly IConfiguration _configuration;
     private readonly IAuditLogger _auditLogger;
@@ -34,13 +35,15 @@ public sealed class MinSideModel : PageModel
 
     public MinSideModel(
         AppDbContext db, TestService testService, BetaInnstillingService betaInnstillinger,
-        EktBankIdInnstillingService ektBankIdInnstillinger, IAuthenticationSchemeProvider schemes, IConfiguration configuration,
+        EktBankIdInnstillingService ektBankIdInnstillinger, DriftsbryterInnstillingService driftsbrytere,
+        IAuthenticationSchemeProvider schemes, IConfiguration configuration,
         IAuditLogger auditLogger, ICurrentUserContext currentUser)
     {
         _db = db;
         _testService = testService;
         _betaInnstillinger = betaInnstillinger;
         _ektBankIdInnstillinger = ektBankIdInnstillinger;
+        _driftsbrytere = driftsbrytere;
         _schemes = schemes;
         _configuration = configuration;
         _auditLogger = auditLogger;
@@ -69,6 +72,25 @@ public sealed class MinSideModel : PageModel
     public bool VisEktBankIdBryter { get; private set; }
     public bool EktBankIdAktiv { get; private set; }
 
+    /// <summary>SMS-driftsbryteren vises for Superadmin/Utvikler på ALLE miljøer — se DriftsbryterSmsSender, som gjelder uansett Miljo:ErBeta.</summary>
+    public bool VisDriftsbrytere => _currentUser.Role is UserRole.Superadmin or UserRole.Utvikler;
+
+    /// <summary>
+    /// Betaling/utbetaling-driftsbryterne er KUN virkningsfulle utenfor beta — beta har allerede
+    /// egen Mock/Test-styring for begge via betalingsmodus-bryteren over (BetaSwitchingVippsClient/
+    /// BetaSwitchingStripeClient dekker alltid alt, uansett DriftsbryterInnstilling). Å vise dem på
+    /// beta også ville vært nøyaktig samme "virkningsløs bryter"-fallgruve som BankID-bryteren
+    /// eksplisitt unngår, se CLAUDE.md "Kjente fallgruver".
+    /// </summary>
+    public bool VisBetalingUtbetalingDriftsbrytere => VisDriftsbrytere && !VisBetalingsmodusBryter;
+
+    public bool SmsErAktivNaa { get; private set; }
+    public bool BetalingErAktivNaa { get; private set; }
+    public bool UtbetalingErAktivNaa { get; private set; }
+    public bool SmsKonfigurert => !string.IsNullOrWhiteSpace(_configuration["Vonage:ApiKey"]);
+    public bool BetalingKonfigurert => !string.IsNullOrWhiteSpace(_configuration["Vipps:ClientId"]) || !string.IsNullOrWhiteSpace(_configuration["Stripe:SecretKey"]);
+    public bool UtbetalingKonfigurert => !string.IsNullOrWhiteSpace(_configuration["Stripe:SecretKey"]);
+
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         await LastOppgaverAsync(cancellationToken);
@@ -84,6 +106,14 @@ public sealed class MinSideModel : PageModel
         if (VisEktBankIdBryter)
         {
             EktBankIdAktiv = (await _ektBankIdInnstillinger.HentAsync(cancellationToken)).ErAktiv;
+        }
+
+        if (VisDriftsbrytere)
+        {
+            var driftsbrytere = await _driftsbrytere.HentAsync(cancellationToken);
+            SmsErAktivNaa = driftsbrytere.SmsErAktiv;
+            BetalingErAktivNaa = driftsbrytere.BetalingErAktiv;
+            UtbetalingErAktivNaa = driftsbrytere.UtbetalingErAktiv;
         }
     }
 
@@ -132,6 +162,47 @@ public sealed class MinSideModel : PageModel
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "EndreEktBankIdAktiv",
             nameof(EktBankIdInnstilling), "1", $"ErAktiv={erAktiv}", cancellationToken);
+
+        return RedirectToPage();
+    }
+
+    /// <summary>Slår SMS-driftsbryteren av/på med umiddelbar virkning — se DriftsbryterSmsSender. Sjekker autorisasjon ferskt (POST kjører aldri OnGetAsync sin cachede VisDriftsbrytere).</summary>
+    public async Task<IActionResult> OnPostSettSmsAsync(bool erAktiv, CancellationToken cancellationToken)
+    {
+        if (_currentUser.Role is not (UserRole.Superadmin or UserRole.Utvikler))
+        {
+            return Forbid();
+        }
+
+        var userId = long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var uid) ? uid : 0;
+        await _driftsbrytere.SettSmsErAktivAsync(erAktiv, userId, cancellationToken);
+
+        await _auditLogger.LogAsync(
+            _currentUser.UserId, _currentUser.Role.ToString(), "EndreSmsDriftsbryter",
+            nameof(DriftsbryterInnstilling), "1", $"ErAktiv={erAktiv}", cancellationToken);
+
+        return RedirectToPage();
+    }
+
+    /// <summary>
+    /// Slår betaling (Vipps+Stripe patientbetaling)/utbetaling (Stripe Connect) av/på med
+    /// umiddelbar virkning — se DriftsbryterVippsClient/DriftsbryterStripeClient. KUN virkningsfullt
+    /// utenfor beta, se VisBetalingUtbetalingDriftsbrytere; sjekker likevel ikke erBeta her, siden
+    /// et POST-forsøk på beta (f.eks. rett URL) bare lagrer en verdi som aldri leses der — ufarlig.
+    /// </summary>
+    public async Task<IActionResult> OnPostSettBetalingUtbetalingAsync(bool betalingErAktiv, bool utbetalingErAktiv, CancellationToken cancellationToken)
+    {
+        if (_currentUser.Role is not (UserRole.Superadmin or UserRole.Utvikler))
+        {
+            return Forbid();
+        }
+
+        var userId = long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var uid) ? uid : 0;
+        await _driftsbrytere.SettBetalingOgUtbetalingAsync(betalingErAktiv, utbetalingErAktiv, userId, cancellationToken);
+
+        await _auditLogger.LogAsync(
+            _currentUser.UserId, _currentUser.Role.ToString(), "EndreBetalingUtbetalingDriftsbryter",
+            nameof(DriftsbryterInnstilling), "1", $"Betaling={betalingErAktiv}, Utbetaling={utbetalingErAktiv}", cancellationToken);
 
         return RedirectToPage();
     }

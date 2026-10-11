@@ -61,6 +61,57 @@
     </form>
 }
 
+@if (Model.VisDriftsbrytere)
+{
+    <h2>SMS-utsending</h2>
+    <p style="color: darkred;">
+        <strong>OBS:</strong> "Mock" sender ingen ekte SMS (kun logget), "Ekte" sender via Vonage.
+        Trer i kraft UMIDDELBART, ingen omstart nødvendig. Varselboksen over "bekreft kode"-siden ved
+        en mislykket utsending vises uendret når "Ekte" er valgt og leveringen faktisk feiler.
+    </p>
+    <form method="post" asp-page-handler="SettSms" data-disable-on-submit="Lagrer …">
+        <fieldset>
+            <legend>SMS</legend>
+            <label><input type="radio" name="erAktiv" value="false" checked="@(!Model.SmsErAktivNaa)" /> Mock</label>
+            <label>
+                <input type="radio" name="erAktiv" value="true" checked="@Model.SmsErAktivNaa" disabled="@(!Model.SmsKonfigurert)" />
+                Ekte @(!Model.SmsKonfigurert ? "(ingen Vonage-nøkler satt i dette miljøet)" : "")
+            </label>
+        </fieldset>
+        <p><button type="submit" class="btn-accent">Lagre SMS-modus</button></p>
+    </form>
+}
+
+@if (Model.VisBetalingUtbetalingDriftsbrytere)
+{
+    <h2>Betaling og utbetaling</h2>
+    <p style="color: darkred;">
+        <strong>OBS:</strong> "Betaling" gjelder pasientens betaling for en test (Vipps/Stripe). "Utbetaling"
+        gjelder Stripe Connect-utbetalingen til behandler/klinikk (kontoopprettelse, onboarding og selve
+        overføringen). "Mock" gjør ingen ekte nettverkskall/pengebevegelse i det hele tatt. Trer i kraft
+        UMIDDELBART, ingen omstart nødvendig.
+    </p>
+    <form method="post" asp-page-handler="SettBetalingUtbetaling" data-disable-on-submit="Lagrer …">
+        <fieldset>
+            <legend>Betaling (pasient)</legend>
+            <label><input type="radio" name="betalingErAktiv" value="false" checked="@(!Model.BetalingErAktivNaa)" /> Mock</label>
+            <label>
+                <input type="radio" name="betalingErAktiv" value="true" checked="@Model.BetalingErAktivNaa" disabled="@(!Model.BetalingKonfigurert)" />
+                Ekte @(!Model.BetalingKonfigurert ? "(ingen Vipps-/Stripe-nøkler satt i dette miljøet)" : "")
+            </label>
+        </fieldset>
+        <fieldset>
+            <legend>Utbetaling (Stripe Connect)</legend>
+            <label><input type="radio" name="utbetalingErAktiv" value="false" checked="@(!Model.UtbetalingErAktivNaa)" /> Mock</label>
+            <label>
+                <input type="radio" name="utbetalingErAktiv" value="true" checked="@Model.UtbetalingErAktivNaa" disabled="@(!Model.UtbetalingKonfigurert)" />
+                Ekte @(!Model.UtbetalingKonfigurert ? "(ingen Stripe-nøkler satt i dette miljøet)" : "")
+            </label>
+        </fieldset>
+        <p><button type="submit" class="btn-accent">Lagre betaling/utbetaling-modus</button></p>
+    </form>
+}
+
 @if (antallOppgaver == 0)
 {
     <p>Ingen oppgaver akkurat nå.</p>

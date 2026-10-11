@@ -484,6 +484,11 @@ builder.Services.AddScoped<BetaInnstillingService>();
 // redeploy ved hver av/på-veksling av ekte BankID.
 builder.Services.AddScoped<EktBankIdInnstillingService>();
 
+// Alltid registrert — styrer SMS/betaling/utbetaling-driftsbryterne på Admin/MinSide (Superadmin/
+// Utvikler-only), se DriftsbryterInnstilling. Brukes av SMS-registreringen uansett miljø, og av
+// Vipps/Stripe-registreringen KUN i non-beta-grenen under (beta har sin egen granulære bryter).
+builder.Services.AddScoped<DriftsbryterInnstillingService>();
+
 // Statisk innhold (se HjelpInnhold) — Singleton, ingen DB-avhengighet, immutabelt per prosess.
 builder.Services.AddSingleton<HjelpService>();
 
@@ -527,32 +532,35 @@ if (erBeta)
 }
 else
 {
-    if (vippsProduksjonKonfigurert)
+    // Begge klientene nedenfor pakkes i en DriftsbryterVippsClient/DriftsbryterStripeClient —
+    // leser DriftsbryterInnstilling FOR HVERT KALL og faller tilbake til mock når Superadmin/
+    // Utvikler har slått betaling/utbetaling av på Admin/MinSide, selv om ekte nøkler er
+    // konfigurert. Helt usynlig/virkningsløst når ingen ekte nøkler finnes (f.eks. lokal dev) —
+    // da er "ekte" null og wrapperen bruker alltid mock, akkurat som før denne funksjonen fantes.
+    builder.Services.AddSingleton<IVippsClient>(sp =>
     {
-        var vippsBaseUrl = builder.Configuration["Vipps:Miljo"] == "Produksjon"
-            ? "https://api.vipps.no"
-            : "https://apitest.vipps.no";
-        builder.Services.AddSingleton<IVippsClient>(sp => new VippsPaymentClient(
-            new HttpClient(), vippsBaseUrl, vippsClientId!, vippsClientSecret!, vippsSubscriptionKey!, vippsMerchantSerialNumber!,
-            sp.GetRequiredService<ILogger<VippsPaymentClient>>()));
-    }
-    else
-    {
-        builder.Services.AddScoped<IVippsClient, MockVippsClient>();
-    }
+        var mock = new MockVippsClient(sp.GetRequiredService<ILogger<MockVippsClient>>());
+        IVippsClient? ekte = vippsProduksjonKonfigurert
+            ? new VippsPaymentClient(
+                new HttpClient(),
+                builder.Configuration["Vipps:Miljo"] == "Produksjon" ? "https://api.vipps.no" : "https://apitest.vipps.no",
+                vippsClientId!, vippsClientSecret!, vippsSubscriptionKey!, vippsMerchantSerialNumber!,
+                sp.GetRequiredService<ILogger<VippsPaymentClient>>())
+            : null;
+        return new DriftsbryterVippsClient(sp.GetRequiredService<IServiceScopeFactory>(), mock, ekte);
+    });
 
     // Stripe (kort/Apple Pay/Google Pay): ekte klient når Stripe:SecretKey er satt,
     // ellers MockStripeClient. Apple Pay krever i tillegg domeneverifisering i
     // Stripe Dashboard (se docs/beslutningslogg.md) — ikke noe som kan kodifiseres her.
-    if (stripeKonfigurert)
+    builder.Services.AddScoped<IStripeClient>(sp =>
     {
-        builder.Services.AddScoped<IStripeClient>(sp =>
-            new StripePaymentClient(stripeSecretKey!, sp.GetRequiredService<ILogger<StripePaymentClient>>()));
-    }
-    else
-    {
-        builder.Services.AddScoped<IStripeClient, MockStripeClient>();
-    }
+        var mock = new MockStripeClient(sp.GetRequiredService<ILogger<MockStripeClient>>());
+        IStripeClient? ekte = stripeKonfigurert
+            ? new StripePaymentClient(stripeSecretKey!, sp.GetRequiredService<ILogger<StripePaymentClient>>())
+            : null;
+        return new DriftsbryterStripeClient(sp.GetRequiredService<DriftsbryterInnstillingService>(), mock, ekte);
+    });
 }
 
 // E-post: ekte utsending via Azure Communication Services når "Acs:ConnectionString"
@@ -581,17 +589,21 @@ builder.Services.AddHttpClient();
 var vonageApiKey = builder.Configuration["Vonage:ApiKey"];
 var vonageApiSecret = builder.Configuration["Vonage:ApiSecret"];
 var smsSenderId = builder.Configuration["Sms:SenderId"];
-if (!string.IsNullOrWhiteSpace(vonageApiKey) && !string.IsNullOrWhiteSpace(vonageApiSecret) && !string.IsNullOrWhiteSpace(smsSenderId))
+// Pakket i DriftsbryterSmsSender — se DriftsbryterInnstilling: leser SmsErAktiv for hvert kall,
+// faller tilbake til mock når Superadmin/Utvikler har slått SMS av på Admin/MinSide. Virkningsløst
+// når Vonage ikke er konfigurert (lokal dev) — "ekte" er da null, alltid mock, som før.
+var vonageKonfigurert = !string.IsNullOrWhiteSpace(vonageApiKey) && !string.IsNullOrWhiteSpace(vonageApiSecret) && !string.IsNullOrWhiteSpace(smsSenderId);
+builder.Services.AddScoped<ISmsSender>(sp =>
 {
-    builder.Services.AddScoped<ISmsSender>(sp => new VonageSmsSender(
-        sp.GetRequiredService<IHttpClientFactory>().CreateClient(),
-        vonageApiKey, vonageApiSecret, smsSenderId,
-        sp.GetRequiredService<ILogger<VonageSmsSender>>()));
-}
-else
-{
-    builder.Services.AddScoped<ISmsSender, MockSmsSender>();
-}
+    var mock = new MockSmsSender(sp.GetRequiredService<ILogger<MockSmsSender>>());
+    ISmsSender? ekte = vonageKonfigurert
+        ? new VonageSmsSender(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(),
+            vonageApiKey!, vonageApiSecret!, smsSenderId!,
+            sp.GetRequiredService<ILogger<VonageSmsSender>>())
+        : null;
+    return new DriftsbryterSmsSender(sp.GetRequiredService<DriftsbryterInnstillingService>(), mock, ekte);
+});
 
 // --- Web ------------------------------------------------------------------
 builder.Services.AddRazorPages(options =>

@@ -56,6 +56,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<PlanlagtTildeling> PlanlagteTildelinger => Set<PlanlagtTildeling>();
     public DbSet<BetaBetalingsinnstilling> BetaBetalingsinnstillinger => Set<BetaBetalingsinnstilling>();
     public DbSet<EktBankIdInnstilling> EktBankIdInnstillinger => Set<EktBankIdInnstilling>();
+    public DbSet<DriftsbryterInnstilling> DriftsbryterInnstillinger => Set<DriftsbryterInnstilling>();
     public DbSet<AdminOkonomiOppsett> AdminOkonomiOppsett => Set<AdminOkonomiOppsett>();
     public DbSet<Tilbakemelding> Tilbakemeldinger => Set<Tilbakemelding>();
     public DbSet<HjemmeoppgaveLiking> HjemmeoppgaveLikinger => Set<HjemmeoppgaveLiking>();

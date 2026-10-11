@@ -386,6 +386,34 @@ namespace TestBase.Shared.Migrations
                     b.ToTable("beta_betalingsinnstillinger", (string)null);
                 });
 
+            modelBuilder.Entity("TestBase.Shared.Domain.Administrasjon.DriftsbryterInnstilling", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("BetalingErAktiv")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<long?>("SistEndretAvUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("SistEndretUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("SmsErAktiv")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("UtbetalingErAktiv")
+                        .HasColumnType("tinyint(1)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DriftsbryterInnstillinger");
+                });
+
             modelBuilder.Entity("TestBase.Shared.Domain.Administrasjon.EktBankIdInnstilling", b =>
                 {
                     b.Property<long>("Id")

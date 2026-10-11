@@ -8650,3 +8650,54 @@ databehandleravtalen, (3) oppdater `docs/compliance-dpia-utkast.md` med disse fu
 med på EHDS-innlemmelse, (5) samlet jurist-/DPO-gjennomgang før reelle pasienter. Punkt 1 i
 `bugs_features.txt` (superadmin-driftsbrytere for BankID/SMS/Vipps/Stripe/payout) venter fortsatt
 på brukerens eksplisitte "gå videre" — ingen kode skrevet for det punktet.
+
+### Superadmin-driftsbrytere for SMS/betaling/utbetaling (2026-10-11, samme runde, punkt 1)
+
+Brukeren ga eksplisitt "gå videre" på punkt 1 i `bugs_features.txt` etter en kort samtale der
+to ting ble avklart: (1) **ingen tverr-miljø-styring** — beta og live er separate App Services med
+separate databaser, så løsningen er samme bryter-panel REPLIKERT på hver miljøs egen Admin/MinSide,
+ikke ett nytt dashbord som styrer begge; (2) **"av" = fall tilbake til mock**, samme prinsipp som
+den eksisterende BankID-bryteren.
+
+Ny singleton-rad `DriftsbryterInnstilling` (Id=1, `DriftsbryterInnstillingService` — eksakt samme
+mønster som `EktBankIdInnstilling`/`EktBankIdInnstillingService`) med tre uavhengige booleanske
+brytere: `SmsErAktiv`, `BetalingErAktiv` (Vipps+Stripe PASIENTBETALING, ETT felt siden brukeren selv
+listet dem som ett punkt), `UtbetalingErAktiv` (Stripe Connect-UTBETALING til behandler/klinikk,
+bevisst EGEN bryter — punkt 1c/1d i `bugs_features.txt` var to separate linjer). Alle tre defaulter
+til `true` (samme "ingen overraskende regresjon til mock på et miljø som allerede har ekte
+leverandører konfigurert"-begrunnelse som BankID-bryteren).
+
+Tre nye wrapper-klasser i `TestBase.Shared/Providers/`: `DriftsbryterSmsSender` (ISmsSender),
+`DriftsbryterVippsClient` (IVippsClient, samme scope-factory-triks som `BetaSwitchingVippsClient`
+siden Vipps-klienten er Singleton men innstillingen er Scoped), `DriftsbryterStripeClient`
+(IStripeClient — deler metodene i PASIENTBETALING, styrt av `BetalingErAktiv`
+(`OpprettBetalingsintensjonAsync`/`HentStatusAsync`), og UTBETALING, styrt av `UtbetalingErAktiv`
+(`OpprettConnectKontoAsync`/`OpprettOnboardingLenkeAsync`/`OpprettOverforingAsync`) — SAMME
+grensesnitt, to uavhengige brytere på ulike metoder). Alle tre registreres i Program.cs KUN i den
+eksisterende non-beta-grenen — beta ER allerede dekket av sin egen, mer granulære Mock/Test/
+Produksjon-bryter (`BetaSwitchingVippsClient`/`BetaSwitchingStripeClient`), urørt av denne runden.
+SMS-registreringen pakkes derimot UBETINGET (gjelder ALLE miljøer, inkl. beta, siden det ikke
+fantes noen eksisterende SMS-bryter noe sted).
+
+Ny seksjon "Driftsbrytere" på `Admin/MinSide` (Superadmin/Utvikler-only, samme autorisasjonsmønster
+som BankID-bryteren). SMS-fieldsettet vises ALLTID; Betaling/Utbetaling-fieldsettene vises KUN
+utenfor beta (`VisBetalingUtbetalingDriftsbrytere = VisDriftsbrytere && !VisBetalingsmodusBryter`)
+— å vise dem på beta også ville vært nøyaktig den samme "virkningsløs bryter"-fallgruven som
+BankID-bryteren eksplisitt unngår, siden beta aldri resolver disse to Driftsbryter-wrapperne.
+
+En migrasjon (kun ny tabell, ingen andre endringer — lest gjennom før kjøring, se fallgruve om
+multi-kolonne-migrasjoner). 101 regresjonstester fortsatt grønne (ren tillegg, ingen eksisterende
+test rørt). Fullt browser-verifisert (Playwright, en subagent): logget inn via AdminId+passord
+dev-snarveien, bekreftet Mock-valg på alle tre brytere lagrer og overlever en reload korrekt, ingen
+500/feil, resten av Min Side upåvirket. Et falskt alarm-funn underveis: subagenten rapporterte
+først "Ekte" som urovekkende default-valgt OG ikke disabled for alle tre — viste seg å være en feil
+forventning FRA MEG i oppdraget, ikke en bug: denne spesifikke lokale maskinen har allerede ekte
+Vonage- og Stripe-TEST-nøkler liggende i `dotnet user-secrets` fra tidligere SMS/Stripe-
+integrasjonsarbeid, så "Ekte" tilgjengelig+valgt er korrekt gjengivelse av faktisk konfigurasjon —
+selve disabled-attributt-koden er identisk mønster som det allerede beviste Vipps Test/Produksjon-
+mønsteret i samme fil, ikke ny/uprøvd Razor-syntaks. Ingen kodefiks nødvendig.
+
+**Ny arbeidsmåte fra denne runden (brukerens eksplisitte instruks):** når en endring er bygget og
+BEGGE verifiseringene (regresjonstester + browser der relevant) har bestått, commit og push UTEN å
+spørre først — ikke vent på et eksplisitt "commit"/"push" per endring lenger. Se CLAUDE.md
+"Arbeidsøkonomi" for selve regelen.

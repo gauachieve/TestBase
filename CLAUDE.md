@@ -23,6 +23,15 @@ dyrt å ha i hovedtråden. Fremover:
   tolkning av et uventet resultat).
 - Dette bytter IKKE bort selve verifiseringen — "verifisert i nettleser"/"alle tester grønne"
   skal fortsatt skje reelt før noe regnes som ferdig, kun HVOR i arkitekturen det kjører endres.
+- **Commit+push uten å spørre først (brukerbeslutning 2026-10-11, se beslutningsloggen
+  "Superadmin-driftsbrytere"):** når en endring er bygget OG begge verifiseringene over
+  (regresjonstester grønne + browser-verifisering der relevant) faktisk har bestått, commit og
+  push med en gang — ikke vent på et eksplisitt "commit"/"push" per endring lenger. Gjelder KUN
+  når verifiseringen faktisk er gjort og bestått; en endring som ikke er verifisert, eller som
+  feiler verifisering, skal IKKE committes — still spørsmål/rapporter feilen i stedet. Risikable
+  handlinger (force-push, historie-omskriving, noe som påvirker ekte pasientdata/produksjon
+  utover en vanlig `azd deploy`/CI-pipeline) er IKKE dekket av dette og krever fortsatt eksplisitt
+  bekreftelse, se CLAUDE.md sin generelle "Executing actions with care"-instruks.
 
 ## Dokumenter i `docs/` — les i denne rekkefølgen ved behov
 
