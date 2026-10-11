@@ -877,6 +877,19 @@ Dette er et flerfase-prosjekt for en privatpraktiserende autorisert psykologspes
   viser nå begge KUN én "Min klinikk"-lenke. Den inline "Tester tilgjengelig for oss"-listen på
   samme side ble fjernet (ren duplikasjon av det Klinikkprising-siden allerede viser fullstendig)
   og slått sammen med Klinikkprising-knappen i stedet. Verifisert i nettleser, 101 tester grønne.
+- **Klinikk-oppdatering, del 2 — "Min klinikk" åpnet for alle klinikkmedlemmer, ny Pasienter-
+  knapp (2026-10-11, samme dag):** ny, bredere policy `PartnerMedlemOmrade` (krever kun
+  `PartnerId`-claim, ikke `ErPartnerAdministrator`) erstattet `PartnerAdminOmrade` som
+  folder-policy for `/MinPartner` — ENHVER behandler i en klinikk kan nå se "Min klinikk" og
+  kollegalisten (ny egen side `MinPartner/Kolleger.cshtml`, flyttet ut av hub-siden). Fire
+  admin-only sider (Prising/Utbetaling/AutomatiskUtsendelse + Inviter/Fjern-handlerne på
+  Kolleger) fikk et EKSPLISITT `ErPartnerAdministrator`-sjekk lagt til i HVER handler, siden
+  folder-policyen alene ikke lenger håndhever det — samme "re-sjekk i handleren"-prinsipp som
+  Admin/MinSide.cshtml.cs. Ny "Pasienter i min klinikk"-knapp (admin-only) linker bevisst BARE
+  til den allerede eksisterende `/Behandlerportal/Pasienter` (egne pasienter) — IKKE en ny
+  cross-behandler klinikk-vid pasientliste. Verifisert med to ekte kontoer (midlertidig degradert
+  ikke-admin-medlem + ekte admin), inkl. at et direkte URL-forsøk mot en admin-only side som
+  ikke-admin korrekt avvises. 101 tester grønne, ingen migrasjon.
 
 Prosjektet er et Git-repo i `C:\code\TestBase`.
 

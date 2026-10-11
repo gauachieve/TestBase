@@ -36,7 +36,7 @@ public sealed class AutomatiskUtsendelseModel : PageModel
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
-        if (_currentUser.PartnerId is null)
+        if (_currentUser.PartnerId is null || !_currentUser.ErPartnerAdministrator)
         {
             return Forbid();
         }
@@ -47,7 +47,7 @@ public sealed class AutomatiskUtsendelseModel : PageModel
 
     public async Task<IActionResult> OnPostLagreVedNyPasientAsync(List<long> testIder, CancellationToken cancellationToken)
     {
-        if (_currentUser.PartnerId is null)
+        if (_currentUser.PartnerId is null || !_currentUser.ErPartnerAdministrator)
         {
             return Forbid();
         }
@@ -66,7 +66,7 @@ public sealed class AutomatiskUtsendelseModel : PageModel
 
     public async Task<IActionResult> OnPostLagreVedAvsluttetAsync(List<long> testIder, CancellationToken cancellationToken)
     {
-        if (_currentUser.PartnerId is null)
+        if (_currentUser.PartnerId is null || !_currentUser.ErPartnerAdministrator)
         {
             return Forbid();
         }

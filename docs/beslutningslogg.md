@@ -8519,3 +8519,43 @@ Fullt verifisert i nettleser med ekte lokal klinikk-admin-testkonto: topp-nav vi
 klinikk", MinSide viser én "Min klinikk"-knapp, og "Min klinikk"-siden selv viser alle tre knappene
 (Tester tilgjengelig for oss/Klinikkprising, Klinikkutbetaling, Automatisk utsendelse) pluss
 uendret behandlerliste/inviter-skjema. 101 tester grønne, ingen migrasjon.
+
+### Klinikk-oppdatering, del 2: "Behandlere i min klinikk" + ny "Pasienter i min klinikk"-knapp, åpnet for alle klinikkmedlemmer (2026-10-11, samme dag)
+
+Brukerens presisering (avklart med spørsmål): "Min klinikk" skal nå være nåbar for ENHVER
+behandler i en klinikk, ikke bare klinikk-admin — men kun klinikk-admin skal se
+Prising/Klinikkutbetaling/Automatisk utsendelse/Pasienter-knappene.
+
+**Ny, bredere policy `PartnerMedlemOmrade`** (Program.cs, samme `RequireAssertion`-mønster som
+`PartnerAdminOmrade`) krever kun at `AppClaimTypes.PartnerId` er satt (ikke
+`ErPartnerAdministrator`) — erstattet `PartnerAdminOmrade` som folder-policy for hele
+`/MinPartner`. Dette åpnet ALLE sidene i folderen på folder-nivå, så hver av de fire admin-only
+sidene (`Prising`/`Utbetaling`/`AutomatiskUtsendelse`, pluss mutasjonene på den nye
+`Kolleger`-siden) fikk et EKSPLISITT `!_currentUser.ErPartnerAdministrator => Forbid()`-sjekk lagt
+til i HVER eneste handler (Get+Post) — folder-policyen alene er bevisst IKKE lenger nok for disse,
+nøyaktig samme "fresh in-handler re-check"-prinsipp som allerede brukt i Admin/MinSide.cshtml.cs.
+
+**"Behandlere i min klinikk" flyttet ut** til en ny, egen side `MinPartner/Kolleger.cshtml(.cs)`
+(logikken var tidligere inline på `Behandlere.cshtml`, som nå er en REN hub med knapper). LESING
+(kollegalisten) er åpen for alle klinikkmedlemmer; selve INVITER/FJERN-handlingene (kan frata noen
+partner-admin-status) er fortsatt eksplisitt admin-only i koden — både knappene og formen er
+betinget skjult i viewet (`@if (Model.ErPartnerAdministrator)`) OG handlerne selv forkaster
+forsøket uansett (reell sikkerhetsgrense, ikke bare UI-skjuling).
+
+**Ny "Pasienter i min klinikk"-knapp** — BEVISST IKKE en ny side/tjeneste som viser ALLE
+klinikkens pasienter på tvers av behandlere (ville vært en betydelig større, mer sensitiv
+scope-utvidelse appen aldri har bygget noe tilsvarende for andre steder). Linker i stedet direkte
+til den allerede eksisterende `/Behandlerportal/Pasienter` — som allerede viser nøyaktig den
+innloggede behandlerens EGNE pasienter, matcher brukerens eksplisitte presisering "Knappen
+'pasienter' skal kun liste mine egne pasienter" ordrett, uten noen kodeendring i selve
+pasientlisten.
+
+Fullt verifisert i nettleser med TO reelle kontoer: en midlertidig degradert
+"ikke-admin"-klinikkmedlem (demo-behandler, `ErPartnerAdministrator` satt til 0 i dev-DB for
+testen, gjenopprettet til 1 etterpå) bekreftet at "Min klinikk"-lenken vises, hub-siden viser KUN
+"Behandlere i min klinikk", Kolleger-siden viser kollegalisten UTEN Fjern-knapper/inviter-skjema,
+og et direkte URL-forsøk mot `/MinPartner/Prising`/`/MinPartner/Utbetaling` korrekt blir avvist
+(Forbid → appens konfigurerte `AccessDeniedPath` til innloggingssiden). Den ekte klinikk-admin-
+kontoen bekreftet at alle fem knappene vises, Kolleger-siden viser Fjern-knapper + inviter-skjema,
+og "Pasienter i min klinikk" lenker korrekt til egen pasientliste. 101 tester fortsatt grønne,
+ingen migrasjon.

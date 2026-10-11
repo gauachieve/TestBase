@@ -49,7 +49,7 @@ public sealed class MinSideModel : PageModel
     public IReadOnlyList<TestService.TildelingMedTestOgPasient> Godkjente { get; private set; } = Array.Empty<TestService.TildelingMedTestOgPasient>();
     public List<Behandler> UtlopteHprFrister { get; private set; } = new();
 
-    public bool ErPartnerAdministrator => _currentUser.ErPartnerAdministrator;
+    public bool ErPartnerMedlem => _currentUser.PartnerId is not null;
 
     public int AntallOppgaver => UlesteMeldinger.Count + VenterPaaGodkjenning.Count + UtlopteHprFrister.Count;
 

@@ -149,7 +149,7 @@
                             <a class="funksjonsknapp" href="/Behandlerportal/Tildel/Pasienter"><partial name="_Ikon" model="@("tildel")" />Tildel tester</a>
                             <a class="funksjonsknapp" href="/Behandlerportal/Behandlere/Inviter"><partial name="_Ikon" model="@("inviter")" />Inviter kollega</a>
                             <a class="funksjonsknapp" href="/Behandlerportal/Utbetaling"><partial name="_Ikon" model="@("oppgaver")" />Min utbetaling</a>
-                            @if (CurrentUser.ErPartnerAdministrator)
+                            @if (CurrentUser.PartnerId is not null)
                             {
                                 <a class="funksjonsknapp" href="/Behandlerportal/MinPartner/Behandlere"><partial name="_Ikon" model="@("behandlere")" />Min klinikk</a>
                             }

@@ -1,7 +1,7 @@
 @page
 @model TestBase.Web.Areas.Behandlerportal.Pages.MinPartner.BehandlereModel
 @{
-    ViewData["Title"] = "Min klinikk — behandlere";
+    ViewData["Title"] = "Min klinikk";
 }
 
 <h1>Min klinikk</h1>
@@ -23,49 +23,12 @@
 }
 
 <p>
-    <a class="btn btn-accent" href="/Behandlerportal/MinPartner/Prising">Tester tilgjengelig for oss / Klinikkprising (@Model.TilgjengeligeTester.Count)</a>
-    <a class="btn btn-accent" href="/Behandlerportal/MinPartner/Utbetaling">Klinikkutbetaling</a>
-    <a class="btn btn-accent" href="/Behandlerportal/MinPartner/AutomatiskUtsendelse">Automatisk utsendelse til nye/avsluttede pasienter</a>
-</p>
-
-@if (Model.InvitasjonsLenke is not null)
-{
-    <p>Invitasjon sendt. Lenke (mock-modus viser den her, sendes normalt kun på SMS/e-post): <a href="@Model.InvitasjonsLenke">@Model.InvitasjonsLenke</a></p>
-}
-
-<h2>Behandlere i min klinikk</h2>
-<table border="1" cellpadding="6" cellspacing="0">
-    <thead>
-        <tr>
-            <th>Navn</th>
-            <th>E-post</th>
-            <th>Status</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-    @foreach (var b in Model.Kolleger)
+    <a class="btn btn-accent" href="/Behandlerportal/MinPartner/Kolleger">Behandlere i min klinikk</a>
+    @if (Model.ErPartnerAdministrator)
     {
-        var erMegSelv = b.Id == Model.EgenBehandlerId;
-        <tr>
-            <td>@(b.Visningsnavn ?? "(ikke fullført)")@(erMegSelv ? " (deg)" : "")</td>
-            <td>@b.Email</td>
-            <td>@b.Status</td>
-            <td>
-                <form method="post" asp-page-handler="Fjern" style="display:inline;"
-                      onsubmit="return confirm('@(erMegSelv ? "Fjerne deg selv fra klinikken? Du blir logget ut." : "Fjerne denne kollegaen fra klinikken?")');">
-                    <input type="hidden" name="behandlerId" value="@b.Id" />
-                    <button type="submit">@(erMegSelv ? "Fjern meg selv" : "Fjern fra klinikk")</button>
-                </form>
-            </td>
-        </tr>
+        <a class="btn btn-accent" href="/Behandlerportal/Pasienter">Pasienter i min klinikk</a>
+        <a class="btn btn-accent" href="/Behandlerportal/MinPartner/Prising">Tester tilgjengelig for oss / Klinikkprising (@Model.TilgjengeligeTester.Count)</a>
+        <a class="btn btn-accent" href="/Behandlerportal/MinPartner/Utbetaling">Klinikkutbetaling</a>
+        <a class="btn btn-accent" href="/Behandlerportal/MinPartner/AutomatiskUtsendelse">Automatisk utsendelse til nye/avsluttede pasienter</a>
     }
-    </tbody>
-</table>
-
-<h2>Inviter ny kollega</h2>
-<form method="post" asp-page-handler="Inviter" data-disable-on-submit="Sender invitasjon …">
-    <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
-    <div><label>E-post</label><br /><input asp-for="Epost" /></div>
-    <button type="submit">Inviter</button>
-</form>
+</p>

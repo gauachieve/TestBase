@@ -14,9 +14,11 @@ namespace TestBase.Web.Areas.Behandlerportal.Pages.MinPartner;
 /// for partneren som helhet (ÉN konto per Partner, ikke per behandler). Fikk
 /// to flere faner (2026-10-11, "Periodiserte oppgjør, del 2"): "Partneroppgjør"
 /// (periodisert rapport fra OkonomiRapportService) og "Oppsett" (partnerens
-/// egen kontoplan-etikett/-konto). Folder allerede "PartnerAdminOmrade"-
-/// beskyttet i Program.cs sin AuthorizeAreaFolder-liste, ingen egen
-/// [Authorize] nødvendig her.
+/// egen kontoplan-etikett/-konto). Folder er nå kun "PartnerMedlemOmrade"-
+/// beskyttet (se Program.cs — åpen for ENHVER i klinikken, se
+/// "Klinikk-oppdatering" i docs/beslutningslogg.md), så hver handler under
+/// sjekker EKSPLISITT ErPartnerAdministrator selv — denne siden er fortsatt
+/// klinikk-admin-only, bare ikke lenger håndhevet på folder-nivå alene.
 /// </summary>
 public sealed class UtbetalingModel : PageModel
 {
@@ -55,7 +57,7 @@ public sealed class UtbetalingModel : PageModel
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
-        if (_currentUser.PartnerId is null)
+        if (_currentUser.PartnerId is null || !_currentUser.ErPartnerAdministrator)
         {
             return Forbid();
         }
@@ -75,7 +77,7 @@ public sealed class UtbetalingModel : PageModel
 
     public async Task<IActionResult> OnPostStartOnboardingAsync(CancellationToken cancellationToken)
     {
-        if (_currentUser.PartnerId is null)
+        if (_currentUser.PartnerId is null || !_currentUser.ErPartnerAdministrator)
         {
             return Forbid();
         }
@@ -108,7 +110,7 @@ public sealed class UtbetalingModel : PageModel
     public async Task<IActionResult> OnPostLagreOppsettAsync(
         string? organisasjonsnummer, string? kontonummer, string? partnerandelEtikett, string? partnerandelKonto, CancellationToken cancellationToken)
     {
-        if (_currentUser.PartnerId is null)
+        if (_currentUser.PartnerId is null || !_currentUser.ErPartnerAdministrator)
         {
             return Forbid();
         }

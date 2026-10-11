@@ -48,7 +48,7 @@ public sealed class PrisingModel : PageModel
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
-        if (_currentUser.PartnerId is null)
+        if (_currentUser.PartnerId is null || !_currentUser.ErPartnerAdministrator)
         {
             return Forbid();
         }
@@ -59,7 +59,7 @@ public sealed class PrisingModel : PageModel
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
-        if (_currentUser.PartnerId is null)
+        if (_currentUser.PartnerId is null || !_currentUser.ErPartnerAdministrator)
         {
             return Forbid();
         }
@@ -109,7 +109,7 @@ public sealed class PrisingModel : PageModel
 
     public async Task<IActionResult> OnPostForesporTilgangAsync(long testId, TestTilgangHandling handling, CancellationToken cancellationToken)
     {
-        if (_currentUser.PartnerId is null)
+        if (_currentUser.PartnerId is null || !_currentUser.ErPartnerAdministrator)
         {
             return Forbid();
         }

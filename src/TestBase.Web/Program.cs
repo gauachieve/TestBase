@@ -230,6 +230,18 @@ builder.Services.AddAuthorization(options =>
             ctx.User.IsInRole(nameof(UserRole.Utvikler)) ||
             (ctx.User.IsInRole(nameof(UserRole.Behandler)) &&
              ctx.User.FindFirstValue(AppClaimTypes.ErPartnerAdministrator) == bool.TrueString)));
+
+    // Bredere enn PartnerAdminOmrade over — ENHVER behandler tilknyttet en klinikk (ikke bare
+    // klinikk-admin), se "Klinikk-oppdatering" i docs/beslutningslogg.md. Dekker kun
+    // MinPartner-mappens FOLDER-nivå gate (f.eks. å se kollegalisten); de faktiske
+    // admin-only-handlingene (Prising/Utbetaling/Automatisk utsendelse, og mutasjoner som
+    // Inviter/Fjern kollega) håndhever ErPartnerAdministrator EKSPLISITT i egen PageModel-handler
+    // i tillegg — denne policyen er bevisst IKKE nok alene for de sidene.
+    options.AddPolicy("PartnerMedlemOmrade", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.IsInRole(nameof(UserRole.Utvikler)) ||
+            (ctx.User.IsInRole(nameof(UserRole.Behandler)) &&
+             !string.IsNullOrEmpty(ctx.User.FindFirstValue(AppClaimTypes.PartnerId)))));
 });
 
 // --- BankID-testintegrasjon (diagnostisk, IKKE koblet til produksjonsinnlogging) ---
@@ -602,7 +614,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Tildel", "BehandlerOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Hjemmeoppgaver", "BehandlerOmrade");
     options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/Programmer", "BehandlerOmrade");
-    options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/MinPartner", "PartnerAdminOmrade");
+    options.Conventions.AuthorizeAreaFolder("Behandlerportal", "/MinPartner", "PartnerMedlemOmrade");
 });
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>("mysql");
