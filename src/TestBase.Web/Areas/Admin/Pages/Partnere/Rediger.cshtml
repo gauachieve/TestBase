@@ -31,6 +31,25 @@
     <button type="submit">Lagre</button>
 </form>
 
+@if (Model.UtbetalingKonto is not null)
+{
+    <h2>Utbetaling (Stripe Connect)</h2>
+    <p>
+        Stripe-konto: <code>@Model.UtbetalingKonto.StripeAccountId</code><br />
+        Status: @Model.UtbetalingKonto.Status
+        (onboarding fullført: @(Model.UtbetalingKonto.OnboardingFullfortUtc is not null ? "ja" : "nei"))
+    </p>
+    <p style="color: darkred;">
+        <strong>OBS:</strong> bruk kun "Nullstill tilkobling" hvis denne kontoen ble opprettet mot feil
+        Stripe-modus (f.eks. en sandkasse-/test-konto fra før nøkkelen ble byttet til live) — klinikken
+        må da koble seg til på nytt via "Koble til Stripe" fra sin egen side.
+    </p>
+    <form method="post" asp-page-handler="NullstillUtbetalingskonto" data-disable-on-submit="Nullstiller …">
+        <input type="hidden" name="id" value="@Model.PartnerId" />
+        <button type="submit" class="btn-icon--slett">Nullstill tilkobling</button>
+    </form>
+}
+
 <h2>Tilknyttede behandlere</h2>
 <table border="1" cellpadding="6" cellspacing="0">
     <thead>

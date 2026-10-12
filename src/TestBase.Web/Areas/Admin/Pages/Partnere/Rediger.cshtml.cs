@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
+using TestBase.Shared.Domain.Utbetaling;
 using TestBase.Shared.Security;
 
 namespace TestBase.Web.Areas.Admin.Pages.Partnere;
@@ -18,13 +19,17 @@ public sealed class RedigerModel : PageModel
     private readonly IAuditLogger _auditLogger;
     private readonly ICurrentUserContext _currentUser;
     private readonly BehandlerInvitasjonService _invitasjonService;
+    private readonly UtbetalingsOnboardingService _onboarding;
 
-    public RedigerModel(AppDbContext db, IAuditLogger auditLogger, ICurrentUserContext currentUser, BehandlerInvitasjonService invitasjonService)
+    public RedigerModel(
+        AppDbContext db, IAuditLogger auditLogger, ICurrentUserContext currentUser,
+        BehandlerInvitasjonService invitasjonService, UtbetalingsOnboardingService onboarding)
     {
         _db = db;
         _auditLogger = auditLogger;
         _currentUser = currentUser;
         _invitasjonService = invitasjonService;
+        _onboarding = onboarding;
     }
 
     [BindProperty]
@@ -47,6 +52,7 @@ public sealed class RedigerModel : PageModel
     public List<Behandler> TilknyttedeBehandlere { get; private set; } = new();
     public string? Feilmelding { get; private set; }
     public string? Infomelding { get; private set; }
+    public UtbetalingsMottakerKonto? UtbetalingKonto { get; private set; }
 
     /// <summary>Satt når et innsendt e-postforsøk traff en eksisterende, uavhengig behandler — venter på eksplisitt bekreftelse før faktisk kobling, se OnPostInviterEllerKobleAsync.</summary>
     public Behandler? MatchFunnet { get; private set; }
@@ -67,6 +73,7 @@ public sealed class RedigerModel : PageModel
         KontaktMobilNr = partner.KontaktMobilNr;
         HarAktivtAbonnement = partner.HarAktivtAbonnement;
 
+        UtbetalingKonto = await _onboarding.HentForPartnerAsync(id, cancellationToken);
         await LastBehandlerlisterAsync(id, cancellationToken);
         return Page();
     }
@@ -302,6 +309,32 @@ public sealed class RedigerModel : PageModel
 
         await LastBehandlerlisterAsync(id, cancellationToken);
         return Page();
+    }
+
+    /// <summary>
+    /// Sletter en lagret Stripe Connect-tilkobling for denne klinikken —
+    /// brukes KUN når kontoen ble opprettet mot feil Stripe-modus (f.eks. en
+    /// sandkasse-/test-konto opprettet før Stripe:SecretKey ble byttet til en
+    /// live-nøkkel). Stripe sine test- og live-moduser er helt separate
+    /// datasett, så en konto-ID fra test-modus finnes ikke i live-modus —
+    /// UtbetalingsOnboardingService.StartOnboardingAsync ville ellers prøvd å
+    /// gjenbruke den gamle, nå ugyldige konto-IDen i stedet for å opprette en
+    /// ny. Neste "Koble til Stripe"-klikk fra klinikken oppretter en fersk konto.
+    /// </summary>
+    public async Task<IActionResult> OnPostNullstillUtbetalingskontoAsync(long id, CancellationToken cancellationToken)
+    {
+        var konto = await _onboarding.HentForPartnerAsync(id, cancellationToken);
+        if (konto is not null)
+        {
+            _db.UtbetalingsMottakerKontoer.Remove(konto);
+            await _db.SaveChangesAsync(cancellationToken);
+
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(), "NullstillUtbetalingskonto",
+                nameof(Partner), id.ToString(), $"Fjernet StripeAccountId {konto.StripeAccountId}", cancellationToken);
+        }
+
+        return RedirectToPage(new { id });
     }
 
     private long HentAdministratorId() =>

@@ -8797,3 +8797,26 @@ reell behandler/klinikk gjennom ekte Stripe Connect-onboarding (punkt 3), godkje
 ekte utbetalingsbeløp (punkt 4). Betaling/Utbetaling-bryterne bør fortsatt stå på "Mock" til
 disse er gjort — Stripe sin test-nøkkel-status gjør dette enda tryggere for betaling akkurat nå,
 men utbetaling er fortsatt uverifisert med ekte mottaker.
+
+## Nullstill-knapp for feilplassert Stripe Connect-konto (2026-10-12)
+
+Brukeren opprettet en reell klinikk ("Ggpsykolog as sandbox") og gikk gjennom Stripe Connect-
+onboarding for å teste utbetaling hele veien, men Stripe-nøkkelen på live var fortsatt test-
+modus på det tidspunktet — onboardingen landet derfor i en Stripe SANDKASSE-konto i stedet for
+en ekte konto. Stripe sine test-/live-moduser er helt separate datasett (en konto-ID fra test-
+modus finnes ikke i live-modus), så etter at nøkkelen ble byttet til `sk_live_...` i Key Vault
+måtte den gamle, nå ugyldige kontoraden fjernes manuelt — ellers ville neste onboarding-forsøk
+prøvd å gjenbruke den utdaterte konto-IDen og feilet.
+
+Bygget en ny, smal Superadmin-only handling i stedet for direkte databaseaksess: en "Nullstill
+tilkobling"-knapp på `Admin/Partnere/Rediger/<id>` (`OnPostNullstillUtbetalingskontoAsync`),
+som sletter `UtbetalingsMottakerKonto`-raden for partneren og audit-loggfører den gamle
+konto-IDen. Vises kun når en slik rad faktisk finnes. Folder er allerede `SuperadminOmrade`-
+beskyttet (`Admin/Partnere`), ingen egen rollesjekk trengtes i handleren.
+
+Verifisert av en subagent, fullt ut i ekte nettleser lokalt (ikke bare kodegjennomgang): bygde
+hele kjeden (inviter behandler → fullfør registrering → gjør til klinikk-admin → koble til
+utbetalingskonto via MockStripeClient, som produserer en brukbar `acct_MOCK-...`-id uten ekte
+Stripe-legitimasjon) for faktisk å få en rad å nullstille, bekreftet seksjonen vises/skjules
+korrekt, og bekreftet DIREKTE i databasen (`docker exec ... mysql`) at raden faktisk ble
+slettet og at en audit-logg-rad ble skrevet. Ingen feil funnet.
