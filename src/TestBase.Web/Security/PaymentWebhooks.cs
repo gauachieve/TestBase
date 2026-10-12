@@ -39,13 +39,13 @@ public static class PaymentWebhooks
     public static void MapPaymentWebhooks(this WebApplication app)
     {
         var logger = app.Logger;
-        app.MapPost(VippsWebhookSti, (HttpContext context, IConfiguration config, TestService testService) =>
-            HandleVippsWebhookAsync(context, config, testService, logger));
+        app.MapPost(VippsWebhookSti, (HttpContext context, IConfiguration config, VippsBetalingBekrefterService vippsBekrefter) =>
+            HandleVippsWebhookAsync(context, config, vippsBekrefter, logger));
         app.MapPost(StripeWebhookSti, (HttpContext context, IConfiguration config, TestService testService, UtbetalingsOnboardingService onboarding, UtbetalingsBatchService utbetalingsBatcher) =>
             HandleStripeWebhookAsync(context, config, testService, onboarding, utbetalingsBatcher, logger));
     }
 
-    private static async Task<IResult> HandleVippsWebhookAsync(HttpContext context, IConfiguration config, TestService testService, ILogger logger)
+    private static async Task<IResult> HandleVippsWebhookAsync(HttpContext context, IConfiguration config, VippsBetalingBekrefterService vippsBekrefter, ILogger logger)
     {
         var webhookSecret = config["Vipps:WebhookSecret"];
         if (string.IsNullOrWhiteSpace(webhookSecret))
@@ -71,10 +71,25 @@ public static class PaymentWebhooks
         // (se klassedoken over) — leser "reference" fra rot-objektet, med et forsøk på
         // en nestet "data.reference" som fallback. HentStatusAsync-basert polling på
         // Betal-siden er den reelle fallbacken inntil dette er live-verifisert.
+        //
+        // Går ALLTID via VippsBetalingBekrefterService, ALDRI direkte til
+        // testService.MarkerBetalingBetaltAsync — en tidligere versjon av denne
+        // handleren markerte betalingen som Betalt direkte ut fra selve webhook-
+        // kallet, uten noensinne å fange (capture) beløpet hos Vipps. Siden Vipps
+        // sender denne webhooken allerede ved AUTORISERT (reservert, ikke tatt),
+        // ville det ha reintrodusert nøyaktig "Kritisk bugfiks: Vipps-betaling ble
+        // aldri fanget" (2026-09-15, docs/beslutningslogg.md) — bare trigget av
+        // webhooken i stedet for retur-siden denne gangen. Oppdaget og rettet FØR
+        // webhooken noensinne ble registrert hos Vipps (se "Vipps-webhook"-
+        // seksjonen på Admin/MinSide), så ingen ekte betaling ble rammet.
         var referanse = LesVippsReferanse(json, logger);
         if (referanse is not null && TryParseTildelingId(referanse, out var tildelingId))
         {
-            await testService.MarkerBetalingBetaltAsync(tildelingId, BetalingMetode.Vipps, referanse, context.RequestAborted);
+            var resultat = await vippsBekrefter.BekreftOgFangAsync(tildelingId, referanse, context.RequestAborted);
+            if (!resultat.Betalt && resultat.Feilmelding is not null)
+            {
+                logger.LogError("Vipps-webhook for tildeling {TildelingId}: {Feilmelding}", tildelingId, resultat.Feilmelding);
+            }
         }
         else
         {

@@ -163,6 +163,84 @@ public sealed class VippsPaymentClient : IVippsClient
         }
     }
 
+    public async Task<VippsWebhookRegistrertResultat> RegistrerWebhookAsync(string url, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var token = await HentTokenAsync(cancellationToken);
+            using var request = NyForespørsel(HttpMethod.Post, "webhooks/v1/webhooks", token);
+            request.Content = JsonContent.Create(new
+            {
+                url,
+                events = new[] { "epayments.payment.authorized.v1", "epayments.payment.captured.v1" }
+            });
+
+            using var response = await _http.SendAsync(request, cancellationToken);
+            var innhold = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Vipps RegistrerWebhook feilet ({Status}): {Innhold}", response.StatusCode, innhold);
+                return new VippsWebhookRegistrertResultat(false, null, null, $"Vipps svarte {(int)response.StatusCode}: {innhold}");
+            }
+
+            var svar = JsonSerializer.Deserialize<VippsWebhookRegistrertPayload>(innhold);
+            return new VippsWebhookRegistrertResultat(true, svar?.Id, svar?.Secret, null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Uventet feil ved registrering av Vipps-webhook mot {Url}.", url);
+            return new VippsWebhookRegistrertResultat(false, null, null, ex.Message);
+        }
+    }
+
+    public async Task<VippsWebhookListeResultat> HentWebhookerAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var token = await HentTokenAsync(cancellationToken);
+            using var request = NyForespørsel(HttpMethod.Get, "webhooks/v1/webhooks", token);
+            using var response = await _http.SendAsync(request, cancellationToken);
+            var innhold = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new VippsWebhookListeResultat(false, Array.Empty<VippsWebhookInfo>(), $"Vipps svarte {(int)response.StatusCode}: {innhold}");
+            }
+
+            var svar = JsonSerializer.Deserialize<VippsWebhookListePayload>(innhold);
+            var webhooker = (svar?.Webhooks ?? new List<VippsWebhookPayload>())
+                .Select(w => new VippsWebhookInfo(w.Id ?? string.Empty, w.Url ?? string.Empty, w.Events ?? new List<string>()))
+                .ToList();
+            return new VippsWebhookListeResultat(true, webhooker, null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Uventet feil ved henting av Vipps-webhooker.");
+            return new VippsWebhookListeResultat(false, Array.Empty<VippsWebhookInfo>(), ex.Message);
+        }
+    }
+
+    public async Task<bool> SlettWebhookAsync(string webhookId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var token = await HentTokenAsync(cancellationToken);
+            using var request = NyForespørsel(HttpMethod.Delete, $"webhooks/v1/webhooks/{Uri.EscapeDataString(webhookId)}", token);
+            using var response = await _http.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var feilInnhold = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning("Vipps SlettWebhook feilet for {Id} ({Status}): {Innhold}", webhookId, response.StatusCode, feilInnhold);
+                return false;
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Uventet feil ved sletting av Vipps-webhook {Id}.", webhookId);
+            return false;
+        }
+    }
+
     private HttpRequestMessage NyForespørsel(HttpMethod metode, string sti, string token)
     {
         var request = new HttpRequestMessage(metode, sti);
@@ -249,5 +327,32 @@ public sealed class VippsPaymentClient : IVippsClient
     {
         [JsonPropertyName("value")]
         public long Value { get; set; }
+    }
+
+    private sealed class VippsWebhookRegistrertPayload
+    {
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+
+        [JsonPropertyName("secret")]
+        public string? Secret { get; set; }
+    }
+
+    private sealed class VippsWebhookListePayload
+    {
+        [JsonPropertyName("webhooks")]
+        public List<VippsWebhookPayload>? Webhooks { get; set; }
+    }
+
+    private sealed class VippsWebhookPayload
+    {
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+
+        [JsonPropertyName("url")]
+        public string? Url { get; set; }
+
+        [JsonPropertyName("events")]
+        public List<string>? Events { get; set; }
     }
 }

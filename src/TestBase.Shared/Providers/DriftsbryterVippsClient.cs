@@ -37,6 +37,15 @@ public sealed class DriftsbryterVippsClient : IVippsClient
     public async Task<VippsFangetResultat> FangBetalingAsync(string referanse, decimal belopNok, CancellationToken cancellationToken = default) =>
         await (await AktivKlientAsync(cancellationToken)).FangBetalingAsync(referanse, belopNok, cancellationToken);
 
+    public async Task<VippsWebhookRegistrertResultat> RegistrerWebhookAsync(string url, CancellationToken cancellationToken = default) =>
+        await (await AktivKlientAsync(cancellationToken)).RegistrerWebhookAsync(url, cancellationToken);
+
+    public async Task<VippsWebhookListeResultat> HentWebhookerAsync(CancellationToken cancellationToken = default) =>
+        await (await AktivKlientAsync(cancellationToken)).HentWebhookerAsync(cancellationToken);
+
+    public async Task<bool> SlettWebhookAsync(string webhookId, CancellationToken cancellationToken = default) =>
+        await (await AktivKlientAsync(cancellationToken)).SlettWebhookAsync(webhookId, cancellationToken);
+
     private async Task<IVippsClient> AktivKlientAsync(CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();

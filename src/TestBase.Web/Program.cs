@@ -489,6 +489,11 @@ builder.Services.AddScoped<EktBankIdInnstillingService>();
 // Vipps/Stripe-registreringen KUN i non-beta-grenen under (beta har sin egen granulære bryter).
 builder.Services.AddScoped<DriftsbryterInnstillingService>();
 
+// Delt "bekreft og fang"-logikk for Vipps — brukt av BÅDE BetalResultat-siden OG
+// Vipps-webhooken (PaymentWebhooks.cs), se VippsBetalingBekrefterService sin
+// klassekommentar for hvorfor dette MÅ være delt (unngår "marker betalt uten å fange").
+builder.Services.AddScoped<VippsBetalingBekrefterService>();
+
 // Statisk innhold (se HjelpInnhold) — Singleton, ingen DB-avhengighet, immutabelt per prosess.
 builder.Services.AddSingleton<HjelpService>();
 

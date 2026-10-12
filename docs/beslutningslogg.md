@@ -8820,3 +8820,45 @@ utbetalingskonto via MockStripeClient, som produserer en brukbar `acct_MOCK-...`
 Stripe-legitimasjon) for faktisk å få en rad å nullstille, bekreftet seksjonen vises/skjules
 korrekt, og bekreftet DIREKTE i databasen (`docker exec ... mysql`) at raden faktisk ble
 slettet og at en audit-logg-rad ble skrevet. Ingen feil funnet.
+
+## Vipps-webhook registrert aldri hos Vipps + latent "marker betalt uten å fange"-bug i webhook-handleren (2026-10-13)
+
+Brukeren testet en ekte Vipps-betaling på live (tildeling-242, 2026-10-12) og spurte om webhooken
+faktisk fanget den opp. Loggundersøkelse viste: betalingen gikk korrekt gjennom, men UTELUKKENDE
+via BetalResultat-sidens synkrone fallback — ingen "Vipps-webhook mottatt"-logglinje fantes i det
+hele tatt. Rotårsak: Vipps kaller ALDRI en webhook-sti bare fordi `Vipps:WebhookSecret` er satt i
+konfigurasjonen — en webhook-mottaker må eksplisitt REGISTRERES hos Vipps via deres Webhooks API
+først, og dette hadde aldri blitt gjort.
+
+Ved nærmere gjennomgang, FØR webhooken ble registrert: `PaymentWebhooks.HandleVippsWebhookAsync`
+kalte `TestService.MarkerBetalingBetaltAsync` DIREKTE ut fra et mottatt webhook-kall — men Vipps
+sender denne webhooken allerede ved AUTORISERT (kun reservert hos betaler, ikke tatt). Å faktisk
+registrere og aktivere webhooken UTEN å rette dette ville ha reintrodusert nøyaktig samme bug-
+klasse som "Kritisk bugfiks: Vipps-betaling ble aldri fanget" (2026-09-15) — denne gangen trigget
+av webhooken i stedet for retur-siden. Fanget opp og rettet før webhooken noensinne var
+registrert, så ingen ekte betaling ble rammet.
+
+**Fiks:**
+- Ny delt tjeneste `VippsBetalingBekrefterService` (`TestBase.Shared/Domain/Tester/`) — sjekker
+  status hos Vipps, fanger (capture) beløpet hvis kun AUTORISERT, og markerer FØRST betalt i vår
+  database etter bekreftet fanging. Brukt av BÅDE webhooken OG `BetalResultat`-siden (som beholder
+  sin egen separate "selvhelbred gamle, ufangede reservasjoner"-sti for allerede-Betalt-rader,
+  siden det er en annen bekymring enn den delte bekreft-og-fang-logikken).
+- `IVippsClient` fikk tre nye metoder (`RegistrerWebhookAsync`/`HentWebhookerAsync`/
+  `SlettWebhookAsync`), implementert i `VippsPaymentClient` (ekte, mot Vipps sitt Webhooks API),
+  `MockVippsClient`, og pass-through i `DriftsbryterVippsClient`/`BetaSwitchingVippsClient`.
+- Ny Superadmin/Utvikler-only seksjon "Vipps-webhook" på `Admin/MinSide` (vist kun når
+  Vipps-produksjonsnøkler er konfigurert) — lister registrerte webhooker, lar admin registrere en
+  ny for miljøets egen URL, og viser webhook-hemmeligheten Vipps returnerer KUN denne ene gangen
+  (må limes inn som `Vipps:WebhookSecret` i Key Vault med en gang — vises aldri igjen).
+- Ny test `VippsBetalingBekrefterServiceTests` (3 tester: AUTORISERT→fanget→betalt,
+  AUTORISERT→fangingsfeil→IKKE betalt, allerede-betalt→idempotent/ingen nytt Vipps-kall) — dekker
+  et hull subagent-verifiseringen selv pekte på (ingen eksisterende test øvde på denne logikken).
+
+Verifisert: 104/104 tester grønt (101 eksisterende + 3 nye), full nettleser-verifisering av
+betalingsflyten uendret (mock-Vipps, ekte DB-sjekk av Pengebevegelser + idempotens), og en
+skeptisk kodegjennomgang av selve fange-før-marker-betalt-logikken fant ingen hull.
+
+Gjenstående: brukeren må selv trykke "Registrer webhook for dette miljøet" på `Admin/MinSide` på
+live og lagre den returnerte hemmeligheten i Key Vault (`Vipps:WebhookSecret`) før webhooken
+faktisk er aktiv — til da fortsetter betalinger å gå korrekt via BetalResultat-sidens fallback.

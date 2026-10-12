@@ -43,4 +43,22 @@ public sealed class MockVippsClient : IVippsClient
         _logger.LogInformation("[MOCK Vipps] Simulerer fanging (capture) av {Referanse} på {Belop} kr.", referanse, belopNok);
         return Task.FromResult(new VippsFangetResultat(true, null));
     }
+
+    public Task<VippsWebhookRegistrertResultat> RegistrerWebhookAsync(string url, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("[MOCK Vipps] Simulerer registrering av webhook mot {Url}.", url);
+        return Task.FromResult(new VippsWebhookRegistrertResultat(true, $"mock-webhook-{Guid.NewGuid():N}", $"mock-secret-{Guid.NewGuid():N}", null));
+    }
+
+    public Task<VippsWebhookListeResultat> HentWebhookerAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("[MOCK Vipps] Simulerer henting av registrerte webhooker (tom liste).");
+        return Task.FromResult(new VippsWebhookListeResultat(true, Array.Empty<VippsWebhookInfo>(), null));
+    }
+
+    public Task<bool> SlettWebhookAsync(string webhookId, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("[MOCK Vipps] Simulerer sletting av webhook {Id}.", webhookId);
+        return Task.FromResult(true);
+    }
 }

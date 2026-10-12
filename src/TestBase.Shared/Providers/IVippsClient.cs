@@ -16,6 +16,13 @@ public sealed record VippsStatusResultat(bool Success, VippsBetalingsstatus? Sta
 
 public sealed record VippsFangetResultat(bool Success, string? ErrorMessage);
 
+public sealed record VippsWebhookInfo(string Id, string Url, IReadOnlyList<string> Events);
+
+public sealed record VippsWebhookListeResultat(bool Success, IReadOnlyList<VippsWebhookInfo> Webhooker, string? ErrorMessage);
+
+/// <summary><see cref="Secret"/> vises KUN i dette ene svaret — Vipps viser den aldri igjen. Må lagres (f.eks. i Key Vault som Vipps:WebhookSecret) umiddelbart.</summary>
+public sealed record VippsWebhookRegistrertResultat(bool Success, string? WebhookId, string? Secret, string? ErrorMessage);
+
 /// <summary>
 /// Grensesnitt mot Vipps ePayment API. Selve korttall/betalingsdetaljer skal
 /// ALDRI lagres i egen database — kun Vipps sin transaksjonsreferanse (se
@@ -45,4 +52,17 @@ public interface IVippsClient
     /// trukket, et helt døgn etter en "vellykket" betaling i appen).
     /// </summary>
     Task<VippsFangetResultat> FangBetalingAsync(string referanse, decimal belopNok, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Registrerer en ny webhook-mottaker hos Vipps (Webhooks API) — PÅKREVD for at
+    /// Vipps i det hele tatt skal kalle vår /webhooks/vipps-sti; dette skjer IKKE
+    /// automatisk bare fordi Vipps:WebhookSecret er satt i konfigurasjonen, se
+    /// Admin/MinSide sin "Vipps-webhook"-seksjon. <paramref name="url"/> bør være
+    /// den fulle, absolutte URL-en til PaymentWebhooks.VippsWebhookSti på riktig miljø.
+    /// </summary>
+    Task<VippsWebhookRegistrertResultat> RegistrerWebhookAsync(string url, CancellationToken cancellationToken = default);
+
+    Task<VippsWebhookListeResultat> HentWebhookerAsync(CancellationToken cancellationToken = default);
+
+    Task<bool> SlettWebhookAsync(string webhookId, CancellationToken cancellationToken = default);
 }

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
 using TestBase.Shared.Domain.Tester;
+using TestBase.Shared.Providers;
 using TestBase.Shared.Security;
 
 namespace TestBase.Web.Areas.Admin.Pages;
@@ -28,6 +29,7 @@ public sealed class MinSideModel : PageModel
     private readonly BetaInnstillingService _betaInnstillinger;
     private readonly EktBankIdInnstillingService _ektBankIdInnstillinger;
     private readonly DriftsbryterInnstillingService _driftsbrytere;
+    private readonly IVippsClient _vipps;
     private readonly IAuthenticationSchemeProvider _schemes;
     private readonly IConfiguration _configuration;
     private readonly IAuditLogger _auditLogger;
@@ -36,7 +38,7 @@ public sealed class MinSideModel : PageModel
     public MinSideModel(
         AppDbContext db, TestService testService, BetaInnstillingService betaInnstillinger,
         EktBankIdInnstillingService ektBankIdInnstillinger, DriftsbryterInnstillingService driftsbrytere,
-        IAuthenticationSchemeProvider schemes, IConfiguration configuration,
+        IVippsClient vipps, IAuthenticationSchemeProvider schemes, IConfiguration configuration,
         IAuditLogger auditLogger, ICurrentUserContext currentUser)
     {
         _db = db;
@@ -44,6 +46,7 @@ public sealed class MinSideModel : PageModel
         _betaInnstillinger = betaInnstillinger;
         _ektBankIdInnstillinger = ektBankIdInnstillinger;
         _driftsbrytere = driftsbrytere;
+        _vipps = vipps;
         _schemes = schemes;
         _configuration = configuration;
         _auditLogger = auditLogger;
@@ -91,6 +94,19 @@ public sealed class MinSideModel : PageModel
     public bool BetalingKonfigurert => !string.IsNullOrWhiteSpace(_configuration["Vipps:ClientId"]) || !string.IsNullOrWhiteSpace(_configuration["Stripe:SecretKey"]);
     public bool UtbetalingKonfigurert => !string.IsNullOrWhiteSpace(_configuration["Stripe:SecretKey"]);
 
+    /// <summary>
+    /// Vipps kaller ALDRI vår webhook-sti bare fordi Vipps:WebhookSecret er satt i
+    /// konfigurasjonen — en webhook-mottaker må eksplisitt REGISTRERES hos Vipps
+    /// (Webhooks API) først. Dette verktøyet gjør akkurat det, og viser hemmeligheten
+    /// Vipps returnerer KUN denne ene gangen (må lagres i Key Vault manuelt med en gang)
+    /// — se docs/beslutningslogg.md "Vipps-webhook registrert aldri hos Vipps".
+    /// </summary>
+    public bool VisVippsWebhookVerktoy => VisDriftsbrytere && VippsProduksjonKonfigurert;
+    public IReadOnlyList<VippsWebhookInfo> VippsWebhooker { get; private set; } = Array.Empty<VippsWebhookInfo>();
+    public string? VippsWebhookListeFeil { get; private set; }
+    public string? VippsWebhookNyttSecret { get; private set; }
+    public string? VippsWebhookFeilmelding { get; private set; }
+
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         await LastOppgaverAsync(cancellationToken);
@@ -115,6 +131,16 @@ public sealed class MinSideModel : PageModel
             BetalingErAktivNaa = driftsbrytere.BetalingErAktiv;
             UtbetalingErAktivNaa = driftsbrytere.UtbetalingErAktiv;
         }
+
+        if (VisVippsWebhookVerktoy)
+        {
+            var liste = await _vipps.HentWebhookerAsync(cancellationToken);
+            VippsWebhooker = liste.Webhooker;
+            VippsWebhookListeFeil = liste.Success ? null : liste.ErrorMessage;
+        }
+
+        VippsWebhookNyttSecret = TempData["VippsWebhookNyttSecret"] as string;
+        VippsWebhookFeilmelding = TempData["VippsWebhookFeilmelding"] as string;
     }
 
     /// <summary>
@@ -203,6 +229,55 @@ public sealed class MinSideModel : PageModel
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "EndreBetalingUtbetalingDriftsbryter",
             nameof(DriftsbryterInnstilling), "1", $"Betaling={betalingErAktiv}, Utbetaling={utbetalingErAktiv}", cancellationToken);
+
+        return RedirectToPage();
+    }
+
+    /// <summary>Registrerer en NY webhook-mottaker hos Vipps for dette miljøets egen URL — se VisVippsWebhookVerktoy.</summary>
+    public async Task<IActionResult> OnPostRegistrerVippsWebhookAsync(CancellationToken cancellationToken)
+    {
+        if (_currentUser.Role is not (UserRole.Superadmin or UserRole.Utvikler))
+        {
+            return Forbid();
+        }
+
+        var url = $"{Request.Scheme}://{Request.Host}{TestBase.Web.Security.PaymentWebhooks.VippsWebhookSti}";
+        var resultat = await _vipps.RegistrerWebhookAsync(url, cancellationToken);
+
+        if (resultat.Success)
+        {
+            TempData["VippsWebhookNyttSecret"] = resultat.Secret;
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(), "RegistrerVippsWebhook",
+                "VippsWebhook", resultat.WebhookId ?? "ukjent", $"Url {url}", cancellationToken);
+        }
+        else
+        {
+            TempData["VippsWebhookFeilmelding"] = resultat.ErrorMessage;
+        }
+
+        return RedirectToPage();
+    }
+
+    /// <summary>Fjerner en feilregistrert/utdatert webhook-mottaker hos Vipps — se VisVippsWebhookVerktoy.</summary>
+    public async Task<IActionResult> OnPostSlettVippsWebhookAsync(string webhookId, CancellationToken cancellationToken)
+    {
+        if (_currentUser.Role is not (UserRole.Superadmin or UserRole.Utvikler))
+        {
+            return Forbid();
+        }
+
+        var slettet = await _vipps.SlettWebhookAsync(webhookId, cancellationToken);
+        if (!slettet)
+        {
+            TempData["VippsWebhookFeilmelding"] = $"Kunne ikke slette webhook {webhookId} hos Vipps.";
+        }
+        else
+        {
+            await _auditLogger.LogAsync(
+                _currentUser.UserId, _currentUser.Role.ToString(), "SlettVippsWebhook",
+                "VippsWebhook", webhookId, cancellationToken: cancellationToken);
+        }
 
         return RedirectToPage();
     }

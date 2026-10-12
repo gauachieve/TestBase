@@ -112,6 +112,66 @@
     </form>
 }
 
+@if (Model.VisVippsWebhookVerktoy)
+{
+    <h2>Vipps-webhook</h2>
+    <p>
+        Vipps kaller IKKE automatisk vår webhook-sti selv om nøklene er konfigurert — en
+        webhook-mottaker må registreres eksplisitt hos Vipps her. Vises kun registrerte
+        webhooker, ikke om Vipps faktisk har kalt dem ennå.
+    </p>
+
+    @if (Model.VippsWebhookNyttSecret is not null)
+    {
+        <p style="color: darkred;">
+            <strong>Ny webhook registrert.</strong> Kopier hemmeligheten under inn som
+            <code>Vipps__WebhookSecret</code> i Key Vault NÅ — Vipps viser den ALDRI igjen:<br />
+            <code>@Model.VippsWebhookNyttSecret</code>
+        </p>
+    }
+    @if (Model.VippsWebhookFeilmelding is not null)
+    {
+        <p style="color: darkred;">@Model.VippsWebhookFeilmelding</p>
+    }
+    @if (Model.VippsWebhookListeFeil is not null)
+    {
+        <p style="color: darkred;">Kunne ikke hente registrerte webhooker: @Model.VippsWebhookListeFeil</p>
+    }
+
+    @if (Model.VippsWebhooker.Any())
+    {
+        <table border="1" cellpadding="6" cellspacing="0">
+            <thead>
+                <tr><th>Id</th><th>URL</th><th>Hendelser</th><th></th></tr>
+            </thead>
+            <tbody>
+            @foreach (var w in Model.VippsWebhooker)
+            {
+                <tr>
+                    <td>@w.Id</td>
+                    <td>@w.Url</td>
+                    <td>@string.Join(", ", w.Events)</td>
+                    <td>
+                        <form method="post" asp-page-handler="SlettVippsWebhook" style="display:inline;" data-disable-on-submit="Sletter …">
+                            <input type="hidden" name="webhookId" value="@w.Id" />
+                            <button type="submit" class="btn-icon--slett">Slett</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p>Ingen webhooker registrert hos Vipps for denne kontoen ennå.</p>
+    }
+
+    <form method="post" asp-page-handler="RegistrerVippsWebhook" data-disable-on-submit="Registrerer …">
+        <button type="submit" class="btn-accent">Registrer webhook for dette miljøet</button>
+    </form>
+}
+
 @if (antallOppgaver == 0)
 {
     <p>Ingen oppgaver akkurat nå.</p>
