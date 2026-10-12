@@ -8776,3 +8776,24 @@ filen for ordlyden. Ingen kode endret, ingen migrasjon, rent dokumentasjonsarbei
    overføringen og den etterfølgende bankutbetalingen faktisk skjedde, før en full batch kjøres.
 5. Hold Betaling/Utbetaling-bryterne på "Mock" til punkt 1-4 er gjort, for å unngå at en ekte
    pasient/behandler treffer en halvveis-verifisert ekte betalingsvei.
+
+## Stripe-nøkkelen på live bekreftet som TEST-modus (2026-10-12)
+
+Brukeren fulgte opp sjekklisten over (punkt 1, "bekreft Stripe live vs. test-nøkkel") selv,
+med veiledning gitt steg for steg her i chatten (Azure Portal, siden `az keyvault secret show`
+først feilet med `ForbiddenByRbac` — brukerens Azure-konto hadde ikke lesetilgang på
+Key Vault-en, kun App Service sin managed identity hadde det; løst ved å tildele seg selv
+rollen "Key Vault Secrets User" via Access control (IAM) på `kv-tb-tk46vyxboocho`).
+
+**Resultat:** `StripeSecretKey` i `kv-tb-tk46vyxboocho` (referert fra `testbase-test`/live sin
+App Service-innstilling `Stripe__SecretKey` via en Key Vault-referanse) starter med `sk_test_`,
+ikke `sk_live_`. Ekte kortbetaling (Stripe) kan derfor IKKE trekke ekte penger på live akkurat
+nå, uansett hva Betaling-driftsbryteren (`Admin/MinSide`) står på — kun Vipps har en bekreftet
+ekte produksjonsnøkkel per nå (se "Driftsbrytere"-sjekklisten over, punkt 1 er nå besvart for
+Stripe sin del). CLAUDE.md sin "Eksterne leverandører"-seksjon oppdatert til å reflektere dette.
+
+Gjenstående fra sjekklisten: gjør ett lite ekte testkjøp og bekreft capture (punkt 2), få en
+reell behandler/klinikk gjennom ekte Stripe Connect-onboarding (punkt 3), godkjenn ett lite
+ekte utbetalingsbeløp (punkt 4). Betaling/Utbetaling-bryterne bør fortsatt stå på "Mock" til
+disse er gjort — Stripe sin test-nøkkel-status gjør dette enda tryggere for betaling akkurat nå,
+men utbetaling er fortsatt uverifisert med ekte mottaker.

@@ -157,9 +157,11 @@ grov.
   bekreftet direkte i App Service-innstillingene 2026-10-11) — brukeren gjennomførte selv en reell
   betaling 2026-09-15 som avdekket og fikk fikset en kritisk "capture"-bug (penger ble reservert,
   aldri trukket, se "Kritisk bugfiks: Vipps-betaling ble aldri fanget"); IKKE re-verifisert siden,
-  men bør fungere. Stripe (kort/Apple Pay/Google Pay) sin nøkkel på live er IKKE bekreftet om den
-  er en live- eller test-modus-nøkkel — sjekk selv i Stripe-dashbordet før du stoler på ekte
-  kortbetaling. Den NYE Stripe Connect-UTBETALINGEN (til behandler/klinikk, bygget 2026-10-10) er
+  men bør fungere. Stripe (kort/Apple Pay/Google Pay) sin nøkkel på live er BEKREFTET en
+  TEST-nøkkel (`sk_test_...`, sjekket direkte i Key Vault 2026-10-12) — ekte kortbetaling kan
+  altså IKKE trekke ekte penger akkurat nå, uansett hva betalings-driftsbryteren står på, før
+  denne byttes til en `sk_live_...`-nøkkel i Stripe-dashbordet/Key Vault. Den NYE Stripe
+  Connect-UTBETALINGEN (til behandler/klinikk, bygget 2026-10-10) er
   KUN testet mot Stripes eget test-API — ingen reell mottaker har fullført ekte konto-onboarding
   hos Stripe ennå, se "Driftsbrytere"-spørsmålet i beslutningsloggen for full sjekkliste før dette
   kan fungere med ekte penger. E-post (Azure Communication Services) og SMS (Vonage) har begge en
