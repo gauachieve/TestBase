@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using TestBase.Shared.Data;
 using TestBase.Shared.Domain.Administrasjon;
+using TestBase.Shared.Domain.Tester;
 using TestBase.Shared.Domain.Utbetaling;
 using TestBase.Shared.Security;
 
@@ -20,16 +21,18 @@ public sealed class RedigerModel : PageModel
     private readonly ICurrentUserContext _currentUser;
     private readonly BehandlerInvitasjonService _invitasjonService;
     private readonly UtbetalingsOnboardingService _onboarding;
+    private readonly KlinikkPrisService _klinikkPrisService;
 
     public RedigerModel(
         AppDbContext db, IAuditLogger auditLogger, ICurrentUserContext currentUser,
-        BehandlerInvitasjonService invitasjonService, UtbetalingsOnboardingService onboarding)
+        BehandlerInvitasjonService invitasjonService, UtbetalingsOnboardingService onboarding, KlinikkPrisService klinikkPrisService)
     {
         _db = db;
         _auditLogger = auditLogger;
         _currentUser = currentUser;
         _invitasjonService = invitasjonService;
         _onboarding = onboarding;
+        _klinikkPrisService = klinikkPrisService;
     }
 
     [BindProperty]
@@ -47,12 +50,16 @@ public sealed class RedigerModel : PageModel
     [BindProperty]
     public bool HarAktivtAbonnement { get; set; }
 
+    [BindProperty]
+    public decimal RabattProsent { get; set; }
+
     public long PartnerId { get; private set; }
     public string PartnerNavn { get; private set; } = string.Empty;
     public List<Behandler> TilknyttedeBehandlere { get; private set; } = new();
     public string? Feilmelding { get; private set; }
     public string? Infomelding { get; private set; }
     public UtbetalingsMottakerKonto? UtbetalingKonto { get; private set; }
+    public KlinikkPrisResultat? KlinikkPris { get; private set; }
 
     /// <summary>Satt når et innsendt e-postforsøk traff en eksisterende, uavhengig behandler — venter på eksplisitt bekreftelse før faktisk kobling, se OnPostInviterEllerKobleAsync.</summary>
     public Behandler? MatchFunnet { get; private set; }
@@ -72,8 +79,10 @@ public sealed class RedigerModel : PageModel
         KontaktEpost = partner.KontaktEpost;
         KontaktMobilNr = partner.KontaktMobilNr;
         HarAktivtAbonnement = partner.HarAktivtAbonnement;
+        RabattProsent = partner.RabattProsent;
 
         UtbetalingKonto = await _onboarding.HentForPartnerAsync(id, cancellationToken);
+        KlinikkPris = await _klinikkPrisService.BeregnAsync(id, cancellationToken);
         await LastBehandlerlisterAsync(id, cancellationToken);
         return Page();
     }
@@ -91,6 +100,7 @@ public sealed class RedigerModel : PageModel
             Feilmelding = "Navn er obligatorisk.";
             PartnerId = id;
             PartnerNavn = partner.Navn;
+            KlinikkPris = await _klinikkPrisService.BeregnAsync(id, cancellationToken);
             await LastBehandlerlisterAsync(id, cancellationToken);
             return Page();
         }
@@ -100,6 +110,7 @@ public sealed class RedigerModel : PageModel
         partner.KontaktEpost = KontaktEpost;
         partner.KontaktMobilNr = KontaktMobilNr;
         partner.HarAktivtAbonnement = HarAktivtAbonnement;
+        partner.RabattProsent = Math.Clamp(RabattProsent, 0m, 100m);
         await _db.SaveChangesAsync(cancellationToken);
 
         await _auditLogger.LogAsync(
@@ -183,6 +194,7 @@ public sealed class RedigerModel : PageModel
         KontaktEpost = partner.KontaktEpost;
         KontaktMobilNr = partner.KontaktMobilNr;
         HarAktivtAbonnement = partner.HarAktivtAbonnement;
+        RabattProsent = partner.RabattProsent;
 
         if (string.IsNullOrWhiteSpace(epost))
         {
@@ -254,6 +266,7 @@ public sealed class RedigerModel : PageModel
         KontaktEpost = partner.KontaktEpost;
         KontaktMobilNr = partner.KontaktMobilNr;
         HarAktivtAbonnement = partner.HarAktivtAbonnement;
+        RabattProsent = partner.RabattProsent;
 
         var eposter = epostListe
             .Split(new[] { '\r', '\n', ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)

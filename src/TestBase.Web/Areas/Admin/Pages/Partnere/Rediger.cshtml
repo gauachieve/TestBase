@@ -28,8 +28,26 @@
     <div><label>Kontakt-e-post</label><br /><input asp-for="KontaktEpost" /></div>
     <div><label>Kontakt-mobilnummer</label><br /><input asp-for="KontaktMobilNr" /></div>
     <div><label><input asp-for="HarAktivtAbonnement" type="checkbox" /> Har aktivt abonnement (dekker behandlernes plattformkostnader)</label></div>
+    <div><label>Rabatt på sete-prisen (%)</label><br /><input asp-for="RabattProsent" type="number" step="0.01" min="0" max="100" /></div>
     <button type="submit">Lagre</button>
 </form>
+
+@if (Model.KlinikkPris is not null)
+{
+    <p>
+        Sete-pris: <strong>@Model.KlinikkPris.AntallSeter</strong> aktive behandler(e) &times;
+        @Model.KlinikkPris.KrPerSeteManed.ToString("N2") kr/sete/måned = @Model.KlinikkPris.BruttoManedsprisKr.ToString("N2") kr
+        @if (Model.KlinikkPris.RabattProsent > 0)
+        {
+            <text> &minus; @Model.KlinikkPris.RabattProsent.ToString("N2") % rabatt = <strong>@Model.KlinikkPris.NettoManedsprisKr.ToString("N2") kr/måned</strong></text>
+        }
+        else
+        {
+            <text> = <strong>@Model.KlinikkPris.NettoManedsprisKr.ToString("N2") kr/måned</strong></text>
+        }
+        (faktisk månedlig belastning via Stripe er ikke bygget ennå — se docs/beslutningslogg.md).
+    </p>
+}
 
 @if (Model.UtbetalingKonto is not null)
 {
