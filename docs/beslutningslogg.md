@@ -9014,3 +9014,105 @@ spesifikasjon av alle fem faser.
 plattformkutt (beholdes KUN som totalpris-grense), UI-ombygging i `Admin/Tester/Prising` og
 `MinPartner/Prising` fra kr til %, og en ny linje i `OkonomiRapportService` for
 rettighetshaver-kostnad i margin-rapportene.
+
+## Abonnement/subscription-system — fase 2-5 fullført samme kveld (2026-10-13, autonom kjøring)
+
+Brukeren sa "implement as many phases as automatic as you can, push it through" og la seg —
+resten av 5-fase-planen (se forrige logg-oppføring) ble kjørt gjennom i samme sesjon, HVER fase
+bygget, full regresjonssuite kjørt grønn (via subagent) og Playwright-verifisert i ekte nettleser
+(via subagent) FØR commit+push, nøyaktig etter arbeidsøkonomi-/autonomi-reglene i CLAUDE.md.
+Fire commits: `198e078` (fase 2), `3d11bc1` (fase 4), `d81c133` (fase 5), `f09b50b` (fase 3 —
+kjørt sist, se under for hvorfor rekkefølgen 2→4→5→3 ble valgt).
+
+**Fase 2 (prisformel) — commit `198e078`:** `TestPrisberegner.Beregn` tar nå `AbonnementModus` +
+`AbonnementOppsett` i stedet for en bar bool. a) Terapeut Gratis: plattformandel =
+`BetalingsgebyrKr + TerapeutGratisProsent% av honorar`. b)/c): null plattformandel på selve
+testen (som før). Klinikk-%-en er IKKE en sirkulær andel av den endelige totalsummen, men en
+prosent av "det pasienten ellers ville betalt" (plattform+honorar) lagt TIL OPPÅ — valgt for å
+unngå å måtte løse en sirkulær ligning, se `TestPrisberegner.cs` sin XML-doc. SMS-gebyret
+faktureres nå KUN pasienten i modus a). `Test.HarKostnadPerGjennomforing`/`MinstePartnerAndelKr`/
+`PartnerTestAndel.AndelKr` (alle lagt til "side om side" i fase 1 for en trygg mellomtilstand) er
+nå faktisk FJERNET — egen migrasjon, ren kolonne-drop. `OkonomiRapportService` fikk
+`NettoPlattformMargin` (plattforminntekt minus rettighetshaver-kostnad).
+
+**Fase 4 (klinikk-seter) — commit `3d11bc1`:** `KlinikkPrisService` slår opp riktig
+`KlinikkSeterTier` basert på klinikkens antall AKTIVE (ikke arkiverte) behandlere — HELE
+klinikken prises til samme kr/sete, ikke gradert. `Admin/Partnere/Rediger` viser nå gjeldende
+sete-pris og en `RabattProsent`-inputfelt. "Lukk en klinikk som ikke betaler" krevde INGEN ny
+kode — eksisterende Arkiver/Slett i `Partnere/Index.cshtml.cs` dekket det allerede allerede.
+
+**Fase 5 (webside) — commit `d81c133`:** Fjernet toppnavigasjonen (duplikat av footeren, inkl.
+den da ubrukte hamburger-menyen); footeren skjules nå for innloggede PASIENTER (rolle-basert
+`erPasient`, IKKE den side-skopede `erPasientPortal` — forskjellen ble spesifikt flagget av en
+Explore-agent under research-fasen, se forrige logg-oppføring, og var riktig å følge). Alle 7
+funksjonskort på forsiden er nå `<a>`-lenker til en ny `/Funksjoner`-side med utdypende
+forklaring (3 nye kort lagt til: Hjemmeoppgaver/Behandlingsprogrammer/Grupperapportering). Ny
+`/Prising`-side forklarer de tre modellene i klartekst uten å lekke superadmin-justerbare tall.
+
+**Fase 3 (selvregistrering/test-modus/Abonnement-fane) — commit `f09b50b`, kjørt SIST med vilje:**
+Dette var den eneste fasen som trengte ekte, interaktiv ekstern leverandørverifisering
+(Stripe-kort) for å være komplett, og ble derfor bevisst nedskalert til KUN det som er trygt å
+bygge og verifisere uten en ekte Stripe-testkonto midt på natten — samme "mock/manuelt nå, ekte
+leverandør senere"-prinsipp som BankID/Vipps alltid har fulgt i dette prosjektet:
+
+- `Pages/BliBehandler` (offentlig selvregistrering) — gjenbruker HELE den eksisterende
+  `BehandlerInvitasjonService`-flyten (invitasjon → fullfør profil → verifiser SMS+e-post-kode →
+  Aktiv, venter HPR-godkjenning) i stedet for å bygge en parallell flyt. Den gamle "nøyaktig én av
+  InvitertAvAdministratorId/InvitertAvBehandlerId"-invarianten ble relaksert til "høyst én" —
+  begge null betyr selvregistrert.
+- **Reell regresjon fanget av full testsuite FØR commit (6 feilende tester):** `Behandler.
+  HarKortLagret` defaulter til `false` for ALLE eksisterende rader (migrert fra `HarEgetAbonnement`
+  i fase 1, som selv var `false` for de fleste). Den første versjonen av test-modus-sperren
+  («uavhengig behandler uten kort → kan kun sende til seg selv») sjekket KUN `PartnerId is null &&
+  !HarKortLagret` — noe som ville ha låst HVER ENESTE eksisterende admin-/kollega-invitert
+  behandler (og enhver direkte i tester/dev-seed konstruert `Behandler`-rad, som aldri setter
+  disse feltene) til test-modus RETROAKTIVT, en reell funksjonsregresjon for alt eksisterende
+  innhold i dev/beta/live. Løsningen var et helt nytt felt, `Behandler.
+  OpprettetViaSelvregistrering` (satt KUN av selve selvregistreringen, default `false` for alle
+  andre), som sperren nå OGSÅ krever. Permanent regresjonstest lagt til
+  (`TestModusTests.IkkeSelvregistrertUtenKort_ErALDRIBegrensetAvTestmodus`) for å aldri gjenta
+  denne klassen av feil — se CLAUDE.md sine kjente fallgruver for samme mønster ("en ny
+  default-verdi kan retroaktivt endre oppførsel for eksisterende rader") gjentatt her på en helt
+  ny måte (en RETTIGHETS-sperre denne gangen, ikke en pris-/visningsfeil).
+- "Test-modus" = en SELVREGISTRERT, uavhengig behandler uten kort kan bruke alt, men
+  `TestTildelingsService.TildelOgVarsleAsync` avviser nå TYDELIG (i `IkkeTildelteTesterGrunnet`,
+  samme UI-mønster som `KreverBiologiskKjonn`-avvisningen) et forsøk på å sende til noen annen enn
+  en `Pasient`-rad med samme e-post som behandlerens egen innlogging ("seg selv").
+- `Behandlerportal/Abonnement` (ny topp-nivå-side, samme "for få sider til
+  AuthorizeAreaFolder"-mønster som `Innstillinger.cshtml`) — viser prøveperiode/test-modus-status,
+  lar behandler bytte abonnementsmodus NÅR et kort er lagret. Ny `.abonnement-banner`-CSS-
+  komponent i `_Layout.cshtml` (research-agenten bekreftet INGEN generisk banner/alert-komponent
+  fantes i hele kodebasen fra før — bygget fra scratch).
+- `Admin/Behandlere/Rediger` fikk et Superadmin-only manuelt override for
+  `HarKortLagret`/`AbonnementModus` — samme midlertidige "sett tilstanden direkte"-prinsipp som
+  den gamle `HarEgetAbonnement` alltid var, helt til ekte kortintegrasjon er bygget.
+- **IKKE bygget i denne runden, bevisst utelatt (krever ekte Stripe-testnøkler + brukerens egen
+  interaktive verifisering, se CLAUDE.md "Eksterne leverandører"):** selve Stripe SetupIntent
+  (kortopptak)/Subscriptions-API-integrasjonen (`StripeAbonnementService`/`IStripeAbonnementClient`
+  fra planen), webhook-utvidelsen for `invoice.paid`/`invoice.payment_failed`/
+  `customer.subscription.deleted`, selve den månedlige FAKTURERINGEN (samme "tilstand, ikke
+  motor"-begrensning som `HarEgetAbonnement`/`HarAktivtAbonnement` alltid har hatt), og en
+  planlagt påminnelse-melding når prøveperioden går mot slutten (kun selve banneret/statusvisningen
+  er bygget, ikke en bakgrunnstjeneste som varsler proaktivt).
+- Verifisert ende-til-ende i ekte nettleser via Playwright-subagent: hele selvregistrerings-/
+  fullfør-/verifiser-flyten (e-post-verifiseringskoden er, som i den eksisterende
+  behandler-invitasjonsflyten generelt, kun synlig i konsoll-mock — forventet, ikke en bug),
+  test-modus-bannerteksten, superadmin-override-feltene, og Admin/Abonnement-siden med sete-tiers.
+
+**Et uventet sideeffekt-funn under Playwright-verifiseringen av fase 5 (IKKE en kodebug, men en
+reell drifts-risiko å kjenne til):** å starte den lokale dev-serveren (`dotnet run`) trigget
+`DriftsstatusVarslingBakgrunnstjeneste` til å faktisk sende et REELT Pushover-push til brukerens
+telefon ("1 ny rød sjekk") — lokal dev-databasen hadde tydeligvis en ekte Pushover
+"App Token" konfigurert (fra en tidligere økt), og en reell, gammel "Feilet"-utbetalingslinje i
+den lokale testdataen trigget et EKTE varsel midt på natten. Ingen kodefeil (sjekken selv er
+korrekt — den fant en reell, om enn lokal, rød tilstand), men en god påminnelse: KJØR ALDRI
+`dotnet run`/`dotnet watch run` lokalt uten å huske at bakgrunnstjenester som sender til ekte
+eksterne tjenester (Pushover, SMS, e-post) kan trigges av ren lokal testdata hvis ekte nøkler
+noensinne er lagt inn lokalt — dev-serveren ble drept umiddelbart begge ganger den ikke var i
+aktivt bruk til verifisering, og ingen flere varsler ble observert (sannsynligvis pga.
+samme-tilstand-dedupliseringen omtalt i Pushover-oppføringen over).
+
+**Alt verifisert grønt ved slutten av kvelden:** 119 xUnit-tester (opp fra 110 ved sesjonsstart),
+full `dotnet build` grønn, Playwright-verifisert i nettleser for alle fem faser. Ingenting i denne
+runden rørte produksjons-/beta-App Service-innstillinger, Key Vault, eller `azd`-miljøene — alt
+er lokalt commitet+pushet til `master`, klart for neste `azd deploy`-vurdering av brukeren selv.

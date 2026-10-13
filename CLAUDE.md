@@ -419,5 +419,13 @@ dotnet watch run
    `ItqSkaaringsberegner`/`Phq9Skaaringsberegner`. Søk `docs/beslutningslogg.md` under "Åpne
    punkter til senere faser" for full liste, og `docs/prosjektbeskrivelse-original.md` for
    fasiten på krav som ennå ikke er designet i detalj.
+   **Nytt 2026-10-13:** et komplett abonnement/subscription-system (tre behandler-
+   abonnementsmodeller, klinikk-sete-prising, superadmin-kostnadsoppsett, selvregistrering,
+   test-modus-sperre) er bygget og fullt test-/Playwright-verifisert — se
+   `docs/beslutningslogg.md` "Abonnement/subscription-system" (to oppføringer, fase 1 og
+   fase 2-5) for full detalj. Ekte Stripe-kortopptak/Subscriptions-API/faktisk månedlig
+   fakturering er BEVISST IKKE bygget ennå (kun en manuell superadmin-override finnes,
+   `Admin/Behandlere/Rediger`) — krever ekte Stripe-testnøkler og brukerens egen interaktive
+   verifisering før det kan fullføres, samme mønster som BankID/Vipps alltid har fulgt.
 2. Oppdater `docs/beslutningslogg.md` etter hvert som beslutninger tas — det er masterdokumentet for prosjektstatus fra nå av, siden Claude Code ikke har tilgang til det opprinnelige claude.ai-prosjektet ("Testdatabase") arbeidet startet i.
 3. Bruk samme mønster som i Del 1–5: mock-implementasjoner bak grensesnitt for alt som krever ekte tredjepartsavtaler, ekte pasientdata aldri i dev/test, sikkerhetskode (inkl. kryptering) aktiv i alle miljøer fra starten, IKKE gi et nytt Razor Pages Area samme navn som en domeneentitet med mindre navnet er en annen bøyningsform som ikke matcher eksakt (se fallgruven over — "Tester" vs "Test" var trygt), og ny innebygd test = ny `Test.Kode` + `IInnebygdTestSeeder` + evt. `ITestSkaaringsberegner` (samme mønster som WHO-5).
