@@ -73,14 +73,6 @@ public sealed class Test
     /// <summary>Foreslått standard behandler-honorar, vist i tildelingsskjemaet før behandler har noen egen historikk på denne testen.</summary>
     public decimal TypiskBehandlerHonorarKr { get; set; }
 
-    /// <summary>
-    /// UTFASES (se docs/beslutningslogg.md "Abonnement/subscription-system") —
-    /// erstattes av <see cref="MinstePartnerAndelProsent"/>, en prosentandel
-    /// av pasientens totalpris i stedet for et flatt kronebeløp. Beholdes til
-    /// alle kallsteder er flyttet over.
-    /// </summary>
-    public decimal MinstePartnerAndelKr { get; set; }
-
     /// <summary>Superadmin-satt gulv (0-100) for hvor lav en partner-admin kan sette sin egen PartnerTestAndel-PROSENT til — se TestPrisberegner.</summary>
     public decimal MinstePartnerAndelProsent { get; set; }
 
@@ -112,23 +104,13 @@ public sealed class Test
     public bool FyllesUtAvBehandler { get; set; }
 
     /// <summary>
-    /// Sant for tester som påfører PRAKSISEN/behandleren en reell kostnad per
-    /// gjennomføring (f.eks. en lisensavgift til testens rettighetshaver) —
-    /// ATSKILT fra <see cref="StorstePrisKr"/>, som er PASIENTENS pris. Rent
-    /// visningsfelt (dollar-ikon i tildelingsflyten, se
-    /// docs/beslutningslogg.md "Forenkling av Tildel/Tester") — per 2026-10-02
-    /// kun satt sann for M.I.N.I.-strukturdemoen. Standard false for ALLE
-    /// eksisterende tester. Ingen admin-UI ennå, samme mønster som
-    /// RapportIntroduksjon — kun satt av innebygde testers seedere foreløpig.
-    /// </summary>
-    public bool HarKostnadPerGjennomforing { get; set; }
-
-    /// <summary>
     /// Faktisk lisensavgift (kr) til testens rettighetshaver PER GJENNOMFØRING
     /// — superadmin-satt (se docs/beslutningslogg.md "Abonnement/subscription-
     /// system"). Rent plattformkostnad, trekkes ALDRI fra pasienten direkte
     /// (atskilt fra StorstePrisKr), men reduserer plattformens reelle margin
-    /// i OkonomiRapportService. 0 = ingen kjent lisenskostnad.
+    /// i OkonomiRapportService. 0 = ingen kjent lisenskostnad — erstatter den
+    /// tidligere rene visningsboolen HarKostnadPerGjennomforing (dollar-ikonet
+    /// i tildelingsflyten viser nå ganske enkelt "> 0" av dette feltet).
     /// </summary>
     public decimal RettighetshaverKostnadKr { get; set; }
 

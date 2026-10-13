@@ -52,21 +52,26 @@ public sealed class IndexModel : PageModel
             var minstePrisKr = LesDecimal($"MinstePrisKr[{test.Id}]", test.MinstePrisKr);
             var storstePrisKr = LesDecimal($"StorstePrisKr[{test.Id}]", test.StorstePrisKr);
             var typiskBehandlerHonorarKr = LesDecimal($"TypiskBehandlerHonorarKr[{test.Id}]", test.TypiskBehandlerHonorarKr);
-            var minstePartnerAndelKr = LesDecimal($"MinstePartnerAndelKr[{test.Id}]", test.MinstePartnerAndelKr);
+            var minstePartnerAndelProsent = LesDecimal($"MinstePartnerAndelProsent[{test.Id}]", test.MinstePartnerAndelProsent);
+            var rettighetshaverKostnadKr = LesDecimal($"RettighetshaverKostnadKr[{test.Id}]", test.RettighetshaverKostnadKr);
 
-            // Sikrer at prisformelen i TestPrisberegner aldri havner i en umulig
-            // tilstand — plattform- og partnerandelen er garanterte gulv, de må
-            // til sammen få plass under maks-grensen.
-            if (minstePrisKr + minstePartnerAndelKr > storstePrisKr)
+            if (minstePrisKr > storstePrisKr)
             {
-                feilmeldinger.Add($"«{test.Navn}»: minste pris ({minstePrisKr:0.00}) pluss minste klinikkandel ({minstePartnerAndelKr:0.00}) kan ikke overstige største pris ({storstePrisKr:0.00}).");
+                feilmeldinger.Add($"«{test.Navn}»: minste pris ({minstePrisKr:0.00}) kan ikke overstige største pris ({storstePrisKr:0.00}).");
+                continue;
+            }
+
+            if (minstePartnerAndelProsent is < 0 or > 100)
+            {
+                feilmeldinger.Add($"«{test.Navn}»: klinikkandel må være mellom 0 og 100 %.");
                 continue;
             }
 
             test.MinstePrisKr = minstePrisKr;
             test.StorstePrisKr = storstePrisKr;
             test.TypiskBehandlerHonorarKr = typiskBehandlerHonorarKr;
-            test.MinstePartnerAndelKr = minstePartnerAndelKr;
+            test.MinstePartnerAndelProsent = minstePartnerAndelProsent;
+            test.RettighetshaverKostnadKr = rettighetshaverKostnadKr;
         }
 
         if (feilmeldinger.Count > 0)

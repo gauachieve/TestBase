@@ -64,13 +64,13 @@ public sealed class BetalingPipelineTests
         test.MinstePrisKr = 20m;
         test.StorstePrisKr = 500m;
         test.TypiskBehandlerHonorarKr = 100m;
-        test.MinstePartnerAndelKr = 10m;
+        test.MinstePartnerAndelProsent = 5m;
         await db.SaveChangesAsync();
 
         // PartnerTestTilgang opprettes nå automatisk av OpprettTestAsync siden
         // partneren allerede fantes (se TestService.GiAllePartnereTilgangTilTestAsync,
         // 2026-09-15) — kun andelen må settes opp eksplisitt her.
-        db.PartnerTestAndeler.Add(new PartnerTestAndel { PartnerId = partner.Id, TestId = test.Id, AndelKr = 15m, SistEndretAvBehandlerId = behandler.Id, SistEndretUtc = DateTimeOffset.UtcNow });
+        db.PartnerTestAndeler.Add(new PartnerTestAndel { PartnerId = partner.Id, TestId = test.Id, AndelProsent = 10m, SistEndretAvBehandlerId = behandler.Id, SistEndretUtc = DateTimeOffset.UtcNow });
         await db.SaveChangesAsync();
 
         var pasient = new Pasient
@@ -98,11 +98,13 @@ public sealed class BetalingPipelineTests
 
         var betaling = await testService.HentBetalingAsync(tildeling.Id);
         Assert.NotNull(betaling);
-        // plattform 20 + partner 15 (over gulvet 10, brukt direkte) + honorar 120 = 155, innenfor maks 500.
-        Assert.Equal(20m, betaling!.PlattformAndelKr);
-        Assert.Equal(15m, betaling.PartnerAndelKr);
+        // Default AbonnementOppsett (betalingsgebyr 2 kr, 4.99 % av honorar): plattform =
+        // 2 + 4.99 % * 120 = 7.99. Partner (10 %, over gulvet 5 %, brukt direkte) = 10 % av
+        // (7.99 + 120) = 12.80. Total = 7.99 + 12.80 + 120 = 140.79, innenfor maks 500.
+        Assert.Equal(7.99m, betaling!.PlattformAndelKr);
+        Assert.Equal(12.80m, betaling.PartnerAndelKr);
         Assert.Equal(120m, betaling.BehandlerHonorarKr);
-        Assert.Equal(155m, betaling.PasientTotalprisKr);
+        Assert.Equal(140.79m, betaling.PasientTotalprisKr);
         Assert.Equal(BetalingStatus.Venter, betaling.Status);
         Assert.Equal(partner.Id, betaling.PartnerId);
 
@@ -116,9 +118,9 @@ public sealed class BetalingPipelineTests
 
         var bevegelser = await db.Pengebevegelser.Where(p => p.TestTildelingId == tildeling.Id).ToListAsync();
         Assert.Equal(4, bevegelser.Count);
-        Assert.Equal(155m, bevegelser.Single(p => p.Type == PengebevegelseType.PasientBetalingMottatt).BelopKr);
-        Assert.Equal(20m, bevegelser.Single(p => p.Type == PengebevegelseType.PlattformInntekt).BelopKr);
-        Assert.Equal(15m, bevegelser.Single(p => p.Type == PengebevegelseType.PartnerAndel).BelopKr);
+        Assert.Equal(140.79m, bevegelser.Single(p => p.Type == PengebevegelseType.PasientBetalingMottatt).BelopKr);
+        Assert.Equal(7.99m, bevegelser.Single(p => p.Type == PengebevegelseType.PlattformInntekt).BelopKr);
+        Assert.Equal(12.80m, bevegelser.Single(p => p.Type == PengebevegelseType.PartnerAndel).BelopKr);
         Assert.Equal(120m, bevegelser.Single(p => p.Type == PengebevegelseType.BehandlerHonorar).BelopKr);
 
         // --- Idempotens: å markere betalt på nytt skal IKKE doble opp ledger-radene. ---

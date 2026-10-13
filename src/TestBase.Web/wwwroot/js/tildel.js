@@ -169,24 +169,35 @@
         var minstePris = tall(checkbox.getAttribute('data-minste-pris'));
         var storstePris = Math.max(tall(checkbox.getAttribute('data-storste-pris')), minstePris);
         var typiskHonorar = tall(checkbox.getAttribute('data-typisk-honorar'));
-        var partnerAndel = tall(checkbox.getAttribute('data-partner-andel'));
+        var partnerAndelProsent = tall(checkbox.getAttribute('data-partner-andel-prosent'));
         var dekketAvAbonnement = form.getAttribute('data-dekket-av-abonnement') === 'true';
-
-        var plattformAndel = dekketAvAbonnement ? 0 : minstePris;
+        var betalingsgebyrKr = tall(form.getAttribute('data-betalingsgebyr-kr'));
+        var terapeutGratisProsent = tall(form.getAttribute('data-terapeut-gratis-prosent'));
 
         var honorarInput = document.getElementById('honorar-' + checkbox.getAttribute('data-test-id'));
         var onsketHonorar = honorarInput && honorarInput.value !== '' ? tall(honorarInput.value, typiskHonorar) : typiskHonorar;
+
+        // Speiler TestPrisberegner.Beregn: a) Terapeut Gratis legger plattformens
+        // kutt (flatt gebyr + prosent av honoraret) på pasientens pris; b)/c) har
+        // ingen plattformandel på selve testen (behandleren betaler sin egen
+        // abonnementsavgift i stedet, ikke en del av denne pr.-test-prisen).
+        var plattformAndel = dekketAvAbonnement ? 0 : (betalingsgebyrKr + (terapeutGratisProsent / 100) * onsketHonorar);
+        var partnerAndel = (partnerAndelProsent / 100) * (plattformAndel + onsketHonorar);
 
         var onsketTotal = plattformAndel + partnerAndel + onsketHonorar;
         var totalUtenSms = Math.min(Math.max(onsketTotal, minstePris), storstePris);
         var behandlerHonorar = Math.max(0, totalUtenSms - plattformAndel - partnerAndel);
 
+        // SMS-kostnaden legges KUN til pasientens pris i modus a) — i b)/c)
+        // faktureres behandleren separat (se TestPrisberegner).
+        var smsGebyrPatientKr = dekketAvAbonnement ? 0 : smsGebyrKr;
+
         return {
-            totalKr: totalUtenSms + smsGebyrKr,
+            totalKr: totalUtenSms + smsGebyrPatientKr,
             behandlerHonorar: behandlerHonorar,
-            plattformAndel: plattformAndel + smsGebyrKr,
+            plattformAndel: plattformAndel + smsGebyrPatientKr,
             partnerAndel: partnerAndel,
-            smsGebyrKr: smsGebyrKr
+            smsGebyrKr: smsGebyrPatientKr
         };
     }
 

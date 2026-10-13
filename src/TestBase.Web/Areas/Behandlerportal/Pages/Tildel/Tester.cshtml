@@ -109,6 +109,8 @@ else if (Model.ValgtePasienter.Any())
     <form method="post" asp-page-handler="Send" id="tildelForm"
           data-dekket-av-abonnement="@Model.Prisingskontekst.DekketAvAbonnement.ToString().ToLowerInvariant()"
           data-sms-gebyr-kr="@Model.Prisingskontekst.SmsGebyrKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+          data-betalingsgebyr-kr="@Model.Oppsett.BetalingsgebyrKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+          data-terapeut-gratis-prosent="@Model.Oppsett.TerapeutGratisProsent.ToString(System.Globalization.CultureInfo.InvariantCulture)"
           data-antall-pasienter="@Model.ValgtePasienter.Count"
           data-disable-on-submit="Sender …">
         <input type="hidden" asp-for="PasientIderCsv" />
@@ -147,7 +149,7 @@ else if (Model.ValgtePasienter.Any())
                                        data-minste-pris="@test.MinstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                                        data-storste-pris="@test.StorstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                                        data-typisk-honorar="@test.TypiskBehandlerHonorarKr.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                                       data-partner-andel="@Model.Prisingskontekst.EffektivPartnerAndelPerTestId.GetValueOrDefault(test.Id).ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                                       data-partner-andel-prosent="@Model.Prisingskontekst.EffektivPartnerAndelProsentPerTestId.GetValueOrDefault(test.Id).ToString(System.Globalization.CultureInfo.InvariantCulture)" />
                                 <span class="tildel-test-navn-rad">
                                     <span>@test.Navn @if (!string.IsNullOrEmpty(test.OversettelseNotat))
                                         {
@@ -157,7 +159,7 @@ else if (Model.ValgtePasienter.Any())
                                     {
                                         <span class="tildel-ikon" title="Tolkning kan prises"><partial name="_Ikon" model="@("pluss")" /></span>
                                     }
-                                    @if (test.HarKostnadPerGjennomforing)
+                                    @if (test.RettighetshaverKostnadKr > 0)
                                     {
                                         <span class="tildel-ikon" title="Koster praksisen noe per gjennomføring"><partial name="_Ikon" model="@("dollar")" /></span>
                                     }

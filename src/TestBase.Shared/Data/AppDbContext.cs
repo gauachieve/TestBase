@@ -238,7 +238,6 @@ public sealed class AppDbContext : DbContext
             entity.Property(t => t.MinstePrisKr).HasColumnType("decimal(10,2)");
             entity.Property(t => t.StorstePrisKr).HasColumnType("decimal(10,2)");
             entity.Property(t => t.TypiskBehandlerHonorarKr).HasColumnType("decimal(10,2)");
-            entity.Property(t => t.MinstePartnerAndelKr).HasColumnType("decimal(10,2)");
             entity.Property(t => t.MinstePartnerAndelProsent).HasColumnType("decimal(5,2)");
             entity.Property(t => t.RettighetshaverKostnadKr).HasColumnType("decimal(10,2)");
         });
@@ -426,7 +425,6 @@ public sealed class AppDbContext : DbContext
             entity.ToTable("partner_test_andeler");
             entity.HasKey(a => a.Id);
             entity.HasIndex(a => new { a.PartnerId, a.TestId }).IsUnique();
-            entity.Property(a => a.AndelKr).HasColumnType("decimal(10,2)");
             entity.Property(a => a.AndelProsent).HasColumnType("decimal(5,2)");
         });
 

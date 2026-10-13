@@ -7,8 +7,11 @@
 <h1>Testprising</h1>
 <p>
     Minste/største pris er grenser på PASIENTENS TOTALPRIS (ikke bare behandlerens
-    honorar) — minste pris 0 markerer at testen kan tilbys gratis. Se
-    docs/beslutningslogg.md "Partner System + Test Monetization".
+    honorar) — minste pris 0 markerer at testen kan tilbys gratis. Klinikkandelen er
+    nå en PROSENT av pasientens pris (ikke et flatt kronebeløp), og rettighetshaver-
+    kostnaden er plattformens egen utgift (trekkes aldri fra pasienten direkte, men
+    reduserer plattformens vist margin i Admin/Økonomi). Se docs/beslutningslogg.md
+    "Abonnement/subscription-system".
 </p>
 
 @if (Model.Feilmelding is not null)
@@ -24,7 +27,8 @@
                 <th>Minste pris (NOK)</th>
                 <th>Største pris (NOK)</th>
                 <th>Typisk honorar (NOK)</th>
-                <th>Minste klinikkandel (NOK)</th>
+                <th>Minste klinikkandel (%)</th>
+                <th>Rettighetshaver-kostnad per gjennomføring (NOK)</th>
             </tr>
         </thead>
         <tbody>
@@ -35,7 +39,8 @@
                 <td><input type="number" step="0.01" min="0" name="MinstePrisKr[@test.Id]" value="@test.MinstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /></td>
                 <td><input type="number" step="0.01" min="0" name="StorstePrisKr[@test.Id]" value="@test.StorstePrisKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /></td>
                 <td><input type="number" step="0.01" min="0" name="TypiskBehandlerHonorarKr[@test.Id]" value="@test.TypiskBehandlerHonorarKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /></td>
-                <td><input type="number" step="0.01" min="0" name="MinstePartnerAndelKr[@test.Id]" value="@test.MinstePartnerAndelKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /></td>
+                <td><input type="number" step="0.01" min="0" max="100" name="MinstePartnerAndelProsent[@test.Id]" value="@test.MinstePartnerAndelProsent.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /></td>
+                <td><input type="number" step="0.01" min="0" name="RettighetshaverKostnadKr[@test.Id]" value="@test.RettighetshaverKostnadKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="tall-input" /></td>
             </tr>
         }
         </tbody>

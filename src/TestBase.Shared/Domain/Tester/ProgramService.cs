@@ -30,18 +30,20 @@ public sealed class ProgramService
     private readonly AppDbContext _db;
     private readonly TestService _testService;
     private readonly TestPrisberegner _prisberegner;
+    private readonly AbonnementOppsettService _abonnementOppsettService;
     private readonly BehandlerMeldingService _meldingService;
     private readonly ISmsSender _sms;
     private readonly IEmailSender _email;
     private readonly ILogger<ProgramService> _logger;
 
     public ProgramService(
-        AppDbContext db, TestService testService, TestPrisberegner prisberegner, BehandlerMeldingService meldingService,
-        ISmsSender sms, IEmailSender email, ILogger<ProgramService> logger)
+        AppDbContext db, TestService testService, TestPrisberegner prisberegner, AbonnementOppsettService abonnementOppsettService,
+        BehandlerMeldingService meldingService, ISmsSender sms, IEmailSender email, ILogger<ProgramService> logger)
     {
         _db = db;
         _testService = testService;
         _prisberegner = prisberegner;
+        _abonnementOppsettService = abonnementOppsettService;
         _meldingService = meldingService;
         _sms = sms;
         _email = email;
@@ -520,7 +522,9 @@ public sealed class ProgramService
         var erProvepasient = string.IsNullOrWhiteSpace(pasient.Personnummer);
         var kanKoste = erFoersteIProgrammet && rekkefolgeIDrop == 1 && !erProvepasient;
         var pris = kanKoste && test.StorstePrisKr > 0
-            ? _prisberegner.Beregn(test, dekketAvAbonnement: false, onsketHonorarKr: null, effektivPartnerAndelKr: null)
+            ? _prisberegner.Beregn(
+                test, AbonnementModus.TerapeutGratis, await _abonnementOppsettService.HentAsync(cancellationToken),
+                onsketHonorarKr: null, effektivPartnerAndelProsent: null)
             : null;
 
         _db.TestTildelingBetalinger.Add(new TestTildelingBetaling

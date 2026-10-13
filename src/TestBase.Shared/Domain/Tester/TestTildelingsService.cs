@@ -46,7 +46,7 @@ public sealed record TildelingsBatchResultat(IReadOnlyList<TildeltPasientResulta
 /// BeregnPrisPerTestAsync bruker på skrivetidspunktet.
 /// </summary>
 public sealed record PrisingskontekstForBehandler(
-    bool DekketAvAbonnement, IReadOnlyDictionary<long, decimal> EffektivPartnerAndelPerTestId, decimal SmsGebyrKr);
+    bool DekketAvAbonnement, IReadOnlyDictionary<long, decimal> EffektivPartnerAndelProsentPerTestId, decimal SmsGebyrKr);
 
 /// <summary>
 /// Tildelingsflyten: behandler ELLER admin velger flere pasienter og flere
@@ -63,22 +63,42 @@ public sealed class TestTildelingsService
     private readonly AppDbContext _db;
     private readonly TestService _testService;
     private readonly TestPrisberegner _prisberegner;
+    private readonly AbonnementOppsettService _abonnementOppsettService;
     private readonly ISmsSender _sms;
     private readonly IEmailSender _email;
     private readonly IConfiguration _configuration;
     private readonly ILogger<TestTildelingsService> _logger;
 
     public TestTildelingsService(
-        AppDbContext db, TestService testService, TestPrisberegner prisberegner, ISmsSender sms, IEmailSender email,
-        IConfiguration configuration, ILogger<TestTildelingsService> logger)
+        AppDbContext db, TestService testService, TestPrisberegner prisberegner, AbonnementOppsettService abonnementOppsettService,
+        ISmsSender sms, IEmailSender email, IConfiguration configuration, ILogger<TestTildelingsService> logger)
     {
         _db = db;
         _testService = testService;
         _prisberegner = prisberegner;
+        _abonnementOppsettService = abonnementOppsettService;
         _sms = sms;
         _email = email;
         _configuration = configuration;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Modusen som FAKTISK gjelder for prisberegningen — se
+    /// docs/beslutningslogg.md "Abonnement/subscription-system". En
+    /// klinikk-tilknyttet behandler er alltid "dekket" (klinikken betaler
+    /// sete-basert, se KlinikkPrisService), uavhengig av egen AbonnementModus.
+    /// En behandler uten lagret kort ("test-modus") behandles som a) Terapeut
+    /// Gratis — ingen flat avgift finnes å trekke fra uten et kort.
+    /// </summary>
+    private static AbonnementModus BestemEffektivModus(Behandler behandler, Partner? partner)
+    {
+        if (partner?.HarAktivtAbonnement ?? false)
+        {
+            return AbonnementModus.PasientenGratis;
+        }
+
+        return behandler.HarKortLagret ? behandler.AbonnementModus : AbonnementModus.TerapeutGratis;
     }
 
     /// <summary>
@@ -108,14 +128,10 @@ public sealed class TestTildelingsService
         var partner = behandler.PartnerId is null
             ? null
             : await _db.Partnere.FirstOrDefaultAsync(p => p.Id == behandler.PartnerId, cancellationToken);
-        // "Dekket av abonnement" (ingen plattformandel på selve testen) i modusene
-        // PasientenGratis/Forutsigbart — se AbonnementModus/TestPrisberegner. En
-        // klinikk-tilknyttet behandler er alltid dekket via klinikkens eget
-        // sete-abonnement, uavhengig av egen AbonnementModus (ikke brukt når PartnerId er satt).
-        var dekketAvAbonnement = (partner?.HarAktivtAbonnement ?? false)
-            || (partner is null && behandler.HarKortLagret && behandler.AbonnementModus != AbonnementModus.TerapeutGratis);
+        var effektivModus = BestemEffektivModus(behandler, partner);
+        var dekketAvAbonnement = effektivModus != AbonnementModus.TerapeutGratis;
 
-        var effektivPartnerAndel = new Dictionary<long, decimal>();
+        var effektivPartnerAndelProsent = new Dictionary<long, decimal>();
         if (partner is not null)
         {
             var tester = await _db.Tester.Where(t => testIder.Contains(t.Id)).ToDictionaryAsync(t => t.Id, cancellationToken);
@@ -130,11 +146,11 @@ public sealed class TestTildelingsService
                     continue;
                 }
 
-                effektivPartnerAndel[testId] = Math.Max(andeler.GetValueOrDefault(testId)?.AndelKr ?? 0m, test.MinstePartnerAndelKr);
+                effektivPartnerAndelProsent[testId] = Math.Max(andeler.GetValueOrDefault(testId)?.AndelProsent ?? 0m, test.MinstePartnerAndelProsent);
             }
         }
 
-        return new PrisingskontekstForBehandler(dekketAvAbonnement, effektivPartnerAndel, HentSmsGebyrKr());
+        return new PrisingskontekstForBehandler(dekketAvAbonnement, effektivPartnerAndelProsent, HentSmsGebyrKr());
     }
 
     /// <summary>
@@ -383,21 +399,21 @@ public sealed class TestTildelingsService
         var partner = behandler.PartnerId is null
             ? null
             : await _db.Partnere.AsNoTracking().FirstOrDefaultAsync(p => p.Id == behandler.PartnerId, cancellationToken);
-        var dekketAvAbonnement = (partner?.HarAktivtAbonnement ?? false)
-            || (partner is null && behandler.HarKortLagret && behandler.AbonnementModus != AbonnementModus.TerapeutGratis);
+        var effektivModus = BestemEffektivModus(behandler, partner);
+        var oppsett = await _abonnementOppsettService.HentAsync(cancellationToken);
 
         foreach (var (testId, test) in tester)
         {
-            decimal? effektivPartnerAndelKr = null;
+            decimal? effektivPartnerAndelProsent = null;
             if (partner is not null)
             {
                 var partnerAndel = await _db.PartnerTestAndeler
                     .FirstOrDefaultAsync(a => a.PartnerId == partner.Id && a.TestId == testId, cancellationToken);
-                effektivPartnerAndelKr = Math.Max(partnerAndel?.AndelKr ?? 0m, test.MinstePartnerAndelKr);
+                effektivPartnerAndelProsent = Math.Max(partnerAndel?.AndelProsent ?? 0m, test.MinstePartnerAndelProsent);
             }
 
             resultat[testId] = _prisberegner.Beregn(
-                test, dekketAvAbonnement, onsketHonorarKrPerTestId.GetValueOrDefault(testId), effektivPartnerAndelKr,
+                test, effektivModus, oppsett, onsketHonorarKrPerTestId.GetValueOrDefault(testId), effektivPartnerAndelProsent,
                 smsGebyrKr: inkludererSms ? HentSmsGebyrKr() : 0m);
         }
 

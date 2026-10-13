@@ -7,14 +7,15 @@ using TestBase.Shared.Security;
 
 namespace TestBase.Web.Areas.Behandlerportal.Pages.MinPartner;
 
-public sealed record TestMedPartnerAndel(Test Test, decimal EffektivAndelKr);
+public sealed record TestMedPartnerAndel(Test Test, decimal EffektivAndelProsent);
 
 /// <summary>
-/// Partner-admin sin selvbetjente andel per test (se PartnerTestAndel) — kun
-/// på tester Superadmin faktisk har gitt partneren tilgang til
-/// (PartnerTestTilgang). Klemmes alltid til minst Test.MinstePartnerAndelKr
-/// på skrivetidspunktet, se docs/beslutningslogg.md "Partner System + Test
-/// Monetization". Ett samlet skjema/én Lagre-knapp for alle rader — se
+/// Partner-admin sin selvbetjente andel (prosent) per test (se
+/// PartnerTestAndel) — kun på tester Superadmin faktisk har gitt partneren
+/// tilgang til (PartnerTestTilgang). Klemmes alltid til minst
+/// Test.MinstePartnerAndelProsent på skrivetidspunktet, se
+/// docs/beslutningslogg.md "Abonnement/subscription-system". Ett samlet
+/// skjema/én Lagre-knapp for alle rader — se
 /// Admin/Tester/Prising/Index.cshtml.cs sitt motstykke for full begrunnelse
 /// (bugliste 2026-09-13 punkt 12).
 ///
@@ -72,18 +73,18 @@ public sealed class PrisingModel : PageModel
 
         foreach (var rad in Tester)
         {
-            var raw = Request.Form[$"AndelKr[{rad.Test.Id}]"].ToString();
-            if (!decimal.TryParse(raw, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var andelKr))
+            var raw = Request.Form[$"AndelProsent[{rad.Test.Id}]"].ToString();
+            if (!decimal.TryParse(raw, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var andelProsent))
             {
                 continue;
             }
 
-            var klemtAndel = Math.Max(andelKr, rad.Test.MinstePartnerAndelKr);
+            var klemtAndel = Math.Clamp(Math.Max(andelProsent, rad.Test.MinstePartnerAndelProsent), 0m, 100m);
             var eksisterende = await _db.PartnerTestAndeler.FirstOrDefaultAsync(a => a.PartnerId == partnerId && a.TestId == rad.Test.Id, cancellationToken);
 
             if (eksisterende is not null)
             {
-                eksisterende.AndelKr = klemtAndel;
+                eksisterende.AndelProsent = klemtAndel;
                 eksisterende.SistEndretAvBehandlerId = behandlerId;
                 eksisterende.SistEndretUtc = DateTimeOffset.UtcNow;
             }
@@ -93,7 +94,7 @@ public sealed class PrisingModel : PageModel
                 {
                     PartnerId = partnerId,
                     TestId = rad.Test.Id,
-                    AndelKr = klemtAndel,
+                    AndelProsent = klemtAndel,
                     SistEndretAvBehandlerId = behandlerId,
                     SistEndretUtc = DateTimeOffset.UtcNow
                 });
@@ -141,7 +142,7 @@ public sealed class PrisingModel : PageModel
         var andeler = await _db.PartnerTestAndeler.Where(a => a.PartnerId == partnerId).ToDictionaryAsync(a => a.TestId, cancellationToken);
 
         Tester = tester.Select(t => new TestMedPartnerAndel(
-            t, andeler.TryGetValue(t.Id, out var a) ? a.AndelKr : t.MinstePartnerAndelKr)).ToList();
+            t, andeler.TryGetValue(t.Id, out var a) ? a.AndelProsent : t.MinstePartnerAndelProsent)).ToList();
 
         TesterUtenTilgang = await _db.Tester
             .Where(t => t.ErAktiv && !testIder.Contains(t.Id))

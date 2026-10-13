@@ -173,7 +173,8 @@
                     <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@Model.PeriodisertRapport.SumPasientpris.ToString("N2") kr</div><div class="rapport-stat-etikett">Pasientbetalinger inn</div></div>
                     <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@Model.PeriodisertRapport.SumHonorar.ToString("N2") kr</div><div class="rapport-stat-etikett">Honorar utbetalt behandlere</div></div>
                     <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@Model.PeriodisertRapport.SumPartnerAndel.ToString("N2") kr</div><div class="rapport-stat-etikett">Andel utbetalt partnere</div></div>
-                    <div class="rapport-stat-tile rapport-stat-fremheving"><div class="rapport-stat-verdi">@Model.PeriodisertRapport.SumPlattformAndel.ToString("N2") kr</div><div class="rapport-stat-etikett">Netto plattforminntekt</div></div>
+                    <div class="rapport-stat-tile"><div class="rapport-stat-verdi">@Model.PeriodisertRapport.SumPlattformAndel.ToString("N2") kr</div><div class="rapport-stat-etikett">Plattforminntekt</div></div>
+                    <div class="rapport-stat-tile rapport-stat-fremheving"><div class="rapport-stat-verdi">@Model.PeriodisertRapport.NettoPlattformMargin.ToString("N2") kr</div><div class="rapport-stat-etikett">Netto margin (minus rettighetshaver-kostnad, @Model.PeriodisertRapport.SumRettighetshaverKostnad.ToString("N2") kr)</div></div>
                 </div>
 
                 <div class="rapport-seksjon" style="margin-top: 1.6rem;">

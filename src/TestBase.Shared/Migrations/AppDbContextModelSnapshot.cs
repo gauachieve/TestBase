@@ -1031,9 +1031,6 @@ namespace TestBase.Shared.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
 
-                    b.Property<decimal>("AndelKr")
-                        .HasColumnType("decimal(10,2)");
-
                     b.Property<decimal>("AndelProsent")
                         .HasColumnType("decimal(5,2)");
 
@@ -1399,9 +1396,6 @@ namespace TestBase.Shared.Migrations
                     b.Property<bool>("FyllesUtAvBehandler")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<bool>("HarKostnadPerGjennomforing")
-                        .HasColumnType("tinyint(1)");
-
                     b.Property<bool>("IcdElleveKlar")
                         .HasColumnType("tinyint(1)");
 
@@ -1417,9 +1411,6 @@ namespace TestBase.Shared.Migrations
 
                     b.Property<int?>("MaksUbesvartProsent")
                         .HasColumnType("int");
-
-                    b.Property<decimal>("MinstePartnerAndelKr")
-                        .HasColumnType("decimal(10,2)");
 
                     b.Property<decimal>("MinstePartnerAndelProsent")
                         .HasColumnType("decimal(5,2)");

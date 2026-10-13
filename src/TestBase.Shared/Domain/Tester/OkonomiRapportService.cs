@@ -12,12 +12,23 @@ public sealed record OkonomiTransaksjonsRad(
     decimal PasientprisKr,
     decimal HonorarKr,
     decimal PlattformAndelKr,
-    decimal? PartnerAndelKr);
+    decimal? PartnerAndelKr,
+    decimal RettighetshaverKostnadKr);
 
 public sealed record AdminOkonomiRapport(
     int Aar, int Maaned,
     IReadOnlyList<OkonomiTransaksjonsRad> Rader,
-    decimal SumPasientpris, decimal SumHonorar, decimal SumPartnerAndel, decimal SumPlattformAndel);
+    decimal SumPasientpris, decimal SumHonorar, decimal SumPartnerAndel, decimal SumPlattformAndel,
+    decimal SumRettighetshaverKostnad)
+{
+    /// <summary>
+    /// Plattformens REELLE margin — plattforminntekt minus kjente
+    /// rettighetshaver-lisenskostnader (se Test.RettighetshaverKostnadKr og
+    /// docs/beslutningslogg.md "Abonnement/subscription-system"). SumPlattformAndel
+    /// alene overvurderer margin for tester med en reell lisenskostnad.
+    /// </summary>
+    public decimal NettoPlattformMargin => SumPlattformAndel - SumRettighetshaverKostnad;
+}
 
 public sealed record BehandlerHonorarRad(DateTimeOffset Dato, long TestTildelingId, string TestNavn, decimal HonorarKr);
 
@@ -53,6 +64,7 @@ public sealed class OkonomiRapportService
             .ToListAsync(cancellationToken);
 
         var tildelingTilTest = await HentTildelingTilTestNavnAsync(bevegelser, cancellationToken);
+        var tildelingTilKostnad = await HentTildelingTilRettighetshaverKostnadAsync(bevegelser, cancellationToken);
         var behandlerNavn = await HentBehandlerNavnAsync(
             bevegelser.Where(p => p.BehandlerId != null).Select(p => p.BehandlerId!.Value), cancellationToken);
 
@@ -71,7 +83,8 @@ public sealed class OkonomiRapportService
                     PlattformAndelKr: g.Where(p => p.Type == PengebevegelseType.PlattformInntekt).Sum(p => p.BelopKr),
                     PartnerAndelKr: g.Any(p => p.Type == PengebevegelseType.PartnerAndel)
                         ? g.Where(p => p.Type == PengebevegelseType.PartnerAndel).Sum(p => p.BelopKr)
-                        : null);
+                        : null,
+                    RettighetshaverKostnadKr: tildelingTilKostnad.GetValueOrDefault(g.Key, 0m));
             })
             .OrderBy(r => r.Dato)
             .ToList();
@@ -81,7 +94,8 @@ public sealed class OkonomiRapportService
             SumPasientpris: rader.Sum(r => r.PasientprisKr),
             SumHonorar: rader.Sum(r => r.HonorarKr),
             SumPartnerAndel: rader.Sum(r => r.PartnerAndelKr ?? 0),
-            SumPlattformAndel: rader.Sum(r => r.PlattformAndelKr));
+            SumPlattformAndel: rader.Sum(r => r.PlattformAndelKr),
+            SumRettighetshaverKostnad: rader.Sum(r => r.RettighetshaverKostnadKr));
     }
 
     public async Task<BehandlerOkonomiRapport> HentBehandlerRapportAsync(long behandlerId, int aar, int maaned, CancellationToken cancellationToken = default)
@@ -148,6 +162,22 @@ public sealed class OkonomiRapportService
             .ToDictionaryAsync(t => t.Id, t => t.Navn, cancellationToken);
 
         return tildelinger.ToDictionary(t => t.Id, t => testNavn.GetValueOrDefault(t.TestId, "(ukjent test)"));
+    }
+
+    private async Task<Dictionary<long, decimal>> HentTildelingTilRettighetshaverKostnadAsync(List<Pengebevegelse> bevegelser, CancellationToken cancellationToken)
+    {
+        var tildelingIder = bevegelser.Where(p => p.TestTildelingId != null).Select(p => p.TestTildelingId!.Value).Distinct().ToList();
+        var tildelinger = await _db.TestTildelinger
+            .Where(t => tildelingIder.Contains(t.Id))
+            .Select(t => new { t.Id, t.TestId })
+            .ToListAsync(cancellationToken);
+
+        var testIder = tildelinger.Select(t => t.TestId).Distinct().ToList();
+        var kostnadPerTest = await _db.Tester
+            .Where(t => testIder.Contains(t.Id))
+            .ToDictionaryAsync(t => t.Id, t => t.RettighetshaverKostnadKr, cancellationToken);
+
+        return tildelinger.ToDictionary(t => t.Id, t => kostnadPerTest.GetValueOrDefault(t.TestId, 0m));
     }
 
     private async Task<Dictionary<long, string>> HentBehandlerNavnAsync(IEnumerable<long> behandlerIder, CancellationToken cancellationToken)

@@ -20,18 +20,21 @@ public sealed class TesterModel : PageModel
     private readonly TestTildelingsService _tildelingsService;
     private readonly PlanlagtTildelingService _planlagtTildelingService;
     private readonly ProgramService _programService;
+    private readonly AbonnementOppsettService _abonnementOppsettService;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuditLogger _auditLogger;
 
     public TesterModel(
         TestService testService, HjemmeoppgaveService hjemmeoppgaveService, TestTildelingsService tildelingsService,
-        PlanlagtTildelingService planlagtTildelingService, ProgramService programService, ICurrentUserContext currentUser, IAuditLogger auditLogger)
+        PlanlagtTildelingService planlagtTildelingService, ProgramService programService, AbonnementOppsettService abonnementOppsettService,
+        ICurrentUserContext currentUser, IAuditLogger auditLogger)
     {
         _testService = testService;
         _hjemmeoppgaveService = hjemmeoppgaveService;
         _tildelingsService = tildelingsService;
         _planlagtTildelingService = planlagtTildelingService;
         _programService = programService;
+        _abonnementOppsettService = abonnementOppsettService;
         _currentUser = currentUser;
         _auditLogger = auditLogger;
     }
@@ -109,9 +112,13 @@ public sealed class TesterModel : PageModel
     /// <summary>Brukes av tildel.js til å speile TestPrisberegner.Beregn client-side for en levende pris-forhåndsvisning i oppsummerings-dialogen.</summary>
     public PrisingskontekstForBehandler Prisingskontekst { get; private set; } = new(false, new Dictionary<long, decimal>(), 0m);
 
+    /// <summary>De globale abonnement-kostnadskonstantene (se AbonnementOppsett) — speilet client-side av tildel.js, samme formel som TestPrisberegner.Beregn.</summary>
+    public AbonnementOppsett Oppsett { get; private set; } = null!;
+
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         PaaminnelseMelding = TempData["PaaminnelseMelding"] as string;
+        Oppsett = await _abonnementOppsettService.HentAsync(cancellationToken);
         await LastIkkeFullforteAsync(cancellationToken);
 
         if (TempData.Peek("TildelPasientIder") is not string csv || string.IsNullOrWhiteSpace(csv))
