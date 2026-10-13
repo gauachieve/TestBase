@@ -71,6 +71,7 @@ builder.Services.AddHostedService<UtbetalingsBatchBakgrunnstjeneste>();
 builder.Services.AddHostedService<DriftsstatusVarslingBakgrunnstjeneste>();
 builder.Services.AddScoped<OkonomiRapportService>();
 builder.Services.AddScoped<AdminOkonomiOppsettService>();
+builder.Services.AddScoped<AbonnementOppsettService>();
 
 // Skåringsmotor og innebygde, kode-definerte tester (fase 5 — bevist ut med WHO-5).
 builder.Services.AddScoped<ITestSkaaringsberegner, Who5Skaaringsberegner>();
@@ -637,6 +638,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeAreaFolder("Admin", "/Partnere", "SuperadminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Tester/Prising", "SuperadminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Okonomi", "SuperadminOmrade");
+    options.Conventions.AuthorizeAreaFolder("Admin", "/Abonnement", "SuperadminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Utbetalinger", "SuperadminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Tilbakemeldinger", "AdminOmrade");
     options.Conventions.AuthorizeAreaFolder("Admin", "/Programmer", "AdminOmrade");

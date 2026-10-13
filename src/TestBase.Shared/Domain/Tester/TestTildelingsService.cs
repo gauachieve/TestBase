@@ -108,7 +108,12 @@ public sealed class TestTildelingsService
         var partner = behandler.PartnerId is null
             ? null
             : await _db.Partnere.FirstOrDefaultAsync(p => p.Id == behandler.PartnerId, cancellationToken);
-        var dekketAvAbonnement = behandler.HarEgetAbonnement || (partner?.HarAktivtAbonnement ?? false);
+        // "Dekket av abonnement" (ingen plattformandel på selve testen) i modusene
+        // PasientenGratis/Forutsigbart — se AbonnementModus/TestPrisberegner. En
+        // klinikk-tilknyttet behandler er alltid dekket via klinikkens eget
+        // sete-abonnement, uavhengig av egen AbonnementModus (ikke brukt når PartnerId er satt).
+        var dekketAvAbonnement = (partner?.HarAktivtAbonnement ?? false)
+            || (partner is null && behandler.HarKortLagret && behandler.AbonnementModus != AbonnementModus.TerapeutGratis);
 
         var effektivPartnerAndel = new Dictionary<long, decimal>();
         if (partner is not null)
@@ -378,7 +383,8 @@ public sealed class TestTildelingsService
         var partner = behandler.PartnerId is null
             ? null
             : await _db.Partnere.AsNoTracking().FirstOrDefaultAsync(p => p.Id == behandler.PartnerId, cancellationToken);
-        var dekketAvAbonnement = behandler.HarEgetAbonnement || (partner?.HarAktivtAbonnement ?? false);
+        var dekketAvAbonnement = (partner?.HarAktivtAbonnement ?? false)
+            || (partner is null && behandler.HarKortLagret && behandler.AbonnementModus != AbonnementModus.TerapeutGratis);
 
         foreach (var (testId, test) in tester)
         {

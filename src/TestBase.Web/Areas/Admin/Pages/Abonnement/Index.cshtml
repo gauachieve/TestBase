@@ -1,0 +1,121 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.Abonnement.IndexModel
+@{
+    ViewData["Title"] = "Abonnement";
+}
+
+<h1>Abonnement</h1>
+<p>Kostnads- og prosentkonstantene i de tre behandler-abonnementsmodellene (Terapeut Gratis/Pasienten Gratis/Forutsigbart), og klinikkenes sete-baserte prising. Alt her leses live av prisberegningen — ingen av tallene er hardkodet i koden.</p>
+
+<div data-fane-beholder>
+    <div class="fane-rad" role="tablist">
+        <button type="button" class="fane-knapp" data-fane="oppsett">Kostnader og prosenter</button>
+        <button type="button" class="fane-knapp" data-fane="seter">Klinikk-seter</button>
+    </div>
+
+    <div data-fane-rad="oppsett" hidden>
+        @if (Model.OppsettLagret)
+        {
+            <p class="feilmelding" style="color: var(--success-dark);">✓ Oppsett lagret.</p>
+        }
+
+        <form method="post" asp-page-handler="LagreOppsett">
+            <h2>Felles kostnader</h2>
+            <div class="form-rad">
+                <label for="sms">Kostnad per SMS (kr)</label>
+                <input type="number" step="0.01" min="0" id="sms" name="SmsKostnadKr" value="@Model.Oppsett.SmsKostnadKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+            </div>
+            <div class="form-rad">
+                <label for="epost">Kostnad per e-post (kr)</label>
+                <input type="number" step="0.01" min="0" id="epost" name="EpostKostnadKr" value="@Model.Oppsett.EpostKostnadKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+            </div>
+            <div class="form-rad">
+                <label for="ekstrasms">Ekstra kostnad ved automatisk påminnelse-SMS (kr)</label>
+                <input type="number" step="0.01" min="0" id="ekstrasms" name="EkstraPaaminnelseSmsKostnadKr" value="@Model.Oppsett.EkstraPaaminnelseSmsKostnadKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+            </div>
+            <div class="form-rad">
+                <label for="betgebyr">Flatt betalingsgebyr, modus a) Terapeut Gratis (kr)</label>
+                <input type="number" step="0.01" min="0" id="betgebyr" name="BetalingsgebyrKr" value="@Model.Oppsett.BetalingsgebyrKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+            </div>
+
+            <h2>a) Terapeut Gratis</h2>
+            <div class="form-rad">
+                <label for="tgprosent">Plattformens prosentandel av behandlerens (+ klinikkens) andel</label>
+                <input type="number" step="0.01" min="0" max="100" id="tgprosent" name="TerapeutGratisProsent" value="@Model.Oppsett.TerapeutGratisProsent.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+            </div>
+
+            <h2>b) Pasienten Gratis</h2>
+            <div class="form-rad">
+                <label for="pgflat">Flat månedsavgift (kr)</label>
+                <input type="number" step="0.01" min="0" id="pgflat" name="PasientenGratisFlatKr" value="@Model.Oppsett.PasientenGratisFlatKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+            </div>
+            <div class="form-rad">
+                <label for="pgprosent">Prosentandel av behandlerens eget honorar</label>
+                <input type="number" step="0.01" min="0" max="100" id="pgprosent" name="PasientenGratisProsent" value="@Model.Oppsett.PasientenGratisProsent.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+            </div>
+
+            <h2>c) Forutsigbart</h2>
+            <div class="form-rad">
+                <label for="fflat">Flat månedsavgift, inkl. SMS/e-post (kr)</label>
+                <input type="number" step="0.01" min="0" id="fflat" name="ForutsigbartFlatKr" value="@Model.Oppsett.ForutsigbartFlatKr.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+            </div>
+
+            <button type="submit" class="btn btn-accent">Lagre oppsett</button>
+        </form>
+    </div>
+
+    <div data-fane-rad="seter" hidden>
+        @if (Model.TierLagret)
+        {
+            <p class="feilmelding" style="color: var(--success-dark);">✓ Sjikt lagret.</p>
+        }
+
+        <p>Hele klinikken prises til samme kr/sete/måned, bestemt av antall aktive behandlere i klinikken (ikke gradert).</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Fra antall seter</th>
+                    <th>Til antall seter</th>
+                    <th>Kr/sete/måned</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var tier in Model.SeterTiers)
+                {
+                    <tr>
+                        <td>@tier.FraAntallSeter</td>
+                        <td>@(tier.TilAntallSeter?.ToString() ?? "og oppover")</td>
+                        <td>@tier.KrPerSeteManed.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) kr</td>
+                        <td>
+                            <form method="post" asp-page-handler="SlettTier" style="display:inline;">
+                                <input type="hidden" name="id" value="@tier.Id" />
+                                <button type="submit" class="btn btn-liten btn-faresone">Slett</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <h2>Legg til nytt sjikt</h2>
+        <form method="post" asp-page-handler="LeggTilTier">
+            <div class="form-rad">
+                <label for="fraseter">Fra antall seter</label>
+                <input type="number" min="1" id="fraseter" name="fraAntallSeter" required />
+            </div>
+            <div class="form-rad">
+                <label for="tilseter">Til antall seter (tom = og oppover)</label>
+                <input type="number" min="1" id="tilseter" name="tilAntallSeter" />
+            </div>
+            <div class="form-rad">
+                <label for="krpersete">Kr/sete/måned</label>
+                <input type="number" step="0.01" min="0" id="krpersete" name="krPerSeteManed" required />
+            </div>
+            <button type="submit" class="btn btn-accent">Legg til sjikt</button>
+        </form>
+    </div>
+</div>
+
+<script src="~/js/faner.js" asp-append-version="true"></script>

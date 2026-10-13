@@ -31,6 +31,13 @@ public sealed class Partner
     /// </summary>
     public bool HarAktivtAbonnement { get; set; }
 
+    /// <summary>Superadmin-satt rabatt (0-100) på klinikkens sete-basert abonnementspris — se KlinikkPrisService.</summary>
+    public decimal RabattProsent { get; set; }
+
+    /// <summary>Stripe-kunde-/abonnement-ID for klinikkens sete-baserte månedsavgift (se docs/beslutningslogg.md "Abonnement/subscription-system").</summary>
+    public string? StripeKundeId { get; set; }
+    public string? StripeAbonnementId { get; set; }
+
     public long OpprettetAvAdministratorId { get; set; }
     public DateTimeOffset OpprettetUtc { get; set; }
     public bool ErArkivert { get; set; }

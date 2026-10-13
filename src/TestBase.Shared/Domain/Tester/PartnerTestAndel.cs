@@ -12,7 +12,17 @@ public sealed class PartnerTestAndel
     public long Id { get; set; }
     public long PartnerId { get; set; }
     public long TestId { get; set; }
+
+    /// <summary>
+    /// UTFASES (se docs/beslutningslogg.md "Abonnement/subscription-system") —
+    /// erstattes av <see cref="AndelProsent"/>. Beholdes til alle kallsteder
+    /// er flyttet over.
+    /// </summary>
     public decimal AndelKr { get; set; }
+
+    /// <summary>Partner-adminens egen andel (0-100) av pasientens totalpris, klemt til minst Test.MinstePartnerAndelProsent.</summary>
+    public decimal AndelProsent { get; set; }
+
     public long SistEndretAvBehandlerId { get; set; }
     public DateTimeOffset SistEndretUtc { get; set; }
 }

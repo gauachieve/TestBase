@@ -83,11 +83,41 @@ public sealed class Behandler
     public bool ErPartnerAdministrator { get; set; }
 
     /// <summary>
-    /// Dekker denne behandlerens egne plattformkostnader (se
-    /// TestPrisberegner) — selve den tilbakevendende faktureringsmotoren er
-    /// bevisst IKKE bygget i denne fasen, kun denne tilstanden.
+    /// Hvilken av de tre abonnementsmodellene (se docs/beslutningslogg.md
+    /// "Abonnement/subscription-system") som gjelder for denne uavhengige
+    /// behandleren — kun meningsfylt når <see cref="HarKortLagret"/> er sant;
+    /// uten kort er behandleren alltid i "test-modus" uansett denne verdien.
+    /// Default (også for nye rader) er <see cref="AbonnementModus.PasientenGratis"/>,
+    /// siden det er modusen som skal gjelde i prøveperioden før behandleren
+    /// aktivt velger (brukerbeslutning).
     /// </summary>
-    public bool HarEgetAbonnement { get; set; }
+    public AbonnementModus AbonnementModus { get; set; } = AbonnementModus.PasientenGratis;
+
+    /// <summary>
+    /// Sant når behandleren har lagret et betalingskort hos Stripe (via
+    /// StripeAbonnementService) — IKKE belastet ved selve lagringen (Stripe
+    /// SetupIntent). Uten kort kan behandleren bruke alt i systemet, men kun
+    /// sende tester til seg selv ("test-modus") — se
+    /// TestTildelingsService.TildelOgVarsleAsync.
+    /// </summary>
+    public bool HarKortLagret { get; set; }
+
+    /// <summary>Stripe-kunde-ID, satt når kortet lagres. Null før kort er lagret.</summary>
+    public string? StripeKundeId { get; set; }
+
+    /// <summary>
+    /// Stripe-abonnement-ID for den månedlige flate avgiften — kun satt for
+    /// <see cref="AbonnementModus.PasientenGratis"/>/<see cref="AbonnementModus.Forutsigbart"/>
+    /// (Terapeut Gratis har ingen flat månedsavgift, se TestPrisberegner).
+    /// </summary>
+    public string? StripeAbonnementId { get; set; }
+
+    /// <summary>
+    /// Satt til NÅ+1 måned når kortet lagres første gang — den flate
+    /// månedsavgiften (modus b/c) belastes ikke før denne er passert
+    /// ("gratis måned", håndtert av Stripe sin egen trial_end).
+    /// </summary>
+    public DateTimeOffset? ProveperiodeSluttUtc { get; set; }
 
     /// <summary>Daglig påminnelse om ugodkjente fullførte rapporter — se PaaminnelseService, satt under Behandlerportal/Innstillinger.</summary>
     public bool OnskerDagligPaaminnelse { get; set; }

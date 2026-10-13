@@ -58,6 +58,8 @@ public sealed class AppDbContext : DbContext
     public DbSet<EktBankIdInnstilling> EktBankIdInnstillinger => Set<EktBankIdInnstilling>();
     public DbSet<DriftsbryterInnstilling> DriftsbryterInnstillinger => Set<DriftsbryterInnstilling>();
     public DbSet<AdminOkonomiOppsett> AdminOkonomiOppsett => Set<AdminOkonomiOppsett>();
+    public DbSet<AbonnementOppsett> AbonnementOppsett => Set<AbonnementOppsett>();
+    public DbSet<KlinikkSeterTier> KlinikkSeterTiers => Set<KlinikkSeterTier>();
     public DbSet<Tilbakemelding> Tilbakemeldinger => Set<Tilbakemelding>();
     public DbSet<HjemmeoppgaveLiking> HjemmeoppgaveLikinger => Set<HjemmeoppgaveLiking>();
     public DbSet<Behandlingsprogram> Behandlingsprogrammer => Set<Behandlingsprogram>();
@@ -136,6 +138,9 @@ public sealed class AppDbContext : DbContext
             entity.Property(b => b.BankIdSubjekt).HasMaxLength(128);
             entity.Property(b => b.HonorarinntektEtikett).HasMaxLength(256);
             entity.Property(b => b.HonorarinntektKonto).HasMaxLength(16);
+            entity.Property(b => b.AbonnementModus).HasConversion<string>().HasMaxLength(32).IsRequired();
+            entity.Property(b => b.StripeKundeId).HasMaxLength(128);
+            entity.Property(b => b.StripeAbonnementId).HasMaxLength(128);
             entity.HasIndex(b => b.PartnerId);
             entity.HasIndex(b => b.PasientInviteQrToken).IsUnique();
             entity.HasIndex(b => b.BankIdSubjekt).IsUnique();
@@ -234,6 +239,8 @@ public sealed class AppDbContext : DbContext
             entity.Property(t => t.StorstePrisKr).HasColumnType("decimal(10,2)");
             entity.Property(t => t.TypiskBehandlerHonorarKr).HasColumnType("decimal(10,2)");
             entity.Property(t => t.MinstePartnerAndelKr).HasColumnType("decimal(10,2)");
+            entity.Property(t => t.MinstePartnerAndelProsent).HasColumnType("decimal(5,2)");
+            entity.Property(t => t.RettighetshaverKostnadKr).HasColumnType("decimal(10,2)");
         });
 
         modelBuilder.Entity<TestLedd>().Property(l => l.NormertGjennomsnitt).HasColumnType("decimal(10,4)");
@@ -364,6 +371,30 @@ public sealed class AppDbContext : DbContext
             entity.Property(p => p.Kontonummer).HasMaxLength(64);
             entity.Property(p => p.PartnerandelEtikett).HasMaxLength(256);
             entity.Property(p => p.PartnerandelKonto).HasMaxLength(16);
+            entity.Property(p => p.RabattProsent).HasColumnType("decimal(5,2)");
+            entity.Property(p => p.StripeKundeId).HasMaxLength(128);
+            entity.Property(p => p.StripeAbonnementId).HasMaxLength(128);
+        });
+
+        modelBuilder.Entity<AbonnementOppsett>(entity =>
+        {
+            entity.ToTable("abonnement_oppsett");
+            entity.HasKey(o => o.Id);
+            entity.Property(o => o.SmsKostnadKr).HasColumnType("decimal(10,2)");
+            entity.Property(o => o.EpostKostnadKr).HasColumnType("decimal(10,2)");
+            entity.Property(o => o.EkstraPaaminnelseSmsKostnadKr).HasColumnType("decimal(10,2)");
+            entity.Property(o => o.BetalingsgebyrKr).HasColumnType("decimal(10,2)");
+            entity.Property(o => o.TerapeutGratisProsent).HasColumnType("decimal(5,2)");
+            entity.Property(o => o.PasientenGratisFlatKr).HasColumnType("decimal(10,2)");
+            entity.Property(o => o.PasientenGratisProsent).HasColumnType("decimal(5,2)");
+            entity.Property(o => o.ForutsigbartFlatKr).HasColumnType("decimal(10,2)");
+        });
+
+        modelBuilder.Entity<KlinikkSeterTier>(entity =>
+        {
+            entity.ToTable("klinikk_seter_tiers");
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.KrPerSeteManed).HasColumnType("decimal(10,2)");
         });
 
         modelBuilder.Entity<AdminOkonomiOppsett>(entity =>
@@ -396,6 +427,7 @@ public sealed class AppDbContext : DbContext
             entity.HasKey(a => a.Id);
             entity.HasIndex(a => new { a.PartnerId, a.TestId }).IsUnique();
             entity.Property(a => a.AndelKr).HasColumnType("decimal(10,2)");
+            entity.Property(a => a.AndelProsent).HasColumnType("decimal(5,2)");
         });
 
         modelBuilder.Entity<PartnerAutomatiskUtsendelse>(entity =>

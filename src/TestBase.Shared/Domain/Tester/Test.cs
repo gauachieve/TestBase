@@ -73,8 +73,16 @@ public sealed class Test
     /// <summary>Foreslått standard behandler-honorar, vist i tildelingsskjemaet før behandler har noen egen historikk på denne testen.</summary>
     public decimal TypiskBehandlerHonorarKr { get; set; }
 
-    /// <summary>Superadmin-satt gulv for hvor lite en partner-admin kan sette sin egen PartnerTestAndel til.</summary>
+    /// <summary>
+    /// UTFASES (se docs/beslutningslogg.md "Abonnement/subscription-system") —
+    /// erstattes av <see cref="MinstePartnerAndelProsent"/>, en prosentandel
+    /// av pasientens totalpris i stedet for et flatt kronebeløp. Beholdes til
+    /// alle kallsteder er flyttet over.
+    /// </summary>
     public decimal MinstePartnerAndelKr { get; set; }
+
+    /// <summary>Superadmin-satt gulv (0-100) for hvor lav en partner-admin kan sette sin egen PartnerTestAndel-PROSENT til — se TestPrisberegner.</summary>
+    public decimal MinstePartnerAndelProsent { get; set; }
 
     /// <summary>
     /// Gyldighetsgrense (2026-09-23): maks andel (0-100) av testens ledd som kan
@@ -114,6 +122,15 @@ public sealed class Test
     /// RapportIntroduksjon — kun satt av innebygde testers seedere foreløpig.
     /// </summary>
     public bool HarKostnadPerGjennomforing { get; set; }
+
+    /// <summary>
+    /// Faktisk lisensavgift (kr) til testens rettighetshaver PER GJENNOMFØRING
+    /// — superadmin-satt (se docs/beslutningslogg.md "Abonnement/subscription-
+    /// system"). Rent plattformkostnad, trekkes ALDRI fra pasienten direkte
+    /// (atskilt fra StorstePrisKr), men reduserer plattformens reelle margin
+    /// i OkonomiRapportService. 0 = ingen kjent lisenskostnad.
+    /// </summary>
+    public decimal RettighetshaverKostnadKr { get; set; }
 
     /// <summary>
     /// Sant for tester med KJØNNSSPESIFIKK skåring/normering (f.eks. MPFI-24 —

@@ -105,6 +105,11 @@ namespace TestBase.Shared.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("AbonnementModus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
                     b.Property<string>("Arbeidsadresse")
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
@@ -144,7 +149,7 @@ namespace TestBase.Shared.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("varchar(128)");
 
-                    b.Property<bool>("HarEgetAbonnement")
+                    b.Property<bool>("HarKortLagret")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<string>("HonorarinntektEtikett")
@@ -211,6 +216,9 @@ namespace TestBase.Shared.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
 
+                    b.Property<DateTimeOffset?>("ProveperiodeSluttUtc")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<DateTimeOffset?>("RegistrertUtc")
                         .HasColumnType("datetime(6)");
 
@@ -224,6 +232,14 @@ namespace TestBase.Shared.Migrations
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)");
+
+                    b.Property<string>("StripeAbonnementId")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<string>("StripeKundeId")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
 
                     b.Property<string>("Tittel")
                         .HasMaxLength(128)
@@ -501,8 +517,19 @@ namespace TestBase.Shared.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("varchar(16)");
 
+                    b.Property<decimal>("RabattProsent")
+                        .HasColumnType("decimal(5,2)");
+
                     b.Property<DateTimeOffset?>("SlettetUtc")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("StripeAbonnementId")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<string>("StripeKundeId")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
 
                     b.HasKey("Id");
 
@@ -761,6 +788,49 @@ namespace TestBase.Shared.Migrations
                     b.ToTable("pasient_invitasjoner", (string)null);
                 });
 
+            modelBuilder.Entity("TestBase.Shared.Domain.Tester.AbonnementOppsett", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("BetalingsgebyrKr")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("EkstraPaaminnelseSmsKostnadKr")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("EpostKostnadKr")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("ForutsigbartFlatKr")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("PasientenGratisFlatKr")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("PasientenGratisProsent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<long?>("SistEndretAvUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("SistEndretUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("SmsKostnadKr")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("TerapeutGratisProsent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("abonnement_oppsett", (string)null);
+                });
+
             modelBuilder.Entity("TestBase.Shared.Domain.Tester.AdminOkonomiOppsett", b =>
                 {
                     b.Property<long>("Id")
@@ -898,6 +968,28 @@ namespace TestBase.Shared.Migrations
                     b.ToTable("hjemmeoppgave_likinger", (string)null);
                 });
 
+            modelBuilder.Entity("TestBase.Shared.Domain.Tester.KlinikkSeterTier", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("FraAntallSeter")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("KrPerSeteManed")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int?>("TilAntallSeter")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("klinikk_seter_tiers", (string)null);
+                });
+
             modelBuilder.Entity("TestBase.Shared.Domain.Tester.PartnerAutomatiskUtsendelse", b =>
                 {
                     b.Property<long>("Id")
@@ -941,6 +1033,9 @@ namespace TestBase.Shared.Migrations
 
                     b.Property<decimal>("AndelKr")
                         .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("AndelProsent")
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<long>("PartnerId")
                         .HasColumnType("bigint");
@@ -1326,6 +1421,9 @@ namespace TestBase.Shared.Migrations
                     b.Property<decimal>("MinstePartnerAndelKr")
                         .HasColumnType("decimal(10,2)");
 
+                    b.Property<decimal>("MinstePartnerAndelProsent")
+                        .HasColumnType("decimal(5,2)");
+
                     b.Property<decimal>("MinstePrisKr")
                         .HasColumnType("decimal(10,2)");
 
@@ -1346,6 +1444,9 @@ namespace TestBase.Shared.Migrations
                     b.Property<string>("RapportIntroduksjon")
                         .HasMaxLength(1000)
                         .HasColumnType("varchar(1000)");
+
+                    b.Property<decimal>("RettighetshaverKostnadKr")
+                        .HasColumnType("decimal(10,2)");
 
                     b.Property<decimal>("StorstePrisKr")
                         .HasColumnType("decimal(10,2)");
