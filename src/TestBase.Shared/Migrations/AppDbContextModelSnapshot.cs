@@ -400,7 +400,7 @@ namespace TestBase.Shared.Migrations
                     b.Property<bool>("KritiskVarslingErAktiv")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<string>("KritiskVarslingMobilNr")
+                    b.Property<string>("KritiskVarslingPushoverBrukerKey")
                         .HasColumnType("longtext");
 
                     b.Property<long?>("SistEndretAvUserId")

@@ -63,11 +63,12 @@
 
 @if (Model.VisKritiskVarslingOppsett)
 {
-    <h2>SMS-varsel ved kritisk feil</h2>
-    <p style="color: darkred;">
-        <strong>OBS:</strong> dette lagrer KUN oppsettet — ingen SMS sendes automatisk ennå. Selve
-        varslingsjobben (som skal lese disse innstillingene og sende SMS når et rødt lys dukker opp)
-        er ikke bygget ennå, kun forberedt plass til det her.
+    <h2>Push-varsel ved kritisk feil (Pushover)</h2>
+    <p>
+        Sender et push-varsel via <a href="https://pushover.net" target="_blank" rel="noopener">Pushover</a>
+        (appen må være installert på telefonen) når en sjekk over blir rødt, og et "friskt igjen"-varsel
+        når den blir normal igjen. Finn din personlige "User Key" i Pushover-appen/dashbordet og lim
+        inn under. En bakgrunnsjobb sjekker alle lysene med jevne mellomrom — ikke sanntid.
     </p>
     @if (Model.Lagret)
     {
@@ -77,11 +78,11 @@
         <fieldset>
             <legend>Varsling</legend>
             <label><input type="radio" name="erAktiv" value="false" checked="@(!Model.KritiskVarslingErAktivNaa)" /> Av</label>
-            <label><input type="radio" name="erAktiv" value="true" checked="@Model.KritiskVarslingErAktivNaa" /> På (når jobben finnes)</label>
+            <label><input type="radio" name="erAktiv" value="true" checked="@Model.KritiskVarslingErAktivNaa" /> På</label>
         </fieldset>
         <div>
-            <label>Mobilnummer å varsle</label><br />
-            <input type="text" name="mobilNr" value="@Model.KritiskVarslingMobilNrNaa" placeholder="+47..." />
+            <label>Pushover User Key</label><br />
+            <input type="text" name="pushoverBrukerKey" value="@Model.KritiskVarslingPushoverBrukerKeyNaa" placeholder="u..." />
         </div>
         <p><button type="submit" class="btn-accent">Lagre</button></p>
     </form>

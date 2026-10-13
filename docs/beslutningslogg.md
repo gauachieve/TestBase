@@ -8903,3 +8903,42 @@ TempData-ekko). Underveis avdekket verifiseringen en EKTE eksisterende "Feilet"-
 i lokal dev-database — bekrefter at sjekken fanger opp reelle problemer, ikke bare teoretisk.
 
 Android-app: KUN estimert i chat (ikke bygget), se egen melding til brukeren samme dag.
+
+## Kritisk-varsling koblet til Pushover (Tier 1 av Android-estimatet) — 2026-10-13
+
+Brukeren valgte Tier 1 fra Android-estimatet samme dag: Pushover i stedet for en egen Android-app.
+Bygget og koblet opp (ikke bare scaffolding lenger):
+
+- `IKritiskVarselSender`/`PushoverKritiskVarselSender`/`MockKritiskVarselSender`
+  (`TestBase.Shared/Providers/`) — samme mock-bak-grensesnitt-mønster som `ISmsSender`. Ekte
+  implementasjon POSTer til Pushovers REST-API (`token`+`user`+`title`+`message`,
+  `priority=1`). Appens eget "app token" er delt konfigurasjon (`Pushover:AppToken`), mottakerens
+  personlige "user key" er PER MILJØ, lagret i databasen (se under).
+- `DriftsbryterInnstilling.KritiskVarslingMobilNr` → `KritiskVarslingPushoverBrukerKey`
+  (migrasjon `RenameKritiskVarslingTilPushover`, ren kolonne-omdøping — feltet hadde ALDRI blitt
+  brukt til noe reelt ennå, kun lagret, så ingen datamigrering å tenke på utover selve
+  kolonnenavnet). Admin/Driftsstatus sin UI og handler oppdatert til samme nytt navn/kopi
+  ("Pushover User Key" i stedet for "Mobilnummer").
+- `DriftsstatusVarselBeregner` (ren, testbar funksjon i `TestBase.Shared`) regner ut hvilke
+  sjekk-navn som NYLIG ble røde (varsle) vs. NYLIG ble friske igjen (varsle "friskt igjen"), basert
+  på et sett av sist varslede navn — unngår å spamme samme varsel på hver kjøring.
+- `DriftsstatusVarslingBakgrunnstjeneste` (TestBase.Web, `BackgroundService`, samme mønster som
+  `AutomatiskPaaminnelseBakgrunnstjeneste`) kjører `DriftsstatusService.KjorAlleSjekkerAsync` hvert
+  5. minutt, kun hvis `KritiskVarslingErAktiv` OG en Pushover-brukernøkkel er lagret. Registrert i
+  `Program.cs` sammen med `IKritiskVarselSender`-DI (ekte når `Pushover:AppToken` er satt, ellers
+  mock — samme if/else-mønster som Vonage).
+- `Pushover:AppToken` lagt inn i `infra/main.bicep`/`main.parameters.json`/`resources.bicep` som en
+  NY, EGEN Key Vault-hemmelighet (`PushoverAppToken`, tom verdi gyldig = mock), samme mønster som
+  `Vonage__ApiKey` — unngikk dermed den kjente "CLI-only appsetting forsvinner ved neste azd
+  provision"-fallgruven fra dag én i stedet for å måtte rette det opp senere.
+- Testet: 6 nye xUnit-tester (`DriftsstatusVarslingTests.cs`) — diff-beregningens fire case
+  (ny rød, uendret rød, ny frisk, grått lys teller ikke som rødt) + Pushover-senderens faktiske
+  POST-innhold (fake `HttpMessageHandler`) + at en feilrespons kaster. Full regresjonssuite kjørt
+  grønn via subagent samme runde.
+
+**IKKE gjort ennå / bevisst utelatt:** ingen ekte Pushover-"app token" er faktisk opprettet hos
+Pushover eller lagt inn i Key Vault på beta/live — `azd provision` må kjøres MED
+`PUSHOVER_APP_TOKEN` satt (`azd env set PUSHOVER_APP_TOKEN ...`) før dette faktisk sender noe
+reelt i noe miljø; helt frem til da faller koden trygt tilbake til mock (kun logget), akkurat som
+tiltenkt. Brukeren må også selv installere Pushover-appen og lime inn sin personlige "User Key"
+på Admin/Driftsstatus (Superadmin/Utvikler) i det aktuelle miljøet.

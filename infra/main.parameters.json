@@ -23,6 +23,9 @@
     "vonageApiSecret": {
       "value": "${VONAGE_API_SECRET}"
     },
+    "pushoverAppToken": {
+      "value": "${PUSHOVER_APP_TOKEN}"
+    },
     "bankIdIduraAuthority": {
       "value": "${BANKID_IDURA_AUTHORITY}"
     },

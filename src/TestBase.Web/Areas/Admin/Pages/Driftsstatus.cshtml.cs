@@ -33,10 +33,10 @@ public sealed class DriftsstatusModel : PageModel
     public IReadOnlyList<DriftsstatusSjekk> Sjekker { get; private set; } = Array.Empty<DriftsstatusSjekk>();
     public DateTimeOffset SistOppdatertUtc { get; private set; }
 
-    /// <summary>SMS-varsel-oppsettet er KUN et lagringspunkt for en fremtidig varslingsjobb (se DriftsbryterInnstilling.KritiskVarslingErAktiv) — vist til Superadmin/Utvikler, samme gruppe som de andre driftsbryterne.</summary>
+    /// <summary>Push-varsel-oppsettet (Pushover) er vist til Superadmin/Utvikler, samme gruppe som de andre driftsbryterne — se DriftsstatusVarslingBakgrunnstjeneste (TestBase.Web) for selve utsendingsjobben.</summary>
     public bool VisKritiskVarslingOppsett => _currentUser.Role is UserRole.Superadmin or UserRole.Utvikler;
     public bool KritiskVarslingErAktivNaa { get; private set; }
-    public string? KritiskVarslingMobilNrNaa { get; private set; }
+    public string? KritiskVarslingPushoverBrukerKeyNaa { get; private set; }
     public bool Lagret { get; private set; }
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
@@ -48,13 +48,13 @@ public sealed class DriftsstatusModel : PageModel
         {
             var innstilling = await _driftsbrytere.HentAsync(cancellationToken);
             KritiskVarslingErAktivNaa = innstilling.KritiskVarslingErAktiv;
-            KritiskVarslingMobilNrNaa = innstilling.KritiskVarslingMobilNr;
+            KritiskVarslingPushoverBrukerKeyNaa = innstilling.KritiskVarslingPushoverBrukerKey;
         }
 
         Lagret = TempData["KritiskVarslingLagret"] as bool? ?? false;
     }
 
-    public async Task<IActionResult> OnPostSettKritiskVarslingAsync(bool erAktiv, string? mobilNr, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostSettKritiskVarslingAsync(bool erAktiv, string? pushoverBrukerKey, CancellationToken cancellationToken)
     {
         if (_currentUser.Role is not (UserRole.Superadmin or UserRole.Utvikler))
         {
@@ -62,7 +62,7 @@ public sealed class DriftsstatusModel : PageModel
         }
 
         var userId = long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var uid) ? uid : 0;
-        await _driftsbrytere.SettKritiskVarslingAsync(erAktiv, mobilNr, userId, cancellationToken);
+        await _driftsbrytere.SettKritiskVarslingAsync(erAktiv, pushoverBrukerKey, userId, cancellationToken);
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "EndreKritiskVarslingOppsett",

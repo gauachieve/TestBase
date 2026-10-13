@@ -29,6 +29,10 @@ param vonageApiKey string = ''
 @secure()
 param vonageApiSecret string = ''
 
+@description('Pushover app token for kritisk driftsvarsling — se main.bicep')
+@secure()
+param pushoverAppToken string = ''
+
 @description('Idura OIDC Authority for BankID-testintegrasjonen — se main.bicep')
 param bankIdIduraAuthority string = ''
 
@@ -343,6 +347,16 @@ resource vonageApiSecretSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = 
   }
 }
 
+// Kritisk driftsvarsling via Pushover (Admin/Driftsstatus, brukerbeslutning 2026-10-13) — tom
+// verdi er gyldig (gir MockKritiskVarselSender i appen, se Program.cs), samme mønster som Vonage.
+resource pushoverAppTokenSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'PushoverAppToken'
+  properties: {
+    value: empty(pushoverAppToken) ? ' ' : pushoverAppToken
+  }
+}
+
 // BankID-testintegrasjon via Idura (diagnostisk, se docs/beslutningslogg.md) — tom verdi
 // (' ') gir en deaktivert integrasjon i Program.cs (string.IsNullOrWhiteSpace-sjekk).
 resource bankIdIduraClientSecretSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
@@ -537,6 +551,10 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'Vonage__ApiSecret'
           value: '@Microsoft.KeyVault(SecretUri=${vonageApiSecretSecret.properties.secretUri})'
+        }
+        {
+          name: 'Pushover__AppToken'
+          value: '@Microsoft.KeyVault(SecretUri=${pushoverAppTokenSecret.properties.secretUri})'
         }
         {
           name: 'BankId__Idura__Authority'

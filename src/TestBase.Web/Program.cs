@@ -68,6 +68,7 @@ builder.Services.AddHostedService<AutomatiskPaaminnelseBakgrunnstjeneste>();
 builder.Services.AddScoped<TestBase.Shared.Domain.Utbetaling.UtbetalingsOnboardingService>();
 builder.Services.AddScoped<TestBase.Shared.Domain.Utbetaling.UtbetalingsBatchService>();
 builder.Services.AddHostedService<UtbetalingsBatchBakgrunnstjeneste>();
+builder.Services.AddHostedService<DriftsstatusVarslingBakgrunnstjeneste>();
 builder.Services.AddScoped<OkonomiRapportService>();
 builder.Services.AddScoped<AdminOkonomiOppsettService>();
 
@@ -613,6 +614,16 @@ builder.Services.AddScoped<ISmsSender>(sp =>
         : null;
     return new DriftsbryterSmsSender(sp.GetRequiredService<DriftsbryterInnstillingService>(), mock, ekte);
 });
+
+// Kritisk-varsling (Admin/Driftsstatus): push via Pushover når "Pushover:AppToken" er satt,
+// ellers mock (kun logget) — se DriftsstatusVarslingBakgrunnstjeneste.
+var pushoverAppToken = builder.Configuration["Pushover:AppToken"];
+var pushoverKonfigurert = !string.IsNullOrWhiteSpace(pushoverAppToken);
+builder.Services.AddScoped<IKritiskVarselSender>(sp => pushoverKonfigurert
+    ? new PushoverKritiskVarselSender(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient(), pushoverAppToken!,
+        sp.GetRequiredService<ILogger<PushoverKritiskVarselSender>>())
+    : new MockKritiskVarselSender(sp.GetRequiredService<ILogger<MockKritiskVarselSender>>()));
 
 // --- Web ------------------------------------------------------------------
 builder.Services.AddRazorPages(options =>

@@ -26,13 +26,14 @@ public sealed class DriftsbryterInnstilling
     public bool UtbetalingErAktiv { get; set; } = true;
 
     /// <summary>
-    /// KUN lagring/oppsett — IKKE koblet til noen faktisk utsendelse ennå (brukerbeslutning
-    /// 2026-10-13, "lag bare støtte for det nå"). Når en fremtidig bakgrunnsjobb bygges for å
-    /// varsle ved rødt lys på Admin/Driftsstatus, skal den lese disse to feltene for å vite
-    /// OM den skal varsle og HVOR — se docs/beslutningslogg.md "Driftsstatus-dashboard".
+    /// Kritisk-varsling via Pushover (brukerbeslutning 2026-10-13, Tier 1-valg — se
+    /// DriftsstatusVarslingBakgrunnstjeneste i TestBase.Web). <see cref="KritiskVarslingPushoverBrukerKey"/>
+    /// er mottakerens personlige Pushover "user key" (fra pushover.net, ETT felt per miljø — ikke
+    /// et mobilnummer), appens eget "app token" er delt Key Vault/appsettings-konfigurasjon
+    /// ("Pushover:AppToken"), se docs/beslutningslogg.md "Driftsstatus-dashboard".
     /// </summary>
     public bool KritiskVarslingErAktiv { get; set; }
-    public string? KritiskVarslingMobilNr { get; set; }
+    public string? KritiskVarslingPushoverBrukerKey { get; set; }
 
     public long? SistEndretAvUserId { get; set; }
     public DateTimeOffset? SistEndretUtc { get; set; }

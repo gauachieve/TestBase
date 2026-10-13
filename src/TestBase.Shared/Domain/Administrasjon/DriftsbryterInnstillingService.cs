@@ -47,12 +47,11 @@ public sealed class DriftsbryterInnstillingService
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    /// <summary>Lagrer kun — se DriftsbryterInnstilling.KritiskVarslingErAktiv sin doc-kommentar for hvorfor dette ikke sender noe ennå.</summary>
-    public async Task SettKritiskVarslingAsync(bool erAktiv, string? mobilNr, long endretAvUserId, CancellationToken cancellationToken = default)
+    public async Task SettKritiskVarslingAsync(bool erAktiv, string? pushoverBrukerKey, long endretAvUserId, CancellationToken cancellationToken = default)
     {
         var rad = await HentAsync(cancellationToken);
         rad.KritiskVarslingErAktiv = erAktiv;
-        rad.KritiskVarslingMobilNr = string.IsNullOrWhiteSpace(mobilNr) ? null : mobilNr.Trim();
+        rad.KritiskVarslingPushoverBrukerKey = string.IsNullOrWhiteSpace(pushoverBrukerKey) ? null : pushoverBrukerKey.Trim();
         rad.SistEndretAvUserId = endretAvUserId;
         rad.SistEndretUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);

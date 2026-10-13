@@ -31,6 +31,10 @@ param vonageApiKey string = ''
 @secure()
 param vonageApiSecret string = ''
 
+@description('Pushover app token for kritisk driftsvarsling (Admin/Driftsstatus) — tom verdi gir MockKritiskVarselSender (kun logget). Settes via azd-miljøvariabelen PUSHOVER_APP_TOKEN, ALDRI som literal her.')
+@secure()
+param pushoverAppToken string = ''
+
 @description('Idura (BankID-testintegrasjon) OIDC Authority, f.eks. https://psytest.test.idura.broker — tom verdi deaktiverer BankID-testintegrasjonen (se docs/beslutningslogg.md).')
 param bankIdIduraAuthority string = ''
 
@@ -174,6 +178,7 @@ module resources 'resources.bicep' = {
     smsSenderId: smsSenderId
     vonageApiKey: vonageApiKey
     vonageApiSecret: vonageApiSecret
+    pushoverAppToken: pushoverAppToken
     bankIdIduraAuthority: bankIdIduraAuthority
     bankIdIduraClientId: bankIdIduraClientId
     bankIdIduraClientSecret: bankIdIduraClientSecret
