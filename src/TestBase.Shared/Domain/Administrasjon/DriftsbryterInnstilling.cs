@@ -24,6 +24,16 @@ public sealed class DriftsbryterInnstilling
     public bool SmsErAktiv { get; set; } = true;
     public bool BetalingErAktiv { get; set; } = true;
     public bool UtbetalingErAktiv { get; set; } = true;
+
+    /// <summary>
+    /// KUN lagring/oppsett — IKKE koblet til noen faktisk utsendelse ennå (brukerbeslutning
+    /// 2026-10-13, "lag bare støtte for det nå"). Når en fremtidig bakgrunnsjobb bygges for å
+    /// varsle ved rødt lys på Admin/Driftsstatus, skal den lese disse to feltene for å vite
+    /// OM den skal varsle og HVOR — se docs/beslutningslogg.md "Driftsstatus-dashboard".
+    /// </summary>
+    public bool KritiskVarslingErAktiv { get; set; }
+    public string? KritiskVarslingMobilNr { get; set; }
+
     public long? SistEndretAvUserId { get; set; }
     public DateTimeOffset? SistEndretUtc { get; set; }
 }

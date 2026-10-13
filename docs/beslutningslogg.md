@@ -8862,3 +8862,44 @@ skeptisk kodegjennomgang av selve fange-før-marker-betalt-logikken fant ingen h
 Gjenstående: brukeren må selv trykke "Registrer webhook for dette miljøet" på `Admin/MinSide` på
 live og lagre den returnerte hemmeligheten i Key Vault (`Vipps:WebhookSecret`) før webhooken
 faktisk er aktiv — til da fortsetter betalinger å gå korrekt via BetalResultat-sidens fallback.
+
+## Driftsstatus-dashboard (2026-10-13)
+
+Brukerbeslutning: etter kveldens betalings-feilsøking ("mange ting kan gå galt i en slik app")
+ba brukeren om et admin-dashbord som sjekker Vipps/Stripe/SMS-kreditt/Azure/"alt mulig rart", med
+grønt/gult/rødt lys per funksjon. Eksplisitt presisert: bygg kun STØTTE for SMS-varsling ved
+kritisk feil nå (ikke selve utsendingen), og Android-app skal KUN estimeres, ikke bygges.
+
+**Bygget:**
+- `DriftsstatusService` (`TestBase.Shared/Domain/Administrasjon/`) — 7 uavhengige, skrivebeskyttede
+  sjekker kjørt parallelt (6s timeout hver, én hengende sjekk blokkerer ikke resten): database
+  (EF `CanConnectAsync`), Vipps (ekte tilgangstoken-henting — null kostnad, ingen betaling
+  opprettet), Stripe (Stripe.net `BalanceService.GetAsync` — gratis, skrivebeskyttet), SMS-kreditt
+  (Vonage sitt `account/get-balance`-endepunkt), e-post (kun konfigurasjonssjekk — ingen gratis
+  live-sjekk finnes for ACS uten å faktisk sende noe), BankID (Idura produksjon sitt OIDC
+  discovery-dokument), og antall `UtbetalingsLinje` med status Feilet. Et 4. lys ("Grå") lagt til
+  utover brukerens grønn/gul/rød for "ikke konfigurert i dette miljøet" — bevisst IKKE det samme
+  som rødt, siden mock-modus lokalt er en tilsiktet, fungerende tilstand.
+- Bevisst IKKE dekket i denne runden (dokumentert i kode og på selve siden, ikke bare her):
+  Azure-ressurshelse (CPU/minne/disk — krever Azure Management API-tilgang, egen
+  infrastrukturendring) og "er selve siden nede" (et paradoks — en side PÅ appen kan per
+  definisjon ikke varsle om at hele appen er nede, krever ekte ekstern overvåking som Azure
+  Application Insights Availability Tests mot `/health`).
+- Ny side `Admin/Driftsstatus` (`[Authorize(Policy = "AdminOmrade")]` — synlig for Administrator
+  OG Superadmin/Utvikler, IKKE Superadmin-only, iht. brukerens "for admins og superadmins").
+  Lenket fra `Admin/MinSide`.
+- SMS-varsel-scaffolding: to nye felt på `DriftsbryterInnstilling`
+  (`KritiskVarslingErAktiv`/`KritiskVarslingMobilNr`), Superadmin/Utvikler-only skjema på
+  Driftsstatus-siden som KUN lagrer — tydelig markert i både kode og UI-tekst at ingen faktisk
+  SMS-utsending er koblet til ennå.
+- Ny Hjelp-artikkel `adm-driftsstatus`.
+- Migrasjon `20261013000935_LeggTilKritiskVarslingPaaDriftsbryter` (to nye kolonner,
+  ingen rename-risiko).
+
+Verifisert: 104/104 tester grønt, full nettleser-verifisering (logget inn som Utvikler OG som
+vanlig Administrator for å bekrefte rolletilgangen er riktig differensiert, lagring av
+SMS-varsel-oppsett bekreftet med ekte databasetur-retur via en frisk sidenavigasjon, ikke bare
+TempData-ekko). Underveis avdekket verifiseringen en EKTE eksisterende "Feilet"-utbetalingslinje
+i lokal dev-database — bekrefter at sjekken fanger opp reelle problemer, ikke bare teoretisk.
+
+Android-app: KUN estimert i chat (ikke bygget), se egen melding til brukeren samme dag.

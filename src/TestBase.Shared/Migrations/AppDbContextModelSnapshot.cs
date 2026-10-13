@@ -397,6 +397,12 @@ namespace TestBase.Shared.Migrations
                     b.Property<bool>("BetalingErAktiv")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("KritiskVarslingErAktiv")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("KritiskVarslingMobilNr")
+                        .HasColumnType("longtext");
+
                     b.Property<long?>("SistEndretAvUserId")
                         .HasColumnType("bigint");
 

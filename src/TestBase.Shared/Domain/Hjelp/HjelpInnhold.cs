@@ -275,5 +275,11 @@ public static class HjelpInnhold
             "Hvordan godkjenner jeg utbetaling av honorar/klinikkandel?",
             "<p>Under <strong>Utbetalinger</strong> genereres et samlet månedlig oppgjør automatisk tidlig i hver måned. Åpne <strong>Se detaljer</strong> på en periode og trykk <strong>Godkjenn og betal ut</strong> for å utløse de ekte Stripe-overføringene — dette flytter ekte penger og kan ikke angres. En enkelt mislykket linje blokkerer ikke resten av batchen, og kan forsøkes på nytt eller avvises for seg selv.</p>",
             KunAdmin, new[] { "/Admin/Utbetalinger" }, true, "Klinikker og prising"),
+
+        // ---------- Admin: Driftsstatus-dashboard (2026-10-13) ----------
+        new("adm-driftsstatus",
+            "Hva viser \"Driftsstatus\"?",
+            "<p>En rask oversikt over om database, Vipps, Stripe, SMS-kreditt (Vonage), e-post og BankID (Idura) faktisk fungerer akkurat nå — grønt/gult/rødt lys per funksjon, pluss om noen Stripe Connect-utbetalinger står som feilet. Grått betyr at funksjonen ikke er konfigurert i dette miljøet (f.eks. lokal dev uten ekte nøkler) — ikke nødvendigvis et problem. Dekker IKKE Azure-ressurshelse (CPU/minne/disk) eller om selve siden er nede. Siden for SMS-varsel ved kritisk feil (Superadmin/Utvikler) er foreløpig kun lagring av oppsett — ingen SMS sendes automatisk ennå.</p>",
+            KunAdmin, new[] { "/Admin/Driftsstatus" }, false, "Administrasjon"),
     };
 }

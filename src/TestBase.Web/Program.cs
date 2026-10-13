@@ -494,6 +494,10 @@ builder.Services.AddScoped<DriftsbryterInnstillingService>();
 // klassekommentar for hvorfor dette MÅ være delt (unngår "marker betalt uten å fange").
 builder.Services.AddScoped<VippsBetalingBekrefterService>();
 
+// Driftsstatus-dashboard (Admin/Driftsstatus, brukerbeslutning 2026-10-13) — se
+// DriftsstatusService sin klassekommentar.
+builder.Services.AddScoped<DriftsstatusService>();
+
 // Statisk innhold (se HjelpInnhold) — Singleton, ingen DB-avhengighet, immutabelt per prosess.
 builder.Services.AddSingleton<HjelpService>();
 

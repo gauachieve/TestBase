@@ -1,0 +1,88 @@
+@page
+@model TestBase.Web.Areas.Admin.Pages.DriftsstatusModel
+@using TestBase.Shared.Domain.Administrasjon
+@{
+    ViewData["Title"] = "Driftsstatus";
+
+    static string Farge(DriftsstatusLys lys) => lys switch
+    {
+        DriftsstatusLys.Gronn => "#2e7d32",
+        DriftsstatusLys.Gul => "#f9a825",
+        DriftsstatusLys.Rod => "#c62828",
+        _ => "#9e9e9e"
+    };
+
+    static string Tekst(DriftsstatusLys lys) => lys switch
+    {
+        DriftsstatusLys.Gronn => "OK",
+        DriftsstatusLys.Gul => "Følg med",
+        DriftsstatusLys.Rod => "Feil",
+        _ => "Ikke konfigurert"
+    };
+}
+
+<h1>Driftsstatus</h1>
+
+<p>
+    Sist oppdatert: @Model.SistOppdatertUtc.ToLocalTime().ToString("g") &middot;
+    <a href="/Admin/Driftsstatus">Oppdater nå</a>
+</p>
+
+<p style="color: #555;">
+    Dekker database, Vipps, Stripe, SMS-kreditt, e-post (kun konfigurasjonssjekk), BankID (Idura
+    produksjon) og feilede Stripe Connect-utbetalinger. Dekker IKKE Azure-ressurshelse
+    (CPU/minne/disk) eller om selve siden er nede — det siste er et paradoks en side på appen
+    selv aldri kan løse, se ekte ekstern overvåking (f.eks. Azure Application Insights
+    Availability Tests) for det.
+</p>
+
+<table border="1" cellpadding="8" cellspacing="0" style="width: 100%; max-width: 900px;">
+    <thead>
+        <tr>
+            <th style="width: 110px;"></th>
+            <th>Funksjon</th>
+            <th>Detalj</th>
+            <th>Responstid</th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var sjekk in Model.Sjekker)
+    {
+        <tr>
+            <td>
+                <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:@Farge(sjekk.Lys); margin-right:6px;"></span>
+                @Tekst(sjekk.Lys)
+            </td>
+            <td>@sjekk.Navn</td>
+            <td>@sjekk.Detalj</td>
+            <td>@(sjekk.VarighetMs is not null ? $"{sjekk.VarighetMs} ms" : "-")</td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@if (Model.VisKritiskVarslingOppsett)
+{
+    <h2>SMS-varsel ved kritisk feil</h2>
+    <p style="color: darkred;">
+        <strong>OBS:</strong> dette lagrer KUN oppsettet — ingen SMS sendes automatisk ennå. Selve
+        varslingsjobben (som skal lese disse innstillingene og sende SMS når et rødt lys dukker opp)
+        er ikke bygget ennå, kun forberedt plass til det her.
+    </p>
+    @if (Model.Lagret)
+    {
+        <p style="color: darkgreen;">Lagret.</p>
+    }
+    <form method="post" asp-page-handler="SettKritiskVarsling" data-disable-on-submit="Lagrer …">
+        <fieldset>
+            <legend>Varsling</legend>
+            <label><input type="radio" name="erAktiv" value="false" checked="@(!Model.KritiskVarslingErAktivNaa)" /> Av</label>
+            <label><input type="radio" name="erAktiv" value="true" checked="@Model.KritiskVarslingErAktivNaa" /> På (når jobben finnes)</label>
+        </fieldset>
+        <div>
+            <label>Mobilnummer å varsle</label><br />
+            <input type="text" name="mobilNr" value="@Model.KritiskVarslingMobilNrNaa" placeholder="+47..." />
+        </div>
+        <p><button type="submit" class="btn-accent">Lagre</button></p>
+    </form>
+}
