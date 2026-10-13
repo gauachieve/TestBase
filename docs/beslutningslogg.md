@@ -8942,3 +8942,75 @@ Pushover eller lagt inn i Key Vault på beta/live — `azd provision` må kjøre
 reelt i noe miljø; helt frem til da faller koden trygt tilbake til mock (kun logget), akkurat som
 tiltenkt. Brukeren må også selv installere Pushover-appen og lime inn sin personlige "User Key"
 på Admin/Driftsstatus (Superadmin/Utvikler) i det aktuelle miljøet.
+
+## Abonnement/subscription-system — fase 1 (domenemodell + superadmin-kostnadsoppsett), 2026-10-13
+
+Brukeren la inn `bugs_features.txt` med krav om et helt nytt abonnementssystem for uavhengige
+behandlere (tre selvbetjente modeller, alle med gratis måned + kortkrav + "test-modus" uten kort),
+sete-basert klinikkabonnement, superadmin-redigerbare kostnads-/prosentkonstanter (fjerner
+hardkodet "my-cut-per-test" og flat klinikk-pris-per-test), klinikk-rabatt/nedleggelse, og en
+webside-oppryddingsrunde. Et fullt 5-fase-plan ble laget i plan-mode (lagret
+`C:\Users\gaute\.claude\plans\tranquil-plotting-peach.md`) etter to runder med AskUserQuestion og
+to parallelle Explore-agenter (billing/Stripe/registrering, messaging/MinSide/klinikk-admin).
+**Kun fase 1 er bygget i denne runden** — resten (prisformel-ombygging, kort/Stripe-registrering/
+test-modus-sperre, klinikk-seter, webside) kommer i senere runder, se planen for full
+spesifikasjon av alle fem faser.
+
+**Brukerbeslutninger tatt (via AskUserQuestion, ikke gjetning):**
+- Klinikk-sete-tiers: ingen tidligere forslag fantes i denne sesjonen — Claude fikk lov til å
+  foreslå startpunkt (1-5/6-15/16-30/31+ seter, 199/169/139/109 kr/sete/mnd), fritt redigerbart.
+- Klinikk-%'en som erstatter flat klinikk-pris-per-test er **% av PASIENTENS totalpris**, ikke av
+  behandlerens honorar alene.
+- "IP owner price" (rettighetshaver-lisenskostnad) blir et REELT kr-beløp satt av superadmin per
+  test, og SKAL redusere plattformens vist margin i Admin/Økonomi (ikke bare et visningsfelt).
+- I prøveperioden, FØR behandleren aktivt velger modus, gjelder **b) Pasienten Gratis** (brukeren
+  valgte dette eksplisitt over Claudes anbefaling om modus a).
+- c) Forutsigbart sin flate 299 kr/mnd SKAL inkludere SMS/e-post-kostnad (plattformen absorberer
+  det, konsistent med "forutsigbart").
+
+**Bygget og verifisert i fase 1 (commit `6f0ef09`):**
+- `AbonnementModus`-enum (TerapeutGratis/PasientenGratis/Forutsigbart) + `Behandler.HarKortLagret`/
+  `StripeKundeId`/`StripeAbonnementId`/`ProveperiodeSluttUtc` — `Behandler.HarEgetAbonnement`
+  FJERNET (migrasjonen `LeggTilAbonnementssystem` detekterte dette som en ren kolonne-RENAME til
+  `HarKortLagret`, som faktisk var ønsket her — eksisterende `true`-rader beholder altså `true`,
+  og fikk eksplisitt `AbonnementModus="PasientenGratis"` satt via migrasjonens default-verdi, se
+  neste fallgruve-punkt).
+- NY FALLGRUVE bekreftet denne runden: en `HasConversion<string>()`-enum-kolonne lagt til med
+  `AddColumn(..., defaultValue: "")` (EF sitt eget forslag når man ikke oppgir noe) skriver en TOM
+  streng til eksisterende rader — som IKKE er en gyldig enum-navn-streng, og ville gitt en
+  runtime-feil første gang noen av disse radene leses. Måtte manuelt endre `defaultValue` i den
+  genererte migrasjonsfilen til selve enum-medlemmets NAVN som streng (`"PasientenGratis"`) FØR
+  `dotnet ef database update` ble kjørt — verifisert direkte med en rå SQL-spørring mot
+  `behandlere`-tabellen etterpå (alle eksisterende rader fikk korrekt `PasientenGratis`, ikke tom
+  streng). Gjelder enhver fremtidig ny NOT NULL enum-som-streng-kolonne lagt til på en tabell med
+  eksisterende rader.
+- `Test.RettighetshaverKostnadKr` (nytt kr-felt) og `MinstePartnerAndelProsent`/
+  `PartnerTestAndel.AndelProsent` (nye %-felt) lagt til SIDE OM SIDE med de gamle feltene de skal
+  erstatte (`HarKostnadPerGjennomforing`, `MinstePartnerAndelKr`, `AndelKr`) — de gamle fjernes
+  først i neste fase når TestPrisberegner/UI faktisk er flyttet over, for å holde hver fase
+  bygningsklar og testet uavhengig.
+- `Partner.RabattProsent`/`StripeKundeId`/`StripeAbonnementId` lagt til.
+- `AbonnementOppsett` (singleton-rad, samme lat-opprettet mønster som `AdminOkonomiOppsett`) +
+  `AbonnementOppsettService` — alle kostnads-/prosentkonstantene fra brukerens spesifikasjon
+  (SMS/e-post-kostnad, ekstra påminnelse-SMS-kostnad, 2 kr betalingsgebyr, 4.99%/149kr+3.99%/299kr)
+  som superadmin-redigerbare felt, ALDRI hardkodet i kalkulasjonskoden som kommer i neste fase.
+- `KlinikkSeterTier` (liste-entitet) + ny side `Admin/Abonnement` (lagt til i
+  `AuthorizeAreaFolder`-listen i Program.cs, SuperadminOmrade — husket fallgruven om at nye
+  Area-mapper IKKE er beskyttet automatisk) med to faner (kostnader/prosenter, klinikk-seter).
+  Sete-sjiktene seedes lat med forslåtte startverdier FØRSTE gang siden besøkes hvis tabellen er
+  tom, nøyaktig samme "lat opprettelse"-mønster som singleton-radene, men for en liste.
+- `TestTildelingsService.cs` sine to `dekketAvAbonnement`-beregninger (linje ~111/~386) oppdatert
+  til å bruke `HarKortLagret && AbonnementModus != TerapeutGratis` i stedet for det fjernede
+  `HarEgetAbonnement` — bevarer EKSAKT samme boolske oppførsel som før (ingen formelendring ennå,
+  det kommer i fase 2), kun en ren feltbytting for å holde build grønn mens resten av fase 2–5
+  bygges i senere runder.
+- Full regresjonssuite (110 tester) kjørt grønn via subagent (haiku, mekanisk kjøring — se
+  arbeidsøkonomi-avsnittet i CLAUDE.md) etter migrasjonen — subagentens FØRSTE kjøring feilet
+  pga. stale build-artefakter fra testprosjektets `obj`/`bin` (ikke en reell bug), løst med
+  `dotnet clean` + rebuild før ny kjøring.
+
+**Neste runde (fase 2 i planen):** `TestPrisberegner`-ombygging til de tre faktiske modus-formlene
+(i stedet for nåværende enkle `dekketAvAbonnement`-bool), fjerning av `MinstePrisKr` som
+plattformkutt (beholdes KUN som totalpris-grense), UI-ombygging i `Admin/Tester/Prising` og
+`MinPartner/Prising` fra kr til %, og en ny linje i `OkonomiRapportService` for
+rettighetshaver-kostnad i margin-rapportene.
