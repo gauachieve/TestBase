@@ -634,6 +634,16 @@ body.home main.page { padding-top: 0; padding-bottom: 0; }
   font-weight: 700;
 }
 
+.abonnement-banner {
+  background: #fff4e0;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.75rem 1.25rem;
+  margin: 1rem 0;
+  color: var(--ink);
+}
+.abonnement-banner a { font-weight: 700; }
+
 /* ---------- Footer ---------- */
 .site-footer {
   background: var(--ink);

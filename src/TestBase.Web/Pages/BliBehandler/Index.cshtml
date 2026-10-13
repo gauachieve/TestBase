@@ -1,0 +1,37 @@
+@page
+@model TestBase.Web.Pages.BliBehandler.IndexModel
+@{
+    ViewData["Title"] = "Bli behandler";
+}
+
+<h1>Registrer deg som behandler</h1>
+
+<p>
+    Den første måneden er alltid gratis. Du kan utforske og bruke hele systemet
+    med én gang — betalingskort og de tre abonnementsmodellene (se <a href="/Prising">priser</a>)
+    kommer som et steg du setter opp senere, under "Abonnement" på din side.
+    Starter du uten kort, er du i <strong>test-modus</strong>: du kan gjøre alt,
+    men kun sende tester til deg selv, til du har satt opp et abonnement.
+</p>
+
+@if (Model.Feilmelding is not null)
+{
+    <p style="color: darkred;">@Model.Feilmelding</p>
+}
+
+<form method="post" data-disable-on-submit="Starter registrering …">
+    <div><label>Mobilnummer</label><br /><input asp-for="MobilNr" /></div>
+    <div><label>E-post</label><br /><input asp-for="Epost" type="email" /></div>
+    <p><em>Skriv inn minst én av disse — du fyller ut resten av profilen din på neste side.</em></p>
+
+    <!-- Bot-vern: skjult for mennesker, men botter fyller ofte ut alt -->
+    <div style="position: absolute; left: -9999px;" aria-hidden="true">
+        <label>Nettside</label>
+        <input asp-for="Nettside" tabindex="-1" autocomplete="off" />
+    </div>
+    <input type="hidden" asp-for="Vist" />
+
+    <button type="submit" class="btn btn-accent">Start registrering</button>
+</form>
+
+<p>Er du invitert av en kollega eller en klinikk? <a href="/Konto/LoggInn">Logg inn her</a> i stedet.</p>

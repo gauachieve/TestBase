@@ -200,6 +200,9 @@ namespace TestBase.Shared.Migrations
                     b.Property<DateTimeOffset>("OpprettetUtc")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<bool>("OpprettetViaSelvregistrering")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("PaaminnelseKanal")
                         .IsRequired()
                         .HasMaxLength(16)

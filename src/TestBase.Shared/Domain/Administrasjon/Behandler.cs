@@ -94,6 +94,18 @@ public sealed class Behandler
     public AbonnementModus AbonnementModus { get; set; } = AbonnementModus.PasientenGratis;
 
     /// <summary>
+    /// Sant KUN for behandlere opprettet via den offentlige selvregistrerings-
+    /// siden (Pages/BliBehandler — se BehandlerInvitasjonService.InviterAsync,
+    /// satt når BÅDE InvitertAvAdministratorId/InvitertAvBehandlerId er null).
+    /// Avgjør om "test-modus"-sperren i TestTildelingsService i det hele tatt
+    /// er relevant — en admin/kollega-INVITERT behandler var alltid fullt
+    /// funksjonell FØR denne funksjonen fantes, og skal IKKE retroaktivt
+    /// låses til test-modus bare fordi HarKortLagret defaulter til false.
+    /// Default false for ALLE eksisterende rader ved migrering.
+    /// </summary>
+    public bool OpprettetViaSelvregistrering { get; set; }
+
+    /// <summary>
     /// Sant når behandleren har lagret et betalingskort hos Stripe (via
     /// StripeAbonnementService) — IKKE belastet ved selve lagringen (Stripe
     /// SetupIntent). Uten kort kan behandleren bruke alt i systemet, men kun

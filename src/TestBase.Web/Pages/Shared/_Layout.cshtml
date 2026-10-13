@@ -1,6 +1,8 @@
 @using Microsoft.AspNetCore.Hosting
+@using Microsoft.EntityFrameworkCore
 @using Microsoft.Extensions.Hosting
 @using TestBase.Shared
+@using TestBase.Shared.Data
 @using TestBase.Shared.Domain.Administrasjon
 @using TestBase.Shared.Domain.Tester
 @using TestBase.Shared.Security
@@ -9,6 +11,7 @@
 @inject IConfiguration Configuration
 @inject BehandlerMeldingService MeldingService
 @inject TestService TestService
+@inject AppDbContext Db
 @{
     var erPasientPortal = (ViewData["Portal"] as string) == "pasient";
     var innloggingsUrl = erPasientPortal ? "/Pasientportal/Konto/LoggInn" : "/Konto/LoggInn";
@@ -24,6 +27,19 @@
     var antallUbesvarteTester = erPasient
         ? (await TestService.HentPasientSynligeTildelingerAsync(BrukerId())).Count(t => t.Status != TestTildelingStatus.Fullfort)
         : 0;
+
+    // Test-modus-banner (se docs/beslutningslogg.md "Abonnement/subscription-system") — vises
+    // KUN for en uavhengig behandler (ikke klinikk-tilknyttet) uten lagret kort.
+    var behandlerITestmodus = false;
+    if (erBehandler)
+    {
+        var innloggetBehandlerId = BrukerId();
+        var behandlerRad = await Db.Behandlere.AsNoTracking()
+            .Where(b => b.Id == innloggetBehandlerId)
+            .Select(b => new { b.HarKortLagret, b.PartnerId })
+            .FirstOrDefaultAsync();
+        behandlerITestmodus = behandlerRad is { PartnerId: null, HarKortLagret: false };
+    }
 
     // Fargeskjema per rolle (bugliste 2026-09-13 punkt 2) — se site.css sine
     // --rolle-*-variabler. Basert på CurrentUser.Role direkte (ikke de
@@ -127,6 +143,7 @@
                             <a class="funksjonsknapp" href="/Behandlerportal/Tildel/Pasienter"><partial name="_Ikon" model="@("tildel")" />Tildel tester</a>
                             <a class="funksjonsknapp" href="/Behandlerportal/Behandlere/Inviter"><partial name="_Ikon" model="@("inviter")" />Inviter kollega</a>
                             <a class="funksjonsknapp" href="/Behandlerportal/Utbetaling"><partial name="_Ikon" model="@("oppgaver")" />Min utbetaling</a>
+                            <a class="funksjonsknapp" href="/Behandlerportal/Abonnement"><partial name="_Ikon" model="@("oppgaver")" />Abonnement</a>
                             @if (CurrentUser.PartnerId is not null)
                             {
                                 <a class="funksjonsknapp" href="/Behandlerportal/MinPartner/Behandlere"><partial name="_Ikon" model="@("behandlere")" />Min klinikk</a>
@@ -149,6 +166,16 @@
             </div>
         }
     </header>
+
+    @if (behandlerITestmodus)
+    {
+        <div class="container">
+            <p class="abonnement-banner">
+                <strong>Test-modus</strong> — du har ikke lagret et betalingskort, så du kan kun sende
+                tester til deg selv. <a href="/Behandlerportal/Abonnement">Sett opp abonnement &rarr;</a>
+            </p>
+        </div>
+    }
 
     <main class="page@(ViewData["BredSide"] is true ? " page--bred" : "")">
         @RenderBody()

@@ -59,6 +59,20 @@ public sealed class RedigerModel : PageModel
     [BindProperty]
     public string? Tittel { get; set; }
 
+    /// <summary>
+    /// Manuelt superadmin-satt override (ingen ekte Stripe-kortintegrasjon
+    /// bygget ennå, se docs/beslutningslogg.md "Abonnement/subscription-
+    /// system") — samme midlertidige "sett tilstanden direkte"-mønster som
+    /// den tidligere HarEgetAbonnement/HarAktivtAbonnement. Kun Superadmin
+    /// kan redigere dette feltet.
+    /// </summary>
+    [BindProperty]
+    public bool HarKortLagret { get; set; }
+
+    [BindProperty]
+    public AbonnementModus AbonnementModus { get; set; }
+
+    public bool ErSuperadmin => _currentUser.Role is UserRole.Superadmin or UserRole.Utvikler;
     public string? Feilmelding { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(long id, CancellationToken cancellationToken)
@@ -79,6 +93,8 @@ public sealed class RedigerModel : PageModel
         Kontonummer = behandler.Kontonummer;
         Arbeidsadresse = behandler.Arbeidsadresse;
         Tittel = behandler.Tittel;
+        HarKortLagret = behandler.HarKortLagret;
+        AbonnementModus = behandler.AbonnementModus;
         return Page();
     }
 
@@ -126,6 +142,12 @@ public sealed class RedigerModel : PageModel
         behandler.Kontonummer = Kontonummer;
         behandler.Arbeidsadresse = Arbeidsadresse;
         behandler.Tittel = Tittel;
+
+        if (ErSuperadmin)
+        {
+            behandler.HarKortLagret = HarKortLagret;
+            behandler.AbonnementModus = AbonnementModus;
+        }
 
         await _db.SaveChangesAsync(cancellationToken);
 

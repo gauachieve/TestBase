@@ -1,0 +1,50 @@
+@page
+@model TestBase.Web.Areas.Behandlerportal.Pages.AbonnementModel
+@{
+    ViewData["Title"] = "Abonnement";
+}
+
+<h1>Abonnement</h1>
+
+@if (Model.Melding is not null)
+{
+    <p style="color: darkgreen;">@Model.Melding</p>
+}
+
+@if (Model.ErKlinikktilknyttet)
+{
+    <p>
+        Du er tilknyttet en klinikk — klinikken betaler et samlet, sete-basert abonnement for
+        alle sine behandlere. Du er derfor aldri i test-modus, og har ikke behov for et eget
+        betalingskort her.
+    </p>
+}
+else if (!Model.HarKortLagret)
+{
+    <p class="feilmelding" style="background: var(--bg-soft); padding: 1rem; border-radius: 8px;">
+        <strong>Test-modus</strong> — du har ikke lagret et betalingskort ennå. Du kan bruke alt i
+        systemet, men kun sende tester til deg selv (en pasient med samme e-postadresse som din
+        egen innlogging).
+    </p>
+    <p>
+        Ekte kortregistrering er ikke klar i systemet ennå. Ta kontakt med oss i mellomtiden for å
+        få aktivert et abonnement manuelt — se <a href="/Prising">priser</a> for hvordan de tre
+        modellene fungerer.
+    </p>
+}
+else
+{
+    @if (Model.ProveperiodeSluttUtc is { } sluttUtc && sluttUtc > DateTimeOffset.UtcNow)
+    {
+        <p><strong>Gratis måned</strong> — din prøveperiode varer til @sluttUtc.ToString("d. MMMM yyyy").</p>
+    }
+
+    <p>Velg hvilken av de tre modellene som skal gjelde for deg (se <a href="/Prising">priser</a> for full forklaring):</p>
+
+    <form method="post" data-disable-on-submit="Lagrer …">
+        <div><label><input type="radio" asp-for="ValgtModus" value="TerapeutGratis" /> a) Terapeut Gratis — du betaler ingenting, pasienten dekker en liten kostnad per test.</label></div>
+        <div><label><input type="radio" asp-for="ValgtModus" value="PasientenGratis" /> b) Pasienten Gratis — pasienten betaler ingenting, du betaler en flat månedsavgift.</label></div>
+        <div><label><input type="radio" asp-for="ValgtModus" value="Forutsigbart" /> c) Forutsigbart — du betaler én flat månedsavgift som dekker alt.</label></div>
+        <button type="submit" class="btn btn-accent">Lagre</button>
+    </form>
+}

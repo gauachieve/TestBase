@@ -25,6 +25,26 @@
     <div><label>Kontonummer</label><br /><input asp-for="Kontonummer" /></div>
     <div><label>Arbeidsadresse</label><br /><input asp-for="Arbeidsadresse" /></div>
     <div><label>Tittel</label><br /><input asp-for="Tittel" /></div>
+
+    @if (Model.ErSuperadmin)
+    {
+        <h2>Abonnement (Superadmin)</h2>
+        <p>
+            Ingen ekte Stripe-kortintegrasjon er bygget ennå (se docs/beslutningslogg.md
+            "Abonnement/subscription-system") — dette er et manuelt override, samme
+            midlertidige mønster som tidligere HarEgetAbonnement.
+        </p>
+        <div><label><input asp-for="HarKortLagret" type="checkbox" /> Har kort lagret (slipper test-modus)</label></div>
+        <div>
+            <label>Abonnementsmodus</label><br />
+            <select asp-for="AbonnementModus">
+                <option value="TerapeutGratis">a) Terapeut Gratis</option>
+                <option value="PasientenGratis">b) Pasienten Gratis</option>
+                <option value="Forutsigbart">c) Forutsigbart</option>
+            </select>
+        </div>
+    }
+
     <button type="submit">Lagre</button>
 </form>
 

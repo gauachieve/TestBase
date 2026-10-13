@@ -261,12 +261,34 @@ public sealed class TestTildelingsService
         var inkludererSms = varslingsmetode is Varslingspreferanse.Sms or Varslingspreferanse.Begge;
         var prisPerTestId = await BeregnPrisPerTestAsync(behandler, tester, onsketHonorarKrPerTestId, inkludererSms, cancellationToken);
 
+        // "Test-modus" (se docs/beslutningslogg.md "Abonnement/subscription-system"): en
+        // SELVREGISTRERT (Pages/BliBehandler), UAVHENGIG behandler UTEN lagret kort kan bruke
+        // alt i systemet, men kun sende tester til seg SELV (definert som en Pasient-rad med
+        // samme e-postadresse som behandlerens egen innlogging) — alt annet skal avvises
+        // tydelig, IKKE stille hoppes over (samme prinsipp som KreverBiologiskKjonn-avvisningen
+        // over). Gjelder BEVISST KUN OpprettetViaSelvregistrering=true — en admin/kollega-
+        // invitert behandler (eller en i tester/dev-seed direkte konstruert rad) var alltid
+        // fullt funksjonell FØR denne funksjonen fantes, og HarKortLagret defaulter til false
+        // for ALLE eksisterende rader ved migrering. Uten denne ekstra betingelsen ville EVERY
+        // behandler opprettet før denne funksjonen (eller i en test uten InviterAsync) plutselig
+        // blitt låst til test-modus — fanget av full regresjonssuite (6 feilende tester) før commit.
+        var behandlerErITestmodus = behandler is { OpprettetViaSelvregistrering: true, PartnerId: null, HarKortLagret: false };
+
         var perPasient = new List<TildeltPasientResultat>();
         var behandlerOppgaver = new List<BehandlerOppgave>();
         foreach (var pasient in pasienter)
         {
             var lenker = new List<TestLenke>();
             var ikkeTildelteTester = new List<string>();
+
+            if (behandlerErITestmodus && !string.Equals(pasient.Email, behandler!.Email, StringComparison.OrdinalIgnoreCase))
+            {
+                perPasient.Add(new TildeltPasientResultat(
+                    pasient.Id, pasient.Navn, lenker, false, false,
+                    new[] { $"{(pasient.Navn ?? "Denne pasienten")}: du er i test-modus (ingen kort lagret) og kan derfor kun sende tester til deg selv. Legg til et abonnement under «Min side» for å sende til andre." }));
+                continue;
+            }
+
             foreach (var testId in testIder)
             {
                 var valgtTest = tester.GetValueOrDefault(testId);

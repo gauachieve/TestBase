@@ -52,9 +52,9 @@ public sealed class BehandlerInvitasjonService
             throw new ArgumentException("Må ha enten mobilnummer eller e-post for å invitere en behandler.");
         }
 
-        if (administratorId is null == behandlerId is null)
+        if (administratorId is not null && behandlerId is not null)
         {
-            throw new ArgumentException("Nøyaktig én av administratorId/behandlerId skal være satt.");
+            throw new ArgumentException("Høyst én av administratorId/behandlerId kan være satt (begge null = selvregistrering, se Pages/BliBehandler).");
         }
 
         var behandler = new Behandler
@@ -65,6 +65,7 @@ public sealed class BehandlerInvitasjonService
             InvitertAvAdministratorId = administratorId,
             InvitertAvBehandlerId = behandlerId,
             PartnerId = partnerId,
+            OpprettetViaSelvregistrering = administratorId is null && behandlerId is null,
             OpprettetUtc = DateTimeOffset.UtcNow
         };
         _db.Behandlere.Add(behandler);
