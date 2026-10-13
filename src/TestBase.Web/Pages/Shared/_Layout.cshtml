@@ -61,29 +61,6 @@
         <div class="container header-inner">
             <a class="brand" href="/">Psy<span>Test</span></a>
 
-            <input type="checkbox" id="nav-toggle" class="nav-toggle-checkbox" />
-            <label for="nav-toggle" class="nav-toggle-btn" aria-label="Åpne meny">
-                <span></span><span></span><span></span>
-            </label>
-
-            <nav class="site-nav">
-                @if (erPasientPortal)
-                {
-                    <a href="/Pasienter">Hjem</a>
-                    <a href="/Pasienter#slik-fungerer-det">Slik fungerer det</a>
-                    <a href="/Pasienter#priser">Priser</a>
-                    <a href="/">Er du behandler/admin?</a>
-                }
-                else
-                {
-                    <a href="/">Hjem</a>
-                    <a href="/#tjenester">Tjenester</a>
-                    <a href="/#om">Om oss</a>
-                    <a href="/#kontakt">Kontakt</a>
-                    <a href="/Pasienter">Er du pasient?</a>
-                }
-            </nav>
-
             <div class="header-actions">
                 @if (CurrentUser.IsAuthenticated)
                 {
@@ -178,33 +155,37 @@
     </main>
 
     <footer class="site-footer">
-        <div class="container footer-grid">
-            <div>
-                <p class="footer-brand">Psy<span>Test</span></p>
-                <p>Online testesystem for psykologiske tester — trygg digital testing, skåring og rapportering for behandler og pasient.</p>
+        @if (!erPasient)
+        {
+            <div class="container footer-grid">
+                <div>
+                    <p class="footer-brand">Psy<span>Test</span></p>
+                    <p>Online testesystem for psykologiske tester — trygg digital testing, skåring og rapportering for behandler og pasient.</p>
+                </div>
+                <div>
+                    <h4>Logg inn</h4>
+                    <a href="/Konto/LoggInn">Administrator / behandler</a>
+                    <a href="/Pasienter">Pasient</a>
+                </div>
+                <div>
+                    <h4>Om PsyTest</h4>
+                    <a href="/#om">Om oss</a>
+                    <a href="/#tjenester">Tjenester</a>
+                    <a href="/Funksjoner">Alle funksjoner</a>
+                    <a href="/Prising">Priser</a>
+                    <a href="/personvern">Personvern og cookies</a>
+                    <a href="/salgsvilkar">Salgsvilkår</a>
+                </div>
+                <div>
+                    <h4>Kontakt</h4>
+                    <a href="mailto:gauteg@gmail.com">gauteg@gmail.com</a>
+                    <a href="tel:+4790879706">+47 90 87 97 06</a>
+                    <span>GGPsykolog AS</span>
+                    <span>Org.nr. 913 175 492</span>
+                    <span>Mølleveien 8, 1415 Oppegård</span>
+                </div>
             </div>
-            <div>
-                <h4>Logg inn</h4>
-                <a href="/Konto/LoggInn">Administrator / behandler</a>
-                <a href="/Pasienter">Pasient</a>
-            </div>
-            <div>
-                <h4>Om PsyTest</h4>
-                <a href="/#om">Om oss</a>
-                <a href="/#tjenester">Tjenester</a>
-                <a href="/#kontakt">Kontakt</a>
-                <a href="/personvern">Personvern og cookies</a>
-                <a href="/salgsvilkar">Salgsvilkår</a>
-            </div>
-            <div>
-                <h4>Kontakt</h4>
-                <a href="mailto:gauteg@gmail.com">gauteg@gmail.com</a>
-                <a href="tel:+4790879706">+47 90 87 97 06</a>
-                <span>GGPsykolog AS</span>
-                <span>Org.nr. 913 175 492</span>
-                <span>Mølleveien 8, 1415 Oppegård</span>
-            </div>
-        </div>
+        }
         <div class="container footer-bottom">
             <span>&copy; @DateTime.Now.Year PsyTest &mdash; v@(AppVersjon.Nummer)</span>
             <span>Ingen ekte pasientdata i dette miljøet</span>
