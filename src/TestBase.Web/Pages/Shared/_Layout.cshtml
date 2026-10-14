@@ -60,7 +60,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - PsyTest</title>
+    <title>@ViewData["Title"] - Testrom</title>
     <link rel="icon" type="image/svg+xml" href="~/favicon.svg" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
@@ -75,7 +75,7 @@
     }
     <header class="site-header">
         <div class="container header-inner">
-            <a class="brand" href="/">Psy<span>Test</span></a>
+            <a class="brand" href="/"><span>Test</span>rom</a>
 
             <div class="header-actions">
                 @if (CurrentUser.IsAuthenticated)
@@ -186,7 +186,7 @@
         {
             <div class="container footer-grid">
                 <div>
-                    <p class="footer-brand">Psy<span>Test</span></p>
+                    <p class="footer-brand"><span>Test</span>rom</p>
                     <p>Online testesystem for psykologiske tester — trygg digital testing, skåring og rapportering for behandler og pasient.</p>
                 </div>
                 <div>
@@ -195,7 +195,7 @@
                     <a href="/Pasienter">Pasient</a>
                 </div>
                 <div>
-                    <h4>Om PsyTest</h4>
+                    <h4>Om Testrom</h4>
                     <a href="/#om">Om oss</a>
                     <a href="/#tjenester">Tjenester</a>
                     <a href="/Funksjoner">Alle funksjoner</a>
@@ -214,7 +214,7 @@
             </div>
         }
         <div class="container footer-bottom">
-            <span>&copy; @DateTime.Now.Year PsyTest &mdash; v@(AppVersjon.Nummer)</span>
+            <span>&copy; @DateTime.Now.Year Testrom &mdash; v@(AppVersjon.Nummer)</span>
             <span>Ingen ekte pasientdata i dette miljøet</span>
         </div>
     </footer>

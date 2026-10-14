@@ -542,7 +542,7 @@ public sealed class ProgramService
 
         var lenke = $"{baseUrl.TrimEnd('/')}/Pasientportal/Tester/Fyll/{tildeling.Id}";
         var melding = $"En ny test venter på deg: {lenke}";
-        await VarsleBestEffortAsync(pasient, melding, "Ny test tilgjengelig i PsyTest", cancellationToken);
+        await VarsleBestEffortAsync(pasient, melding, "Ny test tilgjengelig i Testrom", cancellationToken);
     }
 
     /// <summary>Samme "feiltolerant varsling"-prinsipp som TestTildelingsService/PasientInvitasjonService — en SMS-/e-postfeil skal ALDRI velte selve drop-fyringen, som allerede er lagret i databasen.</summary>

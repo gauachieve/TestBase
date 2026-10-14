@@ -678,7 +678,7 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           // DagligPaaminnelseBakgrunnstjeneste.cs / PlanlagtTildelingBakgrunnstjeneste.cs)
           // — uten denne falt lenkene tilbake til den hardkodede lokale
           // utviklings-URL-en, se docs/beslutningslogg.md. Parameterisert (ikke
-          // hardkodet til www.psytest.no) siden DENNE malen deler seg mellom flere
+          // hardkodet til www.testrom.no) siden DENNE malen deler seg mellom flere
           // miljøer (test/"live" og beta) med ULIKE offentlige URL-er — se
           // beslutningsloggen "Beta-miljø".
           name: 'Varsling__BaseUrl'

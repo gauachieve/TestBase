@@ -30,7 +30,7 @@ public sealed class VippsModel : PageModel
         var returUrl = Url.Page("/BetalingTest/VippsResultat", pageHandler: null, values: new { referanse }, protocol: Request.Scheme)
             ?? throw new InvalidOperationException("Klarte ikke å generere returUrl for VippsResultat.");
 
-        var resultat = await _vipps.OpprettBetalingAsync(referanse, 1m, "Diagnostisk testbetaling (PsyTest)", returUrl, cancellationToken);
+        var resultat = await _vipps.OpprettBetalingAsync(referanse, 1m, "Diagnostisk testbetaling (Testrom)", returUrl, cancellationToken);
         if (!resultat.Success || resultat.RedirectUrl is null)
         {
             return RedirectToPage("VippsResultat", new { referanse, feil = resultat.ErrorMessage ?? "Ukjent feil" });

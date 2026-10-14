@@ -20,7 +20,7 @@ public static class HjelpInnhold
         // ---------- Anonym (ikke innlogget) ----------
         new("anon-logge-inn-behandler",
             "Hvordan logger jeg inn som behandler eller administrator?",
-            "<p>Trykk <strong>Logg inn</strong> øverst til høyre og velg <strong>Logg inn med BankID</strong>. Du bekrefter identiteten din i BankID-appen på telefonen — du trenger ikke taste personnummer på selve PsyTest-siden, BankID-appen tar seg av det. Systemet finner kontoen din automatisk og logger deg inn som administrator eller behandler, avhengig av rollen din.</p>",
+            "<p>Trykk <strong>Logg inn</strong> øverst til høyre og velg <strong>Logg inn med BankID</strong>. Du bekrefter identiteten din i BankID-appen på telefonen — du trenger ikke taste personnummer på selve Testrom-siden, BankID-appen tar seg av det. Systemet finner kontoen din automatisk og logger deg inn som administrator eller behandler, avhengig av rollen din.</p>",
             KunAnonym, new[] { "/Konto/LoggInn" }, true, "Innlogging"),
 
         new("anon-logge-inn-pasient",
@@ -38,9 +38,9 @@ public static class HjelpInnhold
             "<p>Sjekk først at du bruker riktig BankID-metode (f.eks. BankID-appen på telefonen, ikke en kodebrikke, hvis det er det du normalt bruker). Prøv gjerne på nytt — midlertidige nettverksfeil forekommer. Vedvarer problemet, ta kontakt med klinikken din, eller bruk tilbakemeldingsknappen nederst til høyre på siden så ser vi på saken.</p>",
             KunAnonym, Array.Empty<string>(), true, "Innlogging"),
 
-        new("anon-hva-er-psytest",
-            "Hva er PsyTest?",
-            "<p>PsyTest er et system for å gjennomføre psykologiske tester digitalt. En behandler tildeler deg en eller flere tester, du svarer i eget tempo på telefon eller PC, og behandleren din får en ferdig skåret rapport. Alt behandles som helseopplysninger og lagres sikkert.</p>",
+        new("anon-hva-er-testrom",
+            "Hva er Testrom?",
+            "<p>Testrom er et system for å gjennomføre psykologiske tester digitalt. En behandler tildeler deg en eller flere tester, du svarer i eget tempo på telefon eller PC, og behandleren din får en ferdig skåret rapport. Alt behandles som helseopplysninger og lagres sikkert.</p>",
             KunAnonym, Array.Empty<string>(), true, "Generelt"),
 
         new("anon-personvern",

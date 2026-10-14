@@ -9116,3 +9116,54 @@ samme-tilstand-dedupliseringen omtalt i Pushover-oppføringen over).
 full `dotnet build` grønn, Playwright-verifisert i nettleser for alle fem faser. Ingenting i denne
 runden rørte produksjons-/beta-App Service-innstillinger, Key Vault, eller `azd`-miljøene — alt
 er lokalt commitet+pushet til `master`, klart for neste `azd deploy`-vurdering av brukeren selv.
+
+## Navnebytte PsyTest → Testrom (2026-10-14)
+
+**Bakgrunn:** brukeren fant en reell konkurrent, psyktest.com, med overlappende funksjonalitet og
+etablert i Norge. Research avdekket et SEPARAT, enda nærmere forvekslingsproblem: `psyktest.no`
+(ikke `.com`) er et eldre, Helsedirektoratet/Kunnskapssenteret-tilknyttet nettsted som vurderer
+kvaliteten på psykologiske tester — ÉN bokstav fra det daværende domenet `psytest.no`. To
+uavhengige forvekslingsrisikoer på samme navn var nok til å bytte navn fremfor å justere
+stavemåten.
+
+**Navnevalg:** flere korte, norske kandidater ble vurdert (Kartlegg, Skåra, Testrom, Fagtest,
+Praksistest — se chat-historikken, ikke gjengitt her siden selve brainstormingen ikke er
+beslutningsrelevant). Kartlegg og Skåra var allerede tatt som domener. **`Testrom.no` ble
+registrert og sikret av brukeren 2026-10-14** — valgt navn fremover.
+
+**Idura/BankID-avklaring (viktig, ikke selvsagt):** brukeren hadde FRA FØR en åpen sak hos Idura
+om nærheten mellom "psytest-no" og "psytest.no" i deres callback-oppsett, og Idura (Nicholas,
+support) løste den ved å whiteliste en EGEN, dedikert subdomene-konvensjon:
+`authorize.psytest.no`. Dette bekrefter to ting for et fremtidig domenebytte: (1) Iduras
+prosess for å whiteliste et nytt redirect-domene er rask (én e-post, løst samme uke, ikke en
+flerdagers enterprise-prosess), og (2) mønsteret er en EGEN `authorize.`-subdomene, separat fra
+selve app-domenet — samme mønster bør gjenskapes under `testrom.no`
+(`authorize.testrom.no`) når/hvis man vil at HELE den innloggede opplevelsen (ikke bare det
+offentlige nettstedet) skal leve på det nye domenet. Kritisk presisering gjort i samtalen: dette
+whitelist-oppslaget dekker IKKE automatisk et helt nytt domene — cookies deles aldri over
+registrerbare domener i en nettleser, kun over subdomener av SAMME domene — så en reell
+innloggingsflytt krever en ny, egen whitelist-forespørsel til Idura for `testrom.no`, ikke bare
+gjenbruk av det som allerede er gjort for `psytest.no`.
+
+**Vipps/Stripe:** ingen endring nødvendig uansett — begges callbacks er enten rene server-til-
+server-webhooks (betalingsstatus) eller browser-redirects som ikke er avhengig av en delt
+sesjons-cookie. De kan fortsatt pek mot `psytest.no` på ubestemt tid uten noen funksjonell eller
+synlig konsekvens for brukeren.
+
+**Gjort i denne runden (kun tekst-/merkevaresveip, INGEN domene-/DNS-/Azure-/Idura-endring —
+brukeren gjør de eksterne stegene selv, se sjekkliste gitt i chat):** alle brukervendte
+"PsyTest"-forekomster byttet til "Testrom" i `src/` (SMS/e-post-tekster i
+`BehandlerInvitasjonService`/`PasientInvitasjonService`/`ToFaktorService`/`PaaminnelseService`/
+`ProgramService`/`TestTildelingsService`, sidetitler/footer/merke i `_Layout.cshtml` — logo-
+splitten gikk fra `Psy<span>Test</span>` til `<span>Test</span>rom` for å beholde samme
+aksentfarge-mønster på "Test"-delen — `Index.cshtml`, `Funksjoner.cshtml`, `Prising.cshtml`,
+`Pasienter.cshtml`, `Personvern.cshtml`, `Salgsvilkar.cshtml` (inkl. domenereferansen i §1),
+`Rapport.cshtml` sin "kopier til utklippstavle"-mal, og `HjelpInnhold.cs` inkl. en intern
+artikkel-id-omdøping `anon-hva-er-psytest` → `anon-hva-er-testrom`, verifisert uten andre
+referanser). `infra/main.bicep`/`infra/resources.bicep` sine kommentar-EKSEMPLER på
+`Varsling__BaseUrl` oppdatert til `testrom.no` — selve parameteren var allerede miljøvariabel-
+styrt, ingen funksjonell endring. `.github/workflows/deploy.yml` sin live-helsesjekk ble BEVISST
+IKKE endret (peker fortsatt på `www.psytest.no/health`) — det domenet fortsetter å svare uansett,
+se sjekklisten for når dette bør oppdateres/utvides. `AppVersjon.cs` sin kommentar oppdatert
+tilsvarende. Ingen tester refererte til "PsyTest" i tekst (verifisert via søk), så ingen
+testendringer var nødvendig utover selve byggverifiseringen.

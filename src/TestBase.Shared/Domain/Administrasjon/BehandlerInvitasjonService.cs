@@ -88,7 +88,7 @@ public sealed class BehandlerInvitasjonService
         await _db.SaveChangesAsync(cancellationToken);
 
         var lenke = $"{baseUrl.TrimEnd('/')}/Inviter/Fullfor/{token}";
-        var melding = $"Du er invitert som behandler i PsyTest. Fullfør registreringen din her: {lenke}";
+        var melding = $"Du er invitert som behandler i Testrom. Fullfør registreringen din her: {lenke}";
 
         if (kontaktMetode == KontaktMetode.Sms)
         {
@@ -96,7 +96,7 @@ public sealed class BehandlerInvitasjonService
         }
         else
         {
-            await _email.SendAsync(kontaktVerdi, "Invitasjon til PsyTest", melding, cancellationToken);
+            await _email.SendAsync(kontaktVerdi, "Invitasjon til Testrom", melding, cancellationToken);
         }
 
         return new BehandlerInvitasjonResultat(behandler, lenke);
@@ -209,7 +209,7 @@ public sealed class BehandlerInvitasjonService
         });
         await _db.SaveChangesAsync(cancellationToken);
 
-        var melding = $"PsyTest-bekreftelseskode: {kode} (gyldig i {VerifiseringLevetid.TotalMinutes:0} minutter).";
+        var melding = $"Testrom-bekreftelseskode: {kode} (gyldig i {VerifiseringLevetid.TotalMinutes:0} minutter).";
 
         if (kanal == KontaktMetode.Sms)
         {
