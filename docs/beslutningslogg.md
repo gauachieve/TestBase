@@ -9207,3 +9207,42 @@ til å matche. `az deployment ... what-if` (read-only) kjørt mot BÅDE miljøen
 men selve en faktisk `azd provision` er IKKE kjørt i denne runden — bindingene fungerer allerede
 via CLI-oppsettet over, og en reprovisjonering er en egen, bevisst brukerbeslutning å ta senere,
 ikke noe som trengs for at noe skal virke i dag.
+
+**Oppfølging samme kveld — stavemåte + logo + gjenværende "PsyTest"-funn (2026-10-15):**
+Brukeren ba om å endre stavemåten fra "Testrom" til "TestRom" (stor R, ett ord) og om en synlig
+"TR"-logomerke på selve siden (ikke bare favicon). Gjort: alle 18 filer fra forrige runde fikk
+"Testrom" → "TestRom", et nytt SVG-logomerke (mørk avrundet firkant + oransje "TR", samme stil
+som favicon) lagt til i header (`.brand`) og footer (`.footer-brand`) i `_Layout.cshtml`, og
+`favicon.svg` sin gamle "PT"-monogram oppdatert til "TR" (ble oversett i forrige runde siden
+tekstsøket var etter "PsyTest", ikke etter de to bokstavene isolert).
+
+**To reelle, brukerfunne regresjoner, begge fanget FØR commit via gjentatt Playwright-
+verifisering (ikke antatt riktig fra kildekode-lesing alene):**
+1. `display:flex` + `gap` på `.brand`/`.footer-brand` gjorde at den bare "Rom"-teksten ble sin
+   egen anonyme flex-item, sibling til `<span>Test</span>` — `gap` ble dermed satt inn MELLOM
+   "Test" og "Rom" også, ikke bare mellom logo og tekst. Usynlig fra å lese kildekoden/markupet
+   (ingen faktisk mellomrom-tegn i teksten), kun synlig i faktisk rendret nettleser. Fikset ved å
+   pakke "Test"+"Rom" i en felles `<span class="brand-wordmark">` som blir DEN ene flex-iten.
+2. Fiksen over introduserte en NY regresjon: `.brand span { color: var(--accent); }` er en
+   descendant-selektor som treffer BÅDE den indre "Test"-spanen OG den nye ytre
+   `.brand-wordmark`-spanen (begge er `<span>`-elementer under `.brand`) — hele ordet ble oransje
+   i stedet for topunkts-fargesplitt. Fanget av en ny, målrettet Playwright-verifiseringsrunde
+   (computed style-sjekk) FØR commit. Fikset med en child-selektor (`.brand-wordmark > span`) som
+   kun treffer den indre spanen.
+
+**Tredje funn, fra brukerens egen telefon (ikke kodegjennomgang):** en reell mottatt 2FA-SMS
+viste fortsatt "PsyTest" som AVSENDERNAVN — dette var IKKE meldingsteksten (som allerede var
+rettet og deployet i forrige runde), men `Sms__SenderId`-App Service-innstillingen (Vonage sitt
+alfanumeriske "from"-felt), en ren driftskonfigurasjonsverdi satt én gang ved original Vonage-
+oppsett (se "SMS-integrasjon: byttet fra Azure til Vonage", 2026-09-04) og aldri rørt av
+tekstsveipet siden den ikke er en streng i kildekoden. Siden samme logg bekrefter at Vonage
+IKKE krever forhåndsregistrering av avsendernavn for Norge (verifisert empirisk den gangen),
+ble `Sms__SenderId` satt til `"TestRom"` direkte på live (`az webapp config appsettings set`)
+OG kodifisert i `testbase-test` sitt azd-miljø (`SMS_SENDER_ID`) — ingen uker-lang
+operatørprosess nødvendig, i motsetning til hva som ville gjelde for et helt nytt avsendernavn
+hos en leverandør som faktisk krever forhåndsregistrering. Beta sin `Sms__SenderId` var allerede
+tom (MockSmsSender uansett), ikke rørt.
+
+Alt verifisert: `dotnet build`/`dotnet test` (119/119) grønt, OG en tredje Playwright-runde
+bekreftet begge CSS-regresjonene faktisk er fikset (computed style-verdier lest direkte, ikke
+bare "ser riktig ut på skjermbilde") før commit.

@@ -82,7 +82,7 @@ public sealed class PasientInvitasjonService
         await _db.SaveChangesAsync(cancellationToken);
 
         var lenke = $"{baseUrl.TrimEnd('/')}/PasientRegistrering/Fullfor/{token}";
-        var melding = $"Du er invitert til å bruke Testrom av din behandler. Fullfør registreringen din her: {lenke}";
+        var melding = $"Du er invitert til å bruke TestRom av din behandler. Fullfør registreringen din her: {lenke}";
 
         if (varslingskanal == KontaktMetode.Sms)
         {
@@ -90,7 +90,7 @@ public sealed class PasientInvitasjonService
         }
         else
         {
-            await _email.SendAsync(kontaktVerdi, "Invitasjon til Testrom", melding, cancellationToken);
+            await _email.SendAsync(kontaktVerdi, "Invitasjon til TestRom", melding, cancellationToken);
         }
 
         return new PasientInvitasjonResultat(pasient, lenke);
@@ -224,7 +224,7 @@ public sealed class PasientInvitasjonService
     private async Task SendFullforProfilLenkeAsync(Pasient pasient, string baseUrl, CancellationToken cancellationToken)
     {
         var lenke = $"{baseUrl.TrimEnd('/')}/PasientRegistrering/FullforProfil/{pasient.ProfilFullforingToken}";
-        var melding = $"Velkommen til Testrom! Du kan bruke systemet allerede nå. Når du har tid, fullfør profilen din (navn, kontaktinfo, personnummer) her: {lenke}";
+        var melding = $"Velkommen til TestRom! Du kan bruke systemet allerede nå. Når du har tid, fullfør profilen din (navn, kontaktinfo, personnummer) her: {lenke}";
 
         if (!string.IsNullOrWhiteSpace(pasient.MobilNr))
         {
@@ -242,7 +242,7 @@ public sealed class PasientInvitasjonService
         {
             try
             {
-                await _email.SendAsync(pasient.Email, "Fullfør profilen din i Testrom", melding, cancellationToken);
+                await _email.SendAsync(pasient.Email, "Fullfør profilen din i TestRom", melding, cancellationToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

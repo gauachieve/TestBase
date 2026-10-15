@@ -85,7 +85,10 @@ App Service-innstillinger før du antar, spesielt på live):**
   IKKE gjort:** Idura-whitelisting av `testrom.no` sin `authorize.`-subdomene — ekte BankID-
   innlogging ruller derfor fortsatt via `psytest.no` sin `authorize.`-subdomene uansett hvilket
   domene man browser på (se beslutningsloggen for cookie-domenescoping-forklaringen). Ikke anta
-  dette er løst uten å sjekke.
+  dette er løst uten å sjekke. **Oppdatert samme kveld (2026-10-15):** stavemåten er nå "TestRom"
+  (stor R, ett ord — ikke "Testrom"), med et synlig "TR"-logomerke i header/footer og på
+  favicon. `Sms__SenderId` på live er satt til `"TestRom"` (var fortsatt literally "PsyTest" på
+  selve avsendernavnet til ekte SMS, uavhengig av meldingsteksten i koden — se beslutningsloggen).
 - Ekte BankID for admin/behandler (Idura/Stø) FUNGERER, styrt av en runtime-bryter på
   `Admin/MinSide` (Superadmin/Utvikler-only, `EktBankIdInnstilling`) — skrus av/på UTEN redeploy.
   Pasient-BankID og ekte Vipps/kortbetaling er IKKE bygget/aktivert.

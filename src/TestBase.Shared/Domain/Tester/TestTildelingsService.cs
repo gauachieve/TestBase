@@ -389,7 +389,7 @@ public sealed class TestTildelingsService
                 : await VarsleAsync(
                     pasient,
                     BygSmsMelding(behandler?.Visningsnavn, lenker[0]),
-                    "Nye tester tildelt i Testrom",
+                    "Nye tester tildelt i TestRom",
                     BygEpostTekst(lenker),
                     BygEpostHtml(behandler?.Visningsnavn, baseUrl),
                     varslingsmetode,
@@ -467,7 +467,7 @@ public sealed class TestTildelingsService
         var melding = $"Rapporten din for {test?.Navn ?? "en test"} er klar. Se den her: {lenke}";
 
         await _testService.SettRapportSynlighetAsync(tildelingId, true, cancellationToken);
-        var (sendtSms, sendtEpost) = await VarsleAsync(pasient, melding, "Rapporten din er klar i Testrom", melding, null, pasient.Varslingspreferanse, cancellationToken);
+        var (sendtSms, sendtEpost) = await VarsleAsync(pasient, melding, "Rapporten din er klar i TestRom", melding, null, pasient.Varslingspreferanse, cancellationToken);
         return sendtSms || sendtEpost;
     }
 
@@ -504,11 +504,11 @@ public sealed class TestTildelingsService
         var test = await _db.Tester.FirstOrDefaultAsync(t => t.Id == tildeling.TestId, cancellationToken);
         var testNavn = test?.Navn ?? "en test";
         var lenke = $"{baseUrl.TrimEnd('/')}/Pasientportal/Tester/Fyll/{tildelingId}";
-        var smsTekst = $"Påminnelse fra Testrom: du har ikke fullført testen «{testNavn}» ennå. Fyll den ut her: {lenke}";
-        var epostTekst = $"Påminnelse: du har fått i oppgave å fylle ut «{testNavn}» i Testrom, men har ikke fullført den ennå. Fullfør her: {lenke}";
+        var smsTekst = $"Påminnelse fra TestRom: du har ikke fullført testen «{testNavn}» ennå. Fyll den ut her: {lenke}";
+        var epostTekst = $"Påminnelse: du har fått i oppgave å fylle ut «{testNavn}» i TestRom, men har ikke fullført den ennå. Fullfør her: {lenke}";
 
         var (sendtSms, sendtEpost) = await VarsleAsync(
-            pasient, smsTekst, "Påminnelse: ubesvart test i Testrom", epostTekst, null, pasient.Varslingspreferanse, cancellationToken);
+            pasient, smsTekst, "Påminnelse: ubesvart test i TestRom", epostTekst, null, pasient.Varslingspreferanse, cancellationToken);
 
         tildeling.SistPaaminnetUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
@@ -614,28 +614,28 @@ public sealed class TestTildelingsService
     {
         if (lenker.Count == 1)
         {
-            return $"Du har fått en ny test i Testrom: {lenker[0].TestNavn}. Fyll den ut her: {lenker[0].Lenke}";
+            return $"Du har fått en ny test i TestRom: {lenker[0].TestNavn}. Fyll den ut her: {lenker[0].Lenke}";
         }
 
         var linjer = lenker.Select(l => $"- {l.TestNavn}: {l.Lenke}");
-        return "Du har fått nye tester i Testrom:\n" + string.Join("\n", linjer);
+        return "Du har fått nye tester i TestRom:\n" + string.Join("\n", linjer);
     }
 
     /// <summary>
     /// Bugliste 2026-10-06 punkt 10: SMS skal ALDRI liste opp flere tester (for kort/upraktisk
     /// format til det) — kun ÉN lenke til den FØRSTE testen, uten å nevne testens navn, pluss
     /// behandlerens navn når en behandler faktisk gjorde tildelingen (null ved admin-direkte
-    /// tildeling, der nevnes Testrom i stedet).
+    /// tildeling, der nevnes TestRom i stedet).
     /// </summary>
     private static string BygSmsMelding(string? behandlerNavn, TestLenke forsteLenke)
     {
-        var avsender = string.IsNullOrWhiteSpace(behandlerNavn) ? "behandleren din i Testrom" : $"{behandlerNavn} i Testrom";
+        var avsender = string.IsNullOrWhiteSpace(behandlerNavn) ? "behandleren din i TestRom" : $"{behandlerNavn} i TestRom";
         return $"Du har fått en ny test fra {avsender}. Fyll den ut her: {forsteLenke.Lenke}";
     }
 
     /// <summary>
     /// Bugliste 2026-10-06 punkt 8-9: en EGEN, rikere HTML-variant av "nye tester tildelt"-
-    /// e-posten — overskrift, en kort forklaring av hva Testrom er, behandlerens navn, og en
+    /// e-posten — overskrift, en kort forklaring av hva TestRom er, behandlerens navn, og en
     /// fargelagt KNAPP til pasientens samlede testliste (Min side) i stedet for å liste opp hver
     /// enkelt test med egen lenke (det gjør fortsatt PlainText-fallbacken, se BygEpostTekst, for
     /// e-postklienter uten HTML-støtte). Inline CSS — e-postklienter respekterer ikke
@@ -652,7 +652,7 @@ public sealed class TestTildelingsService
             <div style="font-family: Arial, Helvetica, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
                 <h1 style="font-size: 1.3rem; color: #0f6d5e;">Nye tester venter på deg</h1>
                 <p>{{behandlerSetning}}</p>
-                <p style="color: #555;">Testrom er et sikkert, digitalt testsystem som behandleren din bruker til å sende deg
+                <p style="color: #555;">TestRom er et sikkert, digitalt testsystem som behandleren din bruker til å sende deg
                    psykologiske tester og spørreskjemaer, og til å dele resultatene med deg etterpå.</p>
                 <p style="text-align: center; margin: 2rem 0;">
                     <a href="{{minSideLenke}}"

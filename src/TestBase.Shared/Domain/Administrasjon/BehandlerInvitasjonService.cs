@@ -88,7 +88,7 @@ public sealed class BehandlerInvitasjonService
         await _db.SaveChangesAsync(cancellationToken);
 
         var lenke = $"{baseUrl.TrimEnd('/')}/Inviter/Fullfor/{token}";
-        var melding = $"Du er invitert som behandler i Testrom. Fullfør registreringen din her: {lenke}";
+        var melding = $"Du er invitert som behandler i TestRom. Fullfør registreringen din her: {lenke}";
 
         if (kontaktMetode == KontaktMetode.Sms)
         {
@@ -96,7 +96,7 @@ public sealed class BehandlerInvitasjonService
         }
         else
         {
-            await _email.SendAsync(kontaktVerdi, "Invitasjon til Testrom", melding, cancellationToken);
+            await _email.SendAsync(kontaktVerdi, "Invitasjon til TestRom", melding, cancellationToken);
         }
 
         return new BehandlerInvitasjonResultat(behandler, lenke);
@@ -209,7 +209,7 @@ public sealed class BehandlerInvitasjonService
         });
         await _db.SaveChangesAsync(cancellationToken);
 
-        var melding = $"Testrom-bekreftelseskode: {kode} (gyldig i {VerifiseringLevetid.TotalMinutes:0} minutter).";
+        var melding = $"TestRom-bekreftelseskode: {kode} (gyldig i {VerifiseringLevetid.TotalMinutes:0} minutter).";
 
         if (kanal == KontaktMetode.Sms)
         {

@@ -36,7 +36,7 @@ public sealed class StripeModel : PageModel
 
         // Stripe har en minimumsgrense på 3 kr for NOK-transaksjoner.
         var resultat = await _stripe.OpprettBetalingsintensjonAsync(
-            5m, "Diagnostisk testbetaling (Testrom)", referanse: $"betalingtest-{Guid.NewGuid():N}", cancellationToken: cancellationToken);
+            5m, "Diagnostisk testbetaling (TestRom)", referanse: $"betalingtest-{Guid.NewGuid():N}", cancellationToken: cancellationToken);
         if (!resultat.Success || resultat.ClientSecret is null)
         {
             Feil = resultat.ErrorMessage ?? "Ukjent feil";

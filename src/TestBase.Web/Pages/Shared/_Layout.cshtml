@@ -60,7 +60,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Testrom</title>
+    <title>@ViewData["Title"] - TestRom</title>
     <link rel="icon" type="image/svg+xml" href="~/favicon.svg" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
@@ -75,7 +75,7 @@
     }
     <header class="site-header">
         <div class="container header-inner">
-            <a class="brand" href="/"><span>Test</span>rom</a>
+            <a class="brand" href="/"><svg class="brand-logo" width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" fill="var(--ink)" /><text x="16" y="23" font-family="-apple-system,Segoe UI,Roboto,Arial,sans-serif" font-size="17" font-weight="700" text-anchor="middle" fill="var(--accent)">TR</text></svg><span class="brand-wordmark"><span>Test</span>Rom</span></a>
 
             <div class="header-actions">
                 @if (CurrentUser.IsAuthenticated)
@@ -186,7 +186,7 @@
         {
             <div class="container footer-grid">
                 <div>
-                    <p class="footer-brand"><span>Test</span>rom</p>
+                    <p class="footer-brand"><svg class="brand-logo" width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" fill="#fff" fill-opacity="0.1" /><text x="16" y="23" font-family="-apple-system,Segoe UI,Roboto,Arial,sans-serif" font-size="17" font-weight="700" text-anchor="middle" fill="var(--accent)">TR</text></svg><span class="brand-wordmark"><span>Test</span>Rom</span></p>
                     <p>Online testesystem for psykologiske tester — trygg digital testing, skåring og rapportering for behandler og pasient.</p>
                 </div>
                 <div>
@@ -195,7 +195,7 @@
                     <a href="/Pasienter">Pasient</a>
                 </div>
                 <div>
-                    <h4>Om Testrom</h4>
+                    <h4>Om TestRom</h4>
                     <a href="/#om">Om oss</a>
                     <a href="/#tjenester">Tjenester</a>
                     <a href="/Funksjoner">Alle funksjoner</a>
@@ -214,7 +214,7 @@
             </div>
         }
         <div class="container footer-bottom">
-            <span>&copy; @DateTime.Now.Year Testrom &mdash; v@(AppVersjon.Nummer)</span>
+            <span>&copy; @DateTime.Now.Year TestRom &mdash; v@(AppVersjon.Nummer)</span>
             <span>Ingen ekte pasientdata i dette miljøet</span>
         </div>
     </footer>

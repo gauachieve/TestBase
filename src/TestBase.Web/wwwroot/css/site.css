@@ -336,13 +336,17 @@ code {
   padding-bottom: 1rem;
 }
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-weight: 800;
   font-size: 1.3rem;
   color: var(--ink);
   white-space: nowrap;
 }
-.brand span { color: var(--accent); }
+.brand-wordmark > span { color: var(--accent); }
 .brand:hover { text-decoration: none; }
+.brand-logo { flex-shrink: 0; }
 
 .header-actions {
   display: flex;
@@ -670,8 +674,7 @@ body.home main.page { padding-top: 0; padding-bottom: 0; }
   margin-bottom: 0.55rem;
 }
 .footer-grid a:hover { color: #fff; }
-.footer-brand { font-weight: 800; font-size: 1.2rem; color: #fff; }
-.footer-brand span { color: var(--accent); }
+.footer-brand { display: inline-flex; align-items: center; gap: 0.45rem; font-weight: 800; font-size: 1.2rem; color: #fff; }
 .footer-bottom {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   padding: 1.25rem 0;
