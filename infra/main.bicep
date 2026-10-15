@@ -136,6 +136,12 @@ param stagingGateBasicAuthPassword string = ''
 @description('Offentlig base-URL for lenker fra bakgrunnstjenester (SMS/e-post) — tom verdi faller tilbake til appens *.azurewebsites.net-vertsnavn. Settes via azd-miljøvariabelen VARSLING_BASE_URL, f.eks. https://www.testrom.no for live eller https://beta.testrom.no for beta.')
 param varslingBaseUrl string = ''
 
+@description('Primært egendefinert domene bundet til App Service, f.eks. www.psytest.no for live eller beta.psytest.no for beta — tom verdi betyr ingen binding opprettes via Bicep (f.eks. et miljø uten egendefinert domene ennå). Settes via azd-miljøvariabelen CUSTOM_DOMAIN_HOSTNAME_PRIMARY. KREVER at DNS (CNAME + asuid-TXT-eierskapsbevis) allerede peker riktig FØR denne settes/provisjoneres — se docs/beslutningslogg.md "Eget domene for test-miljøet: psytest.no" og "Navnebytte PsyTest → Testrom" for hele oppskriften og hvorfor rekkefølgen er obligatorisk.')
+param customDomainHostnamePrimary string = ''
+
+@description('Sekundært egendefinert domene bundet til SAMME App Service, f.eks. www.testrom.no for live eller beta.testrom.no for beta — samme DNS-forutsetning som over. Tom verdi = ingen sekundær binding. Settes via azd-miljøvariabelen CUSTOM_DOMAIN_HOSTNAME_SECONDARY.')
+param customDomainHostnameSecondary string = ''
+
 @description('Skrur på AUTH-RELATERTE utviklingssnarveier (PersonnummerOverride-bypass, 2FA-kode vist i klartekst, AdminId+passord-innlogging, diagnostiske BankID-/betalingstestsider) — BEVISST ET EGET FLAGG, ikke ASPNETCORE_ENVIRONMENT/IsDevelopment(), siden live kjører "Development" KUN for automatisk databasemigrering ved oppstart og ALDRI skal ha disse snarveiene aktive (se docs/beslutningslogg.md "StagingGate fjernet fra live"). "true" lokalt og på beta, "false" på live. "true"/"false" som STRENG, ikke bool. Settes via azd-miljøvariabelen MILJO_TILLAT_UTVIKLINGSSNARVEIER.')
 param tillatUtviklingsSnarveier string = 'false'
 
@@ -201,6 +207,8 @@ module resources 'resources.bicep' = {
     stagingGateBasicAuthUsername: stagingGateBasicAuthUsername
     stagingGateBasicAuthPassword: stagingGateBasicAuthPassword
     varslingBaseUrl: varslingBaseUrl
+    customDomainHostnamePrimary: customDomainHostnamePrimary
+    customDomainHostnameSecondary: customDomainHostnameSecondary
     tillatUtviklingsSnarveier: tillatUtviklingsSnarveier
     tillatPersonnummerOverride: tillatPersonnummerOverride
     erBeta: erBeta

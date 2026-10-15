@@ -152,6 +152,12 @@ param mysqlSkuName string = 'Standard_B1ms'
 @description('MySQL Flexible Server SKU-tier (f.eks. Burstable) — se main.bicep. Må matche mysqlSkuName.')
 param mysqlSkuTier string = 'Burstable'
 
+@description('Primært egendefinert domene — se main.bicep. Tom verdi = ingen binding opprettes.')
+param customDomainHostnamePrimary string = ''
+
+@description('Sekundært egendefinert domene — se main.bicep. Tom verdi = ingen binding opprettes.')
+param customDomainHostnameSecondary string = ''
+
 // Testmiljø uten ekte pasientdata — passordet genereres deterministisk og lagres kun i Key Vault.
 var mysqlAdministratorPassword = 'Tb${uniqueString(resourceGroup().id, resourceToken)}!26'
 
@@ -703,6 +709,94 @@ resource kvSecretsUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' 
     principalId: appService.identity.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
+  }
+}
+
+// Egendefinerte domener + gratis App Service Managed Certificates (SNI). Kodifisert 2026-10-15,
+// se docs/beslutningslogg.md "Navnebytte PsyTest → Testrom" — før dette eksisterte bindingene
+// (www.psytest.no osv.) KUN som et sideeffekt av `az webapp config hostname add`/`ssl create`/
+// `ssl bind`-kommandoer kjørt manuelt, og ville IKKE blitt gjenskapt av en fersk `azd provision`
+// (se "Eget domene for test-miljøet: psytest.no", 2026-09-03, for den opprinnelige advarselen).
+// Standard ARM-mønster for dette krever TO separate deklarasjoner av SAMME
+// `hostNameBindings`-ressurs (samme `parent`+`name`, altså samme underliggende ressurs-ID): først
+// en UBUNDET binding (Azure krever at domenet allerede er bundet til siden FØR et administrert
+// sertifikat kan utstedes mot det), deretter sertifikatet, deretter en andre deklarasjon av
+// SAMME binding som nå setter `sslState`/`thumbprint`. Dette er IKKE en feil eller duplisering —
+// ARM sekvenserer de to PUT-kallene mot samme ressurs-ID i `dependsOn`-rekkefølge. IKKE prøvd
+// reprodusert fra bunnen med en faktisk `azd provision` i denne runden (bindingene ble opprettet
+// via CLI før denne Bicep-koden ble skrevet, og allerede fungerende produksjonsressurser ble
+// bevisst ikke rørt) — skulle noe uventet skje ved en fremtidig provisjonering, sjekk denne
+// kommentaren og "Eget domene for test-miljøet: psytest.no" først.
+resource hostNameBindingPrimaryUnbound 'Microsoft.Web/sites/hostNameBindings@2023-12-01' = if (!empty(customDomainHostnamePrimary)) {
+  parent: appService
+  name: customDomainHostnamePrimary
+  properties: {
+    siteName: appServiceName
+    hostNameType: 'Verified'
+  }
+}
+
+resource certificatePrimary 'Microsoft.Web/certificates@2023-12-01' = if (!empty(customDomainHostnamePrimary)) {
+  // Navngitt identisk med hostnavnet, IKKE et generert navn — matcher nøyaktig konvensjonen
+  // `az webapp config ssl create --hostname ...` allerede brukte for de EKSISTERENDE sertifikatene
+  // (bekreftet via `az resource list --resource-type Microsoft.Web/certificates`). Et annet navn
+  // her ville latt en fremtidig `azd provision` opprette et DUPLIKAT sertifikat for samme
+  // domene i stedet for å gjenbruke det som allerede fungerer (sett med `az deployment ... what-if`
+  // før denne ble rettet — viste "+ create" på et nytt navn i stedet for "= no change").
+  name: customDomainHostnamePrimary
+  location: location
+  tags: tags
+  properties: {
+    canonicalName: customDomainHostnamePrimary
+    serverFarmId: appServicePlan.id
+  }
+  dependsOn: [
+    hostNameBindingPrimaryUnbound
+  ]
+}
+
+resource hostNameBindingPrimarySsl 'Microsoft.Web/sites/hostNameBindings@2023-12-01' = if (!empty(customDomainHostnamePrimary)) {
+  parent: appService
+  name: customDomainHostnamePrimary
+  properties: {
+    siteName: appServiceName
+    hostNameType: 'Verified'
+    sslState: 'SniEnabled'
+    thumbprint: certificatePrimary.properties.thumbprint
+  }
+}
+
+resource hostNameBindingSecondaryUnbound 'Microsoft.Web/sites/hostNameBindings@2023-12-01' = if (!empty(customDomainHostnameSecondary)) {
+  parent: appService
+  name: customDomainHostnameSecondary
+  properties: {
+    siteName: appServiceName
+    hostNameType: 'Verified'
+  }
+}
+
+resource certificateSecondary 'Microsoft.Web/certificates@2023-12-01' = if (!empty(customDomainHostnameSecondary)) {
+  // Se kommentaren på certificatePrimary — samme resonnement, samme konvensjon.
+  name: customDomainHostnameSecondary
+  location: location
+  tags: tags
+  properties: {
+    canonicalName: customDomainHostnameSecondary
+    serverFarmId: appServicePlan.id
+  }
+  dependsOn: [
+    hostNameBindingSecondaryUnbound
+  ]
+}
+
+resource hostNameBindingSecondarySsl 'Microsoft.Web/sites/hostNameBindings@2023-12-01' = if (!empty(customDomainHostnameSecondary)) {
+  parent: appService
+  name: customDomainHostnameSecondary
+  properties: {
+    siteName: appServiceName
+    hostNameType: 'Verified'
+    sslState: 'SniEnabled'
+    thumbprint: certificateSecondary.properties.thumbprint
   }
 }
 

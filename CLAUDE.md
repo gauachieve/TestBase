@@ -74,12 +74,18 @@ App Service-innstillinger før du antar, spesielt på live):**
 - Tre miljøer: lokal dev, `testbase-beta` (beta.psytest.no), og `testbase-test` (azd-navn, men
   faktisk LIVE på `www.psytest.no`). `azd env select testbase-beta` er default aktivt miljø i
   repoet — velg `testbase-test` eksplisitt for å nå live.
-- **Navnebytte i gang (2026-10-14, se docs/beslutningslogg.md "Navnebytte PsyTest → Testrom"):**
-  produktnavnet er byttet fra "PsyTest" til "Testrom" i all brukervendt tekst i koden (sidetitler,
-  SMS/e-post, salgsvilkår osv.), og domenet `testrom.no` er registrert av brukeren — MEN appen
-  kjører fortsatt faktisk på `psytest.no`/`www.psytest.no`/`beta.psytest.no` til DNS/Azure
-  custom domain/Idura-whitelisting er gjort (se sjekklisten brukeren fikk i chatten, ikke
-  gjentatt her). Ikke anta `testrom.no` faktisk peker på appen før det er bekreftet.
+- **Navnebytte PsyTest → Testrom (2026-10-14/15, se docs/beslutningslogg.md):** produktnavnet er
+  byttet i all brukervendt tekst, OG `www.testrom.no`/`beta.testrom.no` er nå ekte, fungerende
+  custom domains med gyldig TLS på toppen av de samme App Service-ene som
+  `www.psytest.no`/`beta.psytest.no` (begge domenesettene lever side om side, ingenting fjernet
+  fra de gamle). `testrom.no`/`testrommet.no` (defensiv registrering) redirecter til
+  `www.testrom.no`. hostNameBindings/certificates er kodifisert i `infra/resources.bicep`
+  (parametrene `customDomainHostnamePrimary`/`customDomainHostnameSecondary`, satt via azd env
+  for begge miljøer) — IKKE verifisert med en faktisk `azd provision`, kun `what-if`. **Fortsatt
+  IKKE gjort:** Idura-whitelisting av `testrom.no` sin `authorize.`-subdomene — ekte BankID-
+  innlogging ruller derfor fortsatt via `psytest.no` sin `authorize.`-subdomene uansett hvilket
+  domene man browser på (se beslutningsloggen for cookie-domenescoping-forklaringen). Ikke anta
+  dette er løst uten å sjekke.
 - Ekte BankID for admin/behandler (Idura/Stø) FUNGERER, styrt av en runtime-bryter på
   `Admin/MinSide` (Superadmin/Utvikler-only, `EktBankIdInnstilling`) — skrus av/på UTEN redeploy.
   Pasient-BankID og ekte Vipps/kortbetaling er IKKE bygget/aktivert.

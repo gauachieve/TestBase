@@ -9167,3 +9167,43 @@ IKKE endret (peker fortsatt på `www.psytest.no/health`) — det domenet fortset
 se sjekklisten for når dette bør oppdateres/utvides. `AppVersjon.cs` sin kommentar oppdatert
 tilsvarende. Ingen tester refererte til "PsyTest" i tekst (verifisert via søk), så ingen
 testendringer var nødvendig utover selve byggverifiseringen.
+
+**Oppfølging samme uke — domenet faktisk satt opp (2026-10-15):** brukeren sikret `testrom.no`
+(og en defensiv `testrommet.no`, kun en 301-redirect til `www.testrom.no` via domene.no sin
+"Omdiriger domene"-funksjon, ALDRI bundet til Azure). DNS satt opp av brukeren selv i domene.no
+sin cPanel Zone Editor (samme sted/mønster som `psytest.no` opprinnelig — se "Eget domene for
+test-miljøet: psytest.no", 2026-09-03): CNAME `www.testrom.no`/`beta.testrom.no` → de samme
+App Service-vertsnavnene som de tilsvarende `psytest.no`-domenene allerede pekte på, pluss
+`asuid.`-TXT-eierskapsbevis (SAMME `customDomainVerificationId` for begge miljøer — den er
+tenant-nivå, ikke per-app). Azure-siden (hostnavn-binding + gratis App Service Managed
+Certificate, SNI) satt opp av Claude via `az`-CLI i samme økt, etter å ha bekreftet reell
+DNS-propagering først (`nslookup` mot 8.8.8.8) — `www.testrom.no` og `beta.testrom.no` kjører nå
+med ekte, gyldige sertifikater side om side med de eksisterende `psytest.no`-domenene, ingenting
+fjernet fra de gamle. Verifisert med ekte HTTPS-kall: `www.testrom.no/health` → 200,
+`beta.testrom.no/health` → 401 (korrekt, StagingGate er fortsatt på på beta, akkurat som for
+`beta.psytest.no`), `testrom.no`/`testrommet.no` → 301 til `https://www.testrom.no/`.
+
+**Idura-whitelisting for `testrom.no` er IKKE gjort i denne runden** — det krever en ny,
+separat e-post til Idura support (samme "be om en egen `authorize.`-subdomene"-prosess som
+løste `authorize.psytest.no`-saken, se forrige oppføring), og er brukerens eget steg, ikke noe
+Claude kan gjøre. Inntil det er gjort vil ekte BankID-innlogging fortsatt rundtrippe via
+`psytest.no` sin `authorize.`-subdomene uansett hvilket domene brukeren browser på — se
+forklaringen om cookie-domenescoping i samme forrige oppføring.
+
+**Bicep-kodifisering (samme dag, på brukerens eksplisitte forespørsel):** `hostNameBindings`/
+`Microsoft.Web/certificates`-ressursene for BÅDE de gamle `psytest.no`-domenene og de nye
+`testrom.no`-domenene er nå lagt inn i `infra/resources.bicep` (nye parametre
+`customDomainHostnamePrimary`/`customDomainHostnameSecondary`, tomme som standard — ingen effekt
+på et miljø som ikke har satt dem). Lukker gapet som ble flagget men bevisst utsatt 2026-09-03.
+Standard ARM-mønster brukt: to deklarasjoner av SAMME `hostNameBindings`-ressurs (ubundet →
+sertifikat → bundet med SNI/thumbprint) — `az deployment sub what-if` mot BÅDE live og beta
+bekreftet dette er trygt (ingen sletting, kun en ekstra `azd-env-name`-tag lagt til de
+eksisterende sertifikatene). **Viktig rettelse underveis:** sertifikat-ressursnavnet ble først
+satt til et generert navn (`${appServiceName}-cert-primary`), som `what-if` avslørte ville latt
+en fremtidig `azd provision` opprette et DUPLIKAT sertifikat i stedet for å gjenbruke det
+`az webapp config ssl create` allerede opprettet — CLI-en navngir sertifikat-ressursen likt
+hostnavnet (bekreftet via `az resource list --resource-type Microsoft.Web/certificates`), rettet
+til å matche. `az deployment ... what-if` (read-only) kjørt mot BÅDE miljøene for å bekrefte,
+men selve en faktisk `azd provision` er IKKE kjørt i denne runden — bindingene fungerer allerede
+via CLI-oppsettet over, og en reprovisjonering er en egen, bevisst brukerbeslutning å ta senere,
+ikke noe som trengs for at noe skal virke i dag.
