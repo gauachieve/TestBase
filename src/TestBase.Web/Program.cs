@@ -491,6 +491,7 @@ builder.Services.AddScoped<EktBankIdInnstillingService>();
 // Utvikler-only), se DriftsbryterInnstilling. Brukes av SMS-registreringen uansett miljø, og av
 // Vipps/Stripe-registreringen KUN i non-beta-grenen under (beta har sin egen granulære bryter).
 builder.Services.AddScoped<DriftsbryterInnstillingService>();
+builder.Services.AddScoped<SkaaringVisningsService>();
 
 // Delt "bekreft og fang"-logikk for Vipps — brukt av BÅDE BetalResultat-siden OG
 // Vipps-webhooken (PaymentWebhooks.cs), se VippsBetalingBekrefterService sin

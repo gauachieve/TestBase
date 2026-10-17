@@ -19,11 +19,13 @@ namespace TestBase.Web.Areas.Pasientportal.Pages.Tester;
 public sealed class RapportModel : PageModel
 {
     private readonly TestService _testService;
+    private readonly SkaaringVisningsService _skaaringVisning;
     private readonly ICurrentUserContext _currentUser;
 
-    public RapportModel(TestService testService, ICurrentUserContext currentUser)
+    public RapportModel(TestService testService, SkaaringVisningsService skaaringVisning, ICurrentUserContext currentUser)
     {
         _testService = testService;
+        _skaaringVisning = skaaringVisning;
         _currentUser = currentUser;
     }
 
@@ -35,6 +37,9 @@ public sealed class RapportModel : PageModel
     public TestSkaaring? Skaaring { get; private set; }
     public List<SideMedSvar> Sider { get; private set; } = new();
     public bool IkkeKlarEnna { get; private set; }
+
+    /// <summary>Se Behandlerportal-motstykket sin XML-doc — samme MDR-gating, se SkaaringVisningsService.</summary>
+    public bool SkaaringMidlertidigSkjult { get; private set; }
 
     /// <summary>Sammendrag = ett ark, svar (råskår) alltid til slutt — se Behandlerportal-motstykket for begrunnelse.</summary>
     public int TotalAntallArk => 1 + Sider.Count;
@@ -57,7 +62,14 @@ public sealed class RapportModel : PageModel
             return Page();
         }
 
-        Skaaring = await _testService.BeregnSkaaringAsync(id, cancellationToken);
+        if (await _skaaringVisning.SkalViseSkaaringAsync(pasientId, cancellationToken))
+        {
+            Skaaring = await _testService.BeregnSkaaringAsync(id, cancellationToken);
+        }
+        else
+        {
+            SkaaringMidlertidigSkjult = true;
+        }
 
         Sider = innhold.Sider.Select(side =>
         {

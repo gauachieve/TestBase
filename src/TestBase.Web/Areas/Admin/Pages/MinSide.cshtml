@@ -82,6 +82,31 @@
     </form>
 }
 
+@if (Model.VisDriftsbrytere)
+{
+    <h2>Automatisk skåring i rapporter (MDR)</h2>
+    <p style="color: darkred;">
+        <strong>OBS — juridisk betydning, ikke bare en vanlig driftsbryter:</strong> TestBase sin
+        automatiske skårings-/tolkningsfunksjon er vurdert til å kvalifisere som medisinsk utstyr
+        klasse IIb under MDR (se docs/mdr-klassifiseringsvurdering-iib-begrunnelse.pdf) og er IKKE
+        CE-merket ennå. "På" viser beregnet skåre/tolkning til EKTE, identifiserbare pasienter (har
+        personnummer) i DETTE miljøet — slå kun på i dev/beta, der det kun finnes syntetiske
+        testdata. ALDRI slå på i live for ekte pasienter før CE-merking eller en godkjent klinisk
+        utprøving foreligger (se docs/beslutningslogg.md "MDR-klassifisering"). Prøvepasienter
+        (opprettet uten personnummer, se "prøv systemet") ser alltid skåring, uansett denne
+        bryterens stilling — bruk dette til å teste skåringsfunksjonen i LIVE med ekte behandlere
+        og falske/testdata-pasienter, uten å slå bryteren på.
+    </p>
+    <form method="post" asp-page-handler="SettAutomatiskSkaaring" data-disable-on-submit="Lagrer …">
+        <fieldset>
+            <legend>Automatisk skåring</legend>
+            <label><input type="radio" name="erAktiv" value="false" checked="@(!Model.AutomatiskSkaaringErAktivNaa)" /> Av (kun rå svar vises for ekte pasienter)</label>
+            <label><input type="radio" name="erAktiv" value="true" checked="@Model.AutomatiskSkaaringErAktivNaa" /> På (viser beregnet skåre/tolkning til ekte pasienter i dette miljøet)</label>
+        </fieldset>
+        <p><button type="submit" class="btn-accent">Lagre skåringsbryter</button></p>
+    </form>
+}
+
 @if (Model.VisBetalingUtbetalingDriftsbrytere)
 {
     <h2>Betaling og utbetaling</h2>

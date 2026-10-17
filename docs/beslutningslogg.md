@@ -9246,3 +9246,131 @@ tom (MockSmsSender uansett), ikke rørt.
 Alt verifisert: `dotnet build`/`dotnet test` (119/119) grønt, OG en tredje Playwright-runde
 bekreftet begge CSS-regresjonene faktisk er fikset (computed style-verdier lest direkte, ikke
 bare "ser riktig ut på skjermbilde") før commit.
+
+### MDR-klassifisering av TestBase sin skåringsfunksjon (2026-10-14 til 2026-10-17)
+
+**Bakgrunn:** Brukeren sendte en formell henvendelse til Direktoratet for medisinske produkter
+(DMP) 11.10.2026 (jf. research-notatet omtalt 2026-10-11) for å få avklart om TestBase sin
+automatiske skårings-/tolkningsfunksjon kvalifiserer som medisinsk utstyr etter MDR. DMP svarte
+15.10.2026 (lagret i `docs/kvalifisering av programvare for skåring av psykologiske
+selvrapporteringstester.pdf`) — et rent veiledningssvar, ingen formell klassifiseringsavgjørelse
+(DMP har ingen godkjenningsrolle), men med en substansiell drøfting som pekte mot at
+skåringsfunksjonen trolig kvalifiserer som MDSW, med henvisning til MDCG sin "Manual on
+borderline and classification" sitt eksempel om "Medical calculators" (minst klasse IIa).
+
+**Egen klassifiseringsvurdering — konklusjon klasse IIb:** Claude utarbeidet en full juridisk
+drøftelse (`docs/mdr-klassifiseringsvurdering-iib-begrunnelse.pdf`, kilde i
+`docs/mdr-klassifiseringsvurdering-source.html`), basert på primærkilder lest direkte (ikke
+sekundærkilder): MDR vedlegg VIII regel 11 (gjengitt i MDCG 2019-11 Rev.1, juni 2025), MDCG sin
+Borderline-manual (v.5, april 2026), og — avgjørende — MDCG 2019-11 Rev.1 sitt vedlegg IV, som
+inneholder et nesten identisk worked example: "Diagnostic MDSW intended for scoring depression
+based on inputted data on a patient's symptoms (e.g. mood, anxiety) should be classified as class
+IIb under Rule 11(a) [...] as the healthcare situation (depression) is serious and the
+significance of the information is 'diagnosis'." Dokumentet drøfter og avviser klasse III (ingen
+lukket løkke, jf. regel 22 — TestBase velger aldri behandling selv) og klasse IIa (minimumsklasse,
+men ikke tilstrekkelig for produktet som helhet siden biblioteket omfatter symptomkartlegging av
+alvorlige tilstander), og konkluderer med klasse IIb for skåringsfunksjonen samlet sett.
+
+**Konkurrentanalyse (2026-10-17):** Research på hvordan sammenlignbare norske aktører håndterer
+dette offentlig:
+- **Youwell AS** (Bergen, driver bl.a. eMeistring/nasjonal e-behandling) har en egen, formell
+  bruksanvisning (IFU) på youwell.no/ifu som eksplisitt oppgir klasse IIa (Rule 11), meldt organ
+  TÜV SÜD Danmark ApS (CE2443), egen UDI-DI — men samtidig "Certificate pending issuance" side om
+  side med "CE-marked", en reell selvmotsigelse verdt å unngå selv. Youwell sin lavere klasse
+  forklares av et bevisst avgrenset tiltenkt formål ("no diagnosis- or condition-specific medical
+  indication", "no direct clinical benefit claim") — et program-leveringsverktøy, ikke et
+  skåringsverktøy, og dermed ikke direkte sammenlignbart med TestBase sin kjernefunksjon.
+- **EG CheckWare** (markedsleder, kjøpt av EG nov. 2023) oppgir kun én setning offentlig: "EG
+  CheckWare er registrert som Medisinsk Utstyr gjennom EUDAMED" — ingen klasse, intet meldt organ
+  oppgitt.
+- **Aspit/PsykBase** (EPJ/journalsystem, ikke et skåringsverktøy) og **psyktest.com** (TestBase
+  sin nærmeste direkte konkurrent i posisjonering — enkeltbehandlere/mindre praksiser) hadde
+  ingen offentlig omtale av CE/MDR i det hele tatt.
+
+**Drøfting — hvordan validere med ekte pasienter før CE-merking (2026-10-17):** Lang diskusjon om
+lovlige veier til reell pasientvalidering før sertifisering. DMPs offisielle "Regulatorisk
+veiviser for kliniske utprøvinger etter MDR" (utarbeidet sammen med REK KULMU) ble lest direkte:
+medisinsk utstyr kan KUN brukes på mennesker hvis CE-merket, gjenstand for en godkjent klinisk
+utprøving (MDR art. 62, søknadspliktig til BÅDE DMP og REK KULMU), innvilget unntak (art. 59),
+individuelt tilpasset, eller in-house-produsert i én helseinstitusjon — ingen "samtykke fra
+bruker"-vei finnes utenom disse fem. En brukerforeslått "disclaimer + eget samtykke-toggle"-
+løsning (pasienten samtykker til at data "lånes ut" til validering, behandler må lese og godkjenne
+før bruk) ble vurdert og avvist som juridisk utilstrekkelig — informert samtykke er kun gyldig
+innenfor en godkjent klinisk utprøving (art. 62), ikke som en frittstående selskaps-initiert
+mekanisme, og kan heller ikke flytte produsentens MDR-forpliktelse over på behandler. Derimot ble
+identifisert: (1) retrospektiv algoritmevalidering på allerede innsamlet data faller trolig helt
+utenfor MDR (ingen "forsøksperson" involvert, jf. veiviseren), og (2) en liten, avgrenset
+pilotutprøving (art. 62) med manuell reskåring som sammenligningsmetode er den egentlige lovlige
+veien til ekte pasientvalidering — ikke igangsatt ennå, brukeren ønsket ikke å gå videre med dette
+nå ("Ikke ennå").
+
+**Sidespor — sammenligning med AHUS sin AI-journalføring:** Brukeren (psykologspesialist, ansatt
+ved AHUS) utfordret vurderingen med et konkret, reelt eksempel: et AI-transkripsjons-/
+journalforslagsverktøy i aktiv bruk ved AHUS, uten CE-merking, uten skriftlig pasientsamtykke (kun
+muntlig informasjon), vurdert av Helsedirektoratet som ok. Undersøkt grundig: Sveriges
+Läkemedelsverk kjørte faktisk en egen tilsynsrunde på nøyaktig denne produktkategorien ("AI
+scribes") og fant at verktøy som informerer kliniske beslutninger normalt skal være minst klasse
+IIa — minst én leverandør måtte CE-merkes i ettertid. Storbritannia (MHRA, kun Great Britain, ikke
+Nord-Irland) har et eksplisitt unntak for rene transkripsjons-/oppsummeringsverktøy uten
+diagnose-/vurderingsfunksjon — et unntak EU ikke har. Konklusjon: AHUS-verktøyet er trolig bevisst
+avgrenset ("foreslår IKKE diagnose, gjør IKKE vurdering") til å ligge trygt utenfor MDSW-
+definisjonen (ren gjengivelse av noe som allerede skjedde, ikke utledning av ny diagnostisk
+informasjon) — samme narrowing-strategi som Youwell, ikke bevis for at EU-lesningen er feil.
+Helsedirektoratets "ok"-vurdering gjelder trolig journalføringsplikt/personvern (de sier selv at
+MDR-spørsmålet er opp til hver enkelt produsent), ikke en MDR-avklaring. Generell lærdom bekreftet:
+MDR-klassifisering er teknologiuavhengig — om skåringen gjøres av en oppslagstabell eller en
+AI-agent er irrelevant for om regel 11 slår inn; en AI-agent ville tvert imot kunne legge til EU
+AI Act sin høyrisiko-kategori på toppen, ikke redusere reguleringen.
+
+**Alvorlighetsgrad presisert mot IMDRF sin primærkilde:** Brukeren (20 års klinisk erfaring)
+hevdet at kun selvmordsrisiko, depresjon-med-suicidalitet, pågående mani og pågående psykose
+kvalifiserer som "alvorlig" i regulatorisk forstand — ikke traumer/personlighetsforstyrrelser.
+IMDRF/SaMD WG/N12FINAL:2014 (selve kildedokumentet MDCG bygger alvorlighetstabellen sin på) ble
+lest direkte: "alvorlig" (grave/serious) er eksplisitt bredere enn "akutt livstruende" — dekker
+tilstander der feildiagnostisering fører til unødvendige intervensjoner eller irreversible
+langtidskonsekvenser, uten krav om akutt fare. "Kritisk" (crítica) er den øverste, akutte
+kategorien reservert for livstruende/tidskritiske tilstander. Konklusjon: traumer/PF forblir
+"alvorlig" (IIb) etter kildedokumentets egen ordlyd, men brukerens kliniske skille er reelt og
+flytter selvmordsrisiko/pågående mani/psykose til en enda høyere kategori ("kritisk", potensielt
+klasse III for diagnose-betydning) — ikke en grunn til å senke resten.
+
+**Et "fare-alarm"-forslag vurdert og forkastet (2026-10-17):** Brukeren foreslo et eget
+klassifiseringssystem for "farlige tester" og et SMS-varslingssystem til behandler ved
+bekymringsfulle svar (selvmordsrisiko/mani/psykose). Etter en runde juridisk drøfting
+(avvergeplikt etter strl. § 196 dekker IKKE selvmord — bekreftet direkte mot lovteksten på
+lovdata.no, selvmord er ikke straffbart i Norge og står ikke på § 196 sin uttømmende liste; den
+generelle hjelpeplikten i strl. § 287 gjelder derimot alle, "etter evne", uavhengig av om TestBase
+bygger noe varslingssystem eller ikke) valgte brukeren å forkaste hele fare-alarm-ideen, med
+henvisning til egen, daglig erfaring: CheckWare (markedslederen, brukt av brukeren selv hver dag i
+jobb) har INGEN tilsvarende varslingsfunksjon, og bekymringsfulle svar kan ligge ulest i journalen
+i uker uten reaksjon (f.eks. ved behandlers ferie) — dette er akseptert bransjepraksis. Brukeren
+fastholder at ansvaret for å oppsøke helsehjelp alltid ligger hos pasienten selv, og ønsket
+eksplisitt IKKE en jurist-vurdering av dette punktet før beslutningen ble tatt. Ingen
+fare-alarm-funksjonalitet er bygget eller planlagt bygget.
+
+**Endelig beslutning:** Ingen videre modulavgrensning av testbiblioteket (den fremtidige
+"narrowing"-strategien som kunne gitt enkelte tester klasse IIa, flagget som mulig fremtidig
+arbeid i PDF-en) forfølges ikke — klasse IIb legges til grunn for hele TestBase sin
+skåringsfunksjon, slik hoveddokumentet allerede konkluderte. Brukeren går videre med å skaffe
+ekstern regulatorisk hjelp (jf. anbefalingen om DNV som norsk meldt organ og en QA/RA-konsulent
+først) for å komme gjennom CE-samsvarsvurderingen.
+
+**Teknisk implementert samme dag — skåringsbryter (MDR-gating):** En ny, DB-lagret superadmin-
+driftsbryter, `DriftsbryterInnstilling.AutomatiskSkaaringErAktiv` (default `false`, i motsetning
+til SMS/Betaling/Utbetaling-bryterne over den som defaulter `true` — se feltets egen XML-doc for
+begrunnelsen), styrt fra Admin/MinSide med umiddelbar virkning per miljø, samme mønster som
+`EktBankIdInnstilling`. Ny delt tjeneste `SkaaringVisningsService.SkalViseSkaaringAsync(pasientId)`
+brukes av alle tre Rapport-sidene (Admin/Behandlerportal/Pasientportal) FØR
+`TestService.BeregnSkaaringAsync` kalles: returnerer alltid `true` for en "prøvepasient"
+(`Pasient.Personnummer == null`, samme etablerte konvensjon som
+`GruppeService.TellProvedataAsync` bruker for "prøv systemet"-pasienter), ellers driftsbryterens
+gjeldende stilling. Når skåring er skjult vises rå svar per ledd (ingen beregnet
+skåre/tolkning/cutoff-grafer/historikk) med en forklarende melding; når skåring vises, legges en
+liten fotnote-disclaimer til ("Skåringen vises for test-/valideringsformål i påvente av CE-merking
+etter MDR (EU) 2017/745, og skal ikke anses som et ferdig medisinsk hjelpemiddel") — også i
+"Kopier til utklippstavle"-malen på Behandlerportal sin rapportside. Formålet: ekte behandlere kan
+teste ALLE andre deler av TestBase i live med ekte pasienter nå (rå svar, ingen MDR-relevant
+beregning), OG teste selve skåringsfunksjonen i live med ekte behandlere ved å bruke prøvepasienter
+(ikke ekte mennesker i MDR-forstand) — uten å måtte vente på CE-merking for noe av dette.
+EF-migrasjon `LeggTilAutomatiskSkaaringDriftsbryter` generert og kjørt mot lokal dev-database
+samme dag.

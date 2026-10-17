@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<title>Partner-briefing — TestRom CE-merking</title>
+<style>
+  @page { size: A4; margin: 22mm 20mm 22mm 20mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Georgia, "Times New Roman", serif; font-size: 10.6pt; line-height: 1.5; color: #1a1a1a; margin: 0; }
+  .titlepage { height: 247mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+  .titlepage .kicker { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; letter-spacing: 2px; text-transform: uppercase; color: #555; margin-bottom: 14px; }
+  .titlepage h1 { font-size: 24pt; line-height: 1.25; margin: 0 0 10px 0; color: #111; }
+  .titlepage h2 { font-family: Arial, Helvetica, sans-serif; font-weight: normal; font-size: 13pt; color: #444; margin: 0 0 40px 0; }
+  table.doccontrol { border-collapse: collapse; font-family: Arial, Helvetica, sans-serif; font-size: 9.3pt; width: 100%; max-width: 420px; }
+  table.doccontrol td { border: 1px solid #ccc; padding: 6px 10px; vertical-align: top; }
+  table.doccontrol td.label { background: #f4f4f4; font-weight: bold; width: 160px; }
+  h1.section { font-size: 15pt; border-bottom: 2px solid #222; padding-bottom: 5px; margin-top: 0; margin-bottom: 14px; }
+  h2.sub { font-size: 12pt; margin-top: 18px; margin-bottom: 6px; }
+  .section-wrap { page-break-before: always; }
+  .section-wrap.nobreak { page-break-before: auto; }
+  p { margin: 0 0 9px 0; text-align: justify; }
+  ul, ol { margin: 0 0 10px 0; padding-left: 20px; }
+  li { margin-bottom: 5px; }
+  table.status { border-collapse: collapse; width: 100%; font-family: Arial, Helvetica, sans-serif; font-size: 9pt; margin: 8px 0 14px 0; }
+  table.status th, table.status td { border: 1px solid #999; padding: 5px 7px; text-align: left; vertical-align: top; }
+  table.status thead th { background: #333; color: #fff; }
+  table.status td.done { color: #2e7d32; font-weight: bold; }
+  table.status td.todo { color: #b45309; font-weight: bold; }
+  .callout { border: 1px solid #555; padding: 10px 14px; background: #fbfbf8; margin: 10px 0; }
+  .partner-box { border: 1px solid #ccc; border-left: 4px solid #333; padding: 8px 14px; margin: 10px 0; background: #fafafa; }
+  .partner-box h3 { margin: 0 0 4px 0; font-size: 11pt; }
+</style>
+</head>
+<body>
+
+<div class="titlepage">
+  <div class="kicker">GGPsykolog AS &mdash; TestRom</div>
+  <h1>Briefingdokument til regulatorisk rådgiver/partner</h1>
+  <h2>Grunnlag for samtale om CE-merking av TestRom sin skåringsfunksjon under MDR (EU) 2017/745</h2>
+
+  <table class="doccontrol">
+    <tr><td class="label">Produkt</td><td>TestRom — online testsystem for psykologiske selvrapporteringstester (testrom.no)</td></tr>
+    <tr><td class="label">Juridisk enhet</td><td>GGPsykolog AS, org.nr. 913 175 492</td></tr>
+    <tr><td class="label">Kontakt</td><td>Gaute Godager, gauteg@gmail.com</td></tr>
+    <tr><td class="label">Dato</td><td>18. oktober 2026</td></tr>
+    <tr><td class="label">Formål med dokumentet</td><td>Grunnlag for første samtale med potensiell QA/RA-rådgiver og/eller meldt organ</td></tr>
+  </table>
+</div>
+
+<div class="section-wrap nobreak">
+<h1 class="section">1. Om produktet</h1>
+<p>
+TestRom er et nettbasert system der autoriserte psykologer/psykologspesialister tildeler
+standardiserte, publiserte psykologiske selvrapporteringsskjema til egne pasienter for digital
+utfylling. Systemet beregner automatisk en pasientspesifikk skåre etter instrumentets
+offentliggjorte skåringsalgoritme, og presenterer skåren sammen med instrumentets publiserte
+tolkningsintervaller til behandler som beslutningsstøtte. Programvaren fastsetter ikke selv
+diagnose og anbefaler ikke selv behandling.
+</p>
+<p>
+Produktet er i aktiv kommersiell drift (live på www.testrom.no) for administrator-/
+behandlerportal, pasientportal, tildelingsflyt, betaling (Vipps/Stripe), og et bibliotek på over
+30 innebygde, validerte psykologiske testinstrumenter. Fullstendig testdekning (119+ automatiserte
+integrasjonstester), CI/CD med automatisk utrulling til beta og live.
+</p>
+
+<h2 class="sub">Hvem vi er</h2>
+<p>
+GGPsykolog AS drives av en autorisert psykologspesialist med 20 års klinisk erfaring, som også
+selv har utviklet produktet. Vi er medlem av Aleap-inkubatoren (Oslo Science Park) og av Norway
+Health Tech (tidligere Oslo Medtech) — medlemskapet ble opprinnelig registrert under et annet,
+heleid selskap (Achieve Games AS) og bør kunne overføres/bekreftes gyldig for GGPsykolog AS.
+</p>
+</div>
+
+<div class="section-wrap">
+<h1 class="section">2. Hva vi allerede har gjort selv</h1>
+<ul>
+<li>Formell henvendelse til og veiledningssvar fra Direktoratet for medisinske produkter (DMP),
+15.10.2026 — bekrefter at skåringsfunksjonen trolig kvalifiserer som programvare som medisinsk
+utstyr (MDSW).</li>
+<li>Egen, skriftlig klassifiseringsvurdering basert på MDR vedlegg VIII regel 11, MDCG 2019-11
+Rev.1 (med konkret presedens-eksempel for akkurat denne produktkategorien) og MDCG sin
+Borderline-manual — konkludert med <strong>klasse IIb</strong> for skåringsfunksjonen.</li>
+<li>Konkurrentanalyse av hvordan sammenlignbare norske aktører (Youwell AS/eMeistring, EG
+CheckWare, Aspit/PsykBase, psyktest.com) offentlig håndterer MDR/CE — Youwell er den eneste med
+full offentlig dokumentasjon (klasse IIa, TÜV SÜD som meldt organ).</li>
+<li>Teknisk implementert en driftsbryter som hindrer at beregnet skåre vises til ekte,
+identifiserbare pasienter i produksjon før CE-merking foreligger, samtidig som resten av
+plattformen kan testes fullt ut med ekte behandlere og pasienter nå.</li>
+<li>Offentlig, synlig regulatorisk status-side på nettstedet (testrom.no/regulatorisk) som
+tydeliggjør at skåringsfunksjonen er i "beta" inntil CE-merking er fullført.</li>
+</ul>
+<p>Full dokumentasjon av ovenstående kan oversendes ved forespørsel.</p>
+
+<h1 class="section">3. Hva vi trenger hjelp med</h1>
+<table class="status">
+<thead><tr><th>Område</th><th>Status</th><th>Hva vi søker hjelp til</th></tr></thead>
+<tbody>
+<tr><td>Kvalitetsstyringssystem (ISO 13485)</td><td class="todo">Ikke startet</td><td>Oppsett skalert til et mikroforetak</td></tr>
+<tr><td>PRRC (MDR art. 15)</td><td class="todo">Ikke utpekt</td><td>Ekstern PRRC-rolle (tillatt for mikroforetak, art. 15(2))</td></tr>
+<tr><td>Risikostyringsfil (ISO 14971)</td><td class="todo">Ikke startet</td><td>Metodikk + gjennomføring</td></tr>
+<tr><td>Programvarelivssyklus (IEC 62304)</td><td class="todo">Ikke startet</td><td>Klassifisering (A/B/C) og dokumentasjon</td></tr>
+<tr><td>Brukervennlighetsfil (IEC 62366-1)</td><td class="todo">Ikke startet</td><td>Metodikk + gjennomføring</td></tr>
+<tr><td>Klinisk evaluering (vedlegg XIV)</td><td class="todo">Ikke startet</td><td>Metodikk (litteraturbasert + egen ytelsesdata), ev. design av en liten klinisk utprøving (MDR art. 62) for ytelsesvalidering</td></tr>
+<tr><td>Teknisk dokumentasjonsfil (vedlegg II/III)</td><td class="todo">Delvis utkast</td><td>Sammenstilling og kvalitetssikring</td></tr>
+<tr><td>Valg av og søknad til meldt organ</td><td class="todo">Ikke startet</td><td>Anbefaling og prosessbistand</td></tr>
+</tbody>
+</table>
+<div class="callout">
+Vi ønsker primært en rådgiver som kan bistå gjennom hele løpet frem til innsending til meldt
+organ, ikke bare enkeltstående dokumenter — men er åpne for å starte med en avgrenset
+gap-analyse/fastpris-oppdrag først, gitt at vi er et tidlig-fase, ett-manns-selskap med
+begrenset budsjett.
+</div>
+
+<h1 class="section">4. Foreslåtte partnere å kontakte</h1>
+
+<div class="partner-box">
+<h3>Aleap (Oslo Science Park) — første samtale, trolig kostnadsfritt/rabattert</h3>
+<p>Vi er allerede medlem. Aleap er en ideell helseinkubator som eksplisitt tilbyr skreddersydd
+støtte innen regulatorisk arbeid, validering og forretningsutvikling, uten fast tidsramme og uten
+at Aleap tar eierandel. Deres "Service Provider Perks" inkluderer juridiske/regulatoriske
+tjenester, ofte gratis eller rabattert. Naturlig første stopp mandag — kontakt
+<a href="mailto:info@aleap.no">info@aleap.no</a> eller se aleap.no/incubator.</p>
+</div>
+
+<div class="partner-box">
+<h3>Norway Health Tech (tidligere Oslo Medtech)</h3>
+<p>Vi er medlem (350+ medlemmer). Sjekk "Cluster offers" og medlemskatalogen for regulatoriske
+rådgivere blant medlemsbedriftene — ikke uttømmende gjennomgått, men verdt en henvendelse til
+klyngen selv om hvem de kan anbefale for en liten SaMD-aktør.</p>
+</div>
+
+<div class="partner-box">
+<h3>DNV (notified body 2460, Norge) — for selve samsvarsvurderingen, senere i løpet</h3>
+<p>Det norske MDR-meldte organet, designert for alle teknologityper inkludert programvare.
+Naturlig å kontakte etter at teknisk dokumentasjon og QMS er på plass — ikke nødvendigvis første
+kontakt, men verdt å nevne tidlig siden kapasitet hos meldte organer er en kjent flaskehals
+(regn 12–18+ måneder fra komplett søknad til sertifikat for klasse IIb).</p>
+</div>
+
+<div class="partner-box">
+<h3>NordMDR AB (Sverige) — fastpris ISO 13485-arbeid</h3>
+<p>Svensk aktør som tilbyr fastpris gap-analyse, dokumentasjon og revisjonsforberedelse for ISO
+13485 — fastpris kan passe bedre for et budsjettbevisst tidlig-fase-selskap enn løpende
+timefakturering. Ikke verifisert i detalj, bør sjekkes direkte.</p>
+</div>
+
+<p style="font-size: 8.8pt; color: #666; margin-top: 16px;">
+Merk: prisnivå og nøyaktig tjenestetilbud for de kommersielle aktørene over er ikke uavhengig
+verifisert av oss — bekreft direkte med hver aktør. Aleap og Norway Health Tech er bekreftede,
+eksisterende medlemskap.
+</p>
+</div>
+
+</body>
+</html>
