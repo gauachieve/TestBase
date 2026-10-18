@@ -18,11 +18,13 @@ public sealed class PlanlagtTildelingService
 
     private readonly AppDbContext _db;
     private readonly TestTildelingsService _tildelingsService;
+    private readonly KorFitOppsettService _korFitOppsettService;
 
-    public PlanlagtTildelingService(AppDbContext db, TestTildelingsService tildelingsService)
+    public PlanlagtTildelingService(AppDbContext db, TestTildelingsService tildelingsService, KorFitOppsettService korFitOppsettService)
     {
         _db = db;
         _tildelingsService = tildelingsService;
+        _korFitOppsettService = korFitOppsettService;
     }
 
     /// <summary>"I morgen i arbeidstiden" — i dag valgt som kl. 09:00 norsk tid neste dag, se docs/beslutningslogg.md.</summary>
@@ -80,6 +82,39 @@ public sealed class PlanlagtTildelingService
             OpprettetUtc = DateTimeOffset.UtcNow
         });
         await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// "KOR/FIT til neste time" (se docs/beslutningslogg.md 2026-10-18): oppretter TO vanlige
+    /// PlanlagtTildeling-rader per pasient — én for ORS (Test.Kode "ors") forskjøvet FØR
+    /// <paramref name="nesteTimeUtc"/>, én for SRS (Test.Kode "srs") forskjøvet ETTER — begge
+    /// uten gjentagelse, siden behandler/admin definerer "neste time" på nytt for hver reelle
+    /// avtale. Forskyvningene er superadmin-konfigurerbare (se KorFitOppsettService), ALDRI
+    /// hardkodet her. Kaster hvis ORS/SRS-testene (innebygde, se OrsTestSeeder/SrsTestSeeder)
+    /// ikke finnes — bør være umulig i et seedet system, men en tydelig feil er bedre enn en
+    /// stille no-op hvis seedingen av én eller annen grunn ikke har kjørt.
+    /// </summary>
+    public async Task OpprettKorFitAsync(
+        IReadOnlyList<long> pasientIder, long? behandlerId, long? administratorId, DateTimeOffset nesteTimeUtc,
+        Varslingspreferanse varslingsmetode, long opprettetAvUserId, CancellationToken cancellationToken = default)
+    {
+        var orsTestId = await _db.Tester.Where(t => t.Kode == "ors").Select(t => t.Id).FirstOrDefaultAsync(cancellationToken);
+        var srsTestId = await _db.Tester.Where(t => t.Kode == "srs").Select(t => t.Id).FirstOrDefaultAsync(cancellationToken);
+        if (orsTestId == 0 || srsTestId == 0)
+        {
+            throw new InvalidOperationException("Fant ikke ORS/SRS blant innebygde tester — kan ikke planlegge KOR/FIT.");
+        }
+
+        var oppsett = await _korFitOppsettService.HentAsync(cancellationToken);
+        var orsUtc = nesteTimeUtc.AddHours(-oppsett.OrsTimerForTimeOffset);
+        var srsUtc = nesteTimeUtc.AddMinutes(oppsett.SrsMinutterEtterTimeOffset);
+
+        await OpprettAsync(
+            pasientIder, new[] { orsTestId }, behandlerId, administratorId, new Dictionary<long, decimal?>(),
+            varslingsmetode, orsUtc, null, null, null, opprettetAvUserId, cancellationToken);
+        await OpprettAsync(
+            pasientIder, new[] { srsTestId }, behandlerId, administratorId, new Dictionary<long, decimal?>(),
+            varslingsmetode, srsUtc, null, null, null, opprettetAvUserId, cancellationToken);
     }
 
     public Task<List<PlanlagtTildeling>> HentDueAsync(DateTimeOffset naaUtc, CancellationToken cancellationToken = default) =>

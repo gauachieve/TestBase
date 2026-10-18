@@ -59,6 +59,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<DriftsbryterInnstilling> DriftsbryterInnstillinger => Set<DriftsbryterInnstilling>();
     public DbSet<AdminOkonomiOppsett> AdminOkonomiOppsett => Set<AdminOkonomiOppsett>();
     public DbSet<AbonnementOppsett> AbonnementOppsett => Set<AbonnementOppsett>();
+    public DbSet<KorFitOppsett> KorFitOppsett => Set<KorFitOppsett>();
     public DbSet<KlinikkSeterTier> KlinikkSeterTiers => Set<KlinikkSeterTier>();
     public DbSet<Tilbakemelding> Tilbakemeldinger => Set<Tilbakemelding>();
     public DbSet<HjemmeoppgaveLiking> HjemmeoppgaveLikinger => Set<HjemmeoppgaveLiking>();
@@ -387,6 +388,12 @@ public sealed class AppDbContext : DbContext
             entity.Property(o => o.PasientenGratisFlatKr).HasColumnType("decimal(10,2)");
             entity.Property(o => o.PasientenGratisProsent).HasColumnType("decimal(5,2)");
             entity.Property(o => o.ForutsigbartFlatKr).HasColumnType("decimal(10,2)");
+        });
+
+        modelBuilder.Entity<KorFitOppsett>(entity =>
+        {
+            entity.ToTable("kor_fit_oppsett");
+            entity.HasKey(o => o.Id);
         });
 
         modelBuilder.Entity<KlinikkSeterTier>(entity =>

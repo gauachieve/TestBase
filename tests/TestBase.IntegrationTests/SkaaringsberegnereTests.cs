@@ -90,6 +90,52 @@ public sealed class SkaaringsberegnereTests
     }
 
     [Fact]
+    public void Ors_SummererFireLeddDelt10_TilRaaskaarAv40()
+    {
+        // Fire VAS-ledd, rå slider-verdi 0-100 hver, tolket som /10 — her 80,80,80,80 => 8+8+8+8=32.
+        var svar = Svar("80", "80", "80", "80");
+        var resultat = new OrsSkaaringsberegner().BeregnSkaaring(svar);
+
+        Assert.Equal(32, resultat.RaaSkaar);
+        Assert.Equal(40, resultat.RaaSkaarMaks);
+    }
+
+    [Fact]
+    public void Ors_UnderCutoff25_GirUnderCutoffIndikator()
+    {
+        var svar = Svar("50", "50", "50", "50"); // 5+5+5+5 = 20, under cutoff 25
+        var resultat = new OrsSkaaringsberegner().BeregnSkaaring(svar);
+
+        Assert.Equal(20, resultat.RaaSkaar);
+        var indikator = Assert.Single(resultat.Indikatorer!, i => i.Navn == "ORS-cutoff");
+        Assert.Equal("Under cutoff", indikator.Verdi);
+        Assert.False(indikator.Positiv);
+    }
+
+    [Fact]
+    public void Ors_LavtEnkeltledd_UnderNiAv10_FlaggesSelvOmTotalenErHoy()
+    {
+        // 100,100,100,0 => 10+10+10+0=30 (over cutoff 25), men ett ledd er 0 (< 9) — skal flagges.
+        var svar = Svar("100", "100", "100", "0");
+        var resultat = new OrsSkaaringsberegner().BeregnSkaaring(svar);
+
+        Assert.Equal(30, resultat.RaaSkaar);
+        Assert.Contains(resultat.Indikatorer!, i => i.Navn == "Enkeltledd");
+    }
+
+    [Fact]
+    public void Srs_CutoffErTrettiseks_IkkeTjuefem()
+    {
+        // 90,90,90,90 => 9*4=36, PÅ cutoff (36) — "underCutoff" skal være usann ved >= (strengt <).
+        var svar = Svar("90", "90", "90", "90");
+        var resultat = new SrsSkaaringsberegner().BeregnSkaaring(svar);
+
+        Assert.Equal(36, resultat.RaaSkaar);
+        var indikator = Assert.Single(resultat.Indikatorer!, i => i.Navn == "SRS-cutoff");
+        Assert.Equal("Over cutoff", indikator.Verdi);
+    }
+
+    [Fact]
     public void Wurs_SummererKunDeTjuefemWurs25LeddIkkeAlleSekstien()
     {
         // Sett ALLE 61 til 0, og bare de 25 WURS-25-posisjonene til 4 — sumSkår skal da bli 25*4=100.

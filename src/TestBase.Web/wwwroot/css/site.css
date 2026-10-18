@@ -1219,10 +1219,38 @@ dialog#oppsummeringDialog::backdrop, dialog#grupperapportDialog::backdrop, dialo
 .vas-endepunkter {
   display: flex;
   justify-content: space-between;
+  gap: 1rem;
   font-size: 0.85rem;
   color: var(--muted);
   margin-top: 0.5rem;
 }
+/* SRS (KOR/FIT) sine ankertekster er hele utsagn i stedet for ett ord (f.eks. WHO-5s
+   "Aldri"/"Hele tiden") — uten en bredde-grense krabber de to sidene sammen midt i raden når
+   begge er lange nok til å wrappe (bekreftet visuelt i Playwright-verifisering, 2026-10-18).
+   Venstre venstrejustert/høyre høyrejustert, hver maks ~46% slik at det alltid er luft imellom. */
+.vas-endepunkter span {
+  max-width: 46%;
+}
+.vas-endepunkter span:last-child {
+  text-align: right;
+}
+
+/* ORS (KOR/FIT) sitt papirskjema har fire korte VAS-linjer SIDE VED SIDE i en rad, i stedet for
+   stablet fullbredde (standardoppførsel for alle andre VAS-tester, inkl. SRS) — se Fyll.cshtml
+   sin "sideStiltLedd"-switch. Bevisst flex-wrap med en flex-basis i stedet for en hardkodet
+   4-kolonne-grid med ett fast brudd-punkt: gir en GRADVIS omstabling (4 på bred skjerm → 2x2 på
+   tablet → 1 per rad på smal mobil) uten noe eget "hva er mobil her"-regnestykke, og uten at
+   layouten blir "rar" på en vilkårlig skjermbredde mellom de vanlige bruddpunktene. */
+.test-ledd-liste--side-ved-side {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.test-ledd-liste--side-ved-side > div {
+  flex: 1 1 200px;
+  margin-bottom: 0 !important;
+}
+.test-ledd-liste--side-ved-side .vas-glidebryter { max-width: none; }
 
 /* ---------- Rapport: A4-"papir"-visning med sideflipping og handlingsrad ---------- */
 /* Malen brukeren ga (report.png): stor to-linjers tittel, et dekorativt
@@ -1454,6 +1482,22 @@ dialog#oppsummeringDialog::backdrop, dialog#grupperapportDialog::backdrop, dialo
 .utvikling-graf-referanse-tekst { font-size: 9px; fill: var(--muted); font-weight: 700; }
 .utvikling-graf-linje { fill: none; stroke: var(--rolle-accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
 .utvikling-graf-punkt { fill: var(--rolle-accent); stroke: #fff; stroke-width: 1.5; }
+
+/* KOR/FIT (ORS+SRS) kombinert graf — se KorFitGrafBeregner/_KorFitGraf.cshtml. Egne farger per
+   serie (blå=ORS/tilstand, lilla=SRS/allianse) pluss en EGEN, tydelig rød "samtale-tid"-stil som
+   overstyrer begge når et punkt lander mellom de to cutoffene — brukerens spesifikasjon: punktet
+   skal bli STØRRE OG RØDT, uavhengig av hvilken serie det tilhører. */
+.kor-fit-cutoff-ors { stroke: #1565c0; }
+.kor-fit-cutoff-srs { stroke: #6a1b9a; }
+.kor-fit-linje { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.kor-fit-linje-ors { stroke: #1565c0; }
+.kor-fit-linje-srs { stroke: #6a1b9a; }
+.kor-fit-punkt { stroke: #fff; stroke-width: 1.5; }
+.kor-fit-punkt-ors { fill: #1565c0; }
+.kor-fit-punkt-srs { fill: #6a1b9a; }
+.kor-fit-punkt-samtaletid { fill: #c62828; stroke: #fff; stroke-width: 2; }
+.kor-fit-legende { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem; }
+.kor-fit-legende-prikk { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; margin-right: 0.3rem; vertical-align: middle; }
 
 .rapport-sidefot {
   position: absolute;

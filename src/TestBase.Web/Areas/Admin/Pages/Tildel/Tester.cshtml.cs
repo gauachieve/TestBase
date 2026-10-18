@@ -16,18 +16,21 @@ public sealed class TesterModel : PageModel
     private readonly HjemmeoppgaveService _hjemmeoppgaveService;
     private readonly TestTildelingsService _tildelingsService;
     private readonly PlanlagtTildelingService _planlagtTildelingService;
+    private readonly KorFitOppsettService _korFitOppsettService;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuditLogger _auditLogger;
     private readonly AppDbContext _db;
 
     public TesterModel(
         TestService testService, HjemmeoppgaveService hjemmeoppgaveService, TestTildelingsService tildelingsService,
-        PlanlagtTildelingService planlagtTildelingService, ICurrentUserContext currentUser, IAuditLogger auditLogger, AppDbContext db)
+        PlanlagtTildelingService planlagtTildelingService, KorFitOppsettService korFitOppsettService,
+        ICurrentUserContext currentUser, IAuditLogger auditLogger, AppDbContext db)
     {
         _testService = testService;
         _hjemmeoppgaveService = hjemmeoppgaveService;
         _tildelingsService = tildelingsService;
         _planlagtTildelingService = planlagtTildelingService;
+        _korFitOppsettService = korFitOppsettService;
         _currentUser = currentUser;
         _auditLogger = auditLogger;
         _db = db;
@@ -54,6 +57,15 @@ public sealed class TesterModel : PageModel
 
     public bool PlanlagtOpprettet { get; private set; }
     public DateTimeOffset? PlanlagtTidspunktVisning { get; private set; }
+
+    /// <summary>"KOR/FIT til neste time" — se Behandlerportal-motstykket for full begrunnelse.</summary>
+    [BindProperty]
+    public string? NesteTimeLokal { get; set; }
+
+    public bool KorFitPlanlagtOpprettet { get; private set; }
+    public DateTimeOffset? KorFitOrsTidspunktVisning { get; private set; }
+    public DateTimeOffset? KorFitSrsTidspunktVisning { get; private set; }
+    public KorFitOppsett KorFitOppsett { get; private set; } = null!;
 
     [BindProperty]
     public string PasientIderCsv { get; set; } = string.Empty;
@@ -95,6 +107,7 @@ public sealed class TesterModel : PageModel
     {
         PaaminnelseMelding = TempData["PaaminnelseMelding"] as string;
         IkkeFullforteTildelinger = await _testService.HentIkkeFullforteForAdminAsync(cancellationToken);
+        KorFitOppsett = await _korFitOppsettService.HentAsync(cancellationToken);
 
         if (TempData.Peek("TildelPasientIder") is not string csv || string.IsNullOrWhiteSpace(csv))
         {
@@ -256,6 +269,45 @@ public sealed class TesterModel : PageModel
 
         PlanlagtOpprettet = true;
         PlanlagtTidspunktVisning = planlagtUtc;
+        return Page();
+    }
+
+    /// <summary>"KOR/FIT til neste time" — se Behandlerportal-motstykket for full begrunnelse. administratorId: ikke null = admin, ikke behandler.</summary>
+    public async Task<IActionResult> OnPostPlanleggKorFitAsync(CancellationToken cancellationToken)
+    {
+        await LastValgtePasienterAsync(PasientIderCsv, cancellationToken);
+        KategoriTre = await LastKategoriTreMedHjemmeoppgaverAsync(cancellationToken);
+        KorFitOppsett = await _korFitOppsettService.HentAsync(cancellationToken);
+
+        if (!ValgtePasienter.Any())
+        {
+            Feilmelding = "Ingen gyldige pasienter valgt. Gå tilbake til steg 1.";
+            return Page();
+        }
+
+        if (!DateTime.TryParse(NesteTimeLokal, out var lokalDt))
+        {
+            Feilmelding = "Angi et gyldig tidspunkt for neste time.";
+            return Page();
+        }
+
+        var osloTid = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+        var nesteTimeUtc = new DateTimeOffset(DateTime.SpecifyKind(lokalDt, DateTimeKind.Unspecified), osloTid.GetUtcOffset(lokalDt));
+
+        var pasientIder = ValgtePasienter.Select(p => p.Pasient.Id).ToList();
+        var administratorId = HentAdministratorId();
+        await _planlagtTildelingService.OpprettKorFitAsync(
+            pasientIder, behandlerId: null, administratorId: administratorId, nesteTimeUtc,
+            Varslingsmetode, opprettetAvUserId: administratorId, cancellationToken);
+
+        await _auditLogger.LogAsync(
+            _currentUser.UserId, _currentUser.Role.ToString(), "PlanleggKorFitBatch",
+            nameof(TestTildeling), "ors,srs",
+            $"PasientIder {string.Join(",", pasientIder)}, neste time {nesteTimeUtc:O}", cancellationToken);
+
+        KorFitPlanlagtOpprettet = true;
+        KorFitOrsTidspunktVisning = nesteTimeUtc.AddHours(-KorFitOppsett.OrsTimerForTimeOffset);
+        KorFitSrsTidspunktVisning = nesteTimeUtc.AddMinutes(KorFitOppsett.SrsMinutterEtterTimeOffset);
         return Page();
     }
 

@@ -110,6 +110,15 @@ public sealed class RapportModel : PageModel
     /// <summary>Ferdigberegnet SVG-geometri for "utvikling over tid"-grafen — null når det er &lt;2 besvarelser å vise (se UtviklingsGrafBeregner).</summary>
     public UtviklingsGrafData? UtviklingsGraf { get; private set; }
 
+    /// <summary>
+    /// Kombinert KOR/FIT-graf (ORS+SRS, se KorFitGrafBeregner) — satt i STEDET FOR UtviklingsGraf
+    /// når Test.Kode er "ors" ELLER "srs" og minst én besvarelse finnes av BEGGE instrumentene for
+    /// denne pasienten (en gjentatt ORS uten noen SRS ennå, eller omvendt, viser fortsatt den
+    /// vanlige enkelttest-UtviklingsGraf i stedet — ingenting å kombinere før begge har minst ett
+    /// svar). Se docs/beslutningslogg.md 2026-10-18.
+    /// </summary>
+    public KorFitGrafData? KorFitGraf { get; private set; }
+
     public string? Melding { get; private set; }
 
     /// <summary>Neste ugodkjente, fullførte rapport i køen — se bugliste 2026-09-13 punkt 26 ("Neste oppgave").</summary>
@@ -318,7 +327,18 @@ public sealed class RapportModel : PageModel
         if (Test.Kode is not null && visSkaaring)
         {
             Historikk = await _testService.HentSkaaringHistorikkAsync(Pasient.Id, Test.Kode, cancellationToken);
-            if (Historikk.Count > 1)
+
+            if (Test.Kode is "ors" or "srs")
+            {
+                var orsHistorikk = Test.Kode == "ors" ? Historikk : await _testService.HentSkaaringHistorikkAsync(Pasient.Id, "ors", cancellationToken);
+                var srsHistorikk = Test.Kode == "srs" ? Historikk : await _testService.HentSkaaringHistorikkAsync(Pasient.Id, "srs", cancellationToken);
+                if (orsHistorikk.Count > 0 && srsHistorikk.Count > 0)
+                {
+                    KorFitGraf = KorFitGrafBeregner.Beregn(orsHistorikk, srsHistorikk);
+                }
+            }
+
+            if (KorFitGraf is null && Historikk.Count > 1)
             {
                 var referanselinjer = _testService.HentReferanselinjer(Test.Kode);
                 UtviklingsGraf = UtviklingsGrafBeregner.Beregn(Historikk, referanselinjer);

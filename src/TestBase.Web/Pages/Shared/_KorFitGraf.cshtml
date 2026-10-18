@@ -1,0 +1,58 @@
+@using TestBase.Shared.Domain.Tester.Skaaring
+@model KorFitGrafData
+@{
+    var invariant = System.Globalization.CultureInfo.InvariantCulture;
+    string F(double tall) => tall.ToString("0.##", invariant);
+
+    // Samme begrunnelse som _UtviklingsGraf.cshtml for <text>-som-rå-streng — Razor sin egen
+    // <text>-pseudo-tag tillater ikke attributter, kolliderer med SVGs <text>.
+    string TekstTag(double x, double y, string cssKlasse, string ankerJustering, string innhold) =>
+        $"<text x=\"{F(x)}\" y=\"{F(y)}\" class=\"{cssKlasse}\" text-anchor=\"{ankerJustering}\">{System.Net.WebUtility.HtmlEncode(innhold)}</text>";
+}
+<svg class="utvikling-graf kor-fit-graf" viewBox="0 0 @F(KorFitGrafBeregner.Bredde) @F(KorFitGrafBeregner.Hoyde)" role="img" aria-label="KOR/FIT over tid">
+    @* Y-akse rutenett/etiketter: fast 0/10/20/30/40 (råskår), ikke prosent. *@
+    @foreach (var nivaa in new[] { 0, 10, 20, 30, 40 })
+    {
+        var y = Model.PlotTopp + (1 - nivaa / (double)KorFitGrafBeregner.RaaSkaarMaks) * (Model.PlotBunn - Model.PlotTopp);
+        <line x1="@F(Model.PlotVenstre)" y1="@F(y)" x2="@F(Model.PlotHoyre)" y2="@F(y)" class="utvikling-graf-rutenett" />
+        @Html.Raw(TekstTag(Model.PlotVenstre - 6, y + 3, "utvikling-graf-akse-tekst", "end", nivaa.ToString()))
+    }
+
+    @* De to cutoff-referanselinjene — sonen MELLOM dem er "samtale-tid", se KorFitGrafBeregner. *@
+    <line x1="@F(Model.PlotVenstre)" y1="@F(Model.OrsCutoffY)" x2="@F(Model.PlotHoyre)" y2="@F(Model.OrsCutoffY)" class="utvikling-graf-referanselinje kor-fit-cutoff-ors" />
+    @Html.Raw(TekstTag(Model.PlotHoyre - 4, Model.OrsCutoffY - 4, "utvikling-graf-referanse-tekst", "end", $"ORS-cutoff {KorFitGrafBeregner.OrsCutoffRaaskaar}"))
+    <line x1="@F(Model.PlotVenstre)" y1="@F(Model.SrsCutoffY)" x2="@F(Model.PlotHoyre)" y2="@F(Model.SrsCutoffY)" class="utvikling-graf-referanselinje kor-fit-cutoff-srs" />
+    @Html.Raw(TekstTag(Model.PlotHoyre - 4, Model.SrsCutoffY - 4, "utvikling-graf-referanse-tekst", "end", $"SRS-cutoff {KorFitGrafBeregner.SrsCutoffRaaskaar}"))
+
+    @* X-akse dato-etiketter for begge serier samlet. *@
+    @foreach (var punkt in Model.OrsPunkter.Concat(Model.SrsPunkter))
+    {
+        if (punkt.VisDatoLabel)
+        {
+            @Html.Raw(TekstTag(punkt.X, Model.PlotBunn + 16, "utvikling-graf-akse-tekst", "middle", punkt.DatoKort))
+        }
+    }
+
+    @* ORS-serien (tilstand/utfall) — linje + punkter. "Samtale-tid"-punkter overstyres i størrelse/farge under. *@
+    <polyline points="@Model.OrsPolylinePunkter" class="kor-fit-linje kor-fit-linje-ors" />
+    @foreach (var punkt in Model.OrsPunkter)
+    {
+        <circle cx="@F(punkt.X)" cy="@F(punkt.Y)" r="@(punkt.ErSamtaleTid ? "7" : "4")" class="kor-fit-punkt @(punkt.ErSamtaleTid ? "kor-fit-punkt-samtaletid" : "kor-fit-punkt-ors")">
+            <title>ORS @punkt.DatoKort: @punkt.RaaSkaar av @KorFitGrafBeregner.RaaSkaarMaks@(punkt.ErSamtaleTid ? " — samtale-tid" : "")</title>
+        </circle>
+    }
+
+    @* SRS-serien (allianse) — linje + punkter. *@
+    <polyline points="@Model.SrsPolylinePunkter" class="kor-fit-linje kor-fit-linje-srs" />
+    @foreach (var punkt in Model.SrsPunkter)
+    {
+        <circle cx="@F(punkt.X)" cy="@F(punkt.Y)" r="@(punkt.ErSamtaleTid ? "7" : "4")" class="kor-fit-punkt @(punkt.ErSamtaleTid ? "kor-fit-punkt-samtaletid" : "kor-fit-punkt-srs")">
+            <title>SRS @punkt.DatoKort: @punkt.RaaSkaar av @KorFitGrafBeregner.RaaSkaarMaks@(punkt.ErSamtaleTid ? " — samtale-tid" : "")</title>
+        </circle>
+    }
+</svg>
+<p class="kor-fit-legende">
+    <span><span class="kor-fit-legende-prikk kor-fit-punkt-ors"></span> ORS (tilstand/utfall)</span>
+    <span><span class="kor-fit-legende-prikk kor-fit-punkt-srs"></span> SRS (allianse)</span>
+    <span><span class="kor-fit-legende-prikk kor-fit-punkt-samtaletid"></span> Samtale-tid — skåren ligger mellom cutoffene, ta det opp i timen</span>
+</p>

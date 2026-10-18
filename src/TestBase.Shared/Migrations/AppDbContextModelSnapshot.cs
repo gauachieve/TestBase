@@ -996,6 +996,31 @@ namespace TestBase.Shared.Migrations
                     b.ToTable("klinikk_seter_tiers", (string)null);
                 });
 
+            modelBuilder.Entity("TestBase.Shared.Domain.Tester.KorFitOppsett", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<double>("OrsTimerForTimeOffset")
+                        .HasColumnType("double");
+
+                    b.Property<long?>("SistEndretAvUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("SistEndretUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("SrsMinutterEtterTimeOffset")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("kor_fit_oppsett", (string)null);
+                });
+
             modelBuilder.Entity("TestBase.Shared.Domain.Tester.PartnerAutomatiskUtsendelse", b =>
                 {
                     b.Property<long>("Id")

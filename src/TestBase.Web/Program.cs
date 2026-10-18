@@ -72,6 +72,7 @@ builder.Services.AddHostedService<DriftsstatusVarslingBakgrunnstjeneste>();
 builder.Services.AddScoped<OkonomiRapportService>();
 builder.Services.AddScoped<AdminOkonomiOppsettService>();
 builder.Services.AddScoped<AbonnementOppsettService>();
+builder.Services.AddScoped<KorFitOppsettService>();
 builder.Services.AddScoped<KlinikkPrisService>();
 
 // Skåringsmotor og innebygde, kode-definerte tester (fase 5 — bevist ut med WHO-5).
@@ -81,6 +82,12 @@ builder.Services.AddScoped<IInnebygdTestSeeder, Who5TestSeeder>();
 // VAS-variant av WHO-5 for gjentatt måling over tid (2026-09-14), se Who5VasTestSeeder.
 builder.Services.AddScoped<ITestSkaaringsberegner, Who5VasSkaaringsberegner>();
 builder.Services.AddScoped<IInnebygdTestSeeder, Who5VasTestSeeder>();
+
+// KOR/FIT — ORS + SRS, gjentatt måling knyttet til "neste time" (2026-10-18), se OrsTestSeeder/SrsTestSeeder.
+builder.Services.AddScoped<ITestSkaaringsberegner, OrsSkaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, OrsTestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, SrsSkaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, SrsTestSeeder>();
 
 // Åtte tester fra Helsebiblioteket (2026-09), se docs/beslutningslogg.md.
 builder.Services.AddScoped<ITestSkaaringsberegner, Phq9Skaaringsberegner>();

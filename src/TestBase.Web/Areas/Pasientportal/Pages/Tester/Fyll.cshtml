@@ -64,6 +64,14 @@ else
         }
 
         <form method="post" data-disable-on-submit="Lagrer svar …">
+            @{
+                // ORS (KOR/FIT) sitt papirskjema har de fire VAS-linjene SIDE VED SIDE i en rad —
+                // i motsetning til alle andre VAS-tester (inkl. SRS), som stables fullbredde under
+                // hverandre (dagens standardoppførsel). Samme per-test-kode-switch-mønster som
+                // "stablet"/"tiltetTekst" for pds_icd11/madrs_s lenger ned i denne filen.
+                var sideStiltLedd = Model.Innhold.Test.Kode is "ors";
+            }
+            <div class="test-ledd-liste @(sideStiltLedd ? "test-ledd-liste--side-ved-side" : "")">
             @foreach (var ledd in Model.LeddPaaGjeldendeSide)
             {
                 var eksisterende = Model.Innhold.EksisterendeSvar.GetValueOrDefault(ledd.Id);
@@ -161,6 +169,7 @@ else
                     }
                 </div>
             }
+            </div>
 
             @if (Model.ManglendePaakrevdeSvar.Count > 0)
             {

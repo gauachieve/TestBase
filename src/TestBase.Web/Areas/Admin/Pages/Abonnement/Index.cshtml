@@ -11,6 +11,7 @@
     <div class="fane-rad" role="tablist">
         <button type="button" class="fane-knapp" data-fane="oppsett">Kostnader og prosenter</button>
         <button type="button" class="fane-knapp" data-fane="seter">Klinikk-seter</button>
+        <button type="button" class="fane-knapp" data-fane="korfit">KOR/FIT</button>
     </div>
 
     <div data-fane-rad="oppsett" hidden>
@@ -114,6 +115,28 @@
                 <input type="number" step="0.01" min="0" id="krpersete" name="krPerSeteManed" required />
             </div>
             <button type="submit" class="btn btn-accent">Legg til sjikt</button>
+        </form>
+    </div>
+
+    <div data-fane-rad="korfit" hidden>
+        @if (Model.KorFitOppsettLagret)
+        {
+            <p class="feilmelding" style="color: var(--success-dark);">✓ KOR/FIT-oppsett lagret.</p>
+        }
+
+        <p>Tidsforskyvningene brukt av "KOR/FIT til neste time" i tildelingsflyten (ORS/SRS, se Tildel/Tester). Leses live — ikke hardkodet.</p>
+
+        <form method="post" asp-page-handler="LagreKorFitOppsett">
+            <div class="form-rad">
+                <label for="orsoffset">ORS sendes dette antall timer FØR neste time</label>
+                <input type="number" step="0.1" min="0" id="orsoffset" name="OrsTimerForTimeOffset" value="@Model.KorFitOppsett.OrsTimerForTimeOffset.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+            </div>
+            <div class="form-rad">
+                <label for="srsoffset">SRS sendes dette antall minutter ETTER neste time</label>
+                <input type="number" step="1" min="0" id="srsoffset" name="SrsMinutterEtterTimeOffset" value="@Model.KorFitOppsett.SrsMinutterEtterTimeOffset" />
+            </div>
+
+            <button type="submit" class="btn btn-accent">Lagre KOR/FIT-oppsett</button>
         </form>
     </div>
 </div>

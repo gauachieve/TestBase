@@ -310,6 +310,14 @@ else
             </div>
         }
 
+        @if (Model.KorFitGraf is not null)
+        {
+            <div class="rapport-seksjon">
+                <span class="rapport-seksjon-tittel">KOR/FIT over tid</span>
+                <partial name="_KorFitGraf" model="Model.KorFitGraf" />
+            </div>
+        }
+
         @if (Model.Historikk.Count > 1)
         {
             <div class="rapport-seksjon">

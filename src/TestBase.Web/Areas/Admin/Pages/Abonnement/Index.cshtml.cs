@@ -18,13 +18,17 @@ public sealed class IndexModel : PageModel
 {
     private readonly AppDbContext _db;
     private readonly AbonnementOppsettService _oppsettService;
+    private readonly KorFitOppsettService _korFitOppsettService;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuditLogger _auditLogger;
 
-    public IndexModel(AppDbContext db, AbonnementOppsettService oppsettService, ICurrentUserContext currentUser, IAuditLogger auditLogger)
+    public IndexModel(
+        AppDbContext db, AbonnementOppsettService oppsettService, KorFitOppsettService korFitOppsettService,
+        ICurrentUserContext currentUser, IAuditLogger auditLogger)
     {
         _db = db;
         _oppsettService = oppsettService;
+        _korFitOppsettService = korFitOppsettService;
         _currentUser = currentUser;
         _auditLogger = auditLogger;
     }
@@ -34,9 +38,14 @@ public sealed class IndexModel : PageModel
     public bool OppsettLagret { get; private set; }
     public bool TierLagret { get; private set; }
 
+    /// <summary>KOR/FIT-tidsforskyvningene (se KorFitOppsettService) — egen, liten seksjon på denne siden i stedet for et eget Area-underområde (unngår å måtte legge en ny mappe til AuthorizeAreaFolder-listen, se CLAUDE.md sin fallgruve om nye, ubeskyttede sidermapper).</summary>
+    public KorFitOppsett KorFitOppsett { get; private set; } = null!;
+    public bool KorFitOppsettLagret { get; private set; }
+
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         Oppsett = await _oppsettService.HentAsync(cancellationToken);
+        KorFitOppsett = await _korFitOppsettService.HentAsync(cancellationToken);
         SeterTiers = await _db.KlinikkSeterTiers.OrderBy(t => t.FraAntallSeter).ToListAsync(cancellationToken);
         if (SeterTiers.Count == 0)
         {
@@ -45,6 +54,18 @@ public sealed class IndexModel : PageModel
 
         OppsettLagret = TempData["OppsettLagret"] as bool? ?? false;
         TierLagret = TempData["TierLagret"] as bool? ?? false;
+        KorFitOppsettLagret = TempData["KorFitOppsettLagret"] as bool? ?? false;
+    }
+
+    public async Task<IActionResult> OnPostLagreKorFitOppsettAsync(KorFitOppsett innsendt, CancellationToken cancellationToken)
+    {
+        await _korFitOppsettService.LagreAsync(innsendt, BrukerId(), cancellationToken);
+        await _auditLogger.LogAsync(
+            _currentUser.UserId, _currentUser.Role.ToString(), "LagreKorFitOppsett",
+            nameof(KorFitOppsett), "1", cancellationToken: cancellationToken);
+
+        TempData["KorFitOppsettLagret"] = true;
+        return Redirect(Url.Page("./Index")! + "#korfit");
     }
 
     /// <summary>

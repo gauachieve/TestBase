@@ -9374,3 +9374,77 @@ beregning), OG teste selve skåringsfunksjonen i live med ekte behandlere ved å
 (ikke ekte mennesker i MDR-forstand) — uten å måtte vente på CE-merking for noe av dette.
 EF-migrasjon `LeggTilAutomatiskSkaaringDriftsbryter` generert og kjørt mot lokal dev-database
 samme dag.
+
+## KOR/FIT (ORS + SRS) — tilbakemeldingsinformert terapi (2026-10-18)
+
+Bruker ba om å legge inn KOR/FIT (Klient- og resultatstyrt terapi / Feedback-Informed Treatment,
+Miller/Duncan m.fl.): de to korte, sammenhørende instrumentene **ORS** (Outcome Rating Scale —
+tilstand/utfall, besvares AV PASIENTEN normalt rett FØR en time) og **SRS** (Session Rating
+Scale — allianse, besvares AV PASIENTEN rett ETTER timen). Planlagt via EnterPlanMode/
+ExitPlanMode (plan lagret i sesjonen, godkjent av bruker uendret) etter en kort klargjøringsrunde
+der brukeren besvarte tre konkrete arkitekturspørsmål underveis:
+
+- **Lisens:** ORS/SRS er opphavsrettslig beskyttet (© Scott D. Miller/Barry L. Duncan m.fl.,
+  PCOMS-lisensiering) — elektronisk/kommersiell bruk krever formelt en betalt gruppelisens.
+  Research (WebSearch mot scottdmiller.com/CORC/Tacklit m.fl.) bekreftet: papirbruk er fri for
+  individuelle praktikere, men elektronisk/organisasjonsbruk krever egen avtale. Bruker fikk
+  samme type valg som tidligere for M.I.N.I./HCR-20 (ekte innhold nå vs. en tydelig merket
+  placeholder) og valgte EKSPLISITT "bygg med reelt innhold nå, ta ansvaret selv" — med en
+  viktig forskjell fra M.I.N.I./HCR-20 fremhevet av bruker selv: her må PASIENTEN faktisk SE og
+  forstå det ekte innholdet for at besvarelsen skal gi mening, i motsetning til et
+  behandler-administrert strukturert intervju der en placeholder er et reelt alternativ.
+  Norsk ordlyd i `OrsTestSeeder`/`SrsTestSeeder` er en EGEN oversettelse av den kjent publiserte
+  4-domene-strukturen, ikke en ordrett kopi av en bestemt lisensiert PDF. **Ikke avklart formelt
+  med rettighetshaver** — brukerens eget ansvar, samme mønster som den generelle
+  CE-merking/MDR-saken over.
+- **"Neste time" er en del av utsendelsen**, ikke en egen avtale-/kalenderentitet (bekreftet av
+  bruker: "Vi har ingen måte å definere neste time på i dag, så det må være en del av
+  utsendelsen") — løst UTEN noen ny domenetabell for selve utsendingen: en "KOR/FIT til neste
+  time"-handling oppretter ganske enkelt TO vanlige `PlanlagtTildeling`-rader (én ORS, én SRS),
+  se `PlanlagtTildelingService.OpprettKorFitAsync`.
+- **Egen, dedikert utsendingstype** (bekreftet av bruker: "En egen 'til neste time'
+  utsendingstype. Og så definere den.") — en helt separat, liten boks/form i
+  `Areas/{Behandlerportal,Admin}/Pages/Tildel/Tester.cshtml` (`OnPostPlanleggKorFitAsync`), IKKE
+  en ny gren i den generiske "Nå/Planlagt/Gjentagende"-dialogen for vilkårlige tester — ORS/SRS
+  er hardkodet ved `Test.Kode`, ikke en generisk "velg to tester og par dem"-mekanisme.
+- **Tidsforskyvningene er superadmin-konfigurerbare** (bekreftet av bruker: "gjør sånn at man kan
+  skru på tidspunktene rundt timen") — ny singleton `KorFitOppsett`/`KorFitOppsettService`
+  (samme lazy-create-rad-mønster som `AbonnementOppsett`), redigert i en ny "KOR/FIT"-fane på den
+  ALLEREDE eksisterende `Admin/Abonnement/Index.cshtml` i stedet for en ny, egen Admin-side — en
+  bevisst avvik fra planens opprinnelige forslag om en egen side, for å unngå risikoen for en ny,
+  ubeskyttet sidermappe (se CLAUDE.md sin fallgruve om `AuthorizeAreaFolder`).
+- **Fysisk skjemalayout speiler papirversjonen** (bruker: "legg merke til hvordan skjemaet ser ut
+  fysisk, men sidestilte spørsmål på en og over på annen... Beregn hvordan gjøre det på mobil og
+  så det ikke blir rart") — ORS sine fire VAS-linjer vises SIDE VED SIDE (`Fyll.cshtml` sin
+  `sideStiltLedd`-switch + `.test-ledd-liste--side-ved-side` i site.css, flex-wrap med
+  `flex-basis` i stedet for et hardkodet brudd-punkt, for en gradvis omstabling på smalere
+  skjermer), SRS forblir stablet fullbredde (uendret standardoppførsel).
+
+**Skåring** (`OrsSkaaringsberegner`/`SrsSkaaringsberegner`): fire VAS-ledd (gjenbruker den
+generiske 0-100-glidebryteren, IKKE en ny UI-mekanisme), tolket som 0-10 per ledd (/10,
+kontinuerlig) og summert til råskår 0-40 — matcher den kjent siterte 4×10cm-skalaen litteraturen
+bruker. Cutoff 25 (ORS), 36 (SRS), "lavt enkeltledd" < 9 av 10 for begge. Rapporteres i råskår,
+ikke prosent (`VisSomProsentIHistogram = false`), konsistent med prinsippet at klinikere kjenner
+disse cutoffene på råskår-skalaen.
+
+**Kombinert graf** (`KorFitGrafBeregner` + `Pages/Shared/_KorFitGraf.cshtml`): BEVISST en egen,
+purpose-built graf, ikke en utvidelse av den generiske `UtviklingsGrafBeregner` (1-test/
+prosent-skala, brukt uendret av 30+ andre tester). ORS- og SRS-besvarelser slås sammen til ÉN
+kronologisk union for X-posisjonering (en sesjons ORS lander naturlig til venstre for sin SRS).
+Y-akse er råskår 0-40. Et punkt (uansett serie) med råskår STRENGT mellom 25 og 36 klassifiseres
+`ErSamtaleTid` og rendres større og rødt — brukerens spesifikasjon: "Når graf-punktene lander i
+mellom dem er det 'samtale-tid'. Da må punktene i grafen gjøre større og røde." Kun wiret inn i
+`Areas/Behandlerportal/Pages/Pasienter/Rapport.cshtml(.cs)` — Admin og Pasientportal sine
+rapportsider har ALDRI hatt noen "utvikling over tid"-grafinfrastruktur i det hele tatt, så
+KOR/FIT-grafen ble bevisst IKKE tvunget inn der for symmetri alene.
+
+**Verifisert** via en forket subagent (full regresjonssuite + Playwright, jf. CLAUDE.md sin
+arbeidsøkonomi): 134/134 tester grønne. Playwright fant og fikset ÉN reell bug underveis: SRS
+sine lange, motstridende ankertekster (f.eks. "...det jeg ønsket å arbeide med/snakke om" vs.
+"Vi arbeidet med...") rant visuelt sammen på desktop-bredde uten en mellomromsgrense — fikset med
+en scoped `.vas-endepunkter`-regel (gap + maks-bredde + høyrejustering på det siste elementet)
+som ikke påvirker korte ankertekster (WHO-5 VAS). Alle andre sjekker (planlegging med
+konfigurerte offsets, mobil/desktop-layout for begge instrumentene, kombinert graf med korrekt
+"samtale-tid"-markering, superadmin-oppsettsiden) var grønne på første forsøk.
+
+Ny EF-migrasjon `LeggTilKorFitOppsett` generert og kjørt mot lokal dev-database samme dag.
