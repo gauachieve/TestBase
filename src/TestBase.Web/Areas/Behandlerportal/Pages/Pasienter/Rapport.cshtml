@@ -105,54 +105,16 @@ else
                 {
                     <p class="rapport-ubesvart-tall">@Model.AntallUbesvart av @Model.AntallLedd spørsmål sto ubesvart.</p>
                 }
-                @* For SCID-5-PF er dette dobbelt opp med stolpediagrammet under (som viser akkurat
-                   det samme, per forstyrrelse, i et bedre format) — se docs/beslutningslogg.md.
-                   For MPFI-24 (bugliste punkt 7) er KUN badge-boksene (f.eks. "3.00/3.50") dobbelt
-                   opp med de to radar-hexagonene under — selve Fortolkning-teksten er IKKE
-                   redundant (radaren viser ingen prosa), så den beholdes. *@
-                @if (Model.Scid5PfBar is null)
+                @if (Model.Skaaring.Indikatorer is { Count: > 0 })
                 {
-                    @if (Model.Skaaring.Indikatorer is { Count: > 0 } && Model.MpfiFleksibilitetRadar is null)
+                    <div class="rapport-indikatorer">
+                    @foreach (var indikator in Model.Skaaring.Indikatorer)
                     {
-                        <div class="rapport-indikatorer">
-                        @foreach (var indikator in Model.Skaaring.Indikatorer)
-                        {
-                            <span class="rapport-indikator @(indikator.Positiv ? "rapport-indikator-positiv" : "rapport-indikator-negativ")">@indikator.Verdi</span>
-                        }
-                        </div>
+                        <span class="rapport-indikator @(indikator.Positiv ? "rapport-indikator-positiv" : "rapport-indikator-negativ")">@indikator.Verdi</span>
                     }
-                    <p class="rapport-fortolkning">@Model.Skaaring.Fortolkning</p>
+                    </div>
                 }
-                <p style="font-size: 0.78rem; color: #666; font-style: italic; margin-top: 0.75rem; border-top: 1px dashed #ccc; padding-top: 0.5rem;">
-                    Skåringen vises for test-/valideringsformål i påvente av CE-merking etter MDR (EU) 2017/745,
-                    og skal ikke anses som et ferdig medisinsk hjelpemiddel.
-                </p>
-            </div>
-        }
-        else if (Model.SkaaringMidlertidigSkjult)
-        {
-            <div class="rapport-seksjon">
-                <span class="rapport-seksjon-tittel">Svaroversikt</span>
-                <p style="font-size: 0.85rem; color: #666; font-style: italic;">
-                    Automatisk skåring og tolkning er midlertidig deaktivert i dette miljøet i påvente av
-                    CE-merking etter MDR (EU) 2017/745. Pasientens svar vises uendret under.
-                </p>
-                @if (Model.AntallUbesvart > 0)
-                {
-                    <p class="rapport-ubesvart-tall">@Model.AntallUbesvart av @Model.AntallLedd spørsmål sto ubesvart.</p>
-                }
-                <table class="rapport-svartabell">
-                    <thead><tr><th>Spørsmål</th><th>Svar</th></tr></thead>
-                    <tbody>
-                    @foreach (var rad in Model.Sider.SelectMany(s => s.Svar))
-                    {
-                        <tr>
-                            <td>@rad.Sporsmal</td>
-                            <td>@rad.SvarLabel</td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
+                <p class="rapport-fortolkning">@Model.Skaaring.Fortolkning</p>
             </div>
         }
         else if (Model.ErHjemmeoppgaveRapport)
@@ -183,137 +145,10 @@ else
             </div>
         }
 
-        @if (Model.Sipp118Radar is not null)
-        {
-            <div class="rapport-seksjon">
-                <span class="rapport-seksjon-tittel">Domeneprofil</span>
-                @{
-                    var radar = Model.Sipp118Radar;
-                    string F(double tall) => tall.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
-                    string TekstTag(double x, double y, string ankerJustering, string innhold, string ekstraStil = "") =>
-                        $"<text x=\"{F(x)}\" y=\"{F(y)}\" text-anchor=\"{ankerJustering}\" style=\"font-size: 11px; fill: var(--ink); {ekstraStil}\">{System.Net.WebUtility.HtmlEncode(innhold)}</text>";
-                }
-                @* data-rapport-graf på en wrapper-div, IKKE selve <svg>-en — se tilsvarende
-                   kommentar ved MPFI-radarene lenger ned for hvorfor (html2canvas-begrensning). *@
-                <div data-rapport-graf="sipp-radar">
-                <svg viewBox="0 0 @Sipp118RadarBeregner.Bredde @Sipp118RadarBeregner.Hoyde" role="img" aria-label="Domeneprofil (SIPP-118-inspirert)" style="max-width: 360px; display: block; margin: 0 auto;">
-                    @* Ytre ramme (maks per domene) og en cutoff-ring (den forenklede lavfunksjon-grensen). *@
-                    <polygon points="@radar.YtreRingPunkter" style="fill: none; stroke: var(--border); stroke-width: 1;" />
-                    <polygon points="@radar.CutoffPolygonPunkter" style="fill: none; stroke: #c0392b; stroke-width: 1; stroke-dasharray: 4 3;" />
-                    @foreach (var p in radar.Punkter)
-                    {
-                        <line x1="@F(radar.Senter)" y1="@F(radar.Senter)" x2="@F(p.X)" y2="@F(p.Y)" style="stroke: var(--border); stroke-width: 1;" />
-                    }
-                    @* Selve dataen for denne besvarelsen — ETT polygon, siden radaren viser 5 domener for ÉN besvarelse, ikke utvikling over tid. *@
-                    <polygon points="@radar.DataPolygonPunkter" style="fill: var(--accent); fill-opacity: 0.28; stroke: var(--accent-dark); stroke-width: 2;" />
-                    @foreach (var p in radar.Punkter)
-                    {
-                        <circle cx="@F(p.X)" cy="@F(p.Y)" r="3.5" style="fill: var(--accent-dark);" />
-                        @Html.Raw(TekstTag(p.LabelX, p.LabelY, p.LabelAnker, $"{p.Navn} ({p.Verdi}/{p.Maks})"))
-                    }
-                </svg>
-                </div>
-                <p style="font-size: 0.82rem; color: #666; text-align: center;">
-                    Stiplet linje = forenklet lavfunksjon-grense (ikke en offisiell SIPP-118-norm). Viser kun DENNE besvarelsen — radaren kan ikke vise utvikling over tid, siden hvert domene er en egen dimensjon.
-                </p>
-            </div>
-        }
-
-        @if (Model.MpfiFleksibilitetRadar is not null && Model.MpfiRigiditetRadar is not null)
-        {
-            <div class="rapport-seksjon">
-                <span class="rapport-seksjon-tittel">Fleksibilitets-/rigiditetsprofil</span>
-                @{
-                    string F(double tall) => tall.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
-                    string TekstTag(double x, double y, string ankerJustering, string innhold) =>
-                        $"<text x=\"{F(x)}\" y=\"{F(y)}\" text-anchor=\"{ankerJustering}\" style=\"font-size: 11px; fill: var(--ink);\">{System.Net.WebUtility.HtmlEncode(innhold)}</text>";
-                    string TegnRadar(TestBase.Shared.Domain.Tester.Skaaring.MpfiRadarData radar, string tittel, string ariaLabel, string grafNokkel)
-                    {
-                        var deler = new List<string>
-                        {
-                            $"<polygon points=\"{radar.YtreRingPunkter}\" style=\"fill: none; stroke: var(--border); stroke-width: 1;\" />",
-                            $"<polygon points=\"{radar.NormPolygonPunkter}\" style=\"fill: none; stroke: #c0392b; stroke-width: 1; stroke-dasharray: 4 3;\" />"
-                        };
-                        foreach (var p in radar.Punkter)
-                        {
-                            deler.Add($"<line x1=\"{F(radar.Senter)}\" y1=\"{F(radar.Senter)}\" x2=\"{F(p.DataX)}\" y2=\"{F(p.DataY)}\" style=\"stroke: var(--border); stroke-width: 1;\" />");
-                        }
-                        deler.Add($"<polygon points=\"{radar.DataPolygonPunkter}\" style=\"fill: var(--accent); fill-opacity: 0.28; stroke: var(--accent-dark); stroke-width: 2;\" />");
-                        foreach (var p in radar.Punkter)
-                        {
-                            deler.Add($"<circle cx=\"{F(p.DataX)}\" cy=\"{F(p.DataY)}\" r=\"3.5\" style=\"fill: var(--accent-dark);\" />");
-                            deler.Add(TekstTag(p.LabelX, p.LabelY, p.LabelAnker, $"{p.Navn} ({F(p.Skaare)})"));
-                        }
-                        // data-rapport-graf på den YTRE div-en, IKKE på selve <svg>-en — html2canvas
-                        // (se wwwroot/js/rapport.js) feiler med "Unable to find element in cloned
-                        // iframe" når den blir bedt om å rendre et SVG-ROT-element direkte (en kjent
-                        // html2canvas-begrensning, funnet ved reell nettleser-verifisering av
-                        // bugliste punkt 8), men fungerer fint på en vanlig HTML-wrapper rundt den.
-                        return $"<div data-rapport-graf=\"{grafNokkel}\" style=\"flex: 1 1 280px; text-align: center;\"><strong>{System.Net.WebUtility.HtmlEncode(tittel)}</strong>" +
-                               $"<svg viewBox=\"0 0 {TestBase.Shared.Domain.Tester.Skaaring.MpfiRadarBeregner.Bredde} {TestBase.Shared.Domain.Tester.Skaaring.MpfiRadarBeregner.Hoyde}\" role=\"img\" aria-label=\"{System.Net.WebUtility.HtmlEncode(ariaLabel)}\" style=\"max-width: 320px; display: block; margin: 0 auto;\">" +
-                               string.Join("", deler) + "</svg></div>";
-                    }
-                }
-                <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-                    @Html.Raw(TegnRadar(Model.MpfiFleksibilitetRadar, "Fleksibilitetsprosesser", "Fleksibilitetsprofil", "mpfi-fleks"))
-                    @Html.Raw(TegnRadar(Model.MpfiRigiditetRadar, "Rigiditetsprosesser", "Rigiditetsprofil", "mpfi-rigid"))
-                </div>
-                <p style="font-size: 0.82rem; color: #666; text-align: center;">
-                    Stiplet linje = kjønnsspesifikt normgjennomsnitt. Fylt flate = denne besvarelsen. Fleksibilitet og
-                    rigiditet er to uavhengige akser — høyere fleksibilitet er bedre, LAVERE rigiditet er bedre.
-                </p>
-            </div>
-        }
-
-        @if (Model.Scid5PfBar is not null)
-        {
-            <div class="rapport-seksjon">
-                <span class="rapport-seksjon-tittel">Personlighetsforstyrrelser — kriterieoversikt</span>
-                @if (Model.Scid5PfBar.VurderBlandetPf)
-                {
-                    <div class="rapport-gyldighetsadvarsel" style="border: 1px solid #c90; background: #fff8e6; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.75rem;">
-                        <strong>Vurder Blandet personlighetsforstyrrelse:</strong> ingen enkelt forstyrrelse når sin egen
-                        terskel, men samlet @Model.Scid5PfBar.TotaltAntall2 "Tydelig oppfylt"-kriterier på tvers av alle 10.
-                        Dette er en EGEN, IKKE-offisiell tommelfingerregel (verken DSM-5 eller ICD-11 har en sitert
-                        numerisk cutoff for "blandet"/uspesifisert personlighetsforstyrrelse) — klinisk skjønn avgjør.
-                    </div>
-                }
-                @{
-                    var invariant = System.Globalization.CultureInfo.InvariantCulture;
-                    string Px(double tall) => tall.ToString("0.##", invariant) + "px";
-                }
-                @foreach (var stolpe in Model.Scid5PfBar.Stolper)
-                {
-                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.4rem;">
-                        <div style="flex: 0 0 220px; font-size: 0.85rem; @(stolpe.TerskelNaadd ? "font-weight: 700;" : "")">@stolpe.Navn</div>
-                        <div style="position: relative; width: @Px(stolpe.BarBredde); height: 1.1rem; border: 1px solid var(--border); background: #fff; flex: 0 0 auto;">
-                            @if (stolpe.Antall2 > 0)
-                            {
-                                <div style="position: absolute; left: 0; top: 0; bottom: 0; width: @Px(stolpe.Segment2Bredde); background: var(--accent-dark); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.7rem; font-weight: 700;">@stolpe.Antall2</div>
-                            }
-                            @if (stolpe.Antall1 > 0)
-                            {
-                                <div style="position: absolute; left: @Px(stolpe.Segment2Bredde); top: 0; bottom: 0; width: @Px(stolpe.Segment1Bredde); background: var(--accent); opacity: 0.55; display: flex; align-items: center; justify-content: center; color: var(--ink); font-size: 0.7rem; font-weight: 700;">@stolpe.Antall1</div>
-                            }
-                            @* Pila har SAMME farge som "Tydelig oppfylt"-segmentet (var(--accent-dark)) — for å vise
-                               sammenhengen mellom terskelen og hva den faktisk teller (2-ere), se docs/beslutningslogg.md. *@
-                            <div title="Terskel: @stolpe.Terskel" style="position: absolute; top: -0.9rem; left: @Px(stolpe.CutoffX); transform: translateX(-50%); font-size: 0.75rem; color: var(--accent-dark); font-weight: 700;">▼</div>
-                        </div>
-                        <div style="flex: 0 0 auto; font-size: 0.8rem; color: #555;">@stolpe.Antall2/@stolpe.Total (terskel @stolpe.Terskel)</div>
-                    </div>
-                }
-                <p style="font-size: 0.82rem; color: #666;">
-                    Mørk = "Tydelig oppfylt" (2), lys = "Delvis til stede" (1), hvit = "Fraværende" (0) — tallet i hvert
-                    felt er antallet ledd med den verdien. ▼ (samme farge som "Tydelig oppfylt") markerer
-                    kriterieterskelen. Fet skrift på testnavnet = forstyrrelsen når sin diagnostiske terskel.
-                </p>
-            </div>
-        }
-
         @if (Model.KorFitGraf is not null)
         {
             <div class="rapport-seksjon">
-                <span class="rapport-seksjon-tittel">KOR/FIT over tid</span>
+                <span class="rapport-seksjon-tittel">Tilbakemelding over tid</span>
                 <partial name="_KorFitGraf" model="Model.KorFitGraf" />
             </div>
         }
@@ -470,8 +305,7 @@ else if (Model.Tildeling?.RapportGodkjentUtc is not null)
                         </div>
                     }
                 }
-                @* Samme "ikke dobbelt opp med grafen/stolpediagrammet"-prinsipp som i hovedvisningen over. *@
-                @if (Model.Skaaring.Indikatorer is { Count: > 0 } && Model.Scid5PfBar is null && Model.MpfiFleksibilitetRadar is null)
+                @if (Model.Skaaring.Indikatorer is { Count: > 0 })
                 {
                     <div style="margin-bottom: 6px;">
                     @foreach (var indikator in Model.Skaaring.Indikatorer)
@@ -483,10 +317,6 @@ else if (Model.Tildeling?.RapportGodkjentUtc is not null)
                     </div>
                 }
                 <div style="font-size: 13px; white-space: pre-line;">@Model.Skaaring.Fortolkning</div>
-                <div style="font-size: 11px; color: #6b7280; font-style: italic; margin-top: 8px; border-top: 1px dashed #d1cfc7; padding-top: 6px;">
-                    Skåringen vises for test-/valideringsformål i påvente av CE-merking etter MDR (EU) 2017/745,
-                    og skal ikke anses som et ferdig medisinsk hjelpemiddel.
-                </div>
             </div>
         }
 
@@ -500,20 +330,6 @@ else if (Model.Tildeling?.RapportGodkjentUtc is not null)
            utklippstavlen fordi mange journalsystemers rich text-felt enten stripper eller
            feilrendrer inline SVG ved innliming, mens et <img>-element med en data:-URI limes
            inn pålitelig overalt. *@
-        @if (Model.Sipp118Radar is not null)
-        {
-            <div style="text-align: center; margin-bottom: 14px;">
-                <img data-rapport-graf-plassholder="sipp-radar" alt="Domeneprofil" style="max-width: 360px;" />
-            </div>
-        }
-        @if (Model.MpfiFleksibilitetRadar is not null && Model.MpfiRigiditetRadar is not null)
-        {
-            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
-                <img data-rapport-graf-plassholder="mpfi-fleks" alt="Fleksibilitetsprofil" style="max-width: 300px;" />
-                <img data-rapport-graf-plassholder="mpfi-rigid" alt="Rigiditetsprofil" style="max-width: 300px;" />
-            </div>
-        }
-
         @if (Model.Historikk.Count > 1)
         {
             <div style="font-size: 13px; font-weight: 700; margin-bottom: 6px;">Utvikling over tid</div>

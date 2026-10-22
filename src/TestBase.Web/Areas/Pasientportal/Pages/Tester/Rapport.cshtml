@@ -56,29 +56,6 @@ else
                         </div>
                     }
                     <p class="rapport-fortolkning">@Model.Skaaring.Fortolkning</p>
-                    <p style="font-size: 0.78rem; color: #666; font-style: italic; margin-top: 0.75rem; border-top: 1px dashed #ccc; padding-top: 0.5rem;">
-                        Skåringen vises for test-/valideringsformål i påvente av CE-merking etter MDR (EU) 2017/745,
-                        og skal ikke anses som et ferdig medisinsk hjelpemiddel.
-                    </p>
-                </div>
-            }
-            else if (Model.SkaaringMidlertidigSkjult)
-            {
-                <div class="rapport-seksjon">
-                    <span class="rapport-seksjon-tittel">Svaroversikt</span>
-                    <p style="font-size: 0.85rem; color: #666; font-style: italic;">
-                        Automatisk skåring og tolkning er midlertidig deaktivert i dette miljøet i påvente av
-                        CE-merking etter MDR (EU) 2017/745. Svarene dine vises uendret under.
-                    </p>
-                    <table class="rapport-svartabell">
-                        <thead><tr><th>Spørsmål</th><th>Svar</th></tr></thead>
-                        <tbody>
-                        @foreach (var rad in Model.Sider.SelectMany(s => s.Svar))
-                        {
-                            <tr><td>@rad.Sporsmal</td><td>@rad.SvarLabel</td></tr>
-                        }
-                        </tbody>
-                    </table>
                 </div>
             }
 

@@ -95,18 +95,18 @@ App Service-innstillinger før du antar, spesielt på live):**
 - `Miljo:TillatPersonnummerOverride` har stått midlertidig `"true"` på live som en nødløsning før
   ekte BankID var verifisert — skal settes tilbake til `"false"` nå som ekte BankID fungerer; sjekk
   faktisk App Service-innstilling, ikke bare denne teksten.
-- Kjent, IKKE fikset sårbarhet: `ItqSkaaringsberegner`/`Phq9Skaaringsberegner` bruker fortsatt
-  posisjonsbasert svarindeksering (samme klasse som den GADIT/IAQ-krasjen som ER fikset,
-  se "Kjente fallgruver" under) — en pasient som hopper over ett ledd kan gi stille feil skår
-  eller en krasj. Fiks med `ITestSkaaringsberegnerMedLedd` hvis du er i nærheten av disse testene.
 - App Service/MySQL-SKU står normalt på billigste tier (Basic B1/Burstable B1ms) — kun skalert opp
   midlertidig og reversibelt ved kjente lasttopper (se beslutningsloggen for hvilken SKU som faktisk
   fungerer under last, `S2` alene var gjennombruddet, `S1`/`S2+B2s` var IKKE det).
-- **Før ekte pasienttesting:** et research-notat (`docs/juridisk-notat-helsedata-og-digital-
-  helseteknologi.md`, 2026-10-11, IKKE juridisk rådgivning) flagget at TestBase sin rapport-/
-  skåringsfunksjon trolig faller under MDR (medisinsk utstyr) Klasse IIa eller høyere — en
-  UBESVART, potensielt stor forpliktelse (CE-merking/kvalitetsstyringssystem) som IKKE er avklart
-  eller priset inn. Ikke anta dette er løst uten å sjekke om en kvalifisert vurdering har skjedd.
+- **MDR/CE-merking-spørsmålet er LUKKET (2026-10-22):** alle diagnostiske/symptom-/
+  risikovurderingstester (35 stk, inkl. de som tidligere ga sårbarhetsadvarselen om
+  `ItqSkaaringsberegner`/`Phq9Skaaringsberegner` sin posisjonsbaserte svarindeksering — begge
+  slettet) er fjernet permanent. TestBase er nå en sikker kommunikasjons-/behandlingsplatform
+  (programmer, hjemmeoppgaver, to ikke-diagnostiske tilbakemelding-tester SWLS/SAI) uten
+  automatisk diagnostisk beregning — se docs/beslutningslogg.md "Fjerning av diagnostiske tester
+  / MDR-opprydding". `docs/juridisk-notat-helsedata-og-digital-helseteknologi.md` sin generelle
+  GDPR-/helsedata-vurdering gjelder fortsatt (BankID/kryptering/audit-logging uendret — se
+  begrunnelsen i samme beslutningsloggoppføring), kun MDR-delen er avklart bort.
 
 For alt annet — hvorfor en beslutning ble tatt, bevisste scope-kutt, nøyaktig hva som ble
 verifisert og hvordan, lisens-/kildevurderinger for enkelttester osv. — søk i
@@ -292,9 +292,12 @@ src/
                              kategorier), TestTildelingsService (fase 6: bulk tildeling på tvers
                              av valgte pasienter × tester + varsling)
     Domain/Tester/Skaaring/  Skåringsmotor (fase 5): TestSkaaring (record),
-                             ITestSkaaringsberegner, Who5Skaaringsberegner
+                             ITestSkaaringsberegner, SwlsSkaaringsberegner/SaiSkaaringsberegner
+                             (2026-10-22: eneste gjenværende tester etter at 35 diagnostiske
+                             tester ble fjernet, se "Fjerning av diagnostiske tester /
+                             MDR-opprydding" i beslutningsloggen)
     Domain/Tester/InnebygdeTester/  Regenereringsmekanisme (fase 5): IInnebygdTestSeeder,
-                             Who5TestSeeder — idempotent, kalt fra dev-seed OG admin-knapp
+                             SwlsTestSeeder/SaiTestSeeder — idempotent, kalt fra dev-seed OG admin-knapp
     Providers/             IBankIdProvider, IVippsClient, IStripeClient, ISmsSender,
                            IEmailSender, AzureEmailSender (ekte e-post via Azure
                            Communication Services, se beslutningsloggen "Ekte
@@ -430,8 +433,7 @@ dotnet watch run
    og verifisert, se "Status akkurat nå" over for en kort oversikt. De reelt gjenstående punktene
    per 2026-10-11: deploye det lokalt bygde Stripe Connect-utbetalingssystemet, bekrefte at
    `Miljo:TillatPersonnummerOverride` er satt tilbake til `"false"` på live, pasient-BankID og ekte
-   Vipps/kortbetaling (ikke bygget), og den kjente posisjonsbaserte skåringssårbarheten i
-   `ItqSkaaringsberegner`/`Phq9Skaaringsberegner`. Søk `docs/beslutningslogg.md` under "Åpne
+   Vipps/kortbetaling (ikke bygget). Søk `docs/beslutningslogg.md` under "Åpne
    punkter til senere faser" for full liste, og `docs/prosjektbeskrivelse-original.md` for
    fasiten på krav som ennå ikke er designet i detalj.
    **Nytt 2026-10-13:** et komplett abonnement/subscription-system (tre behandler-
@@ -443,4 +445,4 @@ dotnet watch run
    `Admin/Behandlere/Rediger`) — krever ekte Stripe-testnøkler og brukerens egen interaktive
    verifisering før det kan fullføres, samme mønster som BankID/Vipps alltid har fulgt.
 2. Oppdater `docs/beslutningslogg.md` etter hvert som beslutninger tas — det er masterdokumentet for prosjektstatus fra nå av, siden Claude Code ikke har tilgang til det opprinnelige claude.ai-prosjektet ("Testdatabase") arbeidet startet i.
-3. Bruk samme mønster som i Del 1–5: mock-implementasjoner bak grensesnitt for alt som krever ekte tredjepartsavtaler, ekte pasientdata aldri i dev/test, sikkerhetskode (inkl. kryptering) aktiv i alle miljøer fra starten, IKKE gi et nytt Razor Pages Area samme navn som en domeneentitet med mindre navnet er en annen bøyningsform som ikke matcher eksakt (se fallgruven over — "Tester" vs "Test" var trygt), og ny innebygd test = ny `Test.Kode` + `IInnebygdTestSeeder` + evt. `ITestSkaaringsberegner` (samme mønster som WHO-5).
+3. Bruk samme mønster som i Del 1–5: mock-implementasjoner bak grensesnitt for alt som krever ekte tredjepartsavtaler, ekte pasientdata aldri i dev/test, sikkerhetskode (inkl. kryptering) aktiv i alle miljøer fra starten, IKKE gi et nytt Razor Pages Area samme navn som en domeneentitet med mindre navnet er en annen bøyningsform som ikke matcher eksakt (se fallgruven over — "Tester" vs "Test" var trygt), og ny innebygd test = ny `Test.Kode` + `IInnebygdTestSeeder` + evt. `ITestSkaaringsberegner` (samme mønster som SWLS/SAI). **Legg aldri til en diagnostisk/symptom-/risikovurderingstest igjen uten å først diskutere MDR-konsekvensen** — se "Fjerning av diagnostiske tester / MDR-opprydding" i beslutningsloggen for hvorfor hele testbiblioteket ble kuttet ned 2026-10-22.

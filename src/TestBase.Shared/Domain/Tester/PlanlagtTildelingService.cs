@@ -85,24 +85,26 @@ public sealed class PlanlagtTildelingService
     }
 
     /// <summary>
-    /// "KOR/FIT til neste time" (se docs/beslutningslogg.md 2026-10-18): oppretter TO vanlige
-    /// PlanlagtTildeling-rader per pasient — én for ORS (Test.Kode "ors") forskjøvet FØR
-    /// <paramref name="nesteTimeUtc"/>, én for SRS (Test.Kode "srs") forskjøvet ETTER — begge
-    /// uten gjentagelse, siden behandler/admin definerer "neste time" på nytt for hver reelle
-    /// avtale. Forskyvningene er superadmin-konfigurerbare (se KorFitOppsettService), ALDRI
-    /// hardkodet her. Kaster hvis ORS/SRS-testene (innebygde, se OrsTestSeeder/SrsTestSeeder)
-    /// ikke finnes — bør være umulig i et seedet system, men en tydelig feil er bedre enn en
-    /// stille no-op hvis seedingen av én eller annen grunn ikke har kjørt.
+    /// "Tilbakemelding til neste time" (opprinnelig KOR/FIT, se docs/beslutningslogg.md 2026-10-18,
+    /// byttet til SWLS/SAI 2026-10-22 — se "Fjerning av diagnostiske tester / MDR-opprydding"):
+    /// oppretter TO vanlige PlanlagtTildeling-rader per pasient — én for SWLS (Test.Kode "swls")
+    /// forskjøvet FØR <paramref name="nesteTimeUtc"/>, én for SAI (Test.Kode "sai") forskjøvet
+    /// ETTER — begge uten gjentagelse, siden behandler/admin definerer "neste time" på nytt for
+    /// hver reelle avtale. Forskyvningene er superadmin-konfigurerbare (se KorFitOppsettService,
+    /// internt navn beholdt — se klassekommentaren i KorFitGrafBeregner), ALDRI hardkodet her.
+    /// Kaster hvis SWLS/SAI-testene (innebygde, se SwlsTestSeeder/SaiTestSeeder) ikke finnes —
+    /// bør være umulig i et seedet system, men en tydelig feil er bedre enn en stille no-op hvis
+    /// seedingen av én eller annen grunn ikke har kjørt.
     /// </summary>
     public async Task OpprettKorFitAsync(
         IReadOnlyList<long> pasientIder, long? behandlerId, long? administratorId, DateTimeOffset nesteTimeUtc,
         Varslingspreferanse varslingsmetode, long opprettetAvUserId, CancellationToken cancellationToken = default)
     {
-        var orsTestId = await _db.Tester.Where(t => t.Kode == "ors").Select(t => t.Id).FirstOrDefaultAsync(cancellationToken);
-        var srsTestId = await _db.Tester.Where(t => t.Kode == "srs").Select(t => t.Id).FirstOrDefaultAsync(cancellationToken);
+        var orsTestId = await _db.Tester.Where(t => t.Kode == "swls").Select(t => t.Id).FirstOrDefaultAsync(cancellationToken);
+        var srsTestId = await _db.Tester.Where(t => t.Kode == "sai").Select(t => t.Id).FirstOrDefaultAsync(cancellationToken);
         if (orsTestId == 0 || srsTestId == 0)
         {
-            throw new InvalidOperationException("Fant ikke ORS/SRS blant innebygde tester — kan ikke planlegge KOR/FIT.");
+            throw new InvalidOperationException("Fant ikke SWLS/SAI blant innebygde tester — kan ikke planlegge tilbakemelding til neste time.");
         }
 
         var oppsett = await _korFitOppsettService.HentAsync(cancellationToken);

@@ -9448,3 +9448,124 @@ konfigurerte offsets, mobil/desktop-layout for begge instrumentene, kombinert gr
 "samtale-tid"-markering, superadmin-oppsettsiden) var grønne på første forsøk.
 
 Ny EF-migrasjon `LeggTilKorFitOppsett` generert og kjørt mot lokal dev-database samme dag.
+
+## Fjerning av diagnostiske tester / MDR-opprydding (2026-10-22)
+
+**Bakgrunn:** Bruker ba om research på faktisk kostnad/tidsbruk for CE-merking klasse IIb (se
+"MDR-klassifisering av TestBase sin skåringsfunksjon", 2026-10-14 til 2026-10-17, for
+klassifiseringen dette bygger på). Funnet (webresearch, konsulentkilder — ikke primærkilder,
+stort sprik): typisk 70 000–450 000 € og 12–30 måneder for klasse IIb, pluss en pågående
+kapasitetskrise hos meldte organer i EU 2026–2027. DNV (NB 2460, norsk meldt organ) bekreftet
+aktiv og har tidligere sertifisert sammenlignbar frittstående programvare (Ascom DigiStat Care,
+2024), men gjør selv ingen gap-assessment/rådgivning. Bruker reagerte med "da må jeg avvikle
+prosjektet" og ba om hjelp til å kutte kostnad raskt.
+
+**Diskusjon før beslutning:** Pekte ut at MDR-risikoen kun kommer fra AUTOMATISK BEREGNET/TOLKET
+skåre for en helsetilstand — ikke fra "å ha en test" i seg selv, og at den allerede bygde
+`AutomatiskSkaaringErAktiv`-driftsbryteren (default av) allerede løste dette løpende (rå svar
+vises, ingen MDR-eksponering, uansett hvilke tester som ligger i biblioteket). Bruker avklarte at
+INGEN ekte tredjepart har brukt systemet ennå (kun bruker selv som både behandler og
+prøvepasient) — dette fjernet enhver risiko for å kollidere med ekte pasientdata ved sletting.
+
+Bruker ønsket likevel å forenkle permanent: fjerne ALLE diagnostiske/symptom-/
+risikovurderingstester, beholde programmer og hjemmeoppgaver, beholde BankID (bekreftet fortsatt
+nødvendig — se under), og legge til to IKKE-diagnostiske "tilbakemelding til neste time"-tester
+som erstatning for KOR/FIT (ORS/SRS, som i tillegg kostet en reell PCOMS-lisensavgift, 1200
+kr/år/behandler).
+
+**Viktig juridisk presisering underveis (holder fortsatt):** "Vi lagrer ikke sensitive data"
+var et feil premiss bak BankID-diskusjonen — MDR-status og GDPR/helseopplysnings-status er TO
+UAVHENGIGE spørsmål. At en navngitt pasient mottar psykologbehandling fra en navngitt behandler,
+med hjemmeoppgaver/programinnhold knyttet til behandlingen, ER helseopplysninger etter norsk lov
+uansett om noen test beregner en skåre. Derfor: BankID, personnummer-kryptering, audit-logging
+BEHOLDES uendret — kun MDR-eksponeringen (automatisk diagnostisk beregning) er det som er
+fjernet. Bruker bekreftet enig i denne presiseringen og konkluderte selv at BankID må bli
+("vi beholder bankid hvis vi sender info/behandling til folk").
+
+**Valg av erstatningstester — SWLS + SAI:** Research bekreftet at WHO-5 (opprinnelig foreslått)
+selv er etablert brukt som depresjons-screeninginstrument (samme MDR-kategori som PHQ-9) og
+derfor IKKE var et trygt alternativ hvis en beregnet/tolket skåre skulle vises. Landet i stedet
+på to konstrukt-kategorisk ANNERLEDES instrumenter, begge uten publisert klinisk cutoff for noen
+sykdomstilstand:
+- **SWLS** (Satisfaction With Life Scale, Diener, Emmons, Larsen & Griffin 1985) — måler generell
+  livstilfredshet, EKSPLISITT lisensiert fritt for klinikere/praktikere av forfatteren
+  (labs.psychology.illinois.edu/~ediener/SWLS.html), ingen kommersiell lisensordning (motsatt
+  ORS/SRS/PCOMS). 5 ledd, 1–7 Likert.
+- **SAI** (Session Alliance Inventory, Falkenström, Hatcher, Skjulsvik, Holmqvist Larsson &
+  Holmqvist 2015, Psychological Assessment 27(1), 169-183) — 6-ledds alliansemål bygget
+  SPESIFIKT for gjentatt administrering etter hver time (samme bruksmønster som SRS). Leddene og
+  0–5-svarskalaen hentet VERBATIM fra artikkelens Appendix B (lest direkte via WebFetch+Read av
+  PDF-en, ikke sekundærkilde) og oversatt til norsk. Copyright APA, ingen kjent kommersiell
+  lisensordning for klinisk/elektronisk bruk. IKKE formelt avklart med rettighetshaver — samme
+  brukerbeslutning om å bygge inn ekte, oversatt innhold nå og selv ta ansvaret, som tidligere
+  for M.I.N.I./HCR-20/ORS/SRS.
+
+Alliansemål ble i tillegg vurdert som en EGEN, trolig enda sterkere kategori utenfor MDR sitt
+virkeområde (måler samarbeidsrelasjonens kvalitet, ikke en sykdomstilstand) — ikke bekreftet mot
+noen primærkilde, kun egen juridisk resonnering, flagget eksplisitt til bruker som sådan.
+
+**Omfang — betydelig større enn først antatt:** En kartleggingsagent avdekket 37 innebygde
+testseedere (ikke ~8 som antatt i det første direktivet) og 49 skåringsberegnerfiler. Fjernet
+permanent (slettet, IKKE deaktivert — trygt siden ingen ekte pasientdata eksisterer, se over):
+WHO-5 (+VAS), PHQ-9, GADIT, IAQ, IDQ, ITQ, MPFI-24 (+MpfiRadarBeregner), SIPP-118
+(+Sipp118RadarBeregner), SCID-5-PF (+Scid5PfBarBeregner), HCR-20V3, M.I.N.I.-strukturdemo,
+MADRS-S, MADRS-klinikk, TRAPS I+II, RAADS-R, WURS, IPDS, PDS-ICD11, PICD, PAQ-11R, CORE-A-risiko,
+YGTSS-R, ASRS, AUDIT, BSQ-14, CORE-10, CORE-OM, DUDIT, EDE-Q, SCL-25, SDQ-20, søvn-skjema, EQ-40,
+ORS, SRS — 37 seedere, 46 skåringsberegnere (3 av de 49 filene var generisk infrastruktur og
+beholdt, se under). Samt: `SkaaringVisningsService` (hele MDR-gating-mekanismen),
+`DriftsbryterInnstilling.AutomatiskSkaaringErAktiv` (ny migrasjon
+`FjernAutomatiskSkaaringDriftsbryter`, ren `DropColumn`, kjørt mot lokal dev-database),
+MDR-disclaimeren i alle tre Rapport-sider, den offentlige `/regulatorisk`-siden + "Beta"-merket
+ved logoen i header, `docs/mdr-klassifiseringsvurdering-*`, `docs/ce-merking-veikart-og-status.md`,
+`docs/partner-briefing-regulatorisk-radgiver.pdf`/`-source.html`. To regresjonstestfiler slettet
+(`SkaaringsberegnereTests.cs`, `SkaaringVisningsServiceTests.cs` — testet KUN det fjernede).
+`docs/juridisk-notat-helsedata-og-digital-helseteknologi.md` beholdt UENDRET (dekker generell
+GDPR/helsedata, ikke bare MDR).
+
+**Gjenbruk av KOR/FIT-infrastruktur for SWLS/SAI (eksplisitt brukerbeslutning, "kjør på"):**
+Fremfor å bygge en helt ny "neste time"-mekanisme, ble den eksisterende gjenbrukt og tilpasset:
+- `PlanlagtTildelingService.OpprettKorFitAsync` — slår nå opp Test.Kode `"swls"`/`"sai"` i stedet
+  for `"ors"`/`"srs"`. Metodenavnet selv, `KorFitOppsettService`/`KorFitOppsett`-klassen/tabellen
+  (`kor_fit_oppsett`) og dens kolonnenavn (`OrsTimerForTimeOffset`/`SrsMinutterEtterTimeOffset`)
+  er BEVISST beholdt uendret — rent internt/admin-only navn, ingen bruker ser det, og brukeren ba
+  eksplisitt om å ikke bruke tid på polering ("det er ikke noe vits å bruke tid på det").
+- `KorFitGrafBeregner`/`_KorFitGraf.cshtml` (filnavn/klassenavn beholdt, internt) — omskrevet fra
+  delt RÅSKÅR-akse (ORS og SRS delte samme 0–40-skala) til delt PROSENT-akse, siden SWLS (maks
+  35) og SAI (maks 30) har ulik skala og ikke kan deles direkte. Den tidligere
+  "samtale-tid"-varselmekanismen (skåre mellom ORS/SRS-cutoffene, rød/stor markering) er BEVISST
+  IKKE videreført med nye terskler — verken SWLS eller SAI har publiserte kliniske grenseverdier
+  å basere et tilsvarende varsel på, og å dikte opp en ville gjeninnført akkurat den typen
+  diagnostisk overtolkning hele denne opprydningen skal unngå.
+- Alle BRUKERVENDTE tekster byttet fra "KOR/FIT" til "Tilbakemelding" (Admin/Behandlerportal
+  Tildel/Tester, Abonnement/Index sin tidsforskyvnings-fane, rapportoverskriften).
+
+**Nye skåringsberegnere, bevisst uten diagnostisk/klinisk overtolkning:**
+`SwlsSkaaringsberegner` bruker Dieners egne publiserte BESKRIVENDE bånd (ikke en klinisk
+cutoff). `SaiSkaaringsberegner` rapporterer KUN råskår/prosent — Falkenström m.fl. publiserer
+ingen individuelle kliniske normer for instrumentet (utviklet for gruppenivå-forskning), så det
+ville vært uredelig å dikte opp en grenseverdi der ingen finnes.
+
+**Verifisering:** `dotnet build TestBase.sln` grønn (0 feil). Ny migrasjon lest og bekreftet som
+ren `DropColumn` før kjøring (samme forsiktighetsnivå som alltid, se CLAUDE.md "Kjente
+fallgruver"). Full regresjonstest-kjøring og browser-verifisering gjenstår å rapportere i en
+senere oppføring/commit-melding.
+
+**Ikke gjort i denne runden (bevisst utenfor scope, se brukerens "ikke bruk tid på det"):** full
+gjennomgang av offentlig markedsføringstekst/produktposisjonering utover det som direkte nevnte
+fjernede tester eller MDR; en eventuell fullstendig omdøping av interne "KorFit"-navngitte
+C#-klasser/databasekolonner til "Swls"/"Sai"-navn.
+
+**Viktig funn under browser-verifisering — stale seeddata, IKKE en kodefeil:** Playwright-sjekk
+av `/Admin/Tester` viste først 45 tester i stedet for 2 — alle 35 slettede testene lå fortsatt i
+den lokale dev-databasen. Rotårsak: å slette en `IInnebygdTestSeeder`-IMPLEMENTASJON fjerner KUN
+muligheten til å GJENOPPRETTE/regenerere testen — "Regenerer innebygde tester"-knappen (og
+dev-seed) er bevisst additiv/idempotent, aldri destruktiv (se CLAUDE.md), så allerede-seedede
+`Test`-rader blir stående foreldreløse i databasen for alltid med mindre de slettes eksplisitt.
+Ryddet opp i lokal dev-database direkte (`docker exec` mot `testbase-mysql-dev`, alle 37 gamle
+Test-rader + tilhørende sider/ledd/svar/kategorikoblinger slettet via eksakt Kode-liste hentet
+fra git-historikken til de slettede seederne — IKKE et bredt "alt utenom swls/sai"-filter, for å
+unngå å ramme noe uventet). Bekreftet: kun SWLS, SAI og den eksisterende "Pusteøvelse
+hjemmelekse" (Kode=NULL, uberørt) gjenstår. **MERK FOR SENERE DEPLOY:** samme opprydding må
+gjøres manuelt mot beta og live sine databaser når denne branchen deployes dit — koden alene
+fjerner ikke allerede seedet data der heller. Ikke gjort her (krever eksplisitt bekreftelse per
+CLAUDE.md "Executing actions with care", utenfor denne lokale dev-oppryddingen).

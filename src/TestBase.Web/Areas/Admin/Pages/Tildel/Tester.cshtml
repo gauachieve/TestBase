@@ -89,8 +89,8 @@ else if (Model.PlanlagtOpprettet)
 }
 else if (Model.KorFitPlanlagtOpprettet)
 {
-    <h2>KOR/FIT planlagt</h2>
-    <p>ORS sendes @Model.KorFitOrsTidspunktVisning?.ToString("g"), SRS sendes @Model.KorFitSrsTidspunktVisning?.ToString("g").</p>
+    <h2>Tilbakemelding planlagt</h2>
+    <p>SWLS sendes @Model.KorFitOrsTidspunktVisning?.ToString("g"), SAI sendes @Model.KorFitSrsTidspunktVisning?.ToString("g").</p>
     <p><a href="/Admin/Tildel/Pasienter">Tildel flere tester</a></p>
 }
 else if (Model.ValgtePasienter.Any())
@@ -209,18 +209,18 @@ else if (Model.ValgtePasienter.Any())
     <script src="~/js/testinfo.js" asp-append-version="true"></script>
     <script src="~/js/testtre-filter.js" asp-append-version="true"></script>
 
-    @* "KOR/FIT til neste time" — se Behandlerportal-motstykket for full begrunnelse (egen, ikke-nøstet form). *@
+    @* "Tilbakemelding til neste time" — se Behandlerportal-motstykket for full begrunnelse (egen, ikke-nøstet form). *@
     <section class="tildel-med-info" style="margin-top: 1.5rem; padding: 1rem; border: 1px solid #ccc; border-radius: 8px;">
-        <h2 style="margin-top: 0;">KOR/FIT til neste time</h2>
+        <h2 style="margin-top: 0;">Tilbakemelding til neste time</h2>
         <p>
-            Oppgi når neste time er — ORS sendes automatisk @Model.KorFitOppsett.OrsTimerForTimeOffset.ToString("0.#") time(r)
-            før, SRS sendes @Model.KorFitOppsett.SrsMinutterEtterTimeOffset minutter etter, til alle pasientene valgt over.
+            Oppgi når neste time er — SWLS sendes automatisk @Model.KorFitOppsett.OrsTimerForTimeOffset.ToString("0.#") time(r)
+            før, SAI sendes @Model.KorFitOppsett.SrsMinutterEtterTimeOffset minutter etter, til alle pasientene valgt over.
         </p>
         <form method="post" asp-page-handler="PlanleggKorFit" data-disable-on-submit="Planlegger …">
             <input type="hidden" asp-for="PasientIderCsv" />
             <label for="nesteTimeLokal">Neste time er</label><br />
             <input type="datetime-local" id="nesteTimeLokal" asp-for="NesteTimeLokal" required />
-            <button type="submit" class="btn btn-accent">Planlegg KOR/FIT</button>
+            <button type="submit" class="btn btn-accent">Planlegg tilbakemelding</button>
         </form>
     </section>
 }

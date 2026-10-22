@@ -91,8 +91,6 @@ public sealed class MinSideModel : PageModel
     public bool BetalingErAktivNaa { get; private set; }
     public bool UtbetalingErAktivNaa { get; private set; }
 
-    /// <summary>Se DriftsbryterInnstilling.AutomatiskSkaaringErAktiv sin XML-doc og docs/mdr-klassifiseringsvurdering-iib-begrunnelse.pdf.</summary>
-    public bool AutomatiskSkaaringErAktivNaa { get; private set; }
     public bool SmsKonfigurert => !string.IsNullOrWhiteSpace(_configuration["Vonage:ApiKey"]);
     public bool BetalingKonfigurert => !string.IsNullOrWhiteSpace(_configuration["Vipps:ClientId"]) || !string.IsNullOrWhiteSpace(_configuration["Stripe:SecretKey"]);
     public bool UtbetalingKonfigurert => !string.IsNullOrWhiteSpace(_configuration["Stripe:SecretKey"]);
@@ -133,7 +131,6 @@ public sealed class MinSideModel : PageModel
             SmsErAktivNaa = driftsbrytere.SmsErAktiv;
             BetalingErAktivNaa = driftsbrytere.BetalingErAktiv;
             UtbetalingErAktivNaa = driftsbrytere.UtbetalingErAktiv;
-            AutomatiskSkaaringErAktivNaa = driftsbrytere.AutomatiskSkaaringErAktiv;
         }
 
         if (VisVippsWebhookVerktoy)
@@ -233,32 +230,6 @@ public sealed class MinSideModel : PageModel
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "EndreBetalingUtbetalingDriftsbryter",
             nameof(DriftsbryterInnstilling), "1", $"Betaling={betalingErAktiv}, Utbetaling={utbetalingErAktiv}", cancellationToken);
-
-        return RedirectToPage();
-    }
-
-    /// <summary>
-    /// Slår automatisk skåring/tolkning i rapporter av/på med UMIDDELBAR virkning — se
-    /// SkaaringVisningsService og docs/mdr-klassifiseringsvurdering-iib-begrunnelse.pdf.
-    /// "På" viser beregnet skåre/tolkning til EKTE, identifiserbare pasienter (med
-    /// personnummer) i DETTE miljøet — tiltenkt KUN for dev/beta (syntetisk testdata, se
-    /// CLAUDE.md). Prøvepasienter (opprettet uten personnummer) ser skåring uansett denne
-    /// bryterens stilling. Auditlogget eksplisitt, samme begrunnelse som de andre
-    /// driftsbryterne i denne filen — en regulatorisk sensitiv bryter, ikke vanlig CRUD.
-    /// </summary>
-    public async Task<IActionResult> OnPostSettAutomatiskSkaaringAsync(bool erAktiv, CancellationToken cancellationToken)
-    {
-        if (_currentUser.Role is not (UserRole.Superadmin or UserRole.Utvikler))
-        {
-            return Forbid();
-        }
-
-        var userId = long.TryParse(_currentUser.UserId.Split(':').LastOrDefault(), out var uid) ? uid : 0;
-        await _driftsbrytere.SettAutomatiskSkaaringErAktivAsync(erAktiv, userId, cancellationToken);
-
-        await _auditLogger.LogAsync(
-            _currentUser.UserId, _currentUser.Role.ToString(), "EndreAutomatiskSkaaringDriftsbryter",
-            nameof(DriftsbryterInnstilling), "1", $"ErAktiv={erAktiv}", cancellationToken);
 
         return RedirectToPage();
     }

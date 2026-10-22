@@ -35,22 +35,6 @@ public sealed class DriftsbryterInnstilling
     public bool KritiskVarslingErAktiv { get; set; }
     public string? KritiskVarslingPushoverBrukerKey { get; set; }
 
-    /// <summary>
-    /// MDR-gating (2026-10-17, se docs/mdr-klassifiseringsvurdering-iib-begrunnelse.pdf og
-    /// docs/beslutningslogg.md "MDR-klassifisering"): TestBase sin automatiske skårings-/
-    /// tolkningsfunksjon er vurdert til å kvalifisere som medisinsk utstyr klasse IIb under
-    /// MDR, og er IKKE CE-merket. Den kan derfor IKKE vises til en EKTE, identifiserbar
-    /// pasient (Pasient.Personnummer != null) før CE-merking eller en godkjent klinisk
-    /// utprøving — se SkaaringVisningsService. I MOTSETNING TIL de tre bryterne over
-    /// defaulter denne til `false`, ikke `true`: standarden for noe regulatorisk uavklart
-    /// skal være AV til noen bevisst slår det PÅ, ikke omvendt (de andre bryterne er `true`
-    /// fordi allerede-konfigurerte, lovlige leverandører ikke skal regressere til mock
-    /// overraskende). Prøvepasienter (Personnummer == null, se
-    /// GruppeService.TellProvedataAsync) ser ALLTID skåring uansett denne bryterens stilling,
-    /// siden de ikke er en ekte, identifiserbar person.
-    /// </summary>
-    public bool AutomatiskSkaaringErAktiv { get; set; }
-
     public long? SistEndretAvUserId { get; set; }
     public DateTimeOffset? SistEndretUtc { get; set; }
 }

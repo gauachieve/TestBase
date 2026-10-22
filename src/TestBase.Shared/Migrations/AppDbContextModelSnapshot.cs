@@ -413,9 +413,6 @@ namespace TestBase.Shared.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
 
-                    b.Property<bool>("AutomatiskSkaaringErAktiv")
-                        .HasColumnType("tinyint(1)");
-
                     b.Property<bool>("BetalingErAktiv")
                         .HasColumnType("tinyint(1)");
 

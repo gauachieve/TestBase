@@ -56,14 +56,4 @@ public sealed class DriftsbryterInnstillingService
         rad.SistEndretUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
     }
-
-    /// <summary>Se DriftsbryterInnstilling.AutomatiskSkaaringErAktiv sin XML-doc for hvorfor denne — i motsetning til de andre setterne over — defaulter til `false`.</summary>
-    public async Task SettAutomatiskSkaaringErAktivAsync(bool erAktiv, long endretAvUserId, CancellationToken cancellationToken = default)
-    {
-        var rad = await HentAsync(cancellationToken);
-        rad.AutomatiskSkaaringErAktiv = erAktiv;
-        rad.SistEndretAvUserId = endretAvUserId;
-        rad.SistEndretUtc = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync(cancellationToken);
-    }
 }

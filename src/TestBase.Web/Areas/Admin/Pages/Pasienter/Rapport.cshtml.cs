@@ -19,13 +19,11 @@ public sealed class RapportModel : PageModel
 {
     private readonly TestService _testService;
     private readonly AppDbContext _db;
-    private readonly SkaaringVisningsService _skaaringVisning;
 
-    public RapportModel(TestService testService, AppDbContext db, SkaaringVisningsService skaaringVisning)
+    public RapportModel(TestService testService, AppDbContext db)
     {
         _testService = testService;
         _db = db;
-        _skaaringVisning = skaaringVisning;
     }
 
     public sealed record SvarRad(string Sporsmal, string SvarLabel, string? BehandlerKommentar = null);
@@ -41,20 +39,8 @@ public sealed class RapportModel : PageModel
     public TestSkaaring? Skaaring { get; private set; }
     public IReadOnlyList<CutoffMarkering> Cutoffs { get; private set; } = Array.Empty<CutoffMarkering>();
 
-    /// <summary>Radar-graf av de 5 SIPP-118-inspirerte domenene — kun satt for Test.Kode == "sipp118" (se Sipp118RadarBeregner).</summary>
-    public Sipp118RadarData? Sipp118Radar { get; private set; }
-
-    /// <summary>Stolpediagram per personlighetsforstyrrelse — kun satt for Test.Kode == "scid5_pf" (se Scid5PfBarBeregner).</summary>
-    public Scid5PfBarData? Scid5PfBar { get; private set; }
-
-    /// <summary>To hexagon-radarer (fleksibilitet/rigiditet) — kun satt for Test.Kode == "mpfi_24" (se MpfiRadarBeregner).</summary>
-    public MpfiRadarData? MpfiFleksibilitetRadar { get; private set; }
-    public MpfiRadarData? MpfiRigiditetRadar { get; private set; }
     public List<SideMedSvar> Sider { get; private set; } = new();
     public bool IkkeGodkjentEnna { get; private set; }
-
-    /// <summary>Se Behandlerportal-motstykket sin XML-doc — samme MDR-gating, se SkaaringVisningsService.</summary>
-    public bool SkaaringMidlertidigSkjult { get; private set; }
 
     /// <summary>Se Behandlerportal-motstykket sin XML-doc — samme "-"-sentinel-telling.</summary>
     public int AntallLedd { get; private set; }
@@ -80,35 +66,14 @@ public sealed class RapportModel : PageModel
             return Page();
         }
 
-        if (await _skaaringVisning.SkalViseSkaaringAsync(Tildeling.PasientId, cancellationToken))
-        {
-            Skaaring = await _testService.BeregnSkaaringAsync(id, cancellationToken);
+        Skaaring = await _testService.BeregnSkaaringAsync(id, cancellationToken);
 
-            if (Skaaring is not null && !Skaaring.SkjulProsent && Skaaring.RaaSkaarMaks > 0)
-            {
-                var visSomProsent = _testService.VisSomProsentIHistogram(Test.Kode);
-                Cutoffs = _testService.HentHistogramgrenser(Test.Kode)
-                    .Select(g => new CutoffMarkering(g.Navn, visSomProsent ? g.Verdi : g.Verdi * 100m / Skaaring.RaaSkaarMaks))
-                    .ToList();
-            }
-
-            if (Test.Kode == "sipp118" && Skaaring is not null)
-            {
-                Sipp118Radar = Sipp118RadarBeregner.Beregn(Skaaring.Indikatorer);
-            }
-            else if (Test.Kode == "scid5_pf")
-            {
-                Scid5PfBar = Scid5PfBarBeregner.Beregn(innhold.AlleLedd, innhold.EksisterendeSvar);
-            }
-            else if (Test.Kode == "mpfi_24" && Skaaring is not null)
-            {
-                MpfiFleksibilitetRadar = MpfiRadarBeregner.Beregn(Skaaring.Indikatorer, "Fleksibilitet — ");
-                MpfiRigiditetRadar = MpfiRadarBeregner.Beregn(Skaaring.Indikatorer, "Rigiditet — ");
-            }
-        }
-        else if (Test.Kode is not null && !Test.ErHjemmeoppgave)
+        if (Skaaring is not null && !Skaaring.SkjulProsent && Skaaring.RaaSkaarMaks > 0)
         {
-            SkaaringMidlertidigSkjult = true;
+            var visSomProsent = _testService.VisSomProsentIHistogram(Test.Kode);
+            Cutoffs = _testService.HentHistogramgrenser(Test.Kode)
+                .Select(g => new CutoffMarkering(g.Navn, visSomProsent ? g.Verdi : g.Verdi * 100m / Skaaring.RaaSkaarMaks))
+                .ToList();
         }
 
         var kommentarPerLeddId = await _db.TestSvar

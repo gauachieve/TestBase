@@ -302,7 +302,7 @@ public sealed class TesterModel : PageModel
 
         await _auditLogger.LogAsync(
             _currentUser.UserId, _currentUser.Role.ToString(), "PlanleggKorFitBatch",
-            nameof(TestTildeling), "ors,srs",
+            nameof(TestTildeling), "swls,sai",
             $"PasientIder {string.Join(",", pasientIder)}, neste time {nesteTimeUtc:O}", cancellationToken);
 
         KorFitPlanlagtOpprettet = true;

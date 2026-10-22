@@ -13,10 +13,12 @@ namespace TestBase.IntegrationTests;
 /// Ende-til-ende-verifisering av gyldighetsgrense + normert gjennomsnitt-imputering
 /// (2026-09-23, se docs/beslutningslogg.md "Normert gjennomsnitt-imputering +
 /// gyldighetsgrense") — mot en ekte migrert database, samme mønster som
-/// BetalingPipelineTests. Bruker den ALLEREDE seedede WHO-5-testen (5
-/// LikertSkala-ledd, 0-4) fremfor å opprette en helt ny test, siden det krever
+/// BetalingPipelineTests. Bruker den ALLEREDE seedede SWLS-testen (5
+/// LikertSkala-ledd) fremfor å opprette en helt ny test, siden det krever
 /// en registrert ITestSkaaringsberegner — setter og NULLSTILLER testens/leddets
 /// felt i et try/finally slik at andre tester i samme collection ikke påvirkes.
+/// Brukte opprinnelig WHO-5 (samme 5-ledds form), byttet til SWLS 2026-10-22 da
+/// WHO-5 ble fjernet, se "Fjerning av diagnostiske tester / MDR-opprydding".
 /// </summary>
 [Collection(TestBaseCollection.Navn)]
 public sealed class GyldighetsgrenseTests
@@ -35,24 +37,24 @@ public sealed class GyldighetsgrenseTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var testService = scope.ServiceProvider.GetRequiredService<TestService>();
 
-        var who5 = await testService.HentTestVedKodeAsync("who5");
-        Assert.NotNull(who5);
+        var swls = await testService.HentTestVedKodeAsync("swls");
+        Assert.NotNull(swls);
 
         var alleLedd = await db.TestLedd
             .Join(db.TestSider, l => l.TestSideId, s => s.Id, (l, s) => new { Ledd = l, Side = s })
-            .Where(x => x.Side.TestId == who5!.Id)
+            .Where(x => x.Side.TestId == swls!.Id)
             .OrderBy(x => x.Ledd.Rekkefolge)
             .Select(x => x.Ledd)
             .ToListAsync();
         Assert.Equal(5, alleLedd.Count);
 
-        var opprinneligGrense = who5!.MaksUbesvartProsent;
+        var opprinneligGrense = swls!.MaksUbesvartProsent;
         var opprinneligNormert = alleLedd[4].NormertGjennomsnitt;
         try
         {
-            // 20 % grense — WHO-5 har 5 ledd, så 2 ubesvarte (40 %) skal overskride
+            // 20 % grense — SWLS har 5 ledd, så 2 ubesvarte (40 %) skal overskride
             // den, mens 1 ubesvart (20 %) IKKE skal (strengt større-enn, ikke >=).
-            who5.MaksUbesvartProsent = 20;
+            swls.MaksUbesvartProsent = 20;
             alleLedd[4].NormertGjennomsnitt = 2.6m; // avrundes til 3 (AwayFromZero) ved imputering
             await db.SaveChangesAsync();
 
@@ -82,7 +84,7 @@ public sealed class GyldighetsgrenseTests
             await db.SaveChangesAsync();
 
             var tildeling = await testService.TildelAsync(
-                who5.Id, pasient.Id, behandlerId: behandler.Id, administratorId: null, frist: null, varighetMinutter: null);
+                swls.Id, pasient.Id, behandlerId: behandler.Id, administratorId: null, frist: null, varighetMinutter: null);
 
             // Besvarer KUN ledd 0, 1, 2 — ledd 3 og 4 forblir ubesvart (matcher
             // TestService.LagreSvarAsync sin reelle oppførsel: et tomt/uendret felt
@@ -104,11 +106,11 @@ public sealed class GyldighetsgrenseTests
             // Rå skår: 3+4+2 (ekte svar) + 3 (imputert, 2.6 avrundet) = 12. Ledd 3
             // (ingen NormertGjennomsnitt) bidrar fortsatt med 0, som før denne funksjonen.
             Assert.Equal(12, skaaring.RaaSkaar);
-            Assert.Equal(48, skaaring.ProsentSkaar); // 12 * 4, jf. Who5Skaaringsberegner
+            Assert.Equal(34, skaaring.ProsentSkaar); // round(12/35*100), jf. SwlsSkaaringsberegner
         }
         finally
         {
-            who5.MaksUbesvartProsent = opprinneligGrense;
+            swls.MaksUbesvartProsent = opprinneligGrense;
             alleLedd[4].NormertGjennomsnitt = opprinneligNormert;
             await db.SaveChangesAsync();
         }
@@ -121,15 +123,15 @@ public sealed class GyldighetsgrenseTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var testService = scope.ServiceProvider.GetRequiredService<TestService>();
 
-        var who5 = await testService.HentTestVedKodeAsync("who5");
-        Assert.NotNull(who5);
+        var swls = await testService.HentTestVedKodeAsync("swls");
+        Assert.NotNull(swls);
 
-        var opprinneligGrense = who5!.MaksUbesvartProsent;
+        var opprinneligGrense = swls!.MaksUbesvartProsent;
         try
         {
             // Ingen grense satt (null, samme som ALLE eksisterende tester i dag) —
             // skal aldri gi noen advarsel, uansett hvor mange som er ubesvart.
-            who5.MaksUbesvartProsent = null;
+            swls.MaksUbesvartProsent = null;
             await db.SaveChangesAsync();
 
             var behandler = new Behandler
@@ -158,11 +160,11 @@ public sealed class GyldighetsgrenseTests
             await db.SaveChangesAsync();
 
             var tildeling = await testService.TildelAsync(
-                who5.Id, pasient.Id, behandlerId: behandler.Id, administratorId: null, frist: null, varighetMinutter: null);
+                swls.Id, pasient.Id, behandlerId: behandler.Id, administratorId: null, frist: null, varighetMinutter: null);
 
             var alleLedd = await db.TestLedd
                 .Join(db.TestSider, l => l.TestSideId, s => s.Id, (l, s) => new { Ledd = l, Side = s })
-                .Where(x => x.Side.TestId == who5.Id)
+                .Where(x => x.Side.TestId == swls.Id)
                 .OrderBy(x => x.Ledd.Rekkefolge)
                 .Select(x => x.Ledd.Id)
                 .ToListAsync();
@@ -178,7 +180,7 @@ public sealed class GyldighetsgrenseTests
         }
         finally
         {
-            who5.MaksUbesvartProsent = opprinneligGrense;
+            swls.MaksUbesvartProsent = opprinneligGrense;
             await db.SaveChangesAsync();
         }
     }

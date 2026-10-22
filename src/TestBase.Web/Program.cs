@@ -75,87 +75,15 @@ builder.Services.AddScoped<AbonnementOppsettService>();
 builder.Services.AddScoped<KorFitOppsettService>();
 builder.Services.AddScoped<KlinikkPrisService>();
 
-// Skåringsmotor og innebygde, kode-definerte tester (fase 5 — bevist ut med WHO-5).
-builder.Services.AddScoped<ITestSkaaringsberegner, Who5Skaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, Who5TestSeeder>();
-
-// VAS-variant av WHO-5 for gjentatt måling over tid (2026-09-14), se Who5VasTestSeeder.
-builder.Services.AddScoped<ITestSkaaringsberegner, Who5VasSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, Who5VasTestSeeder>();
-
-// KOR/FIT — ORS + SRS, gjentatt måling knyttet til "neste time" (2026-10-18), se OrsTestSeeder/SrsTestSeeder.
-builder.Services.AddScoped<ITestSkaaringsberegner, OrsSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, OrsTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, SrsSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, SrsTestSeeder>();
-
-// Åtte tester fra Helsebiblioteket (2026-09), se docs/beslutningslogg.md.
-builder.Services.AddScoped<ITestSkaaringsberegner, Phq9Skaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, Phq9TestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, IpdsSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, IpdsTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, MadrsSSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, MadrsSTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, TrapsISkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, TrapsITestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, RaadsRSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, RaadsRTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, WursSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, WursTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, Eq40Skaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, Eq40TestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, SovnSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, SovnTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, ItqSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, ItqTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, PdsIcd11Skaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, PdsIcd11TestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, PicdSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, PicdTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, Paq11RSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, Paq11RTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, IdqSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, IdqTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, IaqSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, IaqTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, GaditSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, GaditTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, AsrsSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, AsrsTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, AuditSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, AuditTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, DuditSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, DuditTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, Scl25Skaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, Scl25TestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, Bsq14Skaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, Bsq14TestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, Sdq20Skaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, Sdq20TestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, EdeqSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, EdeqTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, TrapsIiSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, TrapsIiTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, Core10Skaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, Core10TestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, CoreOmSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, CoreOmTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, CoreARisikoSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, CoreARisikoTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, Sipp118Skaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, Sipp118TestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, YgtssRSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, YgtssRTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, MadrsKlinikkSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, MadrsKlinikkTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, Scid5PfSkaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, Scid5PfTestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, Hcr20V3Skaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, Hcr20V3TestSeeder>();
-builder.Services.AddScoped<ITestSkaaringsberegner, MiniStrukturdemoSkaaringsberegner>();
-builder.Services.AddScoped<ITestSkaaringsberegner, Mpfi24Skaaringsberegner>();
-builder.Services.AddScoped<IInnebygdTestSeeder, MiniStrukturdemoTestSeeder>();
-builder.Services.AddScoped<IInnebygdTestSeeder, Mpfi24TestSeeder>();
+// Skåringsmotor og innebygde, kode-definerte tester. 2026-10-22: alle diagnostiske/symptom-
+// baserte tester (WHO-5, PHQ-9, ORS/SRS, m.fl. — 35 stk) fjernet permanent, se
+// docs/beslutningslogg.md "Fjerning av diagnostiske tester / MDR-opprydding". SWLS (livstilfredshet)
+// og SAI (allianse i timen) er de eneste gjenværende tilbakemelding-til-neste-time-instrumentene,
+// begge ikke-diagnostiske, se SwlsTestSeeder/SaiTestSeeder sine klassekommentarer.
+builder.Services.AddScoped<ITestSkaaringsberegner, SwlsSkaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, SwlsTestSeeder>();
+builder.Services.AddScoped<ITestSkaaringsberegner, SaiSkaaringsberegner>();
+builder.Services.AddScoped<IInnebygdTestSeeder, SaiTestSeeder>();
 
 // Admin og Behandlerportal deler nå én samlet innloggingsside (/Konto/LoggInn
 // — BankID finner personen og logger inn på høyeste rolle selv, uten at
@@ -498,7 +426,6 @@ builder.Services.AddScoped<EktBankIdInnstillingService>();
 // Utvikler-only), se DriftsbryterInnstilling. Brukes av SMS-registreringen uansett miljø, og av
 // Vipps/Stripe-registreringen KUN i non-beta-grenen under (beta har sin egen granulære bryter).
 builder.Services.AddScoped<DriftsbryterInnstillingService>();
-builder.Services.AddScoped<SkaaringVisningsService>();
 
 // Delt "bekreft og fang"-logikk for Vipps — brukt av BÅDE BetalResultat-siden OG
 // Vipps-webhooken (PaymentWebhooks.cs), se VippsBetalingBekrefterService sin

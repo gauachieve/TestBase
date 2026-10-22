@@ -77,8 +77,8 @@ public sealed class KorFitPlanleggingTests
 
         Assert.Equal(2, rader.Count);
 
-        var orsTestId = await db.Tester.Where(t => t.Kode == "ors").Select(t => t.Id).FirstAsync();
-        var srsTestId = await db.Tester.Where(t => t.Kode == "srs").Select(t => t.Id).FirstAsync();
+        var orsTestId = await db.Tester.Where(t => t.Kode == "swls").Select(t => t.Id).FirstAsync();
+        var srsTestId = await db.Tester.Where(t => t.Kode == "sai").Select(t => t.Id).FirstAsync();
 
         var orsRad = Assert.Single(rader, r => r.TestIderCsv == orsTestId.ToString());
         var srsRad = Assert.Single(rader, r => r.TestIderCsv == srsTestId.ToString());
